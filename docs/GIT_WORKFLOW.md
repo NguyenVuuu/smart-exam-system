@@ -2,33 +2,37 @@
 
 # Quy định quản lý Source Code bằng Git
 
-## 1. Mục đích
+---
 
-Tài liệu này quy định cách làm việc với Git nhằm:
+# 1. Mục đích
+
+Tài liệu này quy định quy trình làm việc với Git của nhóm nhằm:
 
 - Quản lý source code thống nhất.
-- Hạn chế xung đột (Merge Conflict).
+- Hạn chế Merge Conflict.
 - Đảm bảo lịch sử commit rõ ràng.
 - Giúp các thành viên phối hợp hiệu quả.
+- Dễ dàng review, rollback và release.
 
 ---
 
 # 2. Cấu trúc nhánh
 
-Repository sử dụng các nhánh sau:
+Repository sử dụng các nhánh sau.
 
 ## master
 
 - Chứa source code ổn định nhất.
-- Chỉ merge từ `develop` khi hoàn thành một milestone hoặc chuẩn bị release.
+- Chỉ merge từ `develop`.
 - Không commit trực tiếp lên `master`.
+- Mỗi lần merge vào `master` tương ứng với một milestone hoặc release.
 
 ---
 
 ## develop
 
 - Là nhánh phát triển chính.
-- Tất cả tính năng sau khi hoàn thành sẽ được merge vào `develop`.
+- Tất cả tính năng mới đều merge vào `develop`.
 - Không code trực tiếp trên `develop`.
 
 ---
@@ -37,27 +41,41 @@ Repository sử dụng các nhánh sau:
 
 Mỗi tính năng phải được phát triển trên một nhánh riêng.
 
-Ví dụ:
+Ví dụ
 
-```
+```text
 feature/login
+
+feature/dashboard
 
 feature/user-management
 
 feature/course-management
-
-feature/dashboard
 
 feature/ai-module
 ```
 
 ---
 
-# 3. Quy trình làm việc
+# 3. Quy trình làm việc hằng ngày (Daily Workflow)
 
-## Bước 1
+Trước khi bắt đầu code mỗi ngày:
 
-Luôn cập nhật nhánh develop
+```bash
+git checkout develop
+
+git pull origin develop
+```
+
+Sau đó checkout sang branch đang làm hoặc tạo branch mới.
+
+Không làm việc trực tiếp trên `master` hoặc `develop`.
+
+---
+
+# 4. Quy trình phát triển một tính năng
+
+## Bước 1. Đồng bộ develop
 
 ```bash
 git checkout develop
@@ -67,9 +85,7 @@ git pull origin develop
 
 ---
 
-## Bước 2
-
-Tạo nhánh mới
+## Bước 2. Tạo nhánh mới
 
 ```bash
 git checkout -b feature/ten-tinh-nang
@@ -83,21 +99,21 @@ git checkout -b feature/login
 
 ---
 
-## Bước 3
+## Bước 3. Thực hiện code
 
-Thực hiện code.
+Lập trình theo phạm vi của tính năng.
 
 ---
 
-## Bước 4
+## Bước 4. Commit
 
-Commit code.
-
-Mỗi commit chỉ nên chứa một mục đích.
+Mỗi commit chỉ nên thực hiện một mục đích.
 
 Ví dụ
 
 ```text
+feat: create login page
+
 feat: create login api
 
 feat: implement jwt authentication
@@ -107,9 +123,7 @@ fix: validate username
 
 ---
 
-## Bước 5
-
-Push branch
+## Bước 5. Push branch
 
 ```bash
 git push -u origin feature/login
@@ -117,11 +131,7 @@ git push -u origin feature/login
 
 ---
 
-## Bước 6
-
-Trước khi tạo Pull Request
-
-Cập nhật develop mới nhất
+## Bước 6. Đồng bộ develop trước khi tạo Pull Request
 
 ```bash
 git checkout develop
@@ -133,64 +143,98 @@ git checkout feature/login
 git merge develop
 ```
 
-Nếu có conflict thì resolve trước.
+Nếu xảy ra conflict:
 
-Sau khi resolve:
-
+- Resolve conflict.
 - Build project.
-- Chạy thử chức năng.
+- Kiểm tra lại chức năng.
+- Commit nếu cần.
 
 ---
 
-## Bước 7
+## Bước 7. Tạo Pull Request
 
-Tạo Pull Request
+Luồng merge
 
-```
+```text
 feature/login
-
-↓
-
+      │
+      ▼
 develop
 ```
 
+Pull Request cần:
+
+- Title rõ ràng.
+- Description mô tả chức năng.
+- Danh sách file chính.
+- Hình ảnh demo (nếu có).
+
 ---
 
-## Bước 8
-
-Review
+## Bước 8. Review
 
 Thành viên còn lại kiểm tra:
 
-- Coding Convention
-- Logic
-- Naming
-- Duplicate Code
-- Lỗi tiềm ẩn
+- Coding Convention.
+- Logic.
+- Naming.
+- Duplicate Code.
+- Build thành công.
+- Không còn code debug.
 
 Sau khi review mới được merge.
 
 ---
 
-## Bước 9
+## Bước 9. Merge vào develop
 
-Merge vào develop.
+Sau khi Pull Request được approve:
 
-Sau khi merge thành công thì xóa branch feature.
+- Merge vào `develop`.
+- Xóa branch `feature/*`.
 
 ---
 
-# 4. Quy tắc Commit Message
+## Bước 10. Đồng bộ Local Repository
+
+**Lưu ý**
+
+Sau khi merge trên GitHub, repository trên máy **không tự cập nhật**.
+
+Muốn local giống GitHub phải pull lại.
+
+Ví dụ cập nhật develop
+
+```bash
+git checkout develop
+
+git pull origin develop
+```
+
+Hoặc cập nhật master
+
+```bash
+git checkout master
+
+git pull origin master
+```
+
+> Chỉ `git checkout` **không** tải code mới từ GitHub.
+
+---
+
+# 5. Quy tắc Commit Message
 
 Định dạng
 
-```
+```text
 <type>: <description>
 ```
 
 Các type
 
-```
+```text
 feat
 fix
 refactor
@@ -202,21 +246,21 @@ chore
 
 Ví dụ
 
-```
+```text
 feat: create login api
 
 feat: add jwt authentication
 
 fix: resolve login validation bug
 
-docs: update database design
+docs: update git workflow
 
 refactor: optimize authentication service
 ```
 
 Không sử dụng
 
-```
+```text
 update
 
 fix
@@ -228,17 +272,15 @@ abc
 
 ---
 
-# 5. Quy tắc Commit
+# 6. Quy tắc Commit
 
-- Một commit chỉ thực hiện một mục đích.
+- Một commit chỉ nên có một mục đích.
 - Commit thường xuyên.
 - Không gom quá nhiều thay đổi vào một commit.
 
-Ví dụ
+Ví dụ tốt
 
-Tốt
-
-```
+```text
 feat: create login page
 
 feat: create login api
@@ -246,52 +288,42 @@ feat: create login api
 feat: implement jwt
 ```
 
-Không tốt
+Ví dụ không tốt
 
-```
+```text
 feat: complete login
 ```
 
 ---
 
-# 6. Quy tắc Pull Request
+# 7. Quy tắc Pull Request
 
 Tên Pull Request
 
-```
+```text
 [Feature] Login Module
 
 [Feature] Dashboard
 
 [Fix] Login Validation
+
+[Docs] Update Git Workflow
 ```
 
-Pull Request cần mô tả:
+Description nên bao gồm:
 
-- Chức năng đã hoàn thành.
-- Danh sách file chính được sửa.
+- Chức năng đã thực hiện.
+- File chính được sửa.
 - Hình ảnh demo (nếu có).
-- Các lưu ý khi review.
+- Lưu ý khi review.
 
 ---
 
-# 7. Quy tắc Review
-
-Reviewer cần kiểm tra:
-
-- Project build thành công.
-- Không có lỗi compile.
-- Logic đúng.
-- Không có code dư.
-- Không còn code debug.
-
----
-
-# 8. Trước khi Push
+# 8. Checklist trước khi Push
 
 Đảm bảo:
 
-- Project chạy được.
+- Build thành công.
 - Không còn lỗi compile.
 - Không còn `System.out.println()`.
 - Không còn `console.log()`.
@@ -307,9 +339,9 @@ Không commit trực tiếp lên:
 - master
 - develop
 
-Không sử dụng:
+Không sử dụng
 
-```
+```bash
 git push --force
 ```
 
@@ -319,7 +351,7 @@ Không tự ý sửa module của người khác.
 
 Không commit:
 
-```
+```text
 node_modules/
 
 target/
@@ -341,11 +373,13 @@ build/
 
 Luồng phát triển
 
-```
+```text
 feature/*
-      ↓
+      │
+      ▼
 develop
-      ↓
+      │
+      ▼
 master
 ```
 
@@ -355,11 +389,21 @@ Chỉ merge `develop` vào `master` khi:
 - Đã kiểm thử toàn bộ hệ thống.
 - Không còn lỗi nghiêm trọng.
 
+Sau khi merge vào `master` trên GitHub, cần đồng bộ local:
+
+```bash
+git checkout master
+
+git pull origin master
+```
+
+Để local `master` giống với `master` trên GitHub.
+
 Sau mỗi lần release nên tạo Tag.
 
 Ví dụ
 
-```
+```text
 v1.0.0
 
 v1.1.0
