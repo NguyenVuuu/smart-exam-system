@@ -1,0 +1,417 @@
+// ============================================================
+// SOES - Smart Online Examination System
+// Prisma Schema
+// Database: PostgreSQL
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SemesterStatus {
+  UPCOMING
+  ACTIVE
+  CLOSED
+}
+
+enum SubjectStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  PROGRAMMING
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionSource {
+  MANUAL
+  AI_GENERATED
+  IMPORTED
+}
+
+enum ProgrammingLanguage {
+  JAVA
+  C
+  CPP
+}
+
+enum ExamStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+}
+
+enum AttemptEndedBy {
+  STUDENT
+  TIMEOUT
+  SYSTEM
+}
+
+enum ViolationType {
+  TAB_SWITCH
+  FULLSCREEN_EXIT
+  NO_FACE
+  MULTIPLE_FACES
+  INACTIVITY
+}
+
+enum SeverityLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CourseOfferingStatus {
+  ACTIVE
+  CLOSED
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+model User {
+  id          String     @id @default(uuid())
+  email       String     @unique
+  password    String
+  fullName    String
+  role        Role
+  studentCode String?
+  teacherCode String?
+  avatarUrl   String?
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  courseOfferings CourseOffering[] @relation("TeacherCourseOfferings")
+  materials       Material[]       @relation("UploaderMaterials")
+  questions       Question[]       @relation("OwnerQuestions")
+  exams           Exam[]           @relation("CreatorExams")
+  enrollments     Enrollment[]     @relation("StudentEnrollments")
+  examAttempts    ExamAttempt[]    @relation("StudentExamAttempts")
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+}
+
+model Semester {
+  id        String         @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    SemesterStatus @default(UPCOMING)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  courseOfferings CourseOffering[]
+}
+
+model Subject {
+  id          String        @id @default(uuid())
+  code        String        @unique
+  name        String
+  description String?
+  status      SubjectStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  courseOfferings CourseOffering[]
+  questions       Question[]
+}
+
+model CourseOffering {
+  id        String               @id @default(uuid())
+  code      String
+  status    CourseOfferingStatus @default(ACTIVE)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  semesterId String
+  semester   Semester @relation(fields: [semesterId], references: [id])
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  teacherId String
+  teacher   User   @relation("TeacherCourseOfferings", fields: [teacherId], references: [id])
+
+  enrollments Enrollment[]
+  materials   Material[]
+  exams       Exam[]
+}
+
+model Enrollment {
+  id         String   @id @default(uuid())
+  enrolledAt DateTime @default(now())
+
+  courseOfferingId String
+  courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id])
+
+  studentId String
+  student   User   @relation("StudentEnrollments", fields: [studentId], references: [id])
+
+  @@unique([courseOfferingId, studentId])
+}
+
+model Material {
+  id          String   @id @default(uuid())
+  fileName    String
+  objectName  String
+  fileSize    Int
+  contentType String
+  storagePath String
+  aiEnabled   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  courseOfferingId String
+  courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id])
+
+  uploaderId String
+  uploader   User   @relation("UploaderMaterials", fields: [uploaderId], references: [id])
+
+  @@unique([courseOfferingId, fileName])
+}
+
+model Question {
+  id          String               @id @default(uuid())
+  content     String
+  explanation String?
+  type        QuestionType
+  difficulty  QuestionDifficulty
+  source      QuestionSource
+  language    ProgrammingLanguage?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  ownerId String
+  owner   User   @relation("OwnerQuestions", fields: [ownerId], references: [id])
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  options          QuestionOption[]
+  programmingTests ProgrammingTestCase[]
+  examQuestions    ExamQuestion[]
+  attemptQuestions ExamAttemptQuestion[]
+  studentAnswers   StudentAnswer[]
+}
+
+model QuestionOption {
+  id        String  @id @default(uuid())
+  content   String
+  isCorrect Boolean @default(false)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+}
+
+model ProgrammingTestCase {
+  id             String  @id @default(uuid())
+  input          String
+  expectedOutput String
+  weight         Float   @default(1.0)
+  isHidden       Boolean @default(false)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+}
+
+model Exam {
+  id                      String     @id @default(uuid())
+  title                   String
+  description             String?
+  password                String?
+  startTime               DateTime
+  endTime                 DateTime
+  durationMinutes         Int
+  maxAttempts             Int        @default(1)
+  shuffleQuestions        Boolean    @default(false)
+  shuffleOptions          Boolean    @default(false)
+  showResultImmediately   Boolean    @default(false)
+  allowReviewBeforeSubmit Boolean    @default(false)
+  status                  ExamStatus @default(DRAFT)
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+
+  courseOfferingId String
+  courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("CreatorExams", fields: [createdById], references: [id])
+
+  examQuestions ExamQuestion[]
+  examAttempts  ExamAttempt[]
+}
+
+model ExamQuestion {
+  id     String @id @default(uuid())
+  points Float
+
+  examId String
+  exam   Exam   @relation(fields: [examId], references: [id])
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+
+  @@unique([examId, questionId])
+}
+
+model ExamAttempt {
+  id               String          @id @default(uuid())
+  attemptNo        Int
+  startedAt        DateTime        @default(now())
+  submittedAt      DateTime?
+  remainingSeconds Int
+  lastSavedAt      DateTime?
+  endedBy          AttemptEndedBy?
+  status           AttemptStatus   @default(IN_PROGRESS)
+  totalScore       Float?
+  autoScore        Float?
+  manualScore      Float?
+  isPublished      Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  examId String
+  exam   Exam   @relation(fields: [examId], references: [id])
+
+  studentId String
+  student   User   @relation("StudentExamAttempts", fields: [studentId], references: [id])
+
+  attemptQuestions ExamAttemptQuestion[]
+  studentAnswers   StudentAnswer[]
+  examSessions     ExamSession[]
+  violations       Violation[]
+
+  @@unique([examId, studentId, attemptNo])
+  @@index([studentId])
+  @@index([examId])
+}
+
+model ExamAttemptQuestion {
+  id         String @id @default(uuid())
+  orderIndex Int
+
+  attemptId String
+  attempt   ExamAttempt @relation(fields: [attemptId], references: [id])
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+
+  @@unique([attemptId, questionId])
+  @@unique([attemptId, orderIndex])
+}
+
+model ExamSession {
+  id            String   @id @default(uuid())
+  socketId      String
+  ipAddress     String
+  deviceInfo    String
+  lastHeartbeat DateTime
+  isOnline      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  attemptId String
+  attempt   ExamAttempt @relation(fields: [attemptId], references: [id])
+}
+
+model StudentAnswer {
+  id                String   @id @default(uuid())
+  selectedOptionIds Json?
+  score             Float?
+  isCorrect         Boolean?
+
+  attemptId String
+  attempt   ExamAttempt @relation(fields: [attemptId], references: [id])
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+
+  programmingSubmissions ProgrammingSubmission[]
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+}
+
+model ProgrammingSubmission {
+  id              String              @id @default(uuid())
+  language        ProgrammingLanguage
+  sourceCode      String
+  executionResult Json?
+  judge0Token     String?
+  createdAt       DateTime            @default(now())
+
+  studentAnswerId String
+  studentAnswer   StudentAnswer @relation(fields: [studentAnswerId], references: [id])
+}
+
+model Violation {
+  id            String        @id @default(uuid())
+  violationType ViolationType
+  severity      SeverityLevel
+  evidenceUrls  Json
+  description   String?
+  detectedAt    DateTime      @default(now())
+
+  attemptId String
+  attempt   ExamAttempt @relation(fields: [attemptId], references: [id])
+
+  @@index([attemptId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json
+  createdAt  DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
