@@ -9,12 +9,13 @@ datasource db {
 
 model User {
   id              String           @id @default(uuid())
-  email           String           @unique
+  email           String?
+  phoneNumber     String?
   password        String
   fullName        String
-  role            Role
-  studentCode     String?
-  teacherCode     String?
+  studentCode     String?          @unique
+  teacherCode     String?          @unique
+  isAdmin         Boolean          @default(false)
   avatarUrl       String?
   status          UserStatus       @default(ACTIVE)
   createdAt       DateTime         @default(now())
@@ -27,6 +28,18 @@ model User {
   materials       Material[]       @relation("UploaderMaterials")
   notifications   Notification[]
   questions       Question[]       @relation("OwnerQuestions")
+}
+
+model CodeGenerationSetting {
+  id            String   @id @default("SYSTEM")
+
+  studentPrefix String   @default("SV")
+  studentDigits Int      @default(6)
+
+  teacherPrefix String   @default("GV")
+  teacherDigits Int      @default(6)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Semester {
@@ -54,7 +67,7 @@ model Subject {
 
 model CourseOffering {
   id          String               @id @default(uuid())
-  code        String
+  code        String               @unique
   status      CourseOfferingStatus @default(ACTIVE)
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
@@ -67,6 +80,10 @@ model CourseOffering {
   enrollments Enrollment[]
   exams       Exam[]
   materials   Material[]
+
+  @@index([teacherId])
+  @@index([semesterId])
+  @@index([subjectId])
 }
 
 model Enrollment {
@@ -78,6 +95,7 @@ model Enrollment {
   student          User           @relation("StudentEnrollments", fields: [studentId], references: [id])
 
   @@unique([courseOfferingId, studentId])
+  @@index([studentId])
 }
 
 model Material {
@@ -117,6 +135,10 @@ model Question {
   subject          Subject               @relation(fields: [subjectId], references: [id])
   options          QuestionOption[]
   studentAnswers   StudentAnswer[]
+
+  @@index([ownerId])
+  @@index([subjectId])
+  @@index([type])
 }
 
 model QuestionOption {
@@ -125,16 +147,20 @@ model QuestionOption {
   isCorrect  Boolean  @default(false)
   questionId String
   question   Question @relation(fields: [questionId], references: [id])
+
+  @@index([questionId])
 }
 
 model ProgrammingTestCase {
   id             String   @id @default(uuid())
   input          String
   expectedOutput String
-  weight         Float    @default(1.0)
+  weight         Decimal  @db.Decimal(5,2)
   isHidden       Boolean  @default(false)
   questionId     String
   question       Question @relation(fields: [questionId], references: [id])
+
+  @@index([questionId])
 }
 
 model Exam {
@@ -159,17 +185,24 @@ model Exam {
   createdBy               User           @relation("CreatorExams", fields: [createdById], references: [id])
   examAttempts            ExamAttempt[]
   examQuestions           ExamQuestion[]
+
+  @@index([courseOfferingId])
+  @@index([createdById])
+  @@index([status])
 }
 
 model ExamQuestion {
   id         String   @id @default(uuid())
-  points     Float
+  points     Decimal  @db.Decimal(5,2)
   examId     String
   questionId String
   exam       Exam     @relation(fields: [examId], references: [id])
   question   Question @relation(fields: [questionId], references: [id])
 
   @@unique([examId, questionId])
+
+  @@index([examId])
+  @@index([questionId])
 }
 
 model ExamAttempt {
@@ -181,9 +214,9 @@ model ExamAttempt {
   lastSavedAt      DateTime?
   endedBy          AttemptEndedBy?
   status           AttemptStatus         @default(IN_PROGRESS)
-  totalScore       Float?
-  autoScore        Float?
-  manualScore      Float?
+  totalScore       Decimal?              @db.Decimal(5,2)
+  autoScore        Decimal?              @db.Decimal(5,2)
+  manualScore      Decimal?              @db.Decimal(5,2)
   isPublished      Boolean               @default(false)
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
@@ -211,45 +244,40 @@ model ExamAttemptQuestion {
 
   @@unique([attemptId, questionId])
   @@unique([attemptId, orderIndex])
+  @@index([attemptId])
+  @@index([questionId])
 }
 
 model ExamSession {
   id            String      @id @default(uuid())
-  socketId      String
+  socketId      String?
   ipAddress     String
   deviceInfo    String
   lastHeartbeat DateTime
   isOnline      Boolean     @default(false)
   createdAt     DateTime    @default(now())
-  attemptId     String
+  attemptId     String      @unique
   attempt       ExamAttempt @relation(fields: [attemptId], references: [id])
 }
 
 model StudentAnswer {
   id                     String                  @id @default(uuid())
+  sourceCode             String?
   selectedOptionIds      Json?
-  score                  Float?
+  essayAnswer            String?
+  score                  Decimal?                @db.Decimal(5,2)
   isCorrect              Boolean?
   attemptId              String
   questionId             String
-  programmingSubmissions ProgrammingSubmission[]
   attempt                ExamAttempt             @relation(fields: [attemptId], references: [id])
   question               Question                @relation(fields: [questionId], references: [id])
 
   @@unique([attemptId, questionId])
   @@index([attemptId])
+  @@index([questionId])
 }
 
-model ProgrammingSubmission {
-  id              String              @id @default(uuid())
-  language        ProgrammingLanguage
-  sourceCode      String
-  executionResult Json?
-  judge0Token     String?
-  createdAt       DateTime            @default(now())
-  studentAnswerId String
-  studentAnswer   StudentAnswer       @relation(fields: [studentAnswerId], references: [id])
-}
+
 
 model Violation {
   id            String        @id @default(uuid())
@@ -270,8 +298,11 @@ model Notification {
   content   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model AuditLog {
@@ -282,14 +313,14 @@ model AuditLog {
   metadata   Json
   createdAt  DateTime @default(now())
   userId     String
+  ipAddress  String?
+  userAgent  String?
   user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
-enum Role {
-  ADMIN
-  TEACHER
-  STUDENT
-}
+
 
 enum UserStatus {
   ACTIVE
