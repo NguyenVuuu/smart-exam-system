@@ -16,7 +16,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: frontend
+        working-directory: fe/soes-fe
 
     steps:
       - name: Checkout source code
@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: fe/soes-fe/package-lock.json
 
       - name: Install dependencies
         run: npm ci
