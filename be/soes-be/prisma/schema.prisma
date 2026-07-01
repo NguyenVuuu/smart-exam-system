@@ -8,58 +8,57 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(uuid())
-  email           String?          
-  phoneNumber     String?          
-  fullName        String
-  avatarUrl       String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  auditLogs       AuditLog[]
-  notifications   Notification[]
-  student         Student?
-  teacher         Teacher?
-  admin           Admin?
+  id            String         @id @default(uuid())
+  email         String?
+  phoneNumber   String?
+  fullName      String
+  avatarUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  student       Student?
+  teacher       Teacher?
+  admin         Admin?
 }
 
 model Student {
-  id           String   @id @default(uuid())
-  studentCode  String   @unique
-  password     String
-  status       AccountStatus @default(ACTIVE)
+  id          String        @id @default(uuid())
+  studentCode String        @unique
+  password    String
+  status      AccountStatus @default(ACTIVE)
 
-  userId       String   @unique
-  user         User @relation(fields:[userId], references:[id])
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
 
-  enrollments Enrollment[] @relation("StudentEnrollments")
+  enrollments  Enrollment[]  @relation("StudentEnrollments")
   examAttempts ExamAttempt[] @relation("StudentExamAttempts")
 }
 
 model Teacher {
-  id           String   @id @default(uuid())
-  teacherCode  String   @unique
-  password     String
-  status       AccountStatus @default(ACTIVE)
+  id          String        @id @default(uuid())
+  teacherCode String        @unique
+  password    String
+  status      AccountStatus @default(ACTIVE)
 
-  userId       String   @unique
-  user         User @relation(fields:[userId], references:[id])
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
 
   courseOfferings CourseOffering[] @relation("TeacherCourseOfferings")
-  exams Exam[] @relation("CreatorExams")
-  questions Question[] @relation("OwnerQuestions")
-  materials Material[] @relation("UploaderMaterials")
+  exams           Exam[]           @relation("CreatorExams")
+  questions       Question[]       @relation("OwnerQuestions")
+  materials       Material[]       @relation("UploaderMaterials")
 }
 
 model Admin {
-  id        String @id @default(uuid())
+  id String @id @default(uuid())
 
-  adminCode String @unique
+  adminCode String        @unique
   password  String
   status    AccountStatus @default(ACTIVE)
 
-
-  userId    String @unique
-  user      User @relation(fields:[userId], references:[id])
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 model CodeGenerationSetting {
@@ -68,13 +67,13 @@ model CodeGenerationSetting {
   studentPrefix String @default("SV")
   studentDigits Int    @default(6)
 
-  teacherPrefix String   @default("GV")
-  teacherDigits Int      @default(6)
+  teacherPrefix String @default("GV")
+  teacherDigits Int    @default(6)
 
-  adminPrefix String @default("AD")
-  adminDigits Int @default(6)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  adminPrefix String   @default("AD")
+  adminDigits Int      @default(6)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Semester {
