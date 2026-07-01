@@ -14,22 +14,16 @@ interface ApiResponse<T> {
 
 export function useLogin() {
   const [isLoading, setIsLoading] = useState(false)
-  const { setTokens, setUser } = useAuthStore()
+  const { setAccessToken, setUser } = useAuthStore()
   const navigate = useNavigate()
 
   async function login(values: LoginRequest) {
     setIsLoading(true)
     try {
-      const { data } = await apiClient.post<ApiResponse<LoginResponse>>(
-        '/auth/login',
-        values,
-        { withCredentials: true },
-      )
+      const { data } = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', values)
 
       const { accessToken, user } = data.data
-
-      // Backend sets refreshToken as HttpOnly cookie; we also store accessToken
-      setTokens(accessToken, '')
+      setAccessToken(accessToken)
       setUser(user)
 
       toast.success(`Welcome back, ${user.fullName}!`)
@@ -37,8 +31,7 @@ export function useLogin() {
       const role = resolveRoleFromIdentifier(values.identifier, user)
       navigate(ROLE_HOME[role], { replace: true })
     } catch (err: unknown) {
-      const message = extractErrorMessage(err)
-      toast.error(message)
+      toast.error(extractErrorMessage(err))
     } finally {
       setIsLoading(false)
     }

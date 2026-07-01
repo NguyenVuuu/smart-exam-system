@@ -1,14 +1,9 @@
-import { useEffect } from 'react'
 import { Toaster } from 'sonner'
 import AppRouter from './router/AppRouter'
-import { useAuthStore } from './store/authStore'
+import { useInitAuth } from './auth/hooks/useInitAuth'
 
 export default function App() {
-  const initialize = useAuthStore((s) => s.initialize)
-
-  useEffect(() => {
-    initialize()
-  }, [initialize])
+  useInitAuth()
 
   return (
     <>
