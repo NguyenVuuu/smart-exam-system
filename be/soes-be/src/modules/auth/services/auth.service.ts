@@ -1,12 +1,19 @@
 import bcrypt from 'bcrypt'
-import { ForbiddenError, UnauthorizedError } from '../../../errors/AppError'
+import { ConflictError, ForbiddenError, UnauthorizedError } from '../../../errors/AppError'
 import { logger } from '../../../lib/logger'
-import { signAccessToken, signRefreshToken, verifyRefreshToken, type JwtPayload } from '../../../utils/jwt'
+import { refreshTokenStore, tokenBlacklist } from '../../../lib/redis'
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
+  type JwtPayload,
+} from '../../../utils/jwt'
 import type { LoginRequestDto, LoginResponseDto, UserProfileDto } from '../dtos/auth.dto'
 import { toAdminProfileDto, toStudentProfileDto, toTeacherProfileDto } from '../mappers/auth.mapper'
 import * as repo from '../repositories/auth.repository'
 
-// ── Helpers ───────────────────────────────────────────────
+const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60 // 7 days
 
 function buildJwtPayload(profile: UserProfileDto): JwtPayload {
   return {
@@ -46,8 +53,6 @@ async function resolveProfile(identifier: string): Promise<ResolvedProfile | nul
   return null
 }
 
-// ── Service methods ───────────────────────────────────────
-
 export async function login(dto: LoginRequestDto): Promise<LoginResponseDto> {
   const resolved = await resolveProfile(dto.identifier)
 
@@ -67,9 +72,23 @@ export async function login(dto: LoginRequestDto): Promise<LoginResponseDto> {
     throw new UnauthorizedError('Invalid credentials')
   }
 
+  // ADMIN can have unlimited sessions; TEACHER and STUDENT are limited to one
+  if (resolved.profile.role !== 'ADMIN') {
+    const existingSession = await refreshTokenStore.get(resolved.profile.id)
+    if (existingSession) {
+      logger.warn('Login blocked: active session already exists', {
+        userId: resolved.profile.id,
+        role: resolved.profile.role,
+      })
+      throw new ConflictError('This account is already signed in on another device.')
+    }
+  }
+
   const payload = buildJwtPayload(resolved.profile)
   const accessToken = signAccessToken(payload)
   const refreshToken = signRefreshToken(payload)
+
+  await refreshTokenStore.set(resolved.profile.id, refreshToken, REFRESH_TTL_SECONDS)
 
   logger.info('User logged in', { userId: resolved.profile.id, role: resolved.profile.role })
 
@@ -84,9 +103,12 @@ export async function refreshAccessToken(token: string): Promise<string> {
     throw new UnauthorizedError('Invalid or expired refresh token')
   }
 
-  // Verify the profile still exists and is active
-  let status: string | undefined
+  const storedToken = await refreshTokenStore.get(payload.sub)
+  if (!storedToken || storedToken !== token) {
+    throw new UnauthorizedError('Invalid or expired refresh token')
+  }
 
+  let status: string | undefined
   if (payload.role === 'STUDENT') {
     const s = await repo.findStudentByUserId(payload.sub)
     status = s?.status
@@ -102,7 +124,27 @@ export async function refreshAccessToken(token: string): Promise<string> {
     throw new UnauthorizedError('Invalid or expired refresh token')
   }
 
-  return signAccessToken(payload)
+  const freshPayload: JwtPayload = {
+    sub: payload.sub,
+    profileId: payload.profileId,
+    role: payload.role,
+  }
+
+  return signAccessToken(freshPayload)
+}
+
+export async function logout(accessToken: string, userId: string): Promise<void> {
+  await refreshTokenStore.delete(userId)
+
+  try {
+    const decoded = verifyAccessToken(accessToken)
+    const remainingTtl = decoded.exp - Math.floor(Date.now() / 1000)
+    await tokenBlacklist.add(decoded.jti, remainingTtl)
+  } catch {
+    // Token already expired — blacklisting not needed
+  }
+
+  logger.info('User logged out', { userId })
 }
 
 export async function getMe(userId: string, role: string): Promise<UserProfileDto> {
