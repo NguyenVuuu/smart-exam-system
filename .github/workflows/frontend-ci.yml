@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: fe/soes-fe/package-lock.json
 
       - name: Create .env file
-        run: echo "${{ secrets.ENV_FILE }}" > .env
+        run: echo "${{ secrets.FRONTEND_ENV }}" > .env
 
       - name: Install dependencies
         run: npm ci
