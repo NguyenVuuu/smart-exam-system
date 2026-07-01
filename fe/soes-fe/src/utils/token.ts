@@ -1,30 +1,19 @@
-const ACCESS_TOKEN_KEY = 'accessToken'
-const REFRESH_TOKEN_KEY = 'refreshToken'
+// Access Token is stored in memory only.
+// It is never persisted to localStorage, sessionStorage, or any other storage.
+// On page refresh, it is re-obtained via the HttpOnly refresh token cookie.
 
-// Access token: memory + localStorage
 let memoryAccessToken: string | null = null
 
 export const tokenStorage = {
   getAccessToken(): string | null {
-    return memoryAccessToken ?? localStorage.getItem(ACCESS_TOKEN_KEY)
+    return memoryAccessToken
   },
 
   setAccessToken(token: string): void {
     memoryAccessToken = token
-    localStorage.setItem(ACCESS_TOKEN_KEY, token)
   },
 
-  getRefreshToken(): string | null {
-    return localStorage.getItem(REFRESH_TOKEN_KEY)
-  },
-
-  setRefreshToken(token: string): void {
-    localStorage.setItem(REFRESH_TOKEN_KEY, token)
-  },
-
-  clear(): void {
+  clearAccessToken(): void {
     memoryAccessToken = null
-    localStorage.removeItem(ACCESS_TOKEN_KEY)
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
   },
 }
