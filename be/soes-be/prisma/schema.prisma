@@ -31,10 +31,10 @@ model User {
 }
 
 model CodeGenerationSetting {
-  id            String   @id @default("SYSTEM")
+  id String @id @default("SYSTEM")
 
-  studentPrefix String   @default("SV")
-  studentDigits Int      @default(6)
+  studentPrefix String @default("SV")
+  studentDigits Int    @default(6)
 
   teacherPrefix String   @default("GV")
   teacherDigits Int      @default(6)
@@ -155,7 +155,7 @@ model ProgrammingTestCase {
   id             String   @id @default(uuid())
   input          String
   expectedOutput String
-  weight         Decimal  @db.Decimal(5,2)
+  weight         Decimal  @db.Decimal(5, 2)
   isHidden       Boolean  @default(false)
   questionId     String
   question       Question @relation(fields: [questionId], references: [id])
@@ -193,14 +193,13 @@ model Exam {
 
 model ExamQuestion {
   id         String   @id @default(uuid())
-  points     Decimal  @db.Decimal(5,2)
+  points     Decimal  @db.Decimal(5, 2)
   examId     String
   questionId String
   exam       Exam     @relation(fields: [examId], references: [id])
   question   Question @relation(fields: [questionId], references: [id])
 
   @@unique([examId, questionId])
-
   @@index([examId])
   @@index([questionId])
 }
@@ -214,9 +213,9 @@ model ExamAttempt {
   lastSavedAt      DateTime?
   endedBy          AttemptEndedBy?
   status           AttemptStatus         @default(IN_PROGRESS)
-  totalScore       Decimal?              @db.Decimal(5,2)
-  autoScore        Decimal?              @db.Decimal(5,2)
-  manualScore      Decimal?              @db.Decimal(5,2)
+  totalScore       Decimal?              @db.Decimal(5, 2)
+  autoScore        Decimal?              @db.Decimal(5, 2)
+  manualScore      Decimal?              @db.Decimal(5, 2)
   isPublished      Boolean               @default(false)
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
@@ -261,23 +260,21 @@ model ExamSession {
 }
 
 model StudentAnswer {
-  id                     String                  @id @default(uuid())
-  sourceCode             String?
-  selectedOptionIds      Json?
-  essayAnswer            String?
-  score                  Decimal?                @db.Decimal(5,2)
-  isCorrect              Boolean?
-  attemptId              String
-  questionId             String
-  attempt                ExamAttempt             @relation(fields: [attemptId], references: [id])
-  question               Question                @relation(fields: [questionId], references: [id])
+  id                String      @id @default(uuid())
+  sourceCode        String?
+  selectedOptionIds Json?
+  essayAnswer       String?
+  score             Decimal?    @db.Decimal(5, 2)
+  isCorrect         Boolean?
+  attemptId         String
+  questionId        String
+  attempt           ExamAttempt @relation(fields: [attemptId], references: [id])
+  question          Question    @relation(fields: [questionId], references: [id])
 
   @@unique([attemptId, questionId])
   @@index([attemptId])
   @@index([questionId])
 }
-
-
 
 model Violation {
   id            String        @id @default(uuid())
@@ -319,8 +316,6 @@ model AuditLog {
 
   @@index([userId])
 }
-
-
 
 enum UserStatus {
   ACTIVE
