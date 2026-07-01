@@ -1,13 +1,13 @@
 import 'express'
+import type { AccountRole } from '../utils/jwt'
 
 declare global {
   namespace Express {
     interface Request {
       user?: {
         id: string
-        isAdmin: boolean
-        studentCode: string | null
-        teacherCode: string | null
+        profileId: string
+        role: AccountRole
       }
     }
   }

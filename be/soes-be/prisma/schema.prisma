@@ -8,26 +8,57 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(uuid())
-  email           String?
-  phoneNumber     String?
-  password        String
-  fullName        String
-  studentCode     String?          @unique
-  teacherCode     String?          @unique
-  isAdmin         Boolean          @default(false)
-  avatarUrl       String?
-  status          UserStatus       @default(ACTIVE)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  auditLogs       AuditLog[]
+  id            String         @id @default(uuid())
+  email         String?
+  phoneNumber   String?
+  fullName      String
+  avatarUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  student       Student?
+  teacher       Teacher?
+  admin         Admin?
+}
+
+model Student {
+  id          String        @id @default(uuid())
+  studentCode String        @unique
+  password    String
+  status      AccountStatus @default(ACTIVE)
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  enrollments  Enrollment[]  @relation("StudentEnrollments")
+  examAttempts ExamAttempt[] @relation("StudentExamAttempts")
+}
+
+model Teacher {
+  id          String        @id @default(uuid())
+  teacherCode String        @unique
+  password    String
+  status      AccountStatus @default(ACTIVE)
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
   courseOfferings CourseOffering[] @relation("TeacherCourseOfferings")
-  enrollments     Enrollment[]     @relation("StudentEnrollments")
   exams           Exam[]           @relation("CreatorExams")
-  examAttempts    ExamAttempt[]    @relation("StudentExamAttempts")
-  materials       Material[]       @relation("UploaderMaterials")
-  notifications   Notification[]
   questions       Question[]       @relation("OwnerQuestions")
+  materials       Material[]       @relation("UploaderMaterials")
+}
+
+model Admin {
+  id String @id @default(uuid())
+
+  adminCode String        @unique
+  password  String
+  status    AccountStatus @default(ACTIVE)
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 model CodeGenerationSetting {
@@ -36,10 +67,13 @@ model CodeGenerationSetting {
   studentPrefix String @default("SV")
   studentDigits Int    @default(6)
 
-  teacherPrefix String   @default("GV")
-  teacherDigits Int      @default(6)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  teacherPrefix String @default("GV")
+  teacherDigits Int    @default(6)
+
+  adminPrefix String   @default("AD")
+  adminDigits Int      @default(6)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Semester {
@@ -76,7 +110,7 @@ model CourseOffering {
   teacherId   String
   semester    Semester             @relation(fields: [semesterId], references: [id])
   subject     Subject              @relation(fields: [subjectId], references: [id])
-  teacher     User                 @relation("TeacherCourseOfferings", fields: [teacherId], references: [id])
+  teacher     Teacher              @relation("TeacherCourseOfferings", fields: [teacherId], references: [id])
   enrollments Enrollment[]
   exams       Exam[]
   materials   Material[]
@@ -92,7 +126,7 @@ model Enrollment {
   courseOfferingId String
   studentId        String
   courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id])
-  student          User           @relation("StudentEnrollments", fields: [studentId], references: [id])
+  student          Student        @relation("StudentEnrollments", fields: [studentId], references: [id])
 
   @@unique([courseOfferingId, studentId])
   @@index([studentId])
@@ -111,7 +145,7 @@ model Material {
   courseOfferingId String
   uploaderId       String
   courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id])
-  uploader         User           @relation("UploaderMaterials", fields: [uploaderId], references: [id])
+  uploader         Teacher        @relation("UploaderMaterials", fields: [uploaderId], references: [id])
 
   @@unique([courseOfferingId, fileName])
 }
@@ -131,7 +165,7 @@ model Question {
   attemptQuestions ExamAttemptQuestion[]
   examQuestions    ExamQuestion[]
   programmingTests ProgrammingTestCase[]
-  owner            User                  @relation("OwnerQuestions", fields: [ownerId], references: [id])
+  owner            Teacher               @relation("OwnerQuestions", fields: [ownerId], references: [id])
   subject          Subject               @relation(fields: [subjectId], references: [id])
   options          QuestionOption[]
   studentAnswers   StudentAnswer[]
@@ -182,7 +216,7 @@ model Exam {
   courseOfferingId        String
   createdById             String
   courseOffering          CourseOffering @relation(fields: [courseOfferingId], references: [id])
-  createdBy               User           @relation("CreatorExams", fields: [createdById], references: [id])
+  createdBy               Teacher        @relation("CreatorExams", fields: [createdById], references: [id])
   examAttempts            ExamAttempt[]
   examQuestions           ExamQuestion[]
 
@@ -222,7 +256,7 @@ model ExamAttempt {
   examId           String
   studentId        String
   exam             Exam                  @relation(fields: [examId], references: [id])
-  student          User                  @relation("StudentExamAttempts", fields: [studentId], references: [id])
+  student          Student               @relation("StudentExamAttempts", fields: [studentId], references: [id])
   attemptQuestions ExamAttemptQuestion[]
   examSessions     ExamSession[]
   studentAnswers   StudentAnswer[]
@@ -307,7 +341,7 @@ model AuditLog {
   action     String
   entityType String
   entityId   String
-  metadata   Json
+  metadata   Json?
   createdAt  DateTime @default(now())
   userId     String
   ipAddress  String?
@@ -317,7 +351,7 @@ model AuditLog {
   @@index([userId])
 }
 
-enum UserStatus {
+enum AccountStatus {
   ACTIVE
   INACTIVE
 }

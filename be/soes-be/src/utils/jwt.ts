@@ -1,10 +1,11 @@
 import jwt, { SignOptions } from 'jsonwebtoken'
 
+export type AccountRole = 'ADMIN' | 'TEACHER' | 'STUDENT'
+
 export interface JwtPayload {
-  sub: string
-  isAdmin: boolean
-  studentCode: string | null
-  teacherCode: string | null
+  sub: string       // User.id
+  profileId: string // Admin.id | Teacher.id | Student.id
+  role: AccountRole
 }
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET!

@@ -52,7 +52,8 @@ export async function logout(_req: Request, res: Response, next: NextFunction): 
 
 export async function getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const user = await authService.getMe(req.user!.id)
+    const { id, role } = req.user!
+    const user = await authService.getMe(id, role)
     res.status(200).json({ success: true, message: 'OK', data: user })
   } catch (err) {
     next(err)

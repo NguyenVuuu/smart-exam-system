@@ -41,7 +41,7 @@ export default function LoginPage() {
           {/* Identifier */}
           <div>
             <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Email / Student Code / Teacher Code
+              Student Code / Teacher Code
             </label>
             <input
               {...register('identifier')}

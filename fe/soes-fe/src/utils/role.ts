@@ -1,18 +1,16 @@
 import type { User, UserRole } from '../types/auth.types'
 
 export function resolveRole(user: User): UserRole {
-  if (user.isAdmin) return 'ADMIN'
-  if (user.teacherCode) return 'TEACHER'
-  return 'STUDENT'
+  return user.role
 }
 
-// When identifier is known (at login time), use it to determine intended role.
-// This handles the case where a user has both studentCode and teacherCode.
+// At login time, use the identifier prefix to decide redirect
+// for users who have both student and teacher profiles.
 export function resolveRoleFromIdentifier(identifier: string, user: User): UserRole {
-  if (user.isAdmin) return 'ADMIN'
   if (identifier.toUpperCase().startsWith('GV')) return 'TEACHER'
   if (identifier.toUpperCase().startsWith('SV')) return 'STUDENT'
-  return resolveRole(user)
+  if (identifier.toUpperCase().startsWith('AD')) return 'ADMIN'
+  return user.role
 }
 
 export const ROLE_HOME: Record<UserRole, string> = {

@@ -15,9 +15,8 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
 
     req.user = {
       id: payload.sub,
-      isAdmin: payload.isAdmin,
-      studentCode: payload.studentCode,
-      teacherCode: payload.teacherCode,
+      profileId: payload.profileId,
+      role: payload.role,
     }
 
     next()

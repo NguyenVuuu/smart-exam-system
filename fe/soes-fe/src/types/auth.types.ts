@@ -1,14 +1,16 @@
+export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT'
+
 export interface User {
   id: string
+  profileId: string
   fullName: string
   email: string | null
+  avatarUrl: string | null
+  role: UserRole
   studentCode: string | null
   teacherCode: string | null
-  isAdmin: boolean
-  avatarUrl: string | null
+  adminCode: string | null
 }
-
-export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT'
 
 export interface LoginRequest {
   identifier: string
