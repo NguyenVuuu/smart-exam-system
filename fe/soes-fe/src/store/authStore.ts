@@ -6,10 +6,11 @@ interface AuthState {
   user: User | null
   accessToken: string | null
   isAuthenticated: boolean
+  isInitialized: boolean // true once the startup refresh-token check has completed
 
   setUser: (user: User) => void
-  setTokens: (accessToken: string, refreshToken: string) => void
-  initialize: () => void
+  setAccessToken: (token: string) => void
+  setInitialized: (initialized: boolean) => void
   logout: () => void
 }
 
@@ -17,26 +18,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   accessToken: null,
   isAuthenticated: false,
+  isInitialized: false,
 
   setUser(user) {
     set({ user })
   },
 
-  setTokens(accessToken, refreshToken) {
-    tokenStorage.setAccessToken(accessToken)
-    tokenStorage.setRefreshToken(refreshToken)
-    set({ accessToken, isAuthenticated: true })
+  setAccessToken(token) {
+    tokenStorage.setAccessToken(token)
+    set({ accessToken: token, isAuthenticated: true })
   },
 
-  initialize() {
-    const accessToken = tokenStorage.getAccessToken()
-    if (accessToken) {
-      set({ accessToken, isAuthenticated: true })
-    }
+  setInitialized(initialized) {
+    set({ isInitialized: initialized })
   },
 
   logout() {
-    tokenStorage.clear()
-    set({ user: null, accessToken: null, isAuthenticated: false })
+    tokenStorage.clearAccessToken()
+    set({ user: null, accessToken: null, isAuthenticated: false, isInitialized: true })
   },
 }))

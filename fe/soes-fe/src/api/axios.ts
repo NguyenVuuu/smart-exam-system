@@ -7,9 +7,11 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  // Required so the browser automatically sends the HttpOnly refresh token cookie
+  withCredentials: true,
 })
 
-// Attach access token to every request
+// Attach access token from memory to every request
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = tokenStorage.getAccessToken()
   if (token) {
@@ -18,7 +20,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config
 })
 
-// Track whether a refresh is in-flight to avoid concurrent refreshes
+// Track whether a refresh is in-flight to avoid concurrent refresh calls
 let isRefreshing = false
 let pendingQueue: Array<{
   resolve: (token: string) => void
@@ -42,8 +44,10 @@ apiClient.interceptors.response.use(
 
     const is401 = error.response?.status === 401
     const alreadyRetried = originalRequest._retry
+    // Never attempt to refresh if the failing request IS the refresh endpoint
+    const isRefreshEndpoint = originalRequest.url?.includes('/auth/refresh-token')
 
-    if (!is401 || alreadyRetried) {
+    if (!is401 || alreadyRetried || isRefreshEndpoint) {
       return Promise.reject(error)
     }
 
@@ -62,24 +66,15 @@ apiClient.interceptors.response.use(
     originalRequest._retry = true
     isRefreshing = true
 
-    const refreshToken = tokenStorage.getRefreshToken()
-    if (!refreshToken) {
-      useAuthStore.getState().logout()
-      return Promise.reject(error)
-    }
-
     try {
-      const { data } = await axios.post<{
+      // Browser sends HttpOnly cookie automatically — no manual token attachment needed
+      const { data } = await apiClient.post<{
         success: boolean
         data: { accessToken: string }
-      }>(`${BASE_URL}/auth/refresh-token`, undefined, {
-        headers: { Cookie: `refreshToken=${refreshToken}` },
-        withCredentials: true,
-      })
+      }>('/auth/refresh-token')
 
       const newToken = data.data.accessToken
-      tokenStorage.setAccessToken(newToken)
-      useAuthStore.getState().setTokens(newToken, refreshToken)
+      useAuthStore.getState().setAccessToken(newToken)
 
       processPendingQueue(null, newToken)
       originalRequest.headers.Authorization = `Bearer ${newToken}`
