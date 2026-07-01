@@ -31,7 +31,7 @@ jobs:
 
       # ✔ IMPORTANT: tạo .env từ 1 secret duy nhất
       - name: Create .env file
-        run: echo "${{ secrets.ENV_FILE }}" > .env
+        run: echo "${{ secrets.BACKEND_ENV }}" > .env
 
       - name: Install dependencies
         run: npm ci
