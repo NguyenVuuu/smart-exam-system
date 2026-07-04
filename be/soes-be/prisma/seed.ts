@@ -1,100 +1,43 @@
 import { PrismaClient } from '@prisma/client'
-import bcrypt from 'bcrypt'
+import { seedSettings } from './seeds/settings.seed'
+import { seedSemesters } from './seeds/semesters.seed'
+import { seedSubjects } from './seeds/subjects.seed'
+import { seedAdmins } from './seeds/admins.seed'
+import { seedTeachers } from './seeds/teachers.seed'
+import { seedStudents } from './seeds/students.seed'
+import { seedCourseOfferings } from './seeds/course-offerings.seed'
+import { seedEnrollments } from './seeds/enrollments.seed'
+import { seedMaterials } from './seeds/materials.seed'
+import { seedQuestions } from './seeds/questions.seed'
+import { seedExams } from './seeds/exams.seed'
+import { seedNotifications } from './seeds/notifications.seed'
 
 const prisma = new PrismaClient()
-const SALT_ROUNDS = 10
-const DEFAULT_PASSWORD = '123456'
 
 async function main() {
-  const hashed = await bcrypt.hash(DEFAULT_PASSWORD, SALT_ROUNDS)
+  console.log('\n🌱 Starting SOES seed...\n')
 
-  // ── User 1: Admin ──────────────────────────────────────
-  await prisma.user.upsert({
-    where: { id: 'seed-user-admin-001' },
-    update: {},
-    create: {
-      id: 'seed-user-admin-001',
-      fullName: 'Super Admin',
-      email: 'admin@soes.edu.vn',
-      admin: {
-        create: {
-          adminCode: 'AD000001',
-          password: hashed,
-          status: 'ACTIVE',
-        },
-      },
-    },
-  })
+  await seedSettings(prisma)
 
-  // ── User 2: Student ────────────────────────────────────
-  await prisma.user.upsert({
-    where: { id: 'seed-user-student-001' },
-    update: {},
-    create: {
-      id: 'seed-user-student-001',
-      fullName: 'Nguyen Van An',
-      student: {
-        create: {
-          studentCode: 'SV000001',
-          password: hashed,
-          status: 'ACTIVE',
-        },
-      },
-    },
-  })
+  const semesters = await seedSemesters(prisma)
+  const subjects  = await seedSubjects(prisma)
 
-  // ── User 3: Teacher ────────────────────────────────────
-  await prisma.user.upsert({
-    where: { id: 'seed-user-teacher-001' },
-    update: {},
-    create: {
-      id: 'seed-user-teacher-001',
-      fullName: 'Tran Thi Bich',
-      email: 'gv001@soes.edu.vn',
-      teacher: {
-        create: {
-          teacherCode: 'GV000001',
-          password: hashed,
-          status: 'ACTIVE',
-        },
-      },
-    },
-  })
+  await seedAdmins(prisma)
+  const teachers  = await seedTeachers(prisma)
+  const students  = await seedStudents(prisma)
 
-  // ── User 4: Student + Teacher ──────────────────────────
-  await prisma.user.upsert({
-    where: { id: 'seed-user-combo-001' },
-    update: {},
-    create: {
-      id: 'seed-user-combo-001',
-      fullName: 'Le Minh Cuong',
-      email: 'combo@soes.edu.vn',
-      student: {
-        create: {
-          studentCode: 'SV000002',
-          password: hashed,
-          status: 'ACTIVE',
-        },
-      },
-      teacher: {
-        create: {
-          teacherCode: 'GV000002',
-          password: hashed,
-          status: 'ACTIVE',
-        },
-      },
-    },
-  })
+  const courseOfferings = await seedCourseOfferings(prisma, { semesters, subjects, teachers })
 
-  console.log('✅ Seed completed\n')
-  console.log('──────────────────────────────────────────────────────')
-  console.log('User | Account         | Identifier          | Password')
-  console.log('──────────────────────────────────────────────────────')
-  console.log(`  1  | Admin            | AD000001            | ${DEFAULT_PASSWORD}`)
-  console.log(`  2  | Student          | SV000001            | ${DEFAULT_PASSWORD}`)
-  console.log(`  3  | Teacher          | GV000001            | ${DEFAULT_PASSWORD}`)
-  console.log(`  4  | Student+Teacher  | SV000002 / GV000002 | ${DEFAULT_PASSWORD}`)
-  console.log('──────────────────────────────────────────────────────')
+  await seedEnrollments(prisma, { courseOfferings, students })
+  await seedMaterials(prisma, { courseOfferings, teachers })
+
+  const questions = await seedQuestions(prisma, { subjects, teachers })
+
+  await seedExams(prisma, { courseOfferings, subjects, teachers, questions })
+
+  await seedNotifications(prisma)
+
+  console.log('\n✅ SOES seed completed successfully!\n')
 }
 
 main()
