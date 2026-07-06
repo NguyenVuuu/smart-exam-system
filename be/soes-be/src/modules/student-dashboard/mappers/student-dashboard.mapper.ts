@@ -2,15 +2,15 @@ import type {
   DashboardAnalyticsItemDto,
   DashboardNotificationDto,
   DashboardUpcomingExamDto,
+  ExamTypeValue,
 } from '../dtos/student-dashboard.dto'
 
-interface ExamRow {
+interface UpcomingExamRow {
   id: string
   title: string
   startTime: Date
   endTime: Date
   durationMinutes: number
-  status: string
   courseOffering: { subject: { name: string } }
 }
 
@@ -22,7 +22,9 @@ interface NotificationRow {
   createdAt: Date
 }
 
-export function toUpcomingExamDto(exam: ExamRow): DashboardUpcomingExamDto {
+export function toUpcomingExamDto(
+  exam: UpcomingExamRow,
+): DashboardUpcomingExamDto {
   return {
     id: exam.id,
     title: exam.title,
@@ -43,14 +45,22 @@ export function toNotificationDto(notif: NotificationRow): DashboardNotification
   }
 }
 
-export function toAnalyticsItemDto(
-  subjectName: string,
-  myScore: number,
-  classAverage: number,
-): DashboardAnalyticsItemDto {
+export function toAnalyticsItemDto(params: {
+  subjectId: string
+  subjectName: string
+  semesterId: string
+  semesterName: string
+  examType: ExamTypeValue
+  myScore: number
+  classAverage: number
+}): DashboardAnalyticsItemDto {
   return {
-    subjectName,
-    myScore: Math.round(myScore * 100) / 100,
-    classAverage: Math.round(classAverage * 100) / 100,
+    subjectId: params.subjectId,
+    subjectName: params.subjectName,
+    semesterId: params.semesterId,
+    semesterName: params.semesterName,
+    examType: params.examType,
+    myScore: Math.round(params.myScore * 100) / 100,
+    classAverage: Math.round(params.classAverage * 100) / 100,
   }
 }

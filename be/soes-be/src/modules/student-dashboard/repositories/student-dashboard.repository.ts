@@ -1,45 +1,6 @@
 import { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 
-// ── Raw query result types ─────────────────────────────────
-
-export type EnrollmentWithSubject = Prisma.EnrollmentGetPayload<{
-  select: {
-    courseOffering: {
-      select: {
-        subject: { select: { id: true; name: true } }
-        exams: {
-          select: {
-            id: true
-            title: true
-            startTime: true
-            endTime: true
-            durationMinutes: true
-            status: true
-            courseOffering: {
-              select: { subject: { select: { name: true } } }
-            }
-          }
-        }
-      }
-    }
-  }
-}>
-
-export type ExamAttemptWithScore = Prisma.ExamAttemptGetPayload<{
-  select: {
-    totalScore: true
-    exam: {
-      select: {
-        courseOffering: {
-          select: { subject: { select: { id: true; name: true } } }
-        }
-        examQuestions: { select: { points: true } }
-      }
-    }
-  }
-}>
-
 export async function findStudentById(studentId: string) {
   return prisma.student.findUnique({
     where: { id: studentId },
@@ -50,24 +11,23 @@ export async function findStudentById(studentId: string) {
   })
 }
 
-export async function findEnrollmentsWithSubjects(studentId: string) {
+export async function findEnrollmentsWithExams(studentId: string) {
   return prisma.enrollment.findMany({
     where: { studentId },
     select: {
       courseOffering: {
         select: {
           subject: { select: { id: true, name: true } },
+          semester: { select: { id: true, name: true } },
           exams: {
             select: {
               id: true,
               title: true,
+              type: true,
               startTime: true,
               endTime: true,
               durationMinutes: true,
               status: true,
-              courseOffering: {
-                select: { subject: { select: { name: true } } },
-              },
             },
           },
         },
@@ -87,8 +47,13 @@ export async function findSubmittedAttempts(studentId: string) {
       totalScore: true,
       exam: {
         select: {
+          id: true,
+          type: true,
           courseOffering: {
-            select: { subject: { select: { id: true, name: true } } },
+            select: {
+              subject: { select: { id: true, name: true } },
+              semester: { select: { id: true, name: true } },
+            },
           },
           examQuestions: { select: { points: true } },
         },
@@ -97,57 +62,43 @@ export async function findSubmittedAttempts(studentId: string) {
   })
 }
 
-export async function findClassAverages(subjectIds: string[]): Promise<
-  Array<{ subjectId: string; subjectName: string; average: number }>
-> {
-  if (subjectIds.length === 0) return []
+// Key: examId → average normalised score across all submitted students
+export async function findClassAveragesByExam(
+  examIds: string[],
+): Promise<Map<string, number>> {
+  if (examIds.length === 0) return new Map()
 
-  // Aggregate average score per subject across all students' submitted attempts
-  const result = await prisma.examAttempt.findMany({
+  const attempts = await prisma.examAttempt.findMany({
     where: {
+      examId: { in: examIds },
       status: 'SUBMITTED',
       totalScore: { not: null },
-      exam: {
-        courseOffering: { subjectId: { in: subjectIds } },
-      },
     },
     select: {
+      examId: true,
       totalScore: true,
       exam: {
         select: {
           examQuestions: { select: { points: true } },
-          courseOffering: {
-            select: { subject: { select: { id: true, name: true } } },
-          },
         },
       },
     },
   })
 
-  // Group by subject and compute average normalised score (0–10)
-  const map = new Map<string, { name: string; scores: number[] }>()
-
-  for (const attempt of result) {
-    const subject = attempt.exam.courseOffering.subject
-    const totalPoints = attempt.exam.examQuestions.reduce(
-      (sum, eq) => sum + Number(eq.points),
-      0,
-    )
+  const scoresByExam = new Map<string, number[]>()
+  for (const a of attempts) {
+    const totalPoints = a.exam.examQuestions.reduce((s, eq) => s + Number(eq.points), 0)
     if (totalPoints === 0) continue
-
-    const normalised = (Number(attempt.totalScore) / totalPoints) * 10
-
-    if (!map.has(subject.id)) {
-      map.set(subject.id, { name: subject.name, scores: [] })
-    }
-    map.get(subject.id)!.scores.push(normalised)
+    const normalised = (Number(a.totalScore) / totalPoints) * 10
+    if (!scoresByExam.has(a.examId)) scoresByExam.set(a.examId, [])
+    scoresByExam.get(a.examId)!.push(normalised)
   }
 
-  return Array.from(map.entries()).map(([subjectId, { name, scores }]) => ({
-    subjectId,
-    subjectName: name,
-    average: scores.reduce((s, v) => s + v, 0) / scores.length,
-  }))
+  const result = new Map<string, number>()
+  for (const [examId, scores] of scoresByExam) {
+    result.set(examId, scores.reduce((s, v) => s + v, 0) / scores.length)
+  }
+  return result
 }
 
 export async function findNotifications(userId: string, limit = 10) {
@@ -164,3 +115,26 @@ export async function findNotifications(userId: string, limit = 10) {
     },
   })
 }
+
+// Kept for upcoming exams — needs subject name via courseOffering
+export type EnrollmentExamRow = Prisma.EnrollmentGetPayload<{
+  select: {
+    courseOffering: {
+      select: {
+        subject: { select: { id: true; name: true } }
+        semester: { select: { id: true; name: true } }
+        exams: {
+          select: {
+            id: true
+            title: true
+            type: true
+            startTime: true
+            endTime: true
+            durationMinutes: true
+            status: true
+          }
+        }
+      }
+    }
+  }
+}>
