@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser'
 import { errorHandler } from './middlewares/errorHandler'
 import { authRoutes } from './modules/auth'
 import { studentDashboardRoutes } from './modules/student-dashboard'
+import { studentSubjectsRoutes } from './modules/student-subjects'
 
 const app = express()
 
@@ -30,6 +31,7 @@ app.use(cookieParser())
 // ── Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
 app.use('/api/student', studentDashboardRoutes)
+app.use('/api/student', studentSubjectsRoutes)
 
 // ── Health check ──────────────────────────────────────────
 app.get('/health', (_req, res) => {
