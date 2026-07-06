@@ -20,6 +20,9 @@ export default function NotificationList({ notifications }: NotificationListProp
       </h3>
 
       <ul className="space-y-2.5">
+        {notifications.length === 0 && (
+          <li className="text-sm text-gray-400">Không có thông báo mới.</li>
+        )}
         {notifications.map((notif) => (
           <li key={notif.id} className="flex items-center gap-2.5 text-sm text-gray-700">
             <span className={`w-2 h-2 rounded-full shrink-0 ${DOT_COLOR[notif.dot]}`} />

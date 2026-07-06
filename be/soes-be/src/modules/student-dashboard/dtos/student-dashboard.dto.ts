@@ -9,8 +9,14 @@ export interface DashboardStatsDto {
   upcomingExamCount: number
 }
 
+export type ExamTypeValue = 'QUIZ' | 'MIDTERM' | 'FINAL'
+
 export interface DashboardAnalyticsItemDto {
+  subjectId: string
   subjectName: string
+  semesterId: string
+  semesterName: string
+  examType: ExamTypeValue
   myScore: number
   classAverage: number
 }

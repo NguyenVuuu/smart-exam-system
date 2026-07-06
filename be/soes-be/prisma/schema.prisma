@@ -200,6 +200,7 @@ model ProgrammingTestCase {
 model Exam {
   id                      String         @id @default(uuid())
   title                   String
+  type                    ExamType
   description             String?
   password                String?
   startTime               DateTime
@@ -354,6 +355,12 @@ model AuditLog {
 enum AccountStatus {
   ACTIVE
   INACTIVE
+}
+
+enum ExamType {
+  QUIZ
+  MIDTERM
+  FINAL
 }
 
 enum SemesterStatus {

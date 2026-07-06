@@ -1,26 +1,25 @@
 import { NotFoundError } from '../../../errors/AppError'
-import type { StudentDashboardDto } from '../dtos/student-dashboard.dto'
-import {
-  toAnalyticsItemDto,
-  toNotificationDto,
-  toUpcomingExamDto,
-} from '../mappers/student-dashboard.mapper'
+import type { ExamTypeValue, StudentDashboardDto } from '../dtos/student-dashboard.dto'
+import { toAnalyticsItemDto, toNotificationDto, toUpcomingExamDto } from '../mappers/student-dashboard.mapper'
 import * as repo from '../repositories/student-dashboard.repository'
 
 const UPCOMING_EXAM_LIMIT = 5
 const NOTIFICATION_LIMIT = 10
 
+// Composite key for grouping analytics by subject+semester+examType
+function groupKey(subjectId: string, semesterId: string, examType: string): string {
+  return `${subjectId}::${semesterId}::${examType}`
+}
+
 export async function getStudentDashboard(
   studentId: string,
   userId: string,
 ): Promise<StudentDashboardDto> {
-  // Verify student exists
   const student = await repo.findStudentById(studentId)
   if (!student) throw new NotFoundError('Student not found')
 
-  // Fetch all data in parallel
   const [enrollments, submittedAttempts, notifications] = await Promise.all([
-    repo.findEnrollmentsWithSubjects(studentId),
+    repo.findEnrollmentsWithExams(studentId),
     repo.findSubmittedAttempts(studentId),
     repo.findNotifications(userId, NOTIFICATION_LIMIT),
   ])
@@ -28,81 +27,127 @@ export async function getStudentDashboard(
   // ── Greeting ──────────────────────────────────────────
   const greeting = { fullName: student.user.fullName }
 
-  // ── Unique subjects from enrollments ─────────────────
-  const subjectMap = new Map<string, string>() // id → name
-  for (const enrollment of enrollments) {
-    const subj = enrollment.courseOffering.subject
-    subjectMap.set(subj.id, subj.name)
-  }
-  const subjectCount = subjectMap.size
+  // ── Unique subjects ────────────────────────────────────
+  const subjectCount = new Set(
+    enrollments.map((e) => e.courseOffering.subject.id),
+  ).size
 
-  // ── All exams across enrollments ──────────────────────
-  const allExams = enrollments.flatMap((e) => e.courseOffering.exams)
+  // ── Total exam count ───────────────────────────────────
+  const examCount = new Set(
+    enrollments.flatMap((e) => e.courseOffering.exams.map((ex) => ex.id)),
+  ).size
 
-  const examCount = new Set(allExams.map((e) => e.id)).size
-
-  // ── Upcoming exams (PUBLISHED, startTime in future) ───
+  // ── Upcoming exams ─────────────────────────────────────
   const now = new Date()
-  const upcomingExams = allExams
-    .filter((e) => e.status === 'PUBLISHED' && e.startTime > now)
+  interface UpcomingExamWithSubject {
+    id: string; title: string; startTime: Date; endTime: Date
+    durationMinutes: number; courseOffering: { subject: { name: string } }
+  }
+  const upcomingRaw: UpcomingExamWithSubject[] = []
+
+  for (const enrollment of enrollments) {
+    const co = enrollment.courseOffering
+    for (const exam of co.exams) {
+      if (exam.status === 'PUBLISHED' && exam.startTime > now) {
+        upcomingRaw.push({ ...exam, courseOffering: { subject: { name: co.subject.name } } })
+      }
+    }
+  }
+
+  const upcomingExams = upcomingRaw
     .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
     .slice(0, UPCOMING_EXAM_LIMIT)
+    .map(toUpcomingExamDto)
 
   const upcomingExamCount = upcomingExams.length
 
-  // ── GPA (average normalised score across all submitted attempts) ──
-  let gpa: number | null = null
-  if (submittedAttempts.length > 0) {
-    const normalisedScores = submittedAttempts
-      .map((attempt) => {
-        const totalPoints = attempt.exam.examQuestions.reduce(
-          (sum, eq) => sum + Number(eq.points),
-          0,
-        )
-        if (totalPoints === 0) return null
-        return (Number(attempt.totalScore) / totalPoints) * 10
-      })
-      .filter((s): s is number => s !== null)
+  // ── GPA ────────────────────────────────────────────────
+  const normalisedScores: number[] = []
+  for (const attempt of submittedAttempts) {
+    const totalPoints = attempt.exam.examQuestions.reduce((s, eq) => s + Number(eq.points), 0)
+    if (totalPoints === 0) continue
+    normalisedScores.push((Number(attempt.totalScore) / totalPoints) * 10)
+  }
+  const gpa =
+    normalisedScores.length > 0
+      ? Math.round((normalisedScores.reduce((s, v) => s + v, 0) / normalisedScores.length) * 100) / 100
+      : null
 
-    if (normalisedScores.length > 0) {
-      const sum = normalisedScores.reduce((s, v) => s + v, 0)
-      gpa = Math.round((sum / normalisedScores.length) * 100) / 100
-    }
+  // ── Analytics: grouped by (subjectId, semesterId, examType) ───────────
+  // For QUIZ: average all quiz scores for that subject+semester
+  // For MIDTERM/FINAL: single score per group
+
+  interface GroupInfo {
+    subjectId: string
+    subjectName: string
+    semesterId: string
+    semesterName: string
+    examType: ExamTypeValue
+    examIds: string[]         // all exam ids in this group (for class avg)
+    myScores: number[]        // my normalised scores
   }
 
-  // ── Analytics: my score vs class average per subject ──
-  const myScoreBySubject = new Map<string, { name: string; scores: number[] }>()
+  const groupMap = new Map<string, GroupInfo>()
+
   for (const attempt of submittedAttempts) {
-    const subj = attempt.exam.courseOffering.subject
-    const totalPoints = attempt.exam.examQuestions.reduce(
-      (sum, eq) => sum + Number(eq.points),
-      0,
-    )
+    const totalPoints = attempt.exam.examQuestions.reduce((s, eq) => s + Number(eq.points), 0)
     if (totalPoints === 0) continue
 
     const normalised = (Number(attempt.totalScore) / totalPoints) * 10
-    if (!myScoreBySubject.has(subj.id)) {
-      myScoreBySubject.set(subj.id, { name: subj.name, scores: [] })
+    const co = attempt.exam.courseOffering
+    const examType = attempt.exam.type as ExamTypeValue
+    const key = groupKey(co.subject.id, co.semester.id, examType)
+
+    if (!groupMap.has(key)) {
+      groupMap.set(key, {
+        subjectId: co.subject.id,
+        subjectName: co.subject.name,
+        semesterId: co.semester.id,
+        semesterName: co.semester.name,
+        examType,
+        examIds: [],
+        myScores: [],
+      })
     }
-    myScoreBySubject.get(subj.id)!.scores.push(normalised)
+
+    const group = groupMap.get(key)!
+    group.myScores.push(normalised)
+    group.examIds.push(attempt.exam.id)
   }
 
-  const subjectIdsWithScores = Array.from(myScoreBySubject.keys())
-  const classAverages = await repo.findClassAverages(subjectIdsWithScores)
-  const classAvgMap = new Map(classAverages.map((c) => [c.subjectId, c]))
+  // Fetch class averages for all relevant exam ids
+  const allExamIds = Array.from(groupMap.values()).flatMap((g) => g.examIds)
+  const classAvgByExam = await repo.findClassAveragesByExam(allExamIds)
 
-  const analytics = subjectIdsWithScores.map((subjectId) => {
-    const { name, scores } = myScoreBySubject.get(subjectId)!
-    const myAvg = scores.reduce((s, v) => s + v, 0) / scores.length
-    const classAvg = classAvgMap.get(subjectId)?.average ?? myAvg
-    return toAnalyticsItemDto(name, myAvg, classAvg)
+  const analytics = Array.from(groupMap.values()).map((group) => {
+    const myScore = group.myScores.reduce((s, v) => s + v, 0) / group.myScores.length
+
+    // Class average: average of per-exam class averages in this group
+    const groupClassAvgs = group.examIds
+      .map((id) => classAvgByExam.get(id))
+      .filter((v): v is number => v !== undefined)
+
+    const classAverage =
+      groupClassAvgs.length > 0
+        ? groupClassAvgs.reduce((s, v) => s + v, 0) / groupClassAvgs.length
+        : myScore
+
+    return toAnalyticsItemDto({
+      subjectId: group.subjectId,
+      subjectName: group.subjectName,
+      semesterId: group.semesterId,
+      semesterName: group.semesterName,
+      examType: group.examType,
+      myScore,
+      classAverage,
+    })
   })
 
   return {
     greeting,
     stats: { subjectCount, examCount, gpa, upcomingExamCount },
     analytics,
-    upcomingExams: upcomingExams.map(toUpcomingExamDto),
+    upcomingExams,
     notifications: notifications.map(toNotificationDto),
   }
 }

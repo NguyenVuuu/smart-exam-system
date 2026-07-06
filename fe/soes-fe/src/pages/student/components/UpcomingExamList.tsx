@@ -14,6 +14,9 @@ export default function UpcomingExamList({ exams }: UpcomingExamListProps) {
       </h3>
 
       <ul className="space-y-2.5">
+        {exams.length === 0 && (
+          <li className="text-sm text-gray-400">Không có bài thi sắp diễn ra.</li>
+        )}
         {exams.map((exam) => (
           <li key={exam.id} className="flex items-center gap-2.5 text-sm text-gray-700">
             <span

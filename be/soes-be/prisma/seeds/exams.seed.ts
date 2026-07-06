@@ -1,4 +1,11 @@
-import { CourseOffering, Exam, PrismaClient, Question, Subject, Teacher } from '@prisma/client'
+import { CourseOffering, Exam, ExamType, PrismaClient, Question, Subject, Teacher } from '@prisma/client'
+import {
+  FIXED_EXAMS,
+  QUIZ_BASE_OFFSET,
+  QUIZ_SPACING_DAYS,
+  SEED_MODE,
+  getQuizCount,
+} from './seed.config'
 
 interface ExamSeedInput {
   courseOfferings: CourseOffering[]
@@ -7,74 +14,96 @@ interface ExamSeedInput {
   questions: Question[]
 }
 
-type ExamTemplate = {
-  titleSuffix: string
-  durationMinutes: number
-  startOffset: number  // days from now
-  endOffset: number
-  status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
-}
-
-const EXAM_TEMPLATES: ExamTemplate[] = [
-  { titleSuffix: 'Thường kỳ',  durationMinutes: 45,  startOffset: -30, endOffset: -29, status: 'CLOSED'    },
-  { titleSuffix: 'Giữa kỳ',   durationMinutes: 60,  startOffset: 16,  endOffset: 17,  status: 'PUBLISHED'  },
-  { titleSuffix: 'Cuối kỳ',   durationMinutes: 90,  startOffset: 60,  endOffset: 61,  status: 'DRAFT'      },
-]
-
 function offsetDate(days: number): Date {
   const d = new Date()
   d.setDate(d.getDate() + days)
   return d
 }
 
+function resolveStatus(realStatus: 'DRAFT' | 'PUBLISHED' | 'CLOSED'): 'DRAFT' | 'PUBLISHED' | 'CLOSED' {
+  return SEED_MODE === 'demo' ? 'CLOSED' : realStatus
+}
+
+async function upsertExam(
+  prisma: PrismaClient,
+  data: Parameters<typeof prisma.exam.create>[0]['data'],
+): Promise<Exam> {
+  const title            = data.title as string
+  const courseOfferingId = data.courseOfferingId as string
+
+  const existing = await prisma.exam.findFirst({
+    where: { title, courseOfferingId },
+  })
+  if (existing) return existing
+
+  return prisma.exam.create({ data })
+}
+
 export async function seedExams(
   prisma: PrismaClient,
   { courseOfferings, subjects, teachers, questions }: ExamSeedInput,
 ): Promise<Exam[]> {
-  console.log('Seeding Exams...')
+  console.log(`Seeding Exams (mode: ${SEED_MODE})...`)
 
   const allExams: Exam[] = []
 
   for (let i = 0; i < courseOfferings.length; i++) {
     const offering = courseOfferings[i]
-    const teacher = teachers[i] ?? teachers[0]
-    const subject = subjects[i] ?? subjects[0]
+    const teacher  = teachers[i] ?? teachers[0]
+    const subject  = subjects[i] ?? subjects[0]
 
-    // Questions belonging to this subject
     const subjectQuestions = questions.filter((q) => q.subjectId === subject.id)
-    const examQuestions = subjectQuestions.slice(0, 5) // use first 5 per exam
+    const examQs           = subjectQuestions.slice(0, 5)
 
-    for (const tmpl of EXAM_TEMPLATES) {
-      const title = `${subject.name} - ${tmpl.titleSuffix}`
+    const quizCount = getQuizCount(subject.code)
 
-      const existing = await prisma.exam.findFirst({
-        where: { title, courseOfferingId: offering.id },
+    // ── Generate QUIZ exams ────────────────────────────
+    for (let q = 0; q < quizCount; q++) {
+      const titleSuffix  = quizCount === 1 ? 'Thường kỳ' : `Thường kỳ ${q + 1}`
+      const startOffset  = QUIZ_BASE_OFFSET + q * QUIZ_SPACING_DAYS
+      const endOffset    = startOffset + 1
+
+      const exam = await upsertExam(prisma, {
+        title:                  `${subject.name} - ${titleSuffix}`,
+        description:            `Bài thi ${titleSuffix} môn ${subject.name}`,
+        type:                   ExamType.QUIZ,
+        startTime:              offsetDate(startOffset),
+        endTime:                offsetDate(endOffset),
+        durationMinutes:        45,
+        maxAttempts:            1,
+        shuffleQuestions:       true,
+        shuffleOptions:         true,
+        showResultImmediately:  true,
+        status:                 'CLOSED',       // QUIZ is always CLOSED
+        courseOfferingId:       offering.id,
+        createdById:            teacher.id,
+        examQuestions: {
+          create: examQs.map((q) => ({ questionId: q.id, points: '2.00' })),
+        },
       })
-      if (existing) { allExams.push(existing); continue }
+      allExams.push(exam)
+    }
 
-      const startTime = offsetDate(tmpl.startOffset)
-      const endTime = offsetDate(tmpl.endOffset)
+    // ── Generate MIDTERM and FINAL ─────────────────────
+    for (const spec of FIXED_EXAMS) {
+      const status = resolveStatus(spec.realStatus)
 
-      const exam = await prisma.exam.create({
-        data: {
-          title,
-          description: `Bài thi ${tmpl.titleSuffix} môn ${subject.name}`,
-          startTime,
-          endTime,
-          durationMinutes: tmpl.durationMinutes,
-          maxAttempts: 1,
-          shuffleQuestions: true,
-          shuffleOptions: true,
-          showResultImmediately: tmpl.status === 'CLOSED',
-          status: tmpl.status,
-          courseOfferingId: offering.id,
-          createdById: teacher.id,
-          examQuestions: {
-            create: examQuestions.map((q) => ({
-              questionId: q.id,
-              points: '2.00',
-            })),
-          },
+      const exam = await upsertExam(prisma, {
+        title:                  `${subject.name} - ${spec.titleSuffix}`,
+        description:            `Bài thi ${spec.titleSuffix} môn ${subject.name}`,
+        type:                   spec.type,
+        startTime:              offsetDate(spec.startOffset),
+        endTime:                offsetDate(spec.endOffset),
+        durationMinutes:        spec.durationMinutes,
+        maxAttempts:            1,
+        shuffleQuestions:       true,
+        shuffleOptions:         true,
+        showResultImmediately:  status === 'CLOSED',
+        status,
+        courseOfferingId:       offering.id,
+        createdById:            teacher.id,
+        examQuestions: {
+          create: examQs.map((q) => ({ questionId: q.id, points: '2.00' })),
         },
       })
       allExams.push(exam)
