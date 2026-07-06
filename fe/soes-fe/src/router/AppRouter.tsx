@@ -6,6 +6,7 @@ import LoginPage from '../pages/auth/LoginPage'
 import AdminDashboard from '../pages/admin/AdminDashboard'
 import TeacherDashboard from '../pages/teacher/TeacherDashboard'
 import StudentDashboard from '../pages/student/StudentDashboard'
+import StudentSubjectsPage from '../pages/student/StudentSubjectsPage'
 
 export default function AppRouter() {
   return (
@@ -47,6 +48,14 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['STUDENT']}>
               <StudentDashboard />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/subjects"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentSubjectsPage />
             </RoleRoute>
           }
         />
