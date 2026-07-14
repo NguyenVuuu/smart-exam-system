@@ -15,65 +15,56 @@ model User {
   avatarUrl     String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  admin         Admin?
   auditLogs     AuditLog[]
   notifications Notification[]
   student       Student?
   teacher       Teacher?
-  admin         Admin?
 }
 
 model Student {
-  id          String        @id @default(uuid())
-  studentCode String        @unique
-  password    String
-  status      AccountStatus @default(ACTIVE)
-
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
-
+  id           String        @id @default(uuid())
+  studentCode  String        @unique
+  password     String
+  status       AccountStatus @default(ACTIVE)
+  userId       String        @unique
   enrollments  Enrollment[]  @relation("StudentEnrollments")
   examAttempts ExamAttempt[] @relation("StudentExamAttempts")
+  user         User          @relation(fields: [userId], references: [id])
 }
 
 model Teacher {
-  id          String        @id @default(uuid())
-  teacherCode String        @unique
-  password    String
-  status      AccountStatus @default(ACTIVE)
-
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
-
+  id              String           @id @default(uuid())
+  teacherCode     String           @unique
+  password        String
+  status          AccountStatus    @default(ACTIVE)
+  userId          String           @unique
   courseOfferings CourseOffering[] @relation("TeacherCourseOfferings")
   exams           Exam[]           @relation("CreatorExams")
-  questions       Question[]       @relation("OwnerQuestions")
   materials       Material[]       @relation("UploaderMaterials")
+  questions       Question[]       @relation("OwnerQuestions")
+  user            User             @relation(fields: [userId], references: [id])
 }
 
 model Admin {
-  id String @id @default(uuid())
-
+  id        String        @id @default(uuid())
   adminCode String        @unique
   password  String
   status    AccountStatus @default(ACTIVE)
-
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
+  userId    String        @unique
+  user      User          @relation(fields: [userId], references: [id])
 }
 
 model CodeGenerationSetting {
-  id String @id @default("SYSTEM")
-
-  studentPrefix String @default("SV")
-  studentDigits Int    @default(6)
-
-  teacherPrefix String @default("GV")
-  teacherDigits Int    @default(6)
-
-  adminPrefix String   @default("AD")
-  adminDigits Int      @default(6)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default("SYSTEM")
+  studentPrefix String   @default("SV")
+  studentDigits Int      @default(6)
+  teacherPrefix String   @default("GV")
+  teacherDigits Int      @default(6)
+  adminPrefix   String   @default("AD")
+  adminDigits   Int      @default(6)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Semester {
@@ -200,7 +191,6 @@ model ProgrammingTestCase {
 model Exam {
   id                      String         @id @default(uuid())
   title                   String
-  type                    ExamType
   description             String?
   password                String?
   startTime               DateTime
@@ -216,6 +206,7 @@ model Exam {
   updatedAt               DateTime       @updatedAt
   courseOfferingId        String
   createdById             String
+  type                    ExamType
   courseOffering          CourseOffering @relation(fields: [courseOfferingId], references: [id])
   createdBy               Teacher        @relation("CreatorExams", fields: [createdById], references: [id])
   examAttempts            ExamAttempt[]
@@ -259,7 +250,7 @@ model ExamAttempt {
   exam             Exam                  @relation(fields: [examId], references: [id])
   student          Student               @relation("StudentExamAttempts", fields: [studentId], references: [id])
   attemptQuestions ExamAttemptQuestion[]
-  examSessions     ExamSession[]
+  examSessions     ExamSession?
   studentAnswers   StudentAnswer[]
   violations       Violation[]
 
