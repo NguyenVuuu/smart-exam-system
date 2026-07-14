@@ -5,6 +5,7 @@ import { errorHandler } from './middlewares/errorHandler'
 import { authRoutes } from './modules/auth'
 import { studentDashboardRoutes } from './modules/student-dashboard'
 import { studentSubjectsRoutes } from './modules/student-subjects'
+import { studentCourseDetailRoutes } from './modules/student-course-detail'
 
 const app = express()
 
@@ -32,6 +33,7 @@ app.use(cookieParser())
 app.use('/api/auth', authRoutes)
 app.use('/api/student', studentDashboardRoutes)
 app.use('/api/student', studentSubjectsRoutes)
+app.use('/api/student/course-offerings', studentCourseDetailRoutes)
 
 // ── Health check ──────────────────────────────────────────
 app.get('/health', (_req, res) => {
