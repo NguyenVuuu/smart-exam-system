@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { NotFoundError } from '../../../errors/AppError'
+import { ExamStatus, PostStatus } from '@prisma/client'
 
 export class StudentCourseDetailRepository {
   // ────────────────────────────────────────────────────────────
@@ -65,8 +66,85 @@ export class StudentCourseDetailRepository {
     courseOfferingId: string,
     page: number,
     pageSize: number,
-  ): Promise<TimelineRow> {
-    throw new Error('Not implemented')
+  ): Promise<{ posts: any[]; exams: any[]; totalPosts: number; totalExams: number }> {
+    // First verify course offering exists
+    const courseOffering = await prisma.courseOffering.findUnique({
+      where: { id: courseOfferingId },
+      select: { id: true },
+    })
+
+    if (!courseOffering) {
+      throw new NotFoundError('Course not found')
+    }
+
+    // Get ALL published posts with author info (no pagination at DB level)
+    const posts = await prisma.post.findMany({
+      where: {
+        courseOfferingId,
+        status: PostStatus.PUBLISHED,
+        publishedAt: { not: null },
+      },
+      select: {
+        id: true,
+        courseOfferingId: true,
+        title: true,
+        publishedAt: true,
+        updatedAt: true,
+        createdAt: true,
+        createdBy: {
+          select: {
+            user: {
+              select: {
+                fullName: true,
+              },
+            },
+          },
+        },
+        attachments: {
+          select: { id: true },
+        },
+      },
+      orderBy: {
+        publishedAt: 'desc',
+      },
+    })
+
+    // Get ALL published exams with author info (no pagination at DB level)
+    const exams = await prisma.exam.findMany({
+      where: {
+        courseOfferingId,
+        status: ExamStatus.PUBLISHED,
+        publishedAt: { not: null },
+      },
+      select: {
+        id: true,
+        courseOfferingId: true,
+        title: true,
+        publishedAt: true,
+        startTime: true,
+        endTime: true,
+        durationMinutes: true,
+        createdBy: {
+          select: {
+            user: {
+              select: {
+                fullName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        publishedAt: 'desc',
+      },
+    })
+
+    return { 
+      posts, 
+      exams, 
+      totalPosts: posts.length, 
+      totalExams: exams.length 
+    }
   }
 
   // ────────────────────────────────────────────────────────────

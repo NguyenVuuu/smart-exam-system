@@ -1,14 +1,29 @@
 import type { CourseDetailTimelineType, PaginationDto } from '../types/student-course-detail.types'
 
-export interface TimelineItemDto {
+export interface PostTimelineItemDto {
   id: string
-  type: CourseDetailTimelineType
+  courseOfferingId: string
+  type: 'POST'
   title: string
+  authorName: string
   publishedAt: Date
   edited: boolean
-  startTime?: Date
-  endTime?: Date
+  hasAttachment: boolean
 }
+
+export interface ExamTimelineItemDto {
+  id: string
+  courseOfferingId: string
+  type: 'EXAM'
+  title: string
+  authorName: string
+  publishedAt: Date
+  startTime: Date
+  endTime: Date
+  durationMinutes: number
+}
+
+export type TimelineItemDto = PostTimelineItemDto | ExamTimelineItemDto
 
 export interface TimelineResponseDto {
   items: TimelineItemDto[]

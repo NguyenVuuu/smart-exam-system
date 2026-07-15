@@ -38,15 +38,35 @@ export class StudentCourseDetailService {
     page: number,
     pageSize: number,
   ): Promise<TimelineResponseDto> {
-    const { items, pagination } = await repo.findTimeline(
-      courseOfferingId,
-      page,
-      pageSize,
-    );
-    return {
-      items: items.map(() => mapper.toTimelineResponse().items[0]),
-      pagination,
-    };
+    // First verify student has access to this course offering
+    await repo.findCourseHeader(courseOfferingId, studentId)
+
+    const { posts, exams, totalPosts, totalExams } = await repo.findTimeline(courseOfferingId, page, pageSize)
+
+    // Transform data for mapper
+    const transformedPosts = posts.map((p) => ({
+      id: p.id,
+      courseOfferingId: p.courseOfferingId,
+      title: p.title,
+      publishedAt: p.publishedAt,
+      updatedAt: p.updatedAt,
+      createdAt: p.createdAt,
+      authorName: p.createdBy?.user?.fullName || '',
+      attachments: p.attachments,
+    }))
+
+    const transformedExams = exams.map((e) => ({
+      id: e.id,
+      courseOfferingId: e.courseOfferingId,
+      title: e.title,
+      publishedAt: e.publishedAt,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      durationMinutes: e.durationMinutes,
+      authorName: e.createdBy?.user?.fullName || '',
+    }))
+
+    return mapper.toTimelineResponse(transformedPosts, transformedExams, totalPosts, totalExams, page, pageSize)
   }
 
   // ────────────────────────────────────────────────────────────
