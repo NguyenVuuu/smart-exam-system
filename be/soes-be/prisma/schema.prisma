@@ -243,6 +243,7 @@ model Exam {
   status                  ExamStatus     @default(DRAFT)
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
+  publishedAt             DateTime?
   courseOfferingId        String
   createdById             String
   type                    ExamType

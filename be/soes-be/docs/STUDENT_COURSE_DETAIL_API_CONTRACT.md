@@ -204,39 +204,24 @@ Authorization: Bearer <valid_teacher_token>
 ## Endpoint
 
 ```
-GET /api/student/course-offerings/:courseOfferingId
+GET /api/student/course-offerings/:courseOfferingId/timeline
 ```
 
 ## Mục đích
 
-Lấy thông tin chung của môn học.
+Lấy danh sách hoạt động (Timeline) của lớp học phần, bao gồm bài đăng (POST) và bài thi(EXAM).
 
-## Response
+## Authentication
 
-```json
-{
-  "success": true,
-  "message": "Course loaded successfully",
-  "data": {
-    "courseOfferingId": "uuid",
-    "subjectId": "uuid",
-    "subjectCode": "JAVA101",
-    "subjectName": "Lập trình Java",
-    "courseCode": "JAVA101 - Lớp 01",
-    "teacherName": "Nguyễn Văn A"
-  }
-}
-```
+| Type | Header | Value |
+|------|--------|-------|
+| Bearer Token | Authorization | `Bearer <access_token>` |
 
----
+## Authorization
 
-# API 2. Timeline
-
-## Endpoint
-
-```
-GET /api/student/course-offerings/:courseOfferingId/posts
-```
+- Role: `STUDENT`
+- Student phải thuộc lớp học phần (Course Offering)
+- Kiểm tra Enrollment trước khi lấy dữ liệu
 
 ## Query
 
@@ -250,21 +235,25 @@ GET /api/student/course-offerings/:courseOfferingId/posts
 ```json
 {
   "success": true,
-  "message": "Posts loaded successfully",
+  "message": "Timeline loaded successfully",
   "data": {
     "items": [
       {
-        "id": "uuid",
+        "id": "...",
+        "courseOfferingId": "uuid",
         "type": "POST",
         "title": "File ôn giữa kỳ",
+        "authorName":"Nguyễn Văn A",
         "publishedAt": "2026-07-20T08:00:00Z",
         "edited": true,
         "hasAttachment": true
       },
       {
-        "id": "uuid",
+        "id": ".....",
         "type": "EXAM",
+        "courseOfferingId": "uuid",
         "title": "Kiểm tra giữa kỳ",
+        "authorName":"Pham Thi Bich",
         "publishedAt": "2026-07-18T08:00:00Z",
         "startTime": "2026-07-20T19:00:00Z",
         "endTime": "2026-07-20T20:00:00Z",
@@ -281,16 +270,29 @@ GET /api/student/course-offerings/:courseOfferingId/posts
 }
 ```
 
+## Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Thành công |
+| 401 | Không đăng nhập |
+| 403 | Không có quyền (không phải STUDENT) |
+| 404 | Không tìm thấy lớp học phần hoặc sinh viên không thuộc lớp |
+
 ## Business Rules
 
-- Chỉ hiển thị bài đã Publish.
-- Không hiển thị Draft.
-- Không hiển thị Hidden.
-- Sort theo publishedAt giảm dần.
-- Timeline gồm:
-  - POST
-  - EXAM
+- Chỉ hiển thị Post có status = PUBLISHED.
+- Chỉ hiển thị Exam có status = PUBLISHED.
+- Không hiển thị DRAFT.
+- Không hiển thị ARCHIVED.
+- Sort theo publishedAt giảm dần (Sort theo publishedAt DESC).
 - Sau này có thể mở rộng Assignment.
+- Timeline gồm các item có type là POST và EXAM.
+- Tất cả item được hợp nhất thành một danh sách và sắp xếp theo publishedAt DESC.
+EXAM chỉ hiển thị khi:
+- status = PUBLISHED
+- publishedAt != null
+- Pagination áp dụng sau khi merge và sort.
 
 ---
 
@@ -419,12 +421,7 @@ GET /api/student/course-offerings/:courseOfferingId/members
         "fullName": "Nguyễn Văn A",
         "studentCode": null
       },
-      {
-        "id": "uuid",
-        "role": "ASSISTANT",
-        "fullName": "Trần Văn B",
-        "studentCode": null
-      },
+   
       {
         "id": "uuid",
         "role": "STUDENT",
@@ -445,7 +442,6 @@ GET /api/student/course-offerings/:courseOfferingId/members
 ## Business Rules
 
 - Teacher luôn đứng đầu.
-- Assistant đứng sau Teacher.
 - Student đứng cuối.
 - Student sort A → Z theo tên.
 - Không có tìm kiếm.
@@ -532,7 +528,7 @@ Chờ giảng viên nhập điểm
 | Method | Endpoint                                                        | Mục đích             |
 | ------ | --------------------------------------------------------------- | -------------------- |
 | GET    | `/api/student/course-offerings/:courseOfferingId`               | Header môn học       |
-| GET    | `/api/student/course-offerings/:courseOfferingId/posts`         | Timeline             |
+| GET    | `/api/student/course-offerings/:courseOfferingId/timeline`         | Timeline             |
 | GET    | `/api/student/course-offerings/:courseOfferingId/posts/:postId` | Chi tiết bài đăng    |
 | GET    | `/api/student/course-offerings/:courseOfferingId/exams/:examId` | Chi tiết bài thi     |
 | GET    | `/api/student/course-offerings/:courseOfferingId/members`       | Danh sách thành viên |

@@ -75,6 +75,7 @@ export async function seedExams(
         shuffleOptions:         true,
         showResultImmediately:  true,
         status:                 'CLOSED',       // QUIZ is always CLOSED
+        publishedAt:            offsetDate(startOffset - 1), // Published 1 day before start
         courseOfferingId:       offering.id,
         createdById:            teacher.id,
         examQuestions: {
@@ -88,6 +89,14 @@ export async function seedExams(
     for (const spec of FIXED_EXAMS) {
       const status = resolveStatus(spec.realStatus)
 
+      // Determine publishedAt based on status
+      let publishedAt: Date | null = null
+      if (status === 'PUBLISHED' || status === 'CLOSED') {
+        // Published 1-3 days before start time for both demo and real mode
+        const publishOffset = spec.startOffset - (1 + Math.floor(Math.random() * 3))
+        publishedAt = offsetDate(publishOffset)
+      }
+
       const exam = await upsertExam(prisma, {
         title:                  `${subject.name} - ${spec.titleSuffix}`,
         description:            `Bài thi ${spec.titleSuffix} môn ${subject.name}`,
@@ -100,6 +109,7 @@ export async function seedExams(
         shuffleOptions:         true,
         showResultImmediately:  status === 'CLOSED',
         status,
+        publishedAt,
         courseOfferingId:       offering.id,
         createdById:            teacher.id,
         examQuestions: {
