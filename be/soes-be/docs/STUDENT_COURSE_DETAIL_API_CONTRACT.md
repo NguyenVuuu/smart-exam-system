@@ -534,8 +534,26 @@ page=0&pageSize=0
 GET /api/student/course-offerings/:courseOfferingId/posts/:postId
 ```
 
+## Mục đích
+
+Lấy chi tiết bài đăng (Post Detail) của lớp học phần.
+
+## Authentication
+
+| Type | Header | Value |
+|------|--------|-------|
+| Bearer Token | Authorization | `Bearer <access_token>` |
+
+## Authorization
+
+- Role: `STUDENT`
+- Student phải thuộc lớp học phần (Course Offering)
+- Kiểm tra Enrollment trước khi lấy dữ liệu
+
 ## Response
 
+
+### Có attachments
 ```json
 {
   "success": true,
@@ -567,13 +585,251 @@ GET /api/student/course-offerings/:courseOfferingId/posts/:postId
 }
 ```
 
+### Nếu không có attachments
+```json
+{
+  "success": true,
+  "message": "Post loaded successfully",
+  "data": {
+    "id": "uuid",
+    "title": "File ôn giữa kỳ",
+    "content": "Sinh viên tải file này để ôn tập.",
+    "publishedAt": "2026-07-20T08:00:00Z",
+    "updatedAt": "2026-07-21T09:00:00Z",
+    "edited": true,
+    "attachments": []
+  }
+}
+```
+
+
+## Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Thành công |
+| 401 | Không đăng nhập |
+| 403 | Không có quyền (không phải STUDENT) |
+| 404 | Không tìm thấy tài nguyên hoặc không có quyền truy cập |
+
 ## Business Rules
 
 - Một bài đăng có thể có nhiều file.
+- Chỉ cho phép xem Post có status = PUBLISHED.
+- Nếu Post có status khác PUBLISHED thì trả về 404.
 - Click tên file sẽ tải xuống ngay.
 - Không preview.
-- File hiển thị theo thứ tự upload.
 - Nếu bài đã chỉnh sửa thì edited = true.
+- Post phải thuộc Course Offering.
+- Nếu Post không thuộc Course Offering → 404.
+- attachments trả về theo thứ tự upload tăng dần.
+
+---
+
+# Test với Postman
+
+## API 3. Post Detail
+
+### Endpoint
+
+```
+GET /api/student/course-offerings/{courseOfferingId}/posts/{postId}
+```
+
+### Test Cases
+
+#### 1. Success - Có attachments
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Post loaded successfully",
+  "data": {
+    "id": "post-uuid-1",
+    "title": "File ôn giữa kỳ",
+    "content": "Sinh viên tải file này để ôn tập.",
+    "publishedAt": "2026-07-20T08:00:00Z",
+    "updatedAt": "2026-07-21T09:00:00Z",
+    "edited": true,
+    "attachments": [
+      {
+        "id": "att-uuid-1",
+        "fileName": "Java.pdf",
+        "fileType": "PDF",
+        "fileSize": "2.5 MB",
+        "downloadUrl": "/files/java.pdf"
+      },
+      {
+        "id": "att-uuid-2",
+        "fileName": "Source.zip",
+        "fileType": "ZIP",
+        "fileSize": "18 MB",
+        "downloadUrl": "/files/source.zip"
+      }
+    ]
+  }
+}
+```
+
+#### 2. Success - Không có attachment
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Post loaded successfully",
+  "data": {
+    "id": "post-uuid-1",
+    "title": "Thông báo thi",
+    "content": "Thi vào ngày mai.",
+    "publishedAt": "2026-07-20T08:00:00Z",
+    "updatedAt": "2026-07-20T08:00:00Z",
+    "edited": false,
+    "attachments": []
+  }
+}
+```
+
+#### 3. Không login → 401
+
+**Headers:**
+```
+(No Authorization header)
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Unauthorized"
+}
+```
+
+#### 4. Teacher gọi API → 403
+
+**Headers:**
+```
+Authorization: Bearer <valid_teacher_token>
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Forbidden"
+}
+```
+
+#### 5. Student không thuộc lớp → 404
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId_of_other_student}/posts/{postId}
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 6. Course Offering không tồn tại → 404
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/non-existent-id/posts/{postId}
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 7. Post không tồn tại → 404
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId}/posts/non-existent-post-id
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 8. Post không thuộc Course Offering → 404
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId}/posts/post-from-another-course
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 9. Post có status khác PUBLISHED (DRAFT/ARCHIVED) → 404
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId}/posts/draft-post-id
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
 
 ---
 
@@ -763,3 +1019,5 @@ Chờ giảng viên nhập điểm
 | GET    | `/api/student/course-offerings/:courseOfferingId/exams/:examId` | Chi tiết bài thi     |
 | GET    | `/api/student/course-offerings/:courseOfferingId/members`       | Danh sách thành viên |
 | GET    | `/api/student/course-offerings/:courseOfferingId/scores`        | Điểm của sinh viên   |
+
+A+ KLTN
