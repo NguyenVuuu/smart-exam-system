@@ -41,6 +41,7 @@ model Teacher {
   userId          String           @unique
   courseOfferings CourseOffering[] @relation("TeacherCourseOfferings")
   exams           Exam[]           @relation("CreatorExams")
+  posts           Post[]           @relation("TeacherPosts")
   materials       Material[]       @relation("UploaderMaterials")
   questions       Question[]       @relation("OwnerQuestions")
   user            User             @relation(fields: [userId], references: [id])
@@ -105,6 +106,7 @@ model CourseOffering {
   enrollments Enrollment[]
   exams       Exam[]
   materials   Material[]
+  posts       Post[]
 
   @@index([teacherId])
   @@index([semesterId])
@@ -123,6 +125,41 @@ model Enrollment {
   @@index([studentId])
 }
 
+model Post {
+  id               String           @id @default(uuid())
+  title            String
+  content          String
+  status           PostStatus       @default(DRAFT)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  publishedAt      DateTime?
+  courseOfferingId String
+  createdById      String
+  courseOffering   CourseOffering   @relation(fields: [courseOfferingId], references: [id])
+  createdBy        Teacher          @relation("TeacherPosts", fields: [createdById], references: [id])
+  attachments      PostAttachment[]
+
+  @@index([courseOfferingId])
+  @@index([createdById])
+  @@index([courseOfferingId, publishedAt])
+}
+
+model PostAttachment {
+  id          String   @id @default(uuid())
+  fileName    String
+  objectName  String
+  fileSize    Int
+  contentType String
+  storagePath String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id])
+
+  @@unique([postId, fileName])
+  @@index([postId])
+}
+
 model Material {
   id               String         @id @default(uuid())
   fileName         String
@@ -139,6 +176,8 @@ model Material {
   uploader         Teacher        @relation("UploaderMaterials", fields: [uploaderId], references: [id])
 
   @@unique([courseOfferingId, fileName])
+  @@index([courseOfferingId])
+  @@index([uploaderId])
 }
 
 model Question {
@@ -346,6 +385,12 @@ model AuditLog {
 enum AccountStatus {
   ACTIVE
   INACTIVE
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 enum ExamType {
