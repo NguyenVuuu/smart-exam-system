@@ -8,6 +8,7 @@ import {
   ExamAvailabilityStatus,
   MemberRole,
 } from "../types/student-course-detail.types";
+import type { PostDetailRow, ExamDetailRow, MembersRow, ScoreRow as RepoScoreRow } from "../repositories/student-course-detail.repository";
 
 export class StudentCourseDetailMapper {
   // ────────────────────────────────────────────────────────────
@@ -30,8 +31,8 @@ export class StudentCourseDetailMapper {
   // Timeline - POST
   // ────────────────────────────────────────────────────────────
   public toPostTimelineResponse(row: PostTimelineRow): PostTimelineItemDto {
-    const edited = row.updatedAt > row.createdAt
-    const hasAttachment = (row.attachments?.length || 0) > 0
+    const edited = row.updatedAt > row.createdAt;
+    const hasAttachment = (row.attachments?.length || 0) > 0;
 
     return {
       id: row.id,
@@ -42,7 +43,7 @@ export class StudentCourseDetailMapper {
       publishedAt: row.publishedAt,
       edited,
       hasAttachment,
-    }
+    };
   }
 
   // ────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ export class StudentCourseDetailMapper {
       startTime: row.startTime,
       endTime: row.endTime,
       durationMinutes: row.durationMinutes,
-    }
+    };
   }
 
   // ────────────────────────────────────────────────────────────
@@ -73,20 +74,17 @@ export class StudentCourseDetailMapper {
     page: number,
     pageSize: number,
   ): TimelineResponseDto {
-    // Merge posts and exams
     const merged = [
       ...posts.map((p) => this.toPostTimelineResponse(p)),
       ...exams.map((e) => this.toExamTimelineResponse(e)),
-    ]
+    ];
 
-    // Sort by publishedAt DESC
-    merged.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
+    merged.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
 
-    // Calculate pagination
-    const totalItems = totalPosts + totalExams
-    const totalPages = Math.ceil(totalItems / pageSize)
+    const totalItems = totalPosts + totalExams;
+    const totalPages = Math.ceil(totalItems / pageSize);
 
-    const items = merged.slice((page - 1) * pageSize, page * pageSize)
+    const items = merged.slice((page - 1) * pageSize, page * pageSize);
 
     return {
       items,
@@ -96,67 +94,65 @@ export class StudentCourseDetailMapper {
         totalItems,
         totalPages,
       },
-    }
+    };
   }
 
   // ────────────────────────────────────────────────────────────
   // Post Detail
   // ────────────────────────────────────────────────────────────
-  public toPostDetailResponse(): PostDetailResponseDto {
-    // TODO: Implement mapping logic
+  public toPostDetailResponse(row: PostDetailRow): PostDetailResponseDto {
     return {
-      id: "",
-      title: "",
-      content: "",
-      publishedAt: new Date(),
-      updatedAt: new Date(),
-      edited: false,
-      attachments: [],
+      id: row.id,
+      title: row.title,
+      content: row.content,
+      publishedAt: row.publishedAt,
+      updatedAt: row.updatedAt,
+      edited: row.edited,
+      attachments: row.attachments,
     };
   }
 
   // ────────────────────────────────────────────────────────────
   // Exam Detail
   // ────────────────────────────────────────────────────────────
-  public toExamDetailResponse(): ExamDetailResponseDto {
-    // TODO: Implement mapping logic
+  public toExamDetailResponse(row: ExamDetailRow): ExamDetailResponseDto {
     return {
-      id: "",
-      title: "",
-      description: "",
-      startTime: new Date(),
-      endTime: new Date(),
-      durationMinutes: 0,
-      maxAttempts: 0,
-      attemptUsed: 0,
-      remainingAttempts: 0,
-      canStart: false,
-      status: ExamAvailabilityStatus.NOT_STARTED,
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      durationMinutes: row.durationMinutes,
+      maxAttempts: row.maxAttempts,
+      attemptUsed: row.attemptUsed,
+      remainingAttempts: row.remainingAttempts,
+      canStart: row.canStart,
+      status: row.status as ExamAvailabilityStatus,
     };
   }
 
   // ────────────────────────────────────────────────────────────
   // Member
   // ────────────────────────────────────────────────────────────
-  public toMemberResponse(): MemberResponseDto {
-    // TODO: Implement mapping logic
+  public toMemberResponse(row: MembersRow['items'][0]): MemberResponseDto {
     return {
-      id: "",
-      role: MemberRole.STUDENT,
-      fullName: "",
+      id: row.id,
+      role: row.role as MemberRole,
+      fullName: row.fullName,
+      studentCode: row.studentCode,
     };
   }
 
   // ────────────────────────────────────────────────────────────
   // Score
   // ────────────────────────────────────────────────────────────
-  public toScoreResponse(): ScoreResponseDto {
-    // TODO: Implement mapping logic
+  public toScoreResponse(row: RepoScoreRow): ScoreResponseDto {
     return {
-      examId: "",
-      title: "",
-      type: "",
-      score: null,
+      examId: row.examId,
+      title: row.title,
+      type: row.type,
+      score: row.score,
+      publishedAt: row.publishedAt,
     };
   }
 }

@@ -7,6 +7,7 @@ import type { ScoreResponseDto } from "../dtos/score.response.dto";
 import { StudentCourseDetailRepository } from "../repositories/student-course-detail.repository";
 import { StudentCourseDetailMapper } from "../mappers/student-course-detail.mapper";
 import { NotFoundError } from "../../../errors/AppError";
+import { MemberRole } from "../types/student-course-detail.types";
 
 const repo = new StudentCourseDetailRepository();
 const mapper = new StudentCourseDetailMapper();
@@ -16,15 +17,15 @@ export class StudentCourseDetailService {
   // Course Header
   // ────────────────────────────────────────────────────────────
   async getCourseHeader(
-    studentId:string,
-    courseOfferingId:string,
-  ):Promise<CourseHeaderResponseDto>{
-    const row = await repo.findCourseHeader(courseOfferingId,studentId);
+    studentId: string,
+    courseOfferingId: string,
+  ): Promise<CourseHeaderResponseDto> {
+    const row = await repo.findCourseHeader(courseOfferingId, studentId);
 
-    if(!row){
-      throw new NotFoundError("Course not found")
+    if (!row) {
+      throw new NotFoundError("Not found")
     }
-    console.log(studentId);
+
     return mapper.toCourseHeaderResponse(row);
   }
 
@@ -38,12 +39,10 @@ export class StudentCourseDetailService {
     page: number,
     pageSize: number,
   ): Promise<TimelineResponseDto> {
-    // First verify student has access to this course offering
     await repo.findCourseHeader(courseOfferingId, studentId)
 
     const { posts, exams, totalPosts, totalExams } = await repo.findTimeline(courseOfferingId, page, pageSize)
 
-    // Transform data for mapper
     const transformedPosts = posts.map((p) => ({
       id: p.id,
       courseOfferingId: p.courseOfferingId,
@@ -77,9 +76,11 @@ export class StudentCourseDetailService {
     courseOfferingId: string,
     postId: string,
   ): Promise<PostDetailResponseDto | null> {
+    await repo.findCourseHeader(courseOfferingId, studentId)
+
     const row = await repo.findPostDetail(courseOfferingId, postId);
     if (!row) return null;
-    return mapper.toPostDetailResponse();
+    return mapper.toPostDetailResponse(row);
   }
 
   // ────────────────────────────────────────────────────────────
@@ -90,9 +91,9 @@ export class StudentCourseDetailService {
     courseOfferingId: string,
     examId: string,
   ): Promise<ExamDetailResponseDto | null> {
-    const row = await repo.findExamDetail(courseOfferingId, examId);
+    const row = await repo.findExamDetail(courseOfferingId, examId, studentId);
     if (!row) return null;
-    return mapper.toExamDetailResponse();
+    return mapper.toExamDetailResponse(row);
   }
 
   // ────────────────────────────────────────────────────────────
@@ -110,7 +111,12 @@ export class StudentCourseDetailService {
       pageSize,
     );
     return {
-      items: items.map(() => mapper.toMemberResponse()),
+      items: items.map((item) => mapper.toMemberResponse({
+        id: item.id,
+        role: item.role as MemberRole.TEACHER | MemberRole.STUDENT,
+        fullName: item.fullName,
+        studentCode: item.studentCode,
+      })),
       pagination,
     };
   }
@@ -120,7 +126,7 @@ export class StudentCourseDetailService {
   // ────────────────────────────────────────────────────────────
   async getScores(studentId: string, courseOfferingId: string): Promise<ScoreResponseDto[]> {
     const scores = await repo.findScores(courseOfferingId);
-    return scores.map(() => mapper.toScoreResponse());
+    return scores.map((score) => mapper.toScoreResponse(score));
   }
 }
 

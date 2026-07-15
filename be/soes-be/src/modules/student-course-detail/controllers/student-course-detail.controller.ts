@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { studentCourseDetailService } from "../services/student-course-detail.service";
+import { NotFoundError } from "../../../errors/AppError";
 
 export async function getCourseHeader(
   req: Request,
@@ -69,6 +70,10 @@ export async function getPostDetail(
       postId,
     );
 
+    if (!data) {
+      throw new NotFoundError("Not found");
+    }
+
     res.status(200).json({
       success: true,
       message: "Post loaded successfully",
@@ -94,6 +99,10 @@ export async function getExamDetail(
       courseOfferingId,
       examId,
     );
+
+    if (!data) {
+      throw new NotFoundError("Exam not found");
+    }
 
     res.status(200).json({
       success: true,
