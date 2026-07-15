@@ -296,6 +296,236 @@ EXAM chỉ hiển thị khi:
 
 ---
 
+## Test với Postman
+
+### Timeline
+
+#### Endpoint
+
+```
+GET /api/student/course-offerings/{courseOfferingId}/timeline
+```
+
+#### Test Cases
+
+##### 1. Success
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Query Parameters:**
+```
+page=1&pageSize=10
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Timeline loaded successfully",
+  "data": {
+    "items": [
+      {
+        "id": "post-uuid-1",
+        "courseOfferingId": "course-offering-uuid",
+        "type": "POST",
+        "title": "File ôn giữa kỳ",
+        "authorName": "Nguyễn Văn A",
+        "publishedAt": "2026-07-20T08:00:00Z",
+        "edited": true,
+        "hasAttachment": true
+      },
+      {
+        "id": "exam-uuid-1",
+        "courseOfferingId": "course-offering-uuid",
+        "type": "EXAM",
+        "title": "Kiểm tra giữa kỳ",
+        "authorName": "Phạm Thị Bích",
+        "publishedAt": "2026-07-18T08:00:00Z",
+        "startTime": "2026-07-20T19:00:00Z",
+        "endTime": "2026-07-20T20:00:00Z",
+        "durationMinutes": 60
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 10,
+      "totalItems": 12,
+      "totalPages": 2
+    }
+  }
+}
+```
+
+##### 2. Pagination (page 2)
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Query Parameters:**
+```
+page=2&pageSize=5
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Timeline loaded successfully",
+  "data": {
+    "items": [
+      {
+        "id": "post-uuid-6",
+        "courseOfferingId": "course-offering-uuid",
+        "type": "POST",
+        "title": "Bài tập lập trình",
+        "authorName": "Nguyễn Văn A",
+        "publishedAt": "2026-07-15T10:00:00Z",
+        "edited": false,
+        "hasAttachment": false
+      }
+    ],
+    "pagination": {
+      "page": 2,
+      "pageSize": 5,
+      "totalItems": 12,
+      "totalPages": 3
+    }
+  }
+}
+```
+
+##### 3. Empty Timeline
+
+**Scenario:** Course offering có nhưng không có Post/Exam published
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Timeline loaded successfully",
+  "data": {
+    "items": [],
+    "pagination": {
+      "page": 1,
+      "pageSize": 10,
+      "totalItems": 0,
+      "totalPages": 0
+    }
+  }
+}
+```
+
+##### 4. CourseOffering không tồn tại → 404
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/non-existent-id/timeline
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+##### 5. Student không thuộc lớp → 404
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId_of_other_student}/timeline
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+##### 6. Không login → 401
+
+**Headers:**
+```
+(No Authorization header)
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Unauthorized"
+}
+```
+
+##### 7. Teacher gọi API → 403
+
+**Headers:**
+```
+Authorization: Bearer <valid_teacher_token>
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Forbidden"
+}
+```
+
+##### 8. Invalid query parameters
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Query Parameters:**
+```
+page=0&pageSize=0
+```
+
+**Response:** (System sẽ sử dụng defaults)
+```json
+{
+  "success": true,
+  "message": "Timeline loaded successfully",
+  "data": {
+    "items": [],
+    "pagination": {
+      "page": 1,
+      "pageSize": 10,
+      "totalItems": 0,
+      "totalPages": 0
+    }
+  }
+}
+```
+
+---
+
 # API 3. Post Detail
 
 ## Endpoint
