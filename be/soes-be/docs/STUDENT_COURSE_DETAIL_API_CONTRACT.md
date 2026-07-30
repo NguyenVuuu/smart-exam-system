@@ -610,7 +610,7 @@ Lấy chi tiết bài đăng (Post Detail) của lớp học phần.
 | 200 | Thành công |
 | 401 | Không đăng nhập |
 | 403 | Không có quyền (không phải STUDENT) |
-| 404 | Không tìm thấy tài nguyên hoặc không có quyền truy cập |
+| 404 | Không tìm thấy tài nguyên hoặc không có quyền truy cập (Not Found) |
 
 ## Business Rules
 
@@ -841,7 +841,70 @@ GET /api/student/course-offerings/{courseOfferingId}/posts/draft-post-id
 GET /api/student/course-offerings/:courseOfferingId/exams/:examId
 ```
 
+## Mục đích
+
+Lấy thông tin bài kiểm tra.
+
+## Authentication
+
+| Type | Header | Value |
+|------|--------|-------|
+| Bearer Token | Authorization | `Bearer <access_token>` |
+
+## Authorization
+
+- Role: `STUDENT`
+- Student phải thuộc lớp học phần (Course Offering)
+- Kiểm tra Enrollment trước khi lấy dữ liệu
+
 ## Response
+
+### NOT_STARTED
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "uuid",
+    "title": "Giữa kỳ",
+    "type": "MIDTERM",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-07-20T19:00:00Z",
+    "endTime": "2026-07-20T20:00:00Z",
+    "publishedAt": "2026-07-18T08:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1,
+    "attemptUsed": 0, 
+    "remainingAttempts": 1,
+    "canStart": false,
+    "status": "NOT_STARTED"
+  }
+}
+```
+
+### Đã làm bài
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "uuid",
+    "title": "Giữa kỳ",
+    "type": "MIDTERM",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-07-20T19:00:00Z",
+    "endTime": "2026-07-20T20:00:00Z",
+    "publishedAt": "2026-07-18T08:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1,
+    "attemptUsed": 1, 
+    "remainingAttempts": 0,
+    "canStart": false,
+    "status": "SUBMITTED"
+  }
+}
+```
+### Chưa làm bài
 
 ```json
 {
@@ -850,31 +913,205 @@ GET /api/student/course-offerings/:courseOfferingId/exams/:examId
   "data": {
     "id": "uuid",
     "title": "Giữa kỳ",
+    "type": "MIDTERM",
     "description": "Thi giữa kỳ",
     "startTime": "2026-07-20T19:00:00Z",
     "endTime": "2026-07-20T20:00:00Z",
+    "publishedAt": "2026-07-18T08:00:00Z",
     "durationMinutes": 60,
-    "maxAttempts": 3,
-    "attemptUsed": 1,
-    "remainingAttempts": 2,
+    "maxAttempts": 1, 
+    "attemptUsed": 0,
+    "remainingAttempts": 1,
+    "attemptId": null,
+    "canResume": false,
+    "remainingSeconds":3600,
     "canStart": true,
     "status": "AVAILABLE"
   }
 }
 ```
 
-## Status
+### Đang làm bài
 
-- NOT_STARTED
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "uuid",
+    "title": "Giữa kỳ",
+    "type": "MIDTERM",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-07-20T19:00:00Z",
+    "endTime": "2026-07-20T20:00:00Z",
+    "publishedAt": "2026-07-18T08:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1, 
+    "attemptUsed": 1,
+    "remainingAttempts": 0,
+    "attemptId": "uuid",
+    "canResume": true,
+    "remainingSeconds":2400,
+    "canStart": true,
+    "status": "AVAILABLE"
+  }
+}
+```
+
+### Expired
+
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "uuid",
+    "title": "Giữa kỳ",
+    "type": "MIDTERM",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-07-20T19:00:00Z",
+    "endTime": "2026-07-20T20:00:00Z",
+    "publishedAt": "2026-07-18T08:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1, 
+    "attemptUsed": 0,
+    "remainingAttempts": 1,
+    "canStart": false,
+    "status": "EXPIRED"
+  }
+}
+```
+
+## Response Fields
+
+| Field | Description |
+|-------|------|
+| `id` | ID bài thi | 
+| `title` | Tên bài thi | 
+| `type` | MIDTERM / FINAL / QUIZ | 
+| `description` | Mô tả | 
+| `startTime` | Thời gian bắt đầu | 
+| `endTime` | Thời gian kết thúc | 
+| `publishedAt` | Thời điểm công khai | 
+| `durationMinutes` | Thời lượng làm bài | 
+| `maxAttempts` | Số lượt làm tối đa | 
+| `attemptUsed` | Số lượt đã sử dụng | 
+| `remainingAttempts` | Số lượt còn lại | 
+| `attemptId` | ID lần làm bài hiện tại. Chỉ trả về khi sinh viên đang làm bài chưa submit. | 
+| `canResume` | Chỉ trả về khi status = AVAILABLE. FE dùng để hiển thị nút "Tiếp tục". | 
+| `remainingSeconds` | Chỉ trả về khi status = AVAILABLE. Không trả về khi SUBMITTED, EXPIRED hoặc NOT_STARTED. | 
+| `canStart` | FE dùng để bật/tắt nút "Vào làm bài" | 
+| `status` | Trạng thái của sinh viên đối với bài thi (NOT_STARTED, AVAILABLE, SUBMITTED, EXPIRED) | 
+
+## Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Thành công |
+| 401 | Không đăng nhập |
+| 403 | Không có quyền (không phải STUDENT) |
+| 404 | Không tìm thấy tài nguyên hoặc không có quyền truy cập (Not Found) |
+
+## Chi tiết các lỗi ra 404
+404 khi:
+- Course Offering không tồn tại.
+- Student không thuộc lớp học phần.
+- Exam không tồn tại.
+- Exam không thuộc Course Offering.
+- Exam chưa được publish.
+- publishedAt = null.
+
+
+## Status (Status của sinh viên với bài thi, không phải của Exam "Student Exam Status")
+
+Status được xác định theo thứ tự ưu tiên:
+
+1. Nếu Student đã SUBMITTED -> SUBMITTED
+2. Ngược lại nếu now < startTime -> NOT_STARTED
+3. Ngược lại nếu startTime <= now < endTime -> AVAILABLE
+4. Ngược lại -> EXPIRED
+
+Status được xác định như sau:
+
+- NOT_STARTED:
+  Chưa đến thời gian bắt đầu bài thi.
+  now < startTime
+  canStart = false
+  
 - AVAILABLE
-- SUBMITTED
-- EXPIRED
+  startTime <= now < endTime
+  Student chưa nộp bài
+  Student có thể bắt đầu làm bài hoặc tiếp tục bài làm đang diễn ra.
+  Student đã hoặc chưa bắt đầu làm bài nhưng chưa submit.
+  Nếu chưa bắt đầu:
+    attemptUsed = 0
+    remainingAttempts = 1
+  Nếu đã bắt đầu:
+    attemptUsed = 1
+    remainingAttempts = 0
+  canStart = true
 
+- SUBMITTED:
+  Sinh viên đã nộp bài.
+  Bao gồm:
+    Bấm nút Nộp bài.
+    Hệ thống tự động nộp khi hết thời gian trong lúc sinh viên đang làm bài.
+  attemptUsed = 1
+  remainingAttempts = 0
+  canStart = false
+
+
+- EXPIRED:
+  now >= endTime
+  Student không bắt đầu làm bài trước khi hết thời gian thi.
+  -> Hệ thống ghi nhận:
+    - score = 0
+    - attemptUsed = 0
+    - remainingAttempts = 1
+    - canStart = false
+  remainingAttempts không đồng nghĩa sinh viên còn được phép vào làm bài. remainingAttempts chỉ phản ánh số lượt chưa sử dụng.
+  Việc sinh viên còn được phép làm bài hay không được quyết định bởi status và canStart.
+
+  
 ## Business Rules
 
+Chỉ cho phép xem Exam khi:
+- Exam.status = PUBLISHED
+- Exam.publishedAt != null
+Nếu không thỏa mãn thì trả về 404.
+
+- Hiện tại hệ thống chỉ hỗ trợ maxAttempts = 1.
+- Các trường attemptUsed và remainingAttempts vẫn được giữ để tương thích khi mở rộng nhiều lần thi trong tương lai.
+- Nếu sinh viên đang làm bài khi hết thời gian thi, hệ thống tự động nộp bài và trạng thái chuyển thành SUBMITTED.
+- Nếu sinh viên chưa từng bắt đầu làm bài trước khi hết thời gian thi, hệ thống ghi nhận bài thi với 0 điểm và trạng thái EXPIRED.
+- Chỉ cho phép xem Exam có status = PUBLISHED.
+- Nếu Exam có status khác PUBLISHED thì trả về 404.
+- Exam phải thuộc Course Offering.
+- Nếu Exam không thuộc Course Offering thì trả về 404.
+- Student phải thuộc Course Offering.
+- Nếu Student không thuộc Course Offering thì trả về 404.
+- attemptUsed không được lớn hơn maxAttempts.
+- attemptUsed phản ánh số lượt sinh viên đã bắt đầu bài thi, không phụ thuộc đã hoàn thành hay chưa.
 - Nếu hết hạn thì canStart = false.
-- Nếu làm nhiều lần thì trả attemptUsed và remainingAttempts.
 - FE chỉ dựa vào canStart để hiển thị nút "Vào làm bài".
+- remainingSeconds = thời gian còn lại sinh viên được phép làm bài.
+  - Nếu chưa bắt đầu:
+    remainingSeconds = durationMinutes * 60
+  - Nếu đang làm:
+    remainingSeconds = submitDeadline - now
+  - Nếu đã submit hoặc expired: không trả về trường này.
+- canResume không lưu trong database.
+Backend tính động theo:
+  - attempt tồn tại
+  - chưa submit
+  - status = AVAILABLE
+
+canStart = true khi:
+- status = AVAILABLE
+- Student chưa submit
+Các trường hợp còn lại:
+canStart = false
+
 
 ---
 
