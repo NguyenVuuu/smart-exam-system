@@ -12,4 +12,7 @@ export interface ExamDetailResponseDto {
   remainingAttempts: number
   canStart: boolean
   status: ExamAvailabilityStatus
+  remainingSeconds?: number | null
+  canResume?: boolean
+  attemptId?: string | null
 }

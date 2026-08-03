@@ -128,6 +128,9 @@ export class StudentCourseDetailMapper {
       remainingAttempts: row.remainingAttempts,
       canStart: row.canStart,
       status: row.status as ExamAvailabilityStatus,
+      remainingSeconds: row.remainingSeconds,
+      canResume: row.canResume,
+      attemptId: row.attemptId,
     };
   }
 

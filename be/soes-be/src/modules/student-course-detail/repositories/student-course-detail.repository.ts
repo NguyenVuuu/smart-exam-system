@@ -211,13 +211,17 @@ export class StudentCourseDetailRepository {
   async findExamDetail(
     courseOfferingId: string,
     examId: string,
-    studentId?: string,
+    studentId: string,
   ): Promise<ExamDetailRow | null> {
+    // First verify student has access to this course offering
+    await this.findCourseHeader(courseOfferingId, studentId)
+
     const exam = await prisma.exam.findFirst({
       where: {
         id: examId,
         courseOfferingId,
         status: ExamStatus.PUBLISHED,
+        publishedAt: { not: null },
       },
       select: {
         id: true,
@@ -230,7 +234,7 @@ export class StudentCourseDetailRepository {
         status: true,
         publishedAt: true,
         examAttempts: {
-          where: studentId ? { studentId } : undefined,
+          where: { studentId },
         },
       },
     })
@@ -240,19 +244,75 @@ export class StudentCourseDetailRepository {
     }
 
     const now = new Date()
+
+    // Find the student's attempt (if any)
+    const studentAttempt = exam.examAttempts[0]
+
+    // Determine status based on priority
     let status: string
     let canStart = false
+    let attemptUsed = 0
+    let remainingAttempts = exam.maxAttempts
 
-    if (now < exam.startTime) {
+    if (studentAttempt && studentAttempt.status === AttemptStatus.SUBMITTED) {
+      // Student has submitted
+      status = 'SUBMITTED'
+      attemptUsed = 1
+      remainingAttempts = exam.maxAttempts - attemptUsed
+      canStart = false
+    } else if (now < exam.startTime) {
+      // Before start time
       status = 'NOT_STARTED'
-    } else if (now > exam.endTime) {
-      status = 'EXPIRED'
+      attemptUsed = 0
+      remainingAttempts = exam.maxAttempts
+      canStart = false
+    } else if (now >= exam.endTime) {
+      // After end time
+      if (studentAttempt) {
+        // Student started but not submitted
+        status = 'EXPIRED'
+        attemptUsed = 1
+        remainingAttempts = 0
+      } else {
+        // Student never started
+        status = 'EXPIRED'
+        attemptUsed = 0
+        remainingAttempts = exam.maxAttempts
+      }
+      canStart = false
     } else {
-      status = 'AVAILABLE'
-      canStart = true
+      // During active exam window
+      if (studentAttempt && studentAttempt.status === AttemptStatus.IN_PROGRESS) {
+        // Student is currently working on the exam
+        status = 'AVAILABLE'
+        attemptUsed = 1
+        remainingAttempts = exam.maxAttempts - attemptUsed
+        canStart = true
+      } else {
+        // Student hasn't started yet
+        status = 'AVAILABLE'
+        attemptUsed = 0
+        remainingAttempts = exam.maxAttempts
+        canStart = true
+      }
     }
 
-    const attemptUsed = studentId ? exam.examAttempts.length : 0
+    // Calculate remaining seconds
+    let remainingSeconds: number | null = null
+    if (status === 'AVAILABLE' && studentAttempt && studentAttempt.status === AttemptStatus.IN_PROGRESS) {
+      // Calculate remaining time based on deadline
+      // deadline = startedAt + durationMinutes
+      const startedAt = studentAttempt.startedAt
+      const deadline = new Date(startedAt.getTime() + exam.durationMinutes * 60 * 1000)
+      remainingSeconds = Math.floor((deadline.getTime() - now.getTime()) / 1000)
+      if (remainingSeconds < 0) remainingSeconds = 0
+    } else if (status === 'AVAILABLE' && !studentAttempt) {
+      // Student hasn't started yet - full time available
+      remainingSeconds = exam.durationMinutes * 60
+    }
+
+    // Calculate canResume
+    const canResume = status === 'AVAILABLE' && studentAttempt && studentAttempt.status === AttemptStatus.IN_PROGRESS
 
     return {
       id: exam.id,
@@ -263,13 +323,16 @@ export class StudentCourseDetailRepository {
       durationMinutes: exam.durationMinutes,
       maxAttempts: exam.maxAttempts,
       attemptUsed,
-      remainingAttempts: exam.maxAttempts - attemptUsed,
+      remainingAttempts,
       canStart,
       status,
+      remainingSeconds,
+      canResume,
+      attemptId: studentAttempt ? studentAttempt.id : null,
     }
   }
 
-  // ──────────────────────────────────────────���─────────────────
+  // ────────────────────────────────────────────────────────────
   // Members
   // ────────────────────────────────────────────────────────────
   async findMembers(
@@ -479,6 +542,9 @@ export interface ExamDetailRow {
   remainingAttempts: number
   canStart: boolean
   status: string
+  remainingSeconds?: number | null
+  canResume?: boolean
+  attemptId?: string | null
 }
 
 export interface MembersRow {
