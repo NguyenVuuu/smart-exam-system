@@ -877,7 +877,10 @@ Lấy thông tin bài kiểm tra.
     "attemptUsed": 0, 
     "remainingAttempts": 1,
     "canStart": false,
-    "status": "NOT_STARTED"
+    "status": "NOT_STARTED",
+    "canResume": false,
+    "attemptId": null
+
   }
 }
 ```
@@ -900,7 +903,10 @@ Lấy thông tin bài kiểm tra.
     "attemptUsed": 1, 
     "remainingAttempts": 0,
     "canStart": false,
-    "status": "SUBMITTED"
+    "status": "SUBMITTED",
+    "remainingSeconds": null,
+    "canResume": false,
+    "attemptId": "968ebcad-7149-4559-9185-499ec35fafdf"
   }
 }
 ```
@@ -949,11 +955,11 @@ Lấy thông tin bài kiểm tra.
     "maxAttempts": 1, 
     "attemptUsed": 1,
     "remainingAttempts": 0,
-    "attemptId": "uuid",
-    "canResume": true,
-    "remainingSeconds":2400,
     "canStart": true,
-    "status": "AVAILABLE"
+    "status": "AVAILABLE",
+    "remainingSeconds": 24144,
+    "canResume": true,
+    "attemptId": "6efd9d2d-6366-44d6-99dc-74d0c2bf913e"
   }
 }
 ```
@@ -977,7 +983,10 @@ Lấy thông tin bài kiểm tra.
     "attemptUsed": 0,
     "remainingAttempts": 1,
     "canStart": false,
-    "status": "EXPIRED"
+    "status": "EXPIRED",
+    "remainingSeconds": null,
+    "canResume": false,
+    "attemptId": null
   }
 }
 ```
@@ -1112,6 +1121,325 @@ canStart = true khi:
 Các trường hợp còn lại:
 canStart = false
 
+# Test với Postman
+
+## API 4. Exam Detail
+
+### Endpoint
+
+```
+GET /api/student/course-offerings/{courseOfferingId}/exams/{examId}
+```
+
+### Test Cases
+
+#### 1. Success - NOT_STARTED
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "exam-uuid-1",
+    "title": "Giữa kỳ",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-08-01T19:00:00Z",
+    "endTime": "2026-08-01T20:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1,
+    "attemptUsed": 0,
+    "remainingAttempts": 1,
+    "canStart": false,
+    "status": "NOT_STARTED",
+    "remainingSeconds": 3600,
+    "canResume": false,
+    "attemptId": null
+  }
+}
+```
+
+#### 2. Success - AVAILABLE (chưa bắt đầu)
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "exam-uuid-1",
+    "title": "Giữa kỳ",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-07-30T19:00:00Z",
+    "endTime": "2026-07-30T20:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1,
+    "attemptUsed": 0,
+    "remainingAttempts": 1,
+    "canStart": true,
+    "status": "AVAILABLE",
+    "remainingSeconds": 3600
+  }
+}
+```
+
+#### 3. Success - AVAILABLE (đang làm bài)
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "exam-uuid-1",
+    "title": "Giữa kỳ",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-07-30T19:00:00Z",
+    "endTime": "2026-07-30T20:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1,
+    "attemptUsed": 1,
+    "remainingAttempts": 0,
+    "attemptId": "attempt-uuid-1",
+    "canResume": true,
+    "canStart": true,
+    "status": "AVAILABLE",
+    "remainingSeconds": 2400,
+    "canResume": true,
+    "attemptId": "6efd9d2d-6366-44d6-99dc-74d0c2bf913e"
+  }
+}
+```
+
+#### 4. Success - SUBMITTED
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "exam-uuid-1",
+    "title": "Giữa kỳ",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-07-30T19:00:00Z",
+    "endTime": "2026-07-30T20:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1,
+    "attemptUsed": 1,
+    "remainingAttempts": 0,
+    "canStart": false,
+    "status": "SUBMITTED",
+    "remainingSeconds": null,
+    "canResume": false,
+    "attemptId": "968ebcad-7149-4559-9185-499ec35fafdf"
+    
+  }
+}
+```
+
+#### 5. Success - EXPIRED (chưa làm bài)
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "id": "exam-uuid-1",
+    "title": "Giữa kỳ",
+    "description": "Thi giữa kỳ",
+    "startTime": "2026-07-29T19:00:00Z",
+    "endTime": "2026-07-29T20:00:00Z",
+    "durationMinutes": 60,
+    "maxAttempts": 1,
+    "attemptUsed": 0,
+    "remainingAttempts": 1,
+    "canStart": false,
+    "status": "EXPIRED",
+    "remainingSeconds": null,
+    "canResume": false,
+    "attemptId": null
+  }
+}
+```
+
+#### 6. 401 - Không login
+
+**Headers:**
+```
+(No Authorization header)
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Unauthorized"
+}
+```
+
+#### 7. 403 - Teacher gọi API
+
+**Headers:**
+```
+Authorization: Bearer <valid_teacher_token>
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Forbidden"
+}
+```
+
+#### 8. 404 - Course Offering không tồn tại
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/non-existent-id/exams/{examId}
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 9. 404 - Student không thuộc lớp
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId_of_other_student}/exams/{examId}
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 10. 404 - Exam không tồn tại
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId}/exams/non-existent-exam-id
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 11. 404 - Exam không thuộc Course Offering
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId}/exams/exam-from-another-course
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 12. 404 - Exam chưa publish (DRAFT)
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId}/exams/draft-exam-id
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 13. 404 - publishedAt = null
+
+**Headers:**
+```
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```
+GET /api/student/course-offerings/{courseOfferingId}/exams/exam-with-null-publishedAt
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+---
 
 ---
 
@@ -1252,6 +1580,162 @@ Chờ giảng viên nhập điểm
 | ------ | --------------------------------------------------------------- | -------------------- |
 | GET    | `/api/student/course-offerings/:courseOfferingId`               | Header môn học       |
 | GET    | `/api/student/course-offerings/:courseOfferingId/timeline`         | Timeline             |
+| GET    | `/api/student/course-offerings/:courseOfferingId/posts/:postId` | Chi tiết bài đăng    |
+| GET    | `/api/student/course-offerings/:courseOfferingId/exams/:examId` | Chi tiết bài thi     |
+| GET    | `/api/student/course-offerings/:courseOfferingId/members`       | Danh sách thành viên |
+| GET    | `/api/student/course-offerings/:courseOfferingId/scores`        | Điểm của sinh viên   |
+
+A+ KLTN
+---
+
+
+
+
+
+
+
+
+
+
+# API 5. Members
+---
+
+# API 5. Members
+
+## Endpoint
+
+```
+GET /api/student/course-offerings/:courseOfferingId/members
+```
+
+## Query
+
+| Parameter | Default |
+| --------- | ------- |
+| page      | 1       |
+| pageSize  | 20      |
+
+## Response
+
+```json
+{
+  "success": true,
+  "message": "Members loaded successfully",
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "role": "TEACHER",
+        "fullName": "Nguyễn Văn A",
+        "studentCode": null
+      },
+      {
+        "id": "uuid",
+        "role": "STUDENT",
+        "fullName": "Lê Văn C",
+        "studentCode": "22123456"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "totalItems": 35,
+      "totalPages": 2
+    }
+  }
+}
+```
+
+## Business Rules
+
+- Teacher luôn đứng đầu.
+- Student đứng cuối.
+- Student sort A → Z theo tên.
+- Không có tìm kiếm.
+- Avatar sẽ do Frontend sinh từ chữ cái đầu.
+
+---
+
+# API 6. Scores
+
+## Endpoint
+
+```
+GET /api/student/course-offerings/:courseOfferingId/scores
+```
+
+## Response
+
+```json
+{
+  "success": true,
+  "message": "Scores loaded successfully",
+  "data": {
+    "items": [
+      {
+        "examId": "uuid",
+        "title": "Giữa kỳ",
+        "type": "MIDTERM",
+        "score": 8.5,
+        "publishedAt": "2026-07-25T10:00:00Z"
+      },
+      {
+        "examId": "uuid",
+        "title": "Cuối kỳ",
+        "type": "FINAL",
+        "score": 9
+      },
+      {
+        "examId": "uuid",
+        "title": "Thường kỳ code",
+        "type": "QUIZ",
+        "score": 7
+      }
+    ]
+  }
+}
+```
+
+## Business Rules
+
+- Chỉ hiển thị điểm đã được giảng viên công khai.
+- Không hiển thị GPA.
+- Không hiển thị autoScore.
+- Không có pagination.
+- Nếu chưa có điểm:
+
+```json
+{
+  "items": []
+}
+```
+
+Frontend hiển thị:
+
+```
+Chờ giảng viên nhập điểm
+```
+
+---
+
+# Quyền truy cập
+
+Áp dụng cho toàn bộ API.
+
+- Chỉ Student được phép truy cập.
+- Sinh viên không thuộc lớp học phần → 404.
+- CourseOffering không tồn tại → 404.
+- Bài đăng không thuộc lớp học phần → 404.
+- Bài thi không thuộc lớp học phần → 404.
+
+---
+
+# Tổng kết API
+
+| Method | Endpoint                                                        | Mục đích             |
+| ------ | --------------------------------------------------------------- | -------------------- |
+| GET    | `/api/student/course-offerings/:courseOfferingId`               | Header môn học       |
+| GET    | `/api/student/course-offerings/:courseOfferingId/timeline`      | Timeline             |
 | GET    | `/api/student/course-offerings/:courseOfferingId/posts/:postId` | Chi tiết bài đăng    |
 | GET    | `/api/student/course-offerings/:courseOfferingId/exams/:examId` | Chi tiết bài thi     |
 | GET    | `/api/student/course-offerings/:courseOfferingId/members`       | Danh sách thành viên |
