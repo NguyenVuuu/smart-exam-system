@@ -14,6 +14,10 @@ import { seedExamAttempts } from './seeds/exam-attempts.seed'
 import { seedExamAttemptQuestions } from './seeds/exam-attempt-questions.seed'
 import { seedStudentAnswers } from './seeds/student-answers.seed'
 import { seedNotifications } from './seeds/notifications.seed'
+import { seedPosts } from './seeds/posts.seed'
+import { seedViolations } from './seeds/violations.seed'
+import { seedAuditLogs } from './seeds/audit-logs.seed'
+import { seedExamSessions } from './seeds/exam-sessions.seed'
 
 const prisma = new PrismaClient()
 
@@ -33,6 +37,7 @@ async function main() {
 
   await seedEnrollments(prisma, { courseOfferings, students })
   await seedMaterials(prisma, { courseOfferings, teachers })
+  await seedPosts(prisma, { courseOfferings, teachers })
 
   const questions = await seedQuestions(prisma, { subjects, teachers })
 
@@ -42,8 +47,14 @@ async function main() {
   await seedExamAttempts(prisma)
   await seedExamAttemptQuestions(prisma)
   await seedStudentAnswers(prisma)
+  await seedExamSessions(prisma)
+  await seedViolations(prisma)
 
   await seedNotifications(prisma)
+
+  // Get all users for audit logs
+  const allUsers = await prisma.user.findMany()
+  await seedAuditLogs(prisma, { users: allUsers })
 
   console.log('\n✅ SOES seed completed successfully!\n')
 }

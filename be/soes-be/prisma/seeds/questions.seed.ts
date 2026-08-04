@@ -33,14 +33,9 @@ function makeQuestions(subject: Subject, teacher: Teacher): Array<{
       ],
     },
     {
-      content: `Câu hỏi 3 về ${name}: Ứng dụng thực tế?`,
-      explanation: `${name} được ứng dụng rộng rãi trong thực tế.`,
-      options: [
-        { content: 'Đáp án A', isCorrect: false },
-        { content: 'Đáp án B', isCorrect: false },
-        { content: 'Đáp án C - Đúng', isCorrect: true },
-        { content: 'Đáp án D', isCorrect: false },
-      ],
+      content: `Viết chương trình Java tính tổng hai số nguyên`,
+      explanation: `Viết hàm sum(a, b) trả về tổng của hai số nguyên a và b.`,
+      options: [],
     },
     {
       content: `Câu hỏi 4 về ${name}: Phương pháp tốt nhất?`,
@@ -63,14 +58,9 @@ function makeQuestions(subject: Subject, teacher: Teacher): Array<{
       ],
     },
     {
-      content: `Câu hỏi 6 về ${name}: Nguyên lý nền tảng?`,
-      explanation: `Nguyên lý nền tảng của ${name} rất quan trọng.`,
-      options: [
-        { content: 'Đáp án A', isCorrect: false },
-        { content: 'Đáp án B - Đúng', isCorrect: true },
-        { content: 'Đáp án C', isCorrect: false },
-        { content: 'Đáp án D', isCorrect: false },
-      ],
+      content: `Viết chương trình Java kiểm tra số nguyên tố`,
+      explanation: `Viết hàm isPrime(n) kiểm tra xem số n có phải là số nguyên tố không.`,
+      options: [],
     },
     {
       content: `Câu hỏi 7 về ${name}: Loại nào sau đây KHÔNG thuộc ${name}?`,
@@ -93,14 +83,9 @@ function makeQuestions(subject: Subject, teacher: Teacher): Array<{
       ],
     },
     {
-      content: `Câu hỏi 9 về ${name}: Xu hướng phát triển hiện nay?`,
-      explanation: `${name} đang phát triển rất nhanh.`,
-      options: [
-        { content: 'Đáp án A - Đúng', isCorrect: true },
-        { content: 'Đáp án B', isCorrect: false },
-        { content: 'Đáp án C', isCorrect: false },
-        { content: 'Đáp án D', isCorrect: false },
-      ],
+      content: `Viết chương trình C tính giai thừa`,
+      explanation: `Viết hàm factorial(n) tính giai thừa của số nguyên n.`,
+      options: [],
     },
     {
       content: `Câu hỏi 10 về ${name}: Lợi ích khi sử dụng?`,
@@ -135,18 +120,61 @@ export async function seedQuestions(
       })
       if (existing) { allQuestions.push(existing); continue }
 
+      // Determine if this should be a programming question (questions without options)
+      const isProgrammingQuestion = qData.options.length === 0
+      const questionType = isProgrammingQuestion ? 'PROGRAMMING' : 'SINGLE_CHOICE'
+      
+      // Determine language based on subject
+      let language: 'JAVA' | 'C' | 'CPP' | null = null
+      if (isProgrammingQuestion) {
+        if (subject.code.includes('JAVA')) {
+          language = 'JAVA'
+        } else if (subject.code.includes('C')) {
+          language = subject.code.includes('CPP') ? 'CPP' : 'C'
+        }
+      }
+
       const question = await prisma.question.create({
         data: {
           content: qData.content,
           explanation: qData.explanation,
-          type: 'SINGLE_CHOICE',
+          type: questionType,
           difficulty: 'MEDIUM',
           source: 'MANUAL',
+          language,
           ownerId: teacher.id,
           subjectId: subject.id,
-          options: {
+          options: questionType === 'PROGRAMMING' ? undefined : {
             create: qData.options,
           },
+          programmingTests: questionType === 'PROGRAMMING' ? {
+            create: [
+              {
+                input: '5\n3',
+                expectedOutput: '8',
+                weight: 30.00,
+                isHidden: false,
+              },
+              {
+                input: '10\n20',
+                expectedOutput: '30',
+                weight: 30.00,
+                isHidden: false,
+              },
+              {
+                input: '-5\n10',
+                expectedOutput: '5',
+                weight: 20.00,
+                isHidden: true,
+              },
+              {
+                input: '0\n0',
+                expectedOutput: '0',
+                weight: 20.00,
+                isHidden: true,
+              },
+            ],
+          } : undefined,
         },
       })
       allQuestions.push(question)
