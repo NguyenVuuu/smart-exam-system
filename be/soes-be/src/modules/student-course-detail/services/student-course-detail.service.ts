@@ -107,6 +107,7 @@ export class StudentCourseDetailService {
   ): Promise<{ items: MemberResponseDto[]; pagination: TimelineResponseDto["pagination"] }> {
     const { items, pagination } = await repo.findMembers(
       courseOfferingId,
+      studentId,
       page,
       pageSize,
     );
