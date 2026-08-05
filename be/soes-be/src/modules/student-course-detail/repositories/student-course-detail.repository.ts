@@ -415,24 +415,28 @@ export class StudentCourseDetailRepository {
   // ────────────────────────────────────────────────────────────
   // Scores
   // ────────────────────────────────────────────────────────────
-  async findScores(courseOfferingId: string): Promise<ScoreRow[]> {
+  async findScores(courseOfferingId: string, studentId: string): Promise<ScoreRow[]> {
+    // First verify student has access to this course offering
+    await this.findCourseHeader(courseOfferingId, studentId)
+
     const exams = await prisma.exam.findMany({
       where: {
         courseOfferingId,
         status: ExamStatus.PUBLISHED,
-        isPublished: true,
+        publishedAt: { not: null },
       },
       select: {
         id: true,
         title: true,
         type: true,
+        createdAt: true,
+        publishedAt: true,
         examAttempts: {
-          where: {
-            status: { in: [AttemptStatus.SUBMITTED, AttemptStatus.EXPIRED] },
-          },
+          where: { studentId },
           select: {
             totalScore: true,
             isPublished: true,
+            updatedAt: true,
           },
           orderBy: {
             attemptNo: 'desc',
@@ -442,15 +446,29 @@ export class StudentCourseDetailRepository {
       },
     })
 
-    return exams.map((exam) => {
-      const latestAttempt = exam.examAttempts[0]
-      return {
-        examId: exam.id,
-        title: exam.title,
-        type: exam.type,
-        score: latestAttempt?.totalScore?.toNumber() || null,
-        publishedAt: latestAttempt?.isPublished ? new Date() : undefined,
+    const rawScores = exams
+      .map((exam) => {
+        const latestAttempt = exam.examAttempts[0]
+        // Only include exams where the student's score has been published
+        if (!latestAttempt || !latestAttempt.isPublished || latestAttempt.totalScore === null) {
+          return null
+        }
+        return {
+          examId: exam.id,
+          title: exam.title,
+          type: exam.type as string,
+          score: latestAttempt.totalScore.toNumber(),
+          publishedAt: exam.publishedAt!,
+        }
+      })
+      .filter((item): item is ScoreRow => item !== null)
+
+    return rawScores.sort((a, b) => {
+      const publishedCompare = a.publishedAt.getTime() - b.publishedAt.getTime()
+      if (publishedCompare !== 0) {
+        return publishedCompare
       }
+      return a.examId.localeCompare(b.examId)
     })
   }
 
@@ -558,6 +576,6 @@ export interface ScoreRow {
   examId: string
   title: string
   type: string
-  score: number | null
-  publishedAt?: Date
+  score: number
+  publishedAt: Date
 }

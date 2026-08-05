@@ -1438,9 +1438,6 @@ GET /api/student/course-offerings/{courseOfferingId}/exams/exam-with-null-publis
   "message": "Not Found"
 }
 ```
-
----
-
 ---
 
 # API 5. Members
@@ -1510,7 +1507,6 @@ Maximum pageSize = 100
 }
 ```
 
-
 ## Response Fields
 
 | Field | Description |
@@ -1519,7 +1515,6 @@ Maximum pageSize = 100
 | `role` | TEACHER hoặc STUDENT | 
 | `fullName` | Họ và tên đầy đủ | 
 | `studentCode` | MSSV. Teacher luôn trả về null | 
-
 
 ## Status Codes
 
@@ -1869,6 +1864,22 @@ page=1&pageSize=1
 ```
 GET /api/student/course-offerings/:courseOfferingId/scores
 ```
+## Mục đích
+
+Lấy điểm số của sinh viên đó trong lớp học đó.
+Chỉ trả về các bài thi đã được công khai điểm.
+
+## Authentication
+
+| Type | Header | Value |
+|------|--------|-------|
+| Bearer Token | Authorization | `Bearer <access_token>` |
+
+## Authorization
+
+- Role: `STUDENT`
+- Student phải thuộc lớp học phần (Course Offering)
+- Kiểm tra Enrollment trước khi lấy dữ liệu
 
 ## Response
 
@@ -1889,18 +1900,43 @@ GET /api/student/course-offerings/:courseOfferingId/scores
         "examId": "uuid",
         "title": "Cuối kỳ",
         "type": "FINAL",
-        "score": 9
+        "score": 9,
+        "publishedAt": "2026-07-28T08:00:00Z"
       },
       {
         "examId": "uuid",
         "title": "Thường kỳ code",
         "type": "QUIZ",
-        "score": 7
+        "score": 7,
+        "publishedAt": "2026-07-28T08:00:00Z"
       }
     ]
   }
 }
 ```
+## Response Fields
+
+| Field | Description |
+|-------|------|
+| `examId` | ID của bài kiểm tra | 
+| `title` | tiêu đề bài kiểm tra | 
+| `type` | loại bài kiểm tra (MIDTERM/FINAL/QUIZ) | 
+| `score` | điểm của bài kiểm tra đó | 
+| publishedAt | Thời điểm giảng viên công khai điểm của student |
+
+## Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Thành công |
+| 401 | Không đăng nhập |
+| 403 | Không có quyền (không phải STUDENT) |
+| 404 | Không tìm thấy tài nguyên hoặc không có quyền truy cập (Not Found) |
+
+## Chi tiết các lỗi ra 404
+404 khi:
+- Course Offering không tồn tại.
+- Student không thuộc lớp học phần.
 
 ## Business Rules
 
@@ -1908,11 +1944,30 @@ GET /api/student/course-offerings/:courseOfferingId/scores
 - Không hiển thị GPA.
 - Không hiển thị autoScore.
 - Không có pagination.
-- Nếu chưa có điểm:
+- Chỉ trả về điểm của Student đang đăng nhập.
+- Không trả về điểm của các sinh viên khác.
+- Nếu tồn tại nhiều Attempt (tương lai hỗ trợ nhiều lần thi),
+- API lấy Attempt mới nhất đã được công khai điểm.
+- Chỉ trả về các Exam thuộc Course Offering.
+- Không trả về Exam chưa được công khai điểm. (Không trả về lỗi. Chỉ bỏ qua Exam đó khỏi danh sách.)
+- Một Exam chỉ xuất hiện tối đa một lần.
+- Items chỉ bao gồm các Exam mà Student đã có điểm được công khai.
+- Nếu Student chưa có điểm nào được công khai thì trả về items = [].
+- Danh sách luôn được sắp xếp theo publishedAt tăng dần (ASC).
+- Nếu publishedAt bằng nhau thì sắp theo exam.createdAt.
+- score ∈ [0,10](có thể là số nguyên hoặc số thập phân). API không trả về score = null.
+- Nếu chưa có điểm được công khai thì Exam đó không xuất hiện trong danh sách.
+- publishedAt luôn có giá trị. API không trả về publishedAt = null.
+- API luôn trả về HTTP 200 nếu Student có quyền truy cập lớp học, kể cả khi items rỗng.
 
+- Nếu chưa có điểm:
 ```json
 {
-  "items": []
+  "success": true,
+  "message": "Scores loaded successfully",
+  "data": {
+    "items": []
+  }
 }
 ```
 
@@ -1920,6 +1975,225 @@ Frontend hiển thị:
 
 ```
 Chờ giảng viên nhập điểm
+```
+
+---
+
+# Test với Postman
+
+## API 6. Scores
+
+### Endpoint
+
+```
+GET /api/student/course-offerings/{courseOfferingId}/scores
+```
+
+### Test Cases
+
+#### 1. Success - Student có điểm đã publish
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Scores loaded successfully",
+  "data": {
+    "items": [
+      {
+        "examId": "exam-uuid-1",
+        "title": "Giữa kỳ",
+        "type": "MIDTERM",
+        "score": 8.5,
+        "publishedAt": "2026-07-25T10:00:00Z"
+      },
+      {
+        "examId": "exam-uuid-2",
+        "title": "Cuối kỳ",
+        "type": "FINAL",
+        "score": 9,
+        "publishedAt": "2026-07-28T08:00:00Z"
+      },
+      {
+        "examId": "exam-uuid-3",
+        "title": "Thường kỳ code",
+        "type": "QUIZ",
+        "score": 7,
+        "publishedAt": "2026-07-28T08:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+#### 2. Success - Student chưa có điểm nào
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Scores loaded successfully",
+  "data": {
+    "items": []
+  }
+}
+```
+
+#### 3. Success - Có Exam nhưng điểm chưa publish
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Scores loaded successfully",
+  "data": {
+    "items": []
+  }
+}
+```
+
+#### 4. Success - Nhiều Attempt, lấy Attempt mới nhất đã publish
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Scores loaded successfully",
+  "data": {
+    "items": [
+      {
+        "examId": "exam-uuid-1",
+        "title": "Giữa kỳ",
+        "type": "MIDTERM",
+        "score": 8.5,
+        "publishedAt": "2026-07-25T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+#### 5. Success - Sort theo publishedAt ASC
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Scores loaded successfully",
+  "data": {
+    "items": [
+      {
+        "examId": "exam-uuid-1",
+        "title": "Giữa kỳ",
+        "type": "MIDTERM",
+        "score": 8.5,
+        "publishedAt": "2026-07-20T10:00:00Z"
+      },
+      {
+        "examId": "exam-uuid-2",
+        "title": "Cuối kỳ",
+        "type": "FINAL",
+        "score": 9,
+        "publishedAt": "2026-07-25T08:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+#### 6. 401 - Không login
+
+**Headers:**
+```json
+(No Authorization header)
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Unauthorized"
+}
+```
+
+#### 7. 403 - Teacher gọi API
+
+**Headers:**
+```json
+Authorization: Bearer <valid_teacher_token>
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Forbidden"
+}
+```
+
+#### 8. 404 - Course Offering không tồn tại
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```json
+GET /api/student/course-offerings/non-existent-id/scores
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 9. 404 - Student không thuộc lớp
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```json
+GET /api/student/course-offerings/{courseOfferingId_of_other_student}/scores
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
 ```
 
 ---
