@@ -139,7 +139,7 @@ export class StudentCourseDetailMapper {
   // ────────────────────────────────────────────────────────────
   public toMemberResponse(row: MembersRow['items'][0]): MemberResponseDto {
     return {
-      id: row.id,
+      memberId: row.id,
       role: row.role as MemberRole,
       fullName: row.fullName,
       studentCode: row.studentCode,
