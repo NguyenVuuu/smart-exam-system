@@ -337,30 +337,14 @@ export class StudentCourseDetailRepository {
   // ────────────────────────────────────────────────────────────
   async findMembers(
     courseOfferingId: string,
+    studentId: string,
     page: number,
     pageSize: number,
   ): Promise<MembersRow> {
-    const courseOffering = await prisma.courseOffering.findUnique({
-      where: { id: courseOfferingId },
-      select: { id: true },
-    })
+    // First verify student has access to this course offering
+    await this.findCourseHeader(courseOfferingId, studentId)
 
-    if (!courseOffering) {
-      throw new NotFoundError('Not found')
-    }
-
-    const [teacherCount, studentCount] = await Promise.all([
-      prisma.teacher.count({
-        where: { courseOfferings: { some: { id: courseOfferingId } } },
-      }),
-      prisma.student.count({
-        where: { enrollments: { some: { courseOfferingId } } },
-      }),
-    ])
-
-    const totalItems = teacherCount + studentCount
-    const totalPages = Math.ceil(totalItems / pageSize)
-
+    // Get teachers for this course offering
     const teachers = await prisma.teacher.findMany({
       where: { courseOfferings: { some: { id: courseOfferingId } } },
       select: {
@@ -373,6 +357,7 @@ export class StudentCourseDetailRepository {
       },
     })
 
+    // Get students enrolled in this course offering
     const students = await prisma.student.findMany({
       where: { enrollments: { some: { courseOfferingId } } },
       select: {
@@ -384,13 +369,19 @@ export class StudentCourseDetailRepository {
           },
         },
       },
-      orderBy: {
-        user: {
-          fullName: 'asc',
-        },
-      },
     })
 
+    // Sort students by last name (tên) in ascending order
+    const sortedStudents = students.sort((a, b) => {
+      const lastNameA = a.user.fullName.trim().split(' ').pop() || ''
+      const lastNameB = b.user.fullName.trim().split(' ').pop() || ''
+      return lastNameA.localeCompare(lastNameB, 'vi')
+    })
+
+    const totalItems = teachers.length + sortedStudents.length
+    const totalPages = Math.ceil(totalItems / pageSize)
+
+    // Combine teachers and students
     const allItems = [
       ...teachers.map((t) => ({
         id: t.id,
@@ -398,7 +389,7 @@ export class StudentCourseDetailRepository {
         fullName: t.user.fullName,
         studentCode: null,
       })),
-      ...students.map((s) => ({
+      ...sortedStudents.map((s) => ({
         id: s.id,
         role: MemberRole.STUDENT,
         fullName: s.user.fullName,
@@ -406,6 +397,7 @@ export class StudentCourseDetailRepository {
       })),
     ]
 
+    // Apply pagination
     const start = (page - 1) * pageSize
     const paginatedItems = allItems.slice(start, start + pageSize)
 
