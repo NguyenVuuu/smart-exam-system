@@ -125,9 +125,11 @@ export class StudentCourseDetailService {
   // ────────────────────────────────────────────────────────────
   // Scores
   // ────────────────────────────────────────────────────────────
-  async getScores(studentId: string, courseOfferingId: string): Promise<ScoreResponseDto[]> {
-    const scores = await repo.findScores(courseOfferingId);
-    return scores.map((score) => mapper.toScoreResponse(score));
+  async getScores(studentId: string, courseOfferingId: string): Promise<{ items: ScoreResponseDto[] }> {
+    const scores = await repo.findScores(courseOfferingId, studentId);
+    return {
+      items: scores.map((score) => mapper.toScoreResponse(score)),
+    };
   }
 }
 
