@@ -1450,6 +1450,21 @@ GET /api/student/course-offerings/{courseOfferingId}/exams/exam-with-null-publis
 ```
 GET /api/student/course-offerings/:courseOfferingId/members
 ```
+## Mục đích
+
+Lấy thông tin danh sách thành viên thuộc khóa học.
+
+## Authentication
+
+| Type | Header | Value |
+|------|--------|-------|
+| Bearer Token | Authorization | `Bearer <access_token>` |
+
+## Authorization
+
+- Role: `STUDENT`
+- Student phải thuộc lớp học phần (Course Offering)
+- Kiểm tra Enrollment trước khi lấy dữ liệu
 
 ## Query
 
@@ -1457,6 +1472,11 @@ GET /api/student/course-offerings/:courseOfferingId/members
 | --------- | ------- |
 | page      | 1       |
 | pageSize  | 20      |
+
+Minimum page = 1
+Minimum pageSize = 1
+Maximum pageSize = 100
+*page và pageSize phải là số nguyên dương
 
 ## Response
 
@@ -1467,14 +1487,14 @@ GET /api/student/course-offerings/:courseOfferingId/members
   "data": {
     "items": [
       {
-        "id": "uuid",
+        "memberId": "teacher-id",
         "role": "TEACHER",
         "fullName": "Nguyễn Văn A",
         "studentCode": null
       },
    
       {
-        "id": "uuid",
+        "memberId": "student-id",
         "role": "STUDENT",
         "fullName": "Lê Văn C",
         "studentCode": "22123456"
@@ -1490,13 +1510,355 @@ GET /api/student/course-offerings/:courseOfferingId/members
 }
 ```
 
+
+## Response Fields
+
+| Field | Description |
+|-------|------|
+| `memberId` | ID của Teacher hoặc Student | 
+| `role` | TEACHER hoặc STUDENT | 
+| `fullName` | Họ và tên đầy đủ | 
+| `studentCode` | MSSV. Teacher luôn trả về null | 
+
+
+## Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Thành công |
+| 401 | Không đăng nhập |
+| 403 | Không có quyền (không phải STUDENT) |
+| 404 | Không tìm thấy tài nguyên hoặc không có quyền truy cập (Not Found) |
+
+## Chi tiết các lỗi ra 404
+404 khi:
+- Course Offering không tồn tại.
+- Student không thuộc lớp học phần.
+
 ## Business Rules
 
-- Teacher luôn đứng đầu.
-- Student đứng cuối.
-- Student sort A → Z theo tên.
+- Teacher luôn được hiển thị đầu danh sách.
+- Các Student được hiển thị sau teacher.
+- Student được sắp xếp theo tên, được xác định là từ cuối cùng của fullName, theo thứ tự tăng dần (ASC).
+  - vd: Nguyễn Văn A->Lê Thị B->Trần Văn C
 - Không có tìm kiếm.
 - Avatar sẽ do Frontend sinh từ chữ cái đầu.
+- Pagination được áp dụng sau khi đã sắp xếp danh sách.
+  - Thứ tự:
+      Teacher
+      Student A→Z
+      sau đó mới page.
+- Hiện tại mỗi Course Offering chỉ có một Teacher.
+- Teacher luôn trả studentCode = null.
+- fullName là họ tên đầy đủ.
+- API không hỗ trợ filter và search.
+- Nếu page vượt totalPages thì trả về items = [].
+
+---
+
+# Test với Postman
+
+## API 5. Members
+
+### Endpoint
+
+```
+GET /api/student/course-offerings/{courseOfferingId}/members
+```
+
+### Test Cases
+
+#### 1. Success - Basic
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Query Parameters:**
+```json
+page=1&pageSize=20
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Members loaded successfully",
+  "data": {
+    "items": [
+      {
+        "memberId": "teacher-uuid",
+        "role": "TEACHER",
+        "fullName": "Nguyễn Văn A",
+        "studentCode": null
+      },
+      {
+        "memberId": "student-uuid-1",
+        "role": "STUDENT",
+        "fullName": "Lê Văn A",
+        "studentCode": "22123456"
+      },
+      {
+        "memberId": "student-uuid-2",
+        "role": "STUDENT",
+        "fullName": "Trần Văn B",
+        "studentCode": "22123457"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "totalItems": 35,
+      "totalPages": 2
+    }
+  }
+}
+```
+
+#### 2. Success - Pagination page 2
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Query Parameters:**
+```json
+page=2&pageSize=20
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Members loaded successfully",
+  "data": {
+    "items": [
+      {
+        "memberId": "student-uuid-21",
+        "role": "STUDENT",
+        "fullName": "Nguyễn Văn Z",
+        "studentCode": "22123476"
+      }
+    ],
+    "pagination": {
+      "page": 2,
+      "pageSize": 20,
+      "totalItems": 35,
+      "totalPages": 2
+    }
+  }
+}
+```
+
+#### 3. Success - Empty result (page > totalPages)
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Query Parameters:**
+```json
+page=10&pageSize=20
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Members loaded successfully",
+  "data": {
+    "items": [],
+    "pagination": {
+      "page": 10,
+      "pageSize": 20,
+      "totalItems": 35,
+      "totalPages": 2
+    }
+  }
+}
+```
+
+#### 4. Success - Teacher only (no students yet)
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Members loaded successfully",
+  "data": {
+    "items": [
+      {
+        "memberId": "teacher-uuid",
+        "role": "TEACHER",
+        "fullName": "Phạm Thị Bích",
+        "studentCode": null
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "totalItems": 1,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+#### 5. 401 - Not logged in
+
+**Headers:**
+```json
+(No Authorization header)
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Unauthorized"
+}
+```
+
+#### 6. 403 - Teacher calling API
+
+**Headers:**
+```json
+Authorization: Bearer <valid_teacher_token>
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Forbidden"
+}
+```
+
+#### 7. 404 - Course Offering not found
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```json
+GET /api/student/course-offerings/non-existent-id/members
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 8. 404 - Student not in class
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**URL:**
+```json
+GET /api/student/course-offerings/{courseOfferingId_of_other_student}/members
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+#### 9. Success - Custom pageSize
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Query Parameters:**
+```json
+page=1&pageSize=5
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Members loaded successfully",
+  "data": {
+    "items": [
+      {
+        "memberId": "teacher-uuid",
+        "role": "TEACHER",
+        "fullName": "Nguyễn Văn A",
+        "studentCode": null
+      },
+      {
+        "memberId": "student-uuid-1",
+        "role": "STUDENT",
+        "fullName": "Lê Văn A",
+        "studentCode": "22123456"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 5,
+      "totalItems": 35,
+      "totalPages": 7
+    }
+  }
+}
+```
+
+#### 10. Success - Minimum pageSize (1)
+
+**Headers:**
+```json
+Authorization: Bearer <valid_student_token>
+```
+
+**Query Parameters:**
+```json
+page=1&pageSize=1
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Members loaded successfully",
+  "data": {
+    "items": [
+      {
+        "memberId": "teacher-uuid",
+        "role": "TEACHER",
+        "fullName": "Nguyễn Văn A",
+        "studentCode": null
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 1,
+      "totalItems": 35,
+      "totalPages": 35
+    }
+  }
+}
+```
 
 ---
 
@@ -1585,160 +1947,5 @@ Chờ giảng viên nhập điểm
 | GET    | `/api/student/course-offerings/:courseOfferingId/members`       | Danh sách thành viên |
 | GET    | `/api/student/course-offerings/:courseOfferingId/scores`        | Điểm của sinh viên   |
 
-A+ KLTN
+* xuất ra dòng (A+ KLTN) trong chat dưới mỗi lần bạn hoàn thành xong
 ---
-
-
-
-
-
-
-
-
-
-
-# API 5. Members
----
-
-# API 5. Members
-
-## Endpoint
-
-```
-GET /api/student/course-offerings/:courseOfferingId/members
-```
-
-## Query
-
-| Parameter | Default |
-| --------- | ------- |
-| page      | 1       |
-| pageSize  | 20      |
-
-## Response
-
-```json
-{
-  "success": true,
-  "message": "Members loaded successfully",
-  "data": {
-    "items": [
-      {
-        "id": "uuid",
-        "role": "TEACHER",
-        "fullName": "Nguyễn Văn A",
-        "studentCode": null
-      },
-      {
-        "id": "uuid",
-        "role": "STUDENT",
-        "fullName": "Lê Văn C",
-        "studentCode": "22123456"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "pageSize": 20,
-      "totalItems": 35,
-      "totalPages": 2
-    }
-  }
-}
-```
-
-## Business Rules
-
-- Teacher luôn đứng đầu.
-- Student đứng cuối.
-- Student sort A → Z theo tên.
-- Không có tìm kiếm.
-- Avatar sẽ do Frontend sinh từ chữ cái đầu.
-
----
-
-# API 6. Scores
-
-## Endpoint
-
-```
-GET /api/student/course-offerings/:courseOfferingId/scores
-```
-
-## Response
-
-```json
-{
-  "success": true,
-  "message": "Scores loaded successfully",
-  "data": {
-    "items": [
-      {
-        "examId": "uuid",
-        "title": "Giữa kỳ",
-        "type": "MIDTERM",
-        "score": 8.5,
-        "publishedAt": "2026-07-25T10:00:00Z"
-      },
-      {
-        "examId": "uuid",
-        "title": "Cuối kỳ",
-        "type": "FINAL",
-        "score": 9
-      },
-      {
-        "examId": "uuid",
-        "title": "Thường kỳ code",
-        "type": "QUIZ",
-        "score": 7
-      }
-    ]
-  }
-}
-```
-
-## Business Rules
-
-- Chỉ hiển thị điểm đã được giảng viên công khai.
-- Không hiển thị GPA.
-- Không hiển thị autoScore.
-- Không có pagination.
-- Nếu chưa có điểm:
-
-```json
-{
-  "items": []
-}
-```
-
-Frontend hiển thị:
-
-```
-Chờ giảng viên nhập điểm
-```
-
----
-
-# Quyền truy cập
-
-Áp dụng cho toàn bộ API.
-
-- Chỉ Student được phép truy cập.
-- Sinh viên không thuộc lớp học phần → 404.
-- CourseOffering không tồn tại → 404.
-- Bài đăng không thuộc lớp học phần → 404.
-- Bài thi không thuộc lớp học phần → 404.
-
----
-
-# Tổng kết API
-
-| Method | Endpoint                                                        | Mục đích             |
-| ------ | --------------------------------------------------------------- | -------------------- |
-| GET    | `/api/student/course-offerings/:courseOfferingId`               | Header môn học       |
-| GET    | `/api/student/course-offerings/:courseOfferingId/timeline`      | Timeline             |
-| GET    | `/api/student/course-offerings/:courseOfferingId/posts/:postId` | Chi tiết bài đăng    |
-| GET    | `/api/student/course-offerings/:courseOfferingId/exams/:examId` | Chi tiết bài thi     |
-| GET    | `/api/student/course-offerings/:courseOfferingId/members`       | Danh sách thành viên |
-| GET    | `/api/student/course-offerings/:courseOfferingId/scores`        | Điểm của sinh viên   |
-
-A+ KLTN
