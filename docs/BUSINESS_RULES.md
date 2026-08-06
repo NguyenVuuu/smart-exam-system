@@ -573,3 +573,27 @@ Hệ thống ghi lại các hoạt động quan trọng bao gồm:
 - Các sự kiện vi phạm.
 
 Nhật ký hệ thống phải được lưu trữ để phục vụ công tác quản trị và kiểm tra.
+
+# 14. Quy tắc hiển thị điểm số
+- Giáo viên có thể xem tất cả điểm số.
+- Học sinh chỉ có thể xem các điểm số đã được công bố.
+- Việc công bố điểm áp dụng cho toàn bộ bài thi/lớp học.
+- Các số liệu thống kê trên bảng điều khiển chỉ tính toán dựa trên những điểm số đã được công bố.
+
+# 15. Các quy tắc quản lý điểm số
+- Điểm chỉ hiển thị khi Exam.isPublished = true.
+- Publish điểm áp dụng toàn bộ sinh viên trong Course Offering.
+- Student không thấy điểm chưa publish.
+- Quiz:
+    Có nhiều bài kiểm tra.
+    Chỉ tính trung bình các Quiz đã publish.
+- Midterm:
+    Chỉ có một điểm.
+    Không tính trung bình.
+- Final:
+    Chỉ có một điểm.
+    Không tính trung bình.
+- Dashboard:
+    Không hiển thị môn chưa có điểm publish.
+    Không hiển thị giá trị null/0 thay thế.
+    Chỉ render dữ liệu có published score.
