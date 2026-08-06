@@ -54,6 +54,7 @@ Các nhiệm vụ chính:
 ### Sinh viên (Student)
 
 Chịu trách nhiệm tham gia các kỳ thi.
+Student chỉ được xem và thống kê những điểm thuộc các bài kiểm tra đã được Teacher publish.
 
 Các nhiệm vụ chính:
 
