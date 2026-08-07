@@ -10,7 +10,7 @@ export default function SubjectCard({ subject }: SubjectCardProps) {
   const navigate = useNavigate()
 
   function handleNavigate() {
-    navigate(`/student/courses/${subject.courseOfferingId}`)
+    navigate(`/student/course-offerings/${subject.courseOfferingId}`)
   }
 
   return (
