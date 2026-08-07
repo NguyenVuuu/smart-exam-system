@@ -1,14 +1,7 @@
 import { useMemo, useState } from 'react'
-import type { AnalyticsItem, ExamType, ScoreEntry, SelectOption } from '../types/dashboard.types'
-
-const EXAM_TYPE_LABELS: Record<ExamType, string> = {
-  QUIZ: 'Thường kỳ',
-  MIDTERM: 'Giữa kỳ',
-  FINAL: 'Cuối kỳ',
-}
+import type { AnalyticsItem, ScoreEntry, SelectOption } from '../types/dashboard.types'
 
 const SCORE_TYPE_OPTIONS: SelectOption[] = [
-  { value: 'all',     label: 'Tất cả'     },
   { value: 'QUIZ',    label: 'Thường kỳ'  },
   { value: 'MIDTERM', label: 'Giữa kỳ'   },
   { value: 'FINAL',   label: 'Cuối kỳ'   },
@@ -26,7 +19,7 @@ export function useDashboardAnalytics(analyticsItems: AnalyticsItem[]) {
   }, [analyticsItems])
 
   const [selectedSemester, setSelectedSemester] = useState<string>('')
-  const [selectedScoreType, setSelectedScoreType] = useState<string>('all')
+  const [selectedScoreType, setSelectedScoreType] = useState<string>('QUIZ')
 
   const effectiveSemester = useMemo(() => {
     if (selectedSemester) return selectedSemester
@@ -41,16 +34,10 @@ export function useDashboardAnalytics(analyticsItems: AnalyticsItem[]) {
       items = items.filter((item) => item.semesterId === effectiveSemester)
     }
 
-    if (selectedScoreType !== 'all') {
-      items = items.filter((item) => item.examType === selectedScoreType)
-    }
+    items = items.filter((item) => item.examType === selectedScoreType)
 
-    // When showing all types, append exam type to subject label for clarity
     return items.map((item) => ({
-      subject:
-        selectedScoreType === 'all'
-          ? `${item.subjectName}\n(${EXAM_TYPE_LABELS[item.examType] ?? item.examType})`
-          : item.subjectName,
+      subject: item.subjectName,
       studentScore: item.myScore,
       classAverage: item.classAverage,
     }))
