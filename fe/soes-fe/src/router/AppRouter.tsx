@@ -8,6 +8,7 @@ import TeacherDashboard from '../pages/teacher/TeacherDashboard'
 import StudentDashboard from '../pages/student/StudentDashboard'
 import StudentSubjectsPage from '../pages/student/StudentSubjectsPage'
 import StudentCourseDetailPage from '../pages/student/StudentCourseDetailPage'
+import StudentPostDetailPage from '../pages/student/StudentPostDetailPage'
 
 export default function AppRouter() {
   return (
@@ -65,6 +66,22 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['STUDENT']}>
               <StudentCourseDetailPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/course-offerings/:courseOfferingId"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentCourseDetailPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/course-offerings/:courseOfferingId/posts/:postId"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentPostDetailPage />
             </RoleRoute>
           }
         />

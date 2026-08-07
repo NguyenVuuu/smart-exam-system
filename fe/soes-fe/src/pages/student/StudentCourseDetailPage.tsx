@@ -1,6 +1,6 @@
 import { ArrowLeft, BookOpen } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import CourseHeader from './components/course-detail/CourseHeader'
 import CourseTabs, { type CourseTab } from './components/course-detail/CourseTabs'
 import MembersList from './components/course-detail/members/MembersList'
@@ -10,10 +10,18 @@ import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
 import { useCourseHeader } from './hooks/course-detail/useCourseHeader'
 
+interface LocationState {
+  activeTab?: CourseTab
+}
+
 export default function StudentCourseDetailPage() {
   const { courseOfferingId } = useParams<{ courseOfferingId: string }>()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<CourseTab>('timeline')
+  const location = useLocation()
+  const locationState = location.state as LocationState | null
+  const [activeTab, setActiveTab] = useState<CourseTab>(
+    locationState?.activeTab ?? 'timeline',
+  )
 
   const { data, isLoading, error } = useCourseHeader(courseOfferingId ?? '')
 
