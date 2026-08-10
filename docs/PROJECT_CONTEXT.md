@@ -114,18 +114,20 @@ Giảng viên có thể:
 ### Quản lý đề thi
 
 Giảng viên có thể tạo đề thi bằng nhiều phương thức:
-
 - Tạo câu hỏi thủ công.
 - Chọn câu hỏi từ ngân hàng câu hỏi.
 - Sinh câu hỏi bằng AI.
+    Quy trình AI: Material selection->AI Generation Draft->Teacher Review->Question Bank / Exam
 - Kết hợp câu hỏi thủ công, câu hỏi từ ngân hàng và câu hỏi do AI tạo.
-
 Các loại đề thi được hỗ trợ:
-
 - Đề thi trắc nghiệm một đáp án.
 - Đề thi trắc nghiệm nhiều đáp án.
 - Đề thi lập trình.
 - Đề thi hỗn hợp.
+Mỗi đề thi lưu:
+- Loại đề thi.
+- Phương thức tạo đề.
+- Trạng thái công bố điểm.
 
 ### Thi lập trình
 

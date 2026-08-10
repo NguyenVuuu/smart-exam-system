@@ -26,7 +26,21 @@ Hệ thống hỗ trợ ba vai trò:
 
 ## BR-01: Vai trò người dùng
 
-Hệ thống hỗ trợ ba vai trò người dùng.
+- Hệ thống hỗ trợ ba loại tài khoản:
+- ADMIN
+- TEACHER
+- STUDENT
+- Một người dùng có thể sở hữu một hoặc nhiều loại tài khoản.
+Ví dụ một người đồng thời là STUDENT và TEACHER:
+- STUDENT:
+  - student_code: SV001
+  - password: ****
+- TEACHER:
+  - teacher_code: GV001
+  - password: ****
+- Khi đăng nhập bằng student_code, hệ thống đăng nhập vào tài khoản STUDENT và chỉ cung cấp giao diện, chức năng của STUDENT.
+- Khi đăng nhập bằng teacher_code, hệ thống đăng nhập vào tài khoản TEACHER và chỉ cung cấp giao diện, chức năng của TEACHER.
+-  Hai tài khoản có thể liên kết với cùng một người dùng (User) để dùng chung thông tin cá nhân
 
 ### ADMIN
 
@@ -68,10 +82,20 @@ Các nhiệm vụ chính:
 
 ## BR-02: Xác thực
 
-- Mọi người dùng đều phải đăng nhập trước khi truy cập hệ thống.
-- Email phải là duy nhất trong toàn hệ thống.
-- Mật khẩu phải được mã hóa an toàn trước khi lưu vào cơ sở dữ liệu.
-- Một người dùng không được đăng nhập đồng thời trên nhiều thiết bị.
+- Mọi tài khoản phải đăng nhập trước khi truy cập hệ thống.
+- Người dùng đăng nhập bằng mã tài khoản tương ứng với loại tài khoản.
+- STUDENT đăng nhập bằng student_code.
+- TEACHER đăng nhập bằng teacher_code.
+- ADMIN đăng nhập bằng admin_code.
+- Email không được sử dụng làm thông tin đăng nhập, Email là thông tin liên hệ.
+- Mỗi mã tài khoản phải là duy nhất trong phạm vi loại tài khoản tương ứng.
+- Mật khẩu của từng tài khoản phải được mã hóa an toàn trước khi lưu vào cơ sở dữ liệu.
+- Nếu user vừa là teacher vừa student thì có thể đăng nhập tài khoản teacher, student ở 2 nơi khác nhau cùng lúc. Nhưng không thể đăng nhập đồng thời cùng 1 tài khoản student/teacher trên nhiều thiết bị
+- Một tài khoản không được đăng nhập đồng thời trên nhiều thiết bị.
+- Nếu một người có cả tài khoản STUDENT và TEACHER, hai tài khoản này có thông tin đăng nhập độc lập.
+- Đăng nhập bằng student_code chỉ tạo phiên đăng nhập với quyền STUDENT.
+- Đăng nhập bằng teacher_code chỉ tạo phiên đăng nhập với quyền TEACHER.
+- Hệ thống không cho phép tài khoản STUDENT truy cập các chức năng dành cho TEACHER và ngược lại.
 
 ---
 
@@ -225,10 +249,17 @@ Không được phép:
 
 ## BR-10: Lựa chọn tài liệu cho AI
 
-Giảng viên chủ động lựa chọn những tài liệu sẽ được AI sử dụng để sinh câu hỏi.
+Giảng viên có thể lựa chọn nhiều tài liệu thuộc lớp học phần để sử dụng khi sinh câu hỏi.
+Việc lựa chọn tài liệu được lưu theo từng lần sinh câu hỏi.
+Ví dụ:
+Lần sinh câu hỏi 1:
+- Chapter1.pdf
+- Chapter3.pdf
+Lần sinh câu hỏi 2:
+- Chapter5.pdf
+Một tài liệu có thể được sử dụng trong nhiều lần sinh câu hỏi khác nhau.
 
 Quy tắc:
-
 - AI chỉ được sử dụng những tài liệu đã chọn.
 - Những tài liệu chưa được chọn không được AI xử lý.
 
@@ -277,29 +308,73 @@ Quy tắc:
 
 ## BR-12A: AI Sinh câu hỏi
 
-Câu hỏi được sinh bởi AI thì không tự động công bố
+AI là dịch vụ hỗ trợ được tích hợp thông qua API của bên thứ ba. AI không tự quyết định nội dung cuối cùng được sử dụng trong hệ thống.
 
-Giáo viên phải đánh giá lại câu hỏi được tạo ra trước khi sử dụng
+Quy trình:
+1. Giáo viên lựa chọn tài liệu học tập được phép sử dụng.
+2. Hệ thống gửi nội dung tài liệu được phép sử dụng đến API của dịch vụ AI bên thứ ba.
+3. Các câu hỏi do AI sinh ra được lưu dưới dạng câu hỏi nháp và chưa thuộc ngân hàng câu hỏi.
+4. AI phân tích nội dung tài liệu và sinh các câu hỏi trắc nghiệm.
+5. Giảng viên xem xét và đánh giá từng câu hỏi.
+6. Giảng viên có thể:
+  - Chỉnh sửa câu hỏi.
+  - Chỉnh sửa các phương án trả lời.
+  - Thay đổi đáp án đúng.
+  - Xóa câu hỏi.
+  - Chấp nhận và lưu câu hỏi vào ngân hàng câu hỏi.
+  - Thêm trực tiếp câu hỏi vào đề thi.
 
-Giáo viên có thể:
+Phạm vi AI
+- AI chỉ được sử dụng các tài liệu do giảng viên lựa chọn trong lần sinh câu hỏi tương ứng.
+- Một tài liệu có thể được sử dụng trong nhiều lần sinh câu hỏi khác nhau.
+- AI không tự động:
+    Công bố câu hỏi.
+    Công bố đề thi.
+    Đưa câu hỏi vào ngân hàng câu hỏi.
+    Đưa câu hỏi vào đề thi mà không có quyết định của giảng viên.
 
-- Sửa câu hỏi được tạo ra
-- Xóa câu hỏi được tạo ra
-- Lưu câu hỏi được tạo ra vào trong ngân hàng câu hỏi
-- Thêm trực tiếp câu hỏi được tạo ra vào bài thi
+Loại câu hỏi AI:
+- Trong phạm vi hiện tại, AI chỉ sinh:
+    Câu hỏi trắc nghiệm một đáp án.
+    Câu hỏi trắc nghiệm nhiều đáp án.
+    AI không sinh câu hỏi lập trình trong quy trình này.
+- Trạng thái câu hỏi AI
+    PENDING_REVIEW: Câu hỏi đang chờ giảng viên xem xét.
+    APPROVED: Câu hỏi đã được giảng viên chấp nhận.
+    REJECTED: Câu hỏi bị giảng viên từ chối.
+APPROVED chỉ thể hiện câu hỏi đã được giảng viên chấp nhận. Câu hỏi chỉ trở thành câu hỏi thuộc ngân hàng câu hỏi khi giảng viên thực hiện thao tác lưu vào ngân hàng.
 
----
+## BR-12B: Lịch sử sinh câu hỏi bằng AI
+
+Mỗi lần sinh câu hỏi bằng AI phải được lưu lại.
+Thông tin lưu trữ:
+- Giáo viên thực hiện.
+- Lớp học phần.
+- Danh sách tài liệu sử dụng.
+- Thời gian sinh.
+- Prompt gửi AI.
+- Model AI sử dụng.
+- Số lượng câu hỏi được sinh.
+- Trạng thái xử lý.
+Một lần sinh AI có thể tạo nhiều câu hỏi.
+Câu hỏi sinh ra phải liên kết với lần sinh AI tương ứng.
+-----
 
 # 7. Quản lý kỳ thi
 
 ## BR-13: Loại đề thi
 
 Hệ thống hỗ trợ:
-
 - Đề thi trắc nghiệm một đáp án
 - Đề thi trắc nghiệm nhiều đáp án
 - Đề thi lập trình
 - Đề thi hỗn hợp
+
+Mỗi đề thi phải lưu loại đề thi để phục vụ:
+- Hiển thị giao diện làm bài.
+- Kiểm tra loại câu hỏi hợp lệ.
+- Thống kê kết quả.
+- Lọc và quản lý đề thi.
 
 Đề thi hỗn hợp có thể bao gồm tất cả các loại câu hỏi.
 
@@ -325,9 +400,18 @@ Sinh câu hỏi bằng AI.
 
 ### Phương thức 4
 
-Kết hợp câu hỏi thủ công, câu hỏi từ ngân hàng và câu hỏi do AI sinh.
+- Kết hợp câu hỏi thủ công, câu hỏi từ ngân hàng và câu hỏi do AI sinh.
+- Giảng viên phải được phép xem trước và chỉnh sửa câu hỏi trước khi công bố đề thi.
 
-Giảng viên phải được phép xem trước và chỉnh sửa câu hỏi trước khi công bố đề thi.
+Mỗi đề thi phải lưu lại phương thức tạo đề:
+- MANUAL:
+  Giáo viên tự tạo câu hỏi.
+- QUESTION_BANK:
+  Giáo viên chọn câu hỏi từ ngân hàng.
+- AI_GENERATED:
+  Đề thi được tạo từ câu hỏi AI.
+- MIXED:
+  Kết hợp nhiều nguồn câu hỏi.
 
 ---
 
@@ -581,7 +665,9 @@ Nhật ký hệ thống phải được lưu trữ để phục vụ công tác 
 - Các số liệu thống kê trên bảng điều khiển chỉ tính toán dựa trên những điểm số đã được công bố.
 
 # 15. Các quy tắc quản lý điểm số
-- Điểm chỉ hiển thị khi Exam.isPublished = true.
+- Điểm chỉ hiển thị khi Exam.resultPublished = true.
+- Việc công bố điểm áp dụng cho toàn bộ sinh viên tham gia bài thi.
+- Không có trường hợp một sinh viên thấy điểm và sinh viên khác không thấy điểm trong cùng một bài thi.
 - Publish điểm áp dụng toàn bộ sinh viên trong Course Offering.
 - Student không thấy điểm chưa publish.
 - Quiz:
