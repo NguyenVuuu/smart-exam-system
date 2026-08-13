@@ -72,6 +72,7 @@ export async function startExam(examId: string, studentId: string): Promise<Star
       studentId,
       startedAt,
       remainingSeconds,
+      shuffleQuestions: exam.shuffleQuestions,
     })
   } catch (err) {
     if (err instanceof Error && err.name === 'DUPLICATE_ATTEMPT') {

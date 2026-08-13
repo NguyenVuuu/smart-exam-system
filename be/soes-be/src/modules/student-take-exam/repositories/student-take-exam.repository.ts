@@ -14,6 +14,7 @@ export async function findExamById(examId: string) {
       durationMinutes:  true,
       maxAttempts:      true,
       courseOfferingId: true,
+      shuffleQuestions: true,
     },
   })
 }
@@ -44,15 +45,28 @@ export interface CreateAttemptInput {
   studentId:        string
   startedAt:        Date
   remainingSeconds: number
+  shuffleQuestions: boolean
+}
+
+/**
+ * Fisher-Yates in-place shuffle.
+ * Returns the same array (mutated) for convenience.
+ */
+function shuffleArray<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
 }
 
 export async function createAttemptSafe(input: CreateAttemptInput) {
-  const { examId, studentId, startedAt, remainingSeconds } = input
+  const { examId, studentId, startedAt, remainingSeconds, shuffleQuestions } = input
 
   return prisma.$transaction(async (tx) => {
-    // Re-check inside the transaction — this, combined with the DB unique
-    // constraint on (examId, studentId, attemptNo), prevents duplicate attempts
-    // even under concurrent requests.
+    // ── Guard: re-check inside transaction ────────────────────────────────
+    // Combined with the DB unique constraint on (examId, studentId, attemptNo),
+    // this prevents duplicate attempts even under concurrent requests.
     const existing = await tx.examAttempt.count({
       where: { examId, studentId },
     })
@@ -63,7 +77,16 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       throw err
     }
 
-    return tx.examAttempt.create({
+    // ── Fetch exam questions ───────────────────────────────────────────────
+    // Use deterministic ordering (id asc) so the non-shuffled case is stable.
+    const examQuestions = await tx.examQuestion.findMany({
+      where: { examId },
+      select: { questionId: true },
+      orderBy: { id: 'asc' },
+    })
+
+    // ── Create ExamAttempt ────────────────────────────────────────────────
+    const attempt = await tx.examAttempt.create({
       data: {
         examId,
         studentId,
@@ -79,5 +102,24 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
         remainingSeconds: true,
       },
     })
+
+    // ── Create ExamAttemptQuestion snapshot ───────────────────────────────
+    // Apply shuffle when the exam is configured to do so; otherwise preserve
+    // the stable ordering determined above.
+    const orderedQuestions = shuffleQuestions
+      ? shuffleArray([...examQuestions])
+      : examQuestions
+
+    if (orderedQuestions.length > 0) {
+      await tx.examAttemptQuestion.createMany({
+        data: orderedQuestions.map((eq, index) => ({
+          attemptId:  attempt.id,
+          questionId: eq.questionId,
+          orderIndex: index + 1,
+        })),
+      })
+    }
+
+    return attempt
   })
 }
