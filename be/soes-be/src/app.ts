@@ -6,6 +6,7 @@ import { authRoutes } from './modules/auth'
 import { studentDashboardRoutes } from './modules/student-dashboard'
 import { studentSubjectsRoutes } from './modules/student-subjects'
 import { studentCourseDetailRoutes } from './modules/student-course-detail'
+import { studentTakeExamRoutes } from './modules/student-take-exam'
 
 const app = express()
 
@@ -34,6 +35,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/student', studentDashboardRoutes)
 app.use('/api/student', studentSubjectsRoutes)
 app.use('/api/student/course-offerings', studentCourseDetailRoutes)
+app.use('/api/student', studentTakeExamRoutes)
 
 // ── Health check ──────────────────────────────────────────
 app.get('/health', (_req, res) => {
