@@ -114,10 +114,11 @@ Request Body: None
   4. Tính thời điểm kết thúc thực tế của attempt:
      `attemptEndAt = min(startedAt + Exam.durationMinutes, Exam.endTime)`
   5. Tính thời gian còn lại:
-     `remainingSeconds = max(0, floor((attemptEndAt - now) in seconds))`
+     `remainingSeconds = max(0, floor((attemptEndAt - now)/1000))`
   6. Lưu `remainingSeconds` vào `ExamAttempt.remainingSeconds`.
   7. Set `lastSavedAt = now`.
   8. Không tạo duplicate attempt nếu có nhiều request start được gửi đồng thời.
+  10. startedAt và now sử dụng cùng một timestamp được tạo tại thời điểm bắt đầu attempt.
 - `attemptEndAt` là computed value, không được lưu trong `ExamAttempt`.
 - attemptEndAt không được lưu trong ExamAttempt; các API xử lý attempt phải có thể tính lại attemptEndAt từ ExamAttempt.startedAt, Exam.durationMinutes và Exam.endTime.
 - `remainingSeconds` là giá trị được persist trong `ExamAttempt`. Giá trị này được khởi tạo khi Start Exam và sẽ được cập nhật bởi các API xử lý tiến độ/thời gian của attempt.
@@ -126,6 +127,7 @@ Request Body: None
 - Student không thể start lại Exam nếu đã có submitted attempt.
 - Student không thể start Exam trước `startTime`.
 - Student không thể start Exam tại hoặc sau `endTime`.
+- Khi Start Exam tạo ExamAttempt, nó phải đồng thời tạo snapshot thứ tự câu hỏi của attempt trong ExamAttemptQuestion.
 
 ### Time Examples
 
@@ -381,7 +383,6 @@ pm.test("success is false", () => {
   pm.expect(pm.response.json().success).to.be.false;
 });
 ```
-
 ---
 
 #### 6. Before start time – now < startTime → 409
@@ -412,7 +413,6 @@ pm.test("success is false", () => {
   pm.expect(pm.response.json().success).to.be.false;
 });
 ```
-
 ---
 
 #### 7. After end time – now >= endTime → 409
@@ -476,7 +476,6 @@ pm.test("success is false", () => {
   pm.expect(pm.response.json().success).to.be.false;
 });
 ```
-
 ---
 
 #### 9. Concurrent duplicate protection – không thể tạo duplicate attempt
@@ -508,7 +507,6 @@ pm.test("success is false", () => {
   pm.expect(pm.response.json().success).to.be.false;
 });
 ```
-
 ---
 
 #### 10. Unauthorized – Không login → 401
@@ -536,7 +534,6 @@ pm.test("success is false", () => {
   pm.expect(pm.response.json().success).to.be.false;
 });
 ```
-
 ---
 
 #### 11. Forbidden – Teacher gọi API → 403
@@ -601,9 +598,6 @@ pm.test("remainingSeconds equals floor((attemptEndAt - startedAt) / 1000)", () =
   pm.expect(body.data.remainingSeconds).to.equal(expected);
 });
 ```
-
----
-
 -----
 
 # API 2. Get Exam Content
@@ -626,10 +620,12 @@ Lấy nội dung bài thi để sinh viên làm bài.
 ## Authorization
 
 - Role: `STUDENT`
-- Attempt phải thuộc Student đang đăng nhập.
+- `attempt.studentId` phải bằng `studentId` của access token.
+- Student không được truy cập attempt của Student khác.
+- Nếu attempt không thuộc Student hiện tại, trả về 404.
 
 ## Response
-
+### Câu hỏi dạng chọn đáp án
 ```json
 {
   "success": true,
@@ -639,7 +635,49 @@ Lấy nội dung bài thi để sinh viên làm bài.
     "title": "Giữa kỳ",
     "durationMinutes": 60,
     "remainingSeconds": 3000,
-    "questions": []
+    "questions": [
+      {
+        "id": "question-uuid-1",
+        "orderIndex": 1,
+        "content": "2 + 2 = ?",
+        "type": "SINGLE_CHOICE",
+        "points": 1,
+        "options": [
+          {
+            "id": "option-uuid-1",
+            "content": "3"
+          },
+          {
+            "id": "option-uuid-2",
+            "content": "4"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Câu hỏi dạng PROGRAMMING
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "attemptId": "uuid",
+    "title": "Giữa kỳ",
+    "durationMinutes": 60,
+    "remainingSeconds": 3000,
+    "questions": [
+      {
+        "id": "question-uuid-2",
+        "orderIndex": 1,
+        "content": "content",
+        "type": "PROGRAMMING",
+        "points": 1,
+        "options": []
+      }
+    ]
   }
 }
 ```
@@ -653,6 +691,10 @@ Lấy nội dung bài thi để sinh viên làm bài.
 | `durationMinutes` | Thời lượng bài thi |
 | `remainingSeconds` | Thời gian còn lại |
 | `questions` | Danh sách câu hỏi |
+| `content` | Nội dung câu hỏi |
+| `points` | Điểm câu hỏi |
+| `type` | Loại câu hỏi |
+| `options` | Các lựa chọn của phần đáp án |
 
 ## Status Codes
 
@@ -660,15 +702,527 @@ Lấy nội dung bài thi để sinh viên làm bài.
 |------|-------------|
 | 200 | Thành công |
 | 401 | Không đăng nhập |
-| 403 | Không có quyền |
-| 404 | Không tìm thấy attempt |
+| 403 | Role không phải STUDENT |
+| 404 | Exam/Attempt không tồn tại, hoặc attempt không thuộc Student/exam |
+| 409 | Attempt đã kết thúc / không thể tiếp tục làm bài |
 
 ## Business Rules
 
-- Chỉ trả về bài thi của Student hiện tại.
-- Không cho phép truy cập attempt của Student khác.
-- Không trả về dữ liệu không cần thiết.
+- Chỉ Student được phép truy cập.
+- `attemptId` phải tồn tại.
+- `attemptId` phải thuộc `examId` được truyền trên URL.
+- Attempt phải thuộc Student đang đăng nhập.
+- Student không được truy cập attempt của Student khác.
+- Danh sách câu hỏi phải được lấy từ `ExamAttemptQuestion` của attempt hiện tại.
+- Không được lấy thứ tự câu hỏi trực tiếp từ `ExamQuestion`.
+- `orderIndex` phải sử dụng giá trị snapshot trong `ExamAttemptQuestion`.
+- API phải giữ nguyên thứ tự câu hỏi đã được tạo khi Start Exam.
+- Chỉ trả về các câu hỏi thuộc attempt hiện tại.
+- Không trả về đáp án đúng hoặc dữ liệu phục vụ chấm điểm mà Student không cần biết.
+- Chỉ trả về các trường dữ liệu cần thiết cho giao diện làm bài.
+- `attemptEndAt` được tính lại từ:
+  `min(attempt.startedAt + exam.durationMinutes, exam.endTime)`.
+- `remainingSeconds` không được sử dụng như realtime countdown từ giá trị lưu trong DB.
+      + remainingSeconds được tính lại tại thời điểm gọi API: max(0,floor((attemptEndAt - now) / 1000))
+      + Không lấy trực tiếp ExamAttempt.remainingSeconds làm giá trị realtime.
+      + Giá trị tính toán này không cần persist vào DB trong API Get Exam Content.
+- Nếu attempt đã hết thời gian, Student không được tiếp tục làm bài.
+      Nếu now >= attemptEndAt:
+      → không trả nội dung bài thi
+      → trả 409
+      → message: "Exam attempt has ended"
 
+- Ví dụ API 1 tạo:
+    ExamAttemptQuestion
+    attemptId   questionId   orderIndex
+    A           Q3           1
+    A           Q1           2
+    A           Q2           3
+- API 2 phải trả:
+    "questions": [
+      {
+        "id": "Q3",
+        "orderIndex": 1
+      },
+      {
+        "id": "Q1",
+        "orderIndex": 2
+      },
+      {
+        "id": "Q2",
+        "orderIndex": 3
+      }
+    ]
+
+---
+# Test với Postman
+## API 2. Get Exam Content
+
+### Pre-condition
+
+API 2 phụ thuộc vào API 1.
+
+1. Gọi `POST /api/student/exams/{{examId}}/start` trước để tạo attempt.
+2. Lưu `data.attemptId` từ response vào collection variable `{{attemptId}}`.
+3. Dùng `{{attemptId}}` đó để gọi API 2.
+
+Postman script của API 1 Success case đã tự động lưu `attemptId`:
+```javascript
+pm.collectionVariables.set("attemptId", pm.response.json().data.attemptId);
+```
+
+### Endpoint
+
+```
+GET /api/student/exams/:examId/attempts/:attemptId
+```
+
+### Variables
+
+| Variable | Description |
+|----------|-------------|
+| `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
+| `{{studentToken}}` | Valid Student JWT access token |
+| `{{teacherToken}}` | Valid Teacher JWT access token |
+| `{{examId}}` | ID of the exam used in API 1 |
+| `{{attemptId}}` | `data.attemptId` saved from API 1 Success call |
+| `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
+| `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
+| `{{attemptId_expired}}` | attemptId whose attemptEndAt is in the past |
+
+---
+
+### Test Cases
+
+#### 1. Success – Lấy nội dung bài thi thành công
+
+**Pre-condition:** Call API 1 Start Exam first to get `{{attemptId}}`.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Exam loaded successfully",
+  "data": {
+    "attemptId": "uuid",
+    "title": "Giữa kỳ",
+    "durationMinutes": 60,
+    "remainingSeconds": 3580,
+    "questions": [
+      {
+        "id": "question-uuid-1",
+        "orderIndex": 1,
+        "content": "2 + 2 = ?",
+        "type": "SINGLE_CHOICE",
+        "points": 2,
+        "options": [
+          { "id": "option-uuid-1", "content": "3" },
+          { "id": "option-uuid-2", "content": "4" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+
+pm.test("message is 'Exam loaded successfully'", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam loaded successfully");
+});
+
+const body = pm.response.json().data;
+
+pm.test("data.attemptId matches {{attemptId}}", () => {
+  pm.expect(body.attemptId).to.equal(pm.collectionVariables.get("attemptId"));
+});
+
+pm.test("data.title is a non-empty string", () => {
+  pm.expect(body.title).to.be.a("string").and.not.be.empty;
+});
+
+pm.test("data.durationMinutes is a positive number", () => {
+  pm.expect(body.durationMinutes).to.be.a("number").and.be.above(0);
+});
+
+pm.test("data.remainingSeconds is a non-negative number", () => {
+  pm.expect(body.remainingSeconds).to.be.a("number").and.be.at.least(0);
+});
+
+pm.test("data.questions is an array", () => {
+  pm.expect(body.questions).to.be.an("array");
+});
+
+pm.test("questions have required fields", () => {
+  body.questions.forEach((q) => {
+    pm.expect(q.id,         "question.id").to.be.a("string").and.not.be.empty;
+    pm.expect(q.orderIndex, "question.orderIndex").to.be.a("number").and.be.above(0);
+    pm.expect(q.content,    "question.content").to.be.a("string");
+    pm.expect(q.type,       "question.type").to.be.a("string");
+    pm.expect(q.points,     "question.points").to.be.a("number");
+    pm.expect(q.options,    "question.options").to.be.an("array");
+  });
+});
+
+pm.test("orderIndex is ascending and starts at 1", () => {
+  const indices = body.questions.map((q) => q.orderIndex);
+  indices.forEach((idx, i) => {
+    pm.expect(idx).to.equal(i + 1);
+  });
+});
+
+pm.test("correct answer is NOT exposed in any question", () => {
+  body.questions.forEach((q) => {
+    pm.expect(q.correctAnswer,    "correctAnswer must not exist").to.be.undefined;
+    pm.expect(q.correctOptionIds, "correctOptionIds must not exist").to.be.undefined;
+    q.options.forEach((opt) => {
+      pm.expect(opt.isCorrect, "option.isCorrect must not exist").to.be.undefined;
+    });
+  });
+});
+```
+
+---
+
+#### 2. Success – SINGLE_CHOICE câu hỏi có options
+
+**Postman Tests (bổ sung vào Success case):**
+```javascript
+const singleChoiceQuestions = pm.response.json().data.questions.filter(
+  (q) => q.type === "SINGLE_CHOICE"
+);
+
+pm.test("SINGLE_CHOICE questions have non-empty options array", () => {
+  if (singleChoiceQuestions.length === 0) return; // skip if no such question in this exam
+  singleChoiceQuestions.forEach((q) => {
+    pm.expect(q.options).to.be.an("array").and.have.length.above(0);
+    q.options.forEach((opt) => {
+      pm.expect(opt.id,      "option.id").to.be.a("string");
+      pm.expect(opt.content, "option.content").to.be.a("string");
+    });
+  });
+});
+```
+
+---
+
+#### 3. Success – PROGRAMMING câu hỏi có options = []
+
+**Postman Tests (bổ sung vào Success case):**
+```javascript
+const programmingQuestions = pm.response.json().data.questions.filter(
+  (q) => q.type === "PROGRAMMING"
+);
+
+pm.test("PROGRAMMING questions have options = []", () => {
+  programmingQuestions.forEach((q) => {
+    pm.expect(q.options).to.be.an("array").and.have.lengthOf(0);
+  });
+});
+```
+
+---
+
+#### 4. Success – remainingSeconds được tính realtime
+
+**Description:** remainingSeconds phải phản ánh thời gian thực tế còn lại, không phải giá trị lưu trong DB.
+
+**Postman Tests:**
+```javascript
+pm.test("remainingSeconds is a non-negative number", () => {
+  const remaining = pm.response.json().data.remainingSeconds;
+  pm.expect(remaining).to.be.a("number").and.be.at.least(0);
+});
+
+// Soft check: remainingSeconds nên nhỏ hơn durationMinutes * 60
+// (cho phép sai lệch vài giây do network latency)
+pm.test("remainingSeconds is not greater than durationMinutes * 60", () => {
+  const data = pm.response.json().data;
+  pm.expect(data.remainingSeconds).to.be.at.most(data.durationMinutes * 60);
+});
+```
+
+---
+
+#### 5. Unauthorized – Không login → 401
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}`
+
+**Headers:** *(No Authorization header)*
+
+**Expected Response (401):**
+```json
+{
+  "success": false,
+  "message": "Missing or invalid authorization header"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 401", () => {
+  pm.response.to.have.status(401);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 6. Forbidden – Teacher gọi API → 403
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}`
+
+**Headers:**
+```
+Authorization: Bearer {{teacherToken}}
+```
+
+**Expected Response (403):**
+```json
+{
+  "success": false,
+  "message": "Student access required"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 403", () => {
+  pm.response.to.have.status(403);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 7. Attempt not found – attemptId không tồn tại → 404
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/non-existent-attempt-id`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 8. Attempt belongs to another student → 404
+
+**Description:** Student A không được xem attempt của Student B. API trả 404 (không phải 403) để tránh leak thông tin.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_otherStudent}}`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 9. Attempt does not belong to examId → 404
+
+**Description:** attemptId tồn tại nhưng thuộc một examId khác với URL.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_wrongExam}}`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 10. Attempt expired – attemptEndAt đã qua → 409
+
+**Description:** `now >= attemptEndAt` — Student không thể tiếp tục làm bài.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (409):**
+```json
+{
+  "success": false,
+  "message": "Exam attempt has ended"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 409", () => {
+  pm.response.to.have.status(409);
+});
+
+pm.test("message is 'Exam attempt has ended'", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam attempt has ended");
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 11. Verify question order comes from ExamAttemptQuestion snapshot
+
+**Description:**
+Gọi API 1 Start Exam rồi ngay sau đó gọi API 2 Get Exam Content.
+Thứ tự câu hỏi phải giống hệt snapshot được tạo lúc Start Exam và phải nhất quán nếu gọi API 2 nhiều lần.
+
+**Step 1:** Gọi API 1 lần đầu → lưu `{{attemptId}}` và ghi lại thứ tự `questionId` trong response.
+
+**Step 2:** Gọi API 2 với cùng `{{attemptId}}` → verify thứ tự câu hỏi giống hệt lần trước.
+
+**Postman Tests (Step 2):**
+```javascript
+const questions = pm.response.json().data.questions;
+
+// Thứ tự orderIndex phải tăng liên tục bắt đầu từ 1
+pm.test("orderIndex is sequential starting from 1", () => {
+  questions.forEach((q, i) => {
+    pm.expect(q.orderIndex).to.equal(i + 1);
+  });
+});
+
+// Lưu thứ tự question IDs để so sánh nếu gọi lại
+pm.collectionVariables.set(
+  "questionOrder",
+  JSON.stringify(questions.map((q) => q.id))
+);
+```
+
+---
+
+#### 12. Snapshot consistency – gọi API 2 nhiều lần cho cùng attemptId
+
+**Description:** Thứ tự câu hỏi phải không thay đổi giữa các lần gọi (snapshot cố định từ Start Exam).
+
+**Postman Tests:**
+```javascript
+const previousOrder = JSON.parse(
+  pm.collectionVariables.get("questionOrder") || "[]"
+);
+const currentOrder = pm.response.json().data.questions.map((q) => q.id);
+
+pm.test("Question order is consistent across multiple calls", () => {
+  if (previousOrder.length === 0) return; // no previous data to compare
+  pm.expect(JSON.stringify(currentOrder)).to.equal(JSON.stringify(previousOrder));
+});
+```
+
+---
+
+#### 13. Verify correct answer is NOT exposed
+
+**Postman Tests:**
+```javascript
+const questions = pm.response.json().data.questions;
+
+pm.test("No correctAnswer field in any question", () => {
+  questions.forEach((q) => {
+    pm.expect(q).to.not.have.property("correctAnswer");
+    pm.expect(q).to.not.have.property("correctOptionIds");
+  });
+});
+
+pm.test("No isCorrect field in any option", () => {
+  questions.forEach((q) => {
+    q.options.forEach((opt) => {
+      pm.expect(opt).to.not.have.property("isCorrect");
+    });
+  });
+});
+```
 ---
 
 # API 3. Save Answer
