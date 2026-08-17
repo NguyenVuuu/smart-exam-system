@@ -38,7 +38,74 @@ export async function countAttemptsForExam(examId: string, studentId: string): P
   })
 }
 
-// ─── Attempt creation (inside transaction to prevent race conditions) ─────────
+// ─── API 2: Get Exam Content ──────────────────────────────────────────────────
+
+/**
+ * Loads an attempt with the exam details and the question snapshot.
+ * Returns null when the attempt does not exist, does not belong to the
+ * given examId, or does not belong to the given studentId.
+ */
+export async function findAttemptWithContent(
+  attemptId: string,
+  examId:    string,
+  studentId: string,
+) {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      id:        true,
+      examId:    true,
+      studentId: true,
+      startedAt: true,
+      status:    true,
+      exam: {
+        select: {
+          title:           true,
+          durationMinutes: true,
+          endTime:         true,
+        },
+      },
+      // snapshot ordered by orderIndex ASC — this is the source of truth for question order
+      attemptQuestions: {
+        orderBy: { orderIndex: 'asc' },
+        select: {
+          orderIndex: true,
+          question: {
+            select: {
+              id:      true,
+              content: true,
+              type:    true,
+              // isCorrect on options intentionally NOT selected — never expose to student
+              options: {
+                select: {
+                  id:      true,
+                  content: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  // ownership + relationship guard — return null rather than 403 to avoid
+  // leaking the existence of another student's attempt
+  if (!attempt)                         return null
+  if (attempt.examId    !== examId)     return null
+  if (attempt.studentId !== studentId)  return null
+
+  // fetch points per question in one query (points live on ExamQuestion, not Question)
+  const questionIds   = attempt.attemptQuestions.map((aq) => aq.question.id)
+  const examQuestions = await prisma.examQuestion.findMany({
+    where:  { examId, questionId: { in: questionIds } },
+    select: { questionId: true, points: true },
+  })
+  const pointsMap = new Map(examQuestions.map((eq) => [eq.questionId, Number(eq.points)]))
+
+  return { attempt, pointsMap }
+}
+
 
 export interface CreateAttemptInput {
   examId:           string

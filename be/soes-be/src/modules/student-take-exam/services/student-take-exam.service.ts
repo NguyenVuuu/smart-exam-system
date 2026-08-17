@@ -1,5 +1,5 @@
 import { ConflictError, NotFoundError } from '../../../errors/AppError'
-import type { StartExamResult } from '../types'
+import type { StartExamResult, ExamContentResult } from '../types'
 import * as repo from '../repositories/student-take-exam.repository'
 
 export async function startExam(examId: string, studentId: string): Promise<StartExamResult> {
@@ -93,5 +93,67 @@ export async function startExam(examId: string, studentId: string): Promise<Star
     startedAt:        attempt.startedAt,
     attemptEndAt,
     remainingSeconds: attempt.remainingSeconds,
+  }
+}
+
+// ─── API 2: Get Exam Content ──────────────────────────────────────────────────
+
+export async function getExamContent(
+  examId:    string,
+  attemptId: string,
+  studentId: string,
+): Promise<ExamContentResult> {
+  // ── 1. Load attempt + questions (ownership validated inside repository) ───
+  const result = await repo.findAttemptWithContent(attemptId, examId, studentId)
+  if (!result) {
+    throw new NotFoundError('Attempt not found')
+  }
+
+  const { attempt, pointsMap } = result
+
+  // ── 2. Compute attemptEndAt and check expiry ───────────────────────────────
+  // attemptEndAt is NEVER stored — always computed from source fields.
+  const durationEndAt = new Date(
+    attempt.startedAt.getTime() + attempt.exam.durationMinutes * 60 * 1000,
+  )
+  const attemptEndAt = durationEndAt < attempt.exam.endTime
+    ? durationEndAt
+    : attempt.exam.endTime
+
+  const now              = new Date()
+  const remainingSeconds = Math.max(
+    0,
+    Math.floor((attemptEndAt.getTime() - now.getTime()) / 1000),
+  )
+
+  if (now >= attemptEndAt) {
+    throw new ConflictError('Exam attempt has ended')
+  }
+
+  // ── 3. Build question list from the attempt's snapshot ────────────────────
+  // Source of truth: ExamAttemptQuestion ordered by orderIndex ASC.
+  // PROGRAMMING questions get options: [].
+  const questions: ExamContentResult['questions'] = attempt.attemptQuestions.map((aq) => {
+    const q       = aq.question
+    const isProgramming = q.type === 'PROGRAMMING'
+
+    return {
+      id:         q.id,
+      orderIndex: aq.orderIndex,
+      content:    q.content,
+      type:       q.type,
+      points:     pointsMap.get(q.id) ?? 0,
+      options:    isProgramming
+        ? []
+        : q.options.map((opt) => ({ id: opt.id, content: opt.content })),
+    }
+  })
+
+  return {
+    attemptId:        attempt.id,
+    title:            attempt.exam.title,
+    durationMinutes:  attempt.exam.durationMinutes,
+    remainingSeconds,
+    questions,
   }
 }

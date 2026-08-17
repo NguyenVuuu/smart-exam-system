@@ -13,4 +13,13 @@ router.post(
   takeExamController.startExam,
 )
 
+// GET /api/student/exams/:examId/attempts/:attemptId
+router.get(
+  '/exams/:examId/attempts/:attemptId',
+  authenticate,
+  requireStudent(),
+  takeExamController.getExamContent,
+)
+
 export default router
+
