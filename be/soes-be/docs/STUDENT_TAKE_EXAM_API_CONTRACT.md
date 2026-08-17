@@ -1224,7 +1224,6 @@ pm.test("No isCorrect field in any option", () => {
 });
 ```
 ---
-
 # API 3. Save Answer
 
 ## Endpoint
@@ -1233,11 +1232,9 @@ PUT /api/student/exams/:examId/attempts/:attemptId/answers
 ```
 
 ## Mục đích
-
 Lưu câu trả lời trong quá trình sinh viên làm bài.
 
 ## Authentication
-
 | Type | Header | Value |
 | ---- | ------ | ----- |
 | Bearer Token | Authorization | `Bearer <access_token>` |
@@ -1245,15 +1242,14 @@ Lưu câu trả lời trong quá trình sinh viên làm bài.
 ## Authorization
 
 - Role: `STUDENT`
-- Attempt phải thuộc Student đang đăng nhập.
-
+- attemptId phải thuộc examId được truyền trên URL.
 
 ## Request
 
 ```json
 {
-  "questionId": "uuid",
-  "answer": "A"
+  "questionId": "question-uuid",
+  "answer": "option-uuid"
 }
 ```
 
@@ -1267,13 +1263,10 @@ Lưu câu trả lời trong quá trình sinh viên làm bài.
 ```
 
 ## Response Fields
-
 | Field | Description |
 |-------|------|
 
-
 ## Status Codes
-
 | Code | Description |
 |------|-------------|
 | 200 | Thành công |
@@ -1282,11 +1275,41 @@ Lưu câu trả lời trong quá trình sinh viên làm bài.
 | 404 | Không tìm thấy attempt |
 | 409 | Attempt đã kết thúc |
 
+### Request Validation
+
+- `questionId` là required.
+- `questionId` phải là UUID hợp lệ.
+- `answer` là required.
+- `answer` không được null.
+- `answer` phải phù hợp với loại question.
+
 ## Business Rules
 
-- Sinh viên chỉ được lưu câu trả lời trong thời gian làm bài.
+- Chỉ cho phép lưu answer khi `ExamAttempt.status = IN_PROGRESS`.
+    IN_PROGRESS → cho save
+    SUBMITTED   → không cho save
+    TIMEOUT     → không cho save
+- Nếu attempt đã `SUBMITTED`, `TIMEOUT` hoặc trạng thái kết thúc khác → trả 409.
 - Không được sửa bài sau khi submit.
 - Answer được cập nhật nếu câu hỏi đã có câu trả lời trước đó.
+- `attemptId` phải thuộc `examId` được truyền trên URL.
+- Nếu attempt không thuộc examId → trả 404.
+- `questionId` phải tồn tại.
+- `questionId` phải thuộc Exam của attempt.
+- `questionId` phải tồn tại trong `ExamAttemptQuestion` của attempt hiện tại.
+- Student không được gửi answer cho question không thuộc attempt của mình.
+
+### Time Rules
+
+- `attemptEndAt` được tính lại từ:
+  `min(attempt.startedAt + exam.durationMinutes, exam.endTime)`.
+- Không sử dụng `ExamAttempt.remainingSeconds` làm realtime countdown.
+- Tại thời điểm save answer:
+  `remainingSeconds = max(0, floor((attemptEndAt - now) / 1000))`.
+- Nếu `now >= attemptEndAt`:
+  - Không lưu answer.
+  - Trả HTTP 409.
+  - Message: `"Exam attempt has ended"`.
 
 ---
 
