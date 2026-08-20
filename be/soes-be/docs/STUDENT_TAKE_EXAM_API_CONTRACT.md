@@ -115,14 +115,15 @@ Request Body: None
      `attemptEndAt = min(startedAt + Exam.durationMinutes, Exam.endTime)`
   5. Tính thời gian còn lại:
      `remainingSeconds = max(0, floor((attemptEndAt - now)/1000))`
-  6. Lưu `remainingSeconds` vào `ExamAttempt.remainingSeconds`.
-  7. Set `lastSavedAt = now`.
-  8. Không tạo duplicate attempt nếu có nhiều request start được gửi đồng thời.
-  10. startedAt và now sử dụng cùng một timestamp được tạo tại thời điểm bắt đầu attempt.
-- `attemptEndAt` là computed value, không được lưu trong `ExamAttempt`.
-- attemptEndAt không được lưu trong ExamAttempt; các API xử lý attempt phải có thể tính lại attemptEndAt từ ExamAttempt.startedAt, Exam.durationMinutes và Exam.endTime.
-- `remainingSeconds` là giá trị được persist trong `ExamAttempt`. Giá trị này được khởi tạo khi Start Exam và sẽ được cập nhật bởi các API xử lý tiến độ/thời gian của attempt.
-- remainingSeconds được khởi tạo tại thời điểm start và được cập nhật trong các API xử lý attempt tiếp theo. Không sử dụng giá trị remainingSeconds trong DB như một đồng hồ đếm ngược realtime.
+  6. `attemptEndAt` được tính và lưu trong DB là authoritative deadline.
+  7. `remainingSeconds` được tính và lưu trong DB là snapshot cho countdown initialization.
+  8. Set `lastSavedAt = now`.
+  9. Không tạo duplicate attempt nếu có nhiều request start được gửi đồng thời.
+  11. startedAt và now sử dụng cùng một timestamp được tạo tại thời điểm bắt đầu attempt.
+- `attemptEndAt` được lưu trong `ExamAttempt` và là authoritative deadline cho attempt.
+- attemptEndAt được khởi tạo khi Start Exam và KHÔNG được cập nhật trong quá trình attempt.
+- `remainingSeconds` là giá trị được persist trong `ExamAttempt`. Giá trị này được khởi tạo khi Start Exam như một snapshot.
+- remainingSeconds là snapshot từ thời điểm start exam và KHÔNG được cập nhật bởi các API xử lý tiến độ/thời gian sau đó. Giá trị này chỉ dùng để khởi tạo countdown cho client. Clients phải tính lại remainingSeconds trên mỗi API call dựa trên thời gian hiện tại.
 - Hiện tại hệ thống chỉ hỗ trợ `maxAttempts = 1` cho mỗi Student trên mỗi Exam.
 - Student không thể start lại Exam nếu đã có submitted attempt.
 - Student không thể start Exam trước `startTime`.
@@ -720,12 +721,11 @@ Lấy nội dung bài thi để sinh viên làm bài.
 - Chỉ trả về các câu hỏi thuộc attempt hiện tại.
 - Không trả về đáp án đúng hoặc dữ liệu phục vụ chấm điểm mà Student không cần biết.
 - Chỉ trả về các trường dữ liệu cần thiết cho giao diện làm bài.
-- `attemptEndAt` được tính lại từ:
-  `min(attempt.startedAt + exam.durationMinutes, exam.endTime)`.
-- `remainingSeconds` không được sử dụng như realtime countdown từ giá trị lưu trong DB.
-      + remainingSeconds được tính lại tại thời điểm gọi API: max(0,floor((attemptEndAt - now) / 1000))
-      + Không lấy trực tiếp ExamAttempt.remainingSeconds làm giá trị realtime.
-      + Giá trị tính toán này không cần persist vào DB trong API Get Exam Content.
+- `attemptEndAt` là authoritative deadline được lưu trong DB khi tạo attempt.
+- attemptEndAt được tính từ `min(startedAt + exam.durationMinutes, exam.endTime)` tại thời điểm start.
+- `remainingSeconds` là snapshot được lưu trong DB khi tạo attempt. Giá trị này KHÔNG được cập nhật trong quá trình attempt.
+- Mỗi khi cần hiển thị countdown, client phải tính lại remainingSeconds từ `max(0, floor((attemptEndAt - now) / 1000))`.
+- Giá trị `ExamAttempt.remainingSeconds` chỉ dùng để khởi tạo countdown ban đầu, không dùng làm thời gian thực tế.
 - Nếu attempt đã hết thời gian, Student không được tiếp tục làm bài.
       Nếu now >= attemptEndAt:
       → không trả nội dung bài thi
@@ -1304,8 +1304,9 @@ Lưu câu trả lời trong quá trình sinh viên làm bài.
 - `attemptEndAt` được tính lại từ:
   `min(attempt.startedAt + exam.durationMinutes, exam.endTime)`.
 - Không sử dụng `ExamAttempt.remainingSeconds` làm realtime countdown.
+- `remainingSeconds` KHÔNG được cập nhật trong DB khi save answer. Giá trị này là snapshot từ thời điểm start exam.
 - Tại thời điểm save answer:
-  `remainingSeconds = max(0, floor((attemptEndAt - now) / 1000))`.
+  `attemptEndAt` vẫn là authoritative deadline.
 - Nếu `now >= attemptEndAt`:
   - Không lưu answer.
   - Trả HTTP 409.
@@ -1474,7 +1475,7 @@ Gửi heartbeat để giữ phiên thi hoạt động và tự động lưu ti�
 
 | Field | Description |
 |-------|------|
-| `remainingSeconds` | Thời gian còn lại |
+| `remainingSeconds` | Snapshot thời gian còn lại từ thời điểm start exam. Clients phải tính lại remainingSeconds từ `attemptEndAt - now` nếu cần thời gian chính xác. |
 | `isOnline` | Trạng thái kết nối |
 
 ## Status Codes

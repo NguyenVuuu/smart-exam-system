@@ -1008,7 +1008,7 @@ Lấy thông tin bài kiểm tra.
 | `remainingAttempts` | Số lượt còn lại | 
 | `attemptId` | ID lần làm bài hiện tại. Chỉ trả về khi sinh viên đang làm bài chưa submit. | 
 | `canResume` | Chỉ trả về khi status = AVAILABLE. FE dùng để hiển thị nút "Tiếp tục". | 
-| `remainingSeconds` | Chỉ trả về khi status = AVAILABLE. Không trả về khi SUBMITTED, EXPIRED hoặc NOT_STARTED. | 
+| `remainingSeconds` | Snapshot thời gian còn lại từ thời điểm start exam (chỉ dùng cho countdown initialization). FE nên tính lại remainingSeconds từ `attemptEndAt - now` nếu cần thời gian chính xác. Trả về null khi không có attempt đang diễn ra. | 
 | `canStart` | FE dùng để bật/tắt nút "Vào làm bài" | 
 | `status` | Trạng thái của sinh viên đối với bài thi (NOT_STARTED, AVAILABLE, SUBMITTED, EXPIRED) | 
 
@@ -1941,6 +1941,7 @@ Chỉ trả về các bài thi đã được công khai điểm.
 ## Business Rules
 
 - Chỉ hiển thị điểm đã được giảng viên công khai.
+- Kiểm tra `Exam.resultPublished = true` thay vì trường cũ `ExamAttempt.isPublished`.
 - Không hiển thị GPA.
 - Không hiển thị autoScore.
 - Không có pagination.
@@ -1959,6 +1960,7 @@ Chỉ trả về các bài thi đã được công khai điểm.
 - Nếu chưa có điểm được công khai thì Exam đó không xuất hiện trong danh sách.
 - publishedAt luôn có giá trị. API không trả về publishedAt = null.
 - API luôn trả về HTTP 200 nếu Student có quyền truy cập lớp học, kể cả khi items rỗng.
+- Publish điểm áp dụng toàn bộ sinh viên trong Course Offering. Không có trường hợp một sinh viên thấy điểm và sinh viên khác không thấy điểm trong cùng một bài thi.
 
 - Nếu chưa có điểm:
 ```json
