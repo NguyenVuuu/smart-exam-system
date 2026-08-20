@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 
 // Deterministic: given attempt+question, decide if student answers correctly
-function answersCorrectly(attemptId: string, questionId: string): boolean {
+function answersCorrectly(attemptId: string, examQuestionId: string): boolean {
   let hash = 0
-  const str = attemptId + questionId
+  const str = attemptId + examQuestionId
   for (let i = 0; i < str.length; i++) {
     hash = (hash * 31 + str.charCodeAt(i)) & 0xffffffff
   }
@@ -17,12 +17,12 @@ export async function seedStudentAnswers(prisma: PrismaClient): Promise<void> {
   const attempts = await prisma.examAttempt.findMany({
     where: { status: 'SUBMITTED' },
     include: {
-      studentAnswers: { select: { questionId: true } },
+      studentAnswers: { select: { examQuestionId: true } },
       exam: {
         include: {
           examQuestions: {
-            select: { questionId: true, points: true },
-            orderBy: { id: 'asc' },
+            select: { id: true, points: true },
+            orderBy: { orderIndex: 'asc' },
           },
         },
       },
@@ -30,43 +30,39 @@ export async function seedStudentAnswers(prisma: PrismaClient): Promise<void> {
   })
 
   // Pre-fetch all question options for questions in these exams to avoid N+1
-  const questionIds = [
-    ...new Set(
-      attempts.flatMap((a) => a.exam.examQuestions.map((eq) => eq.questionId)),
-    ),
-  ]
+  const examQuestionIds = attempts.flatMap((a) => a.exam.examQuestions.map((eq) => eq.id))
 
-  const allOptions = await prisma.questionOption.findMany({
-    where: { questionId: { in: questionIds } },
-    select: { id: true, questionId: true, isCorrect: true },
+  const allExamQuestionOptions = await prisma.examQuestionOption.findMany({
+    where: { examQuestionId: { in: examQuestionIds } },
+    select: { id: true, examQuestionId: true, isCorrect: true },
   })
 
-  const optionsByQuestion = new Map<string, Array<{ id: string; isCorrect: boolean }>>()
-  for (const opt of allOptions) {
-    if (!optionsByQuestion.has(opt.questionId)) {
-      optionsByQuestion.set(opt.questionId, [])
+  const optionsByExamQuestion = new Map<string, Array<{ id: string; isCorrect: boolean }>>()
+  for (const opt of allExamQuestionOptions) {
+    if (!optionsByExamQuestion.has(opt.examQuestionId)) {
+      optionsByExamQuestion.set(opt.examQuestionId, [])
     }
-    optionsByQuestion.get(opt.questionId)!.push({ id: opt.id, isCorrect: opt.isCorrect })
+    optionsByExamQuestion.get(opt.examQuestionId)!.push({ id: opt.id, isCorrect: opt.isCorrect })
   }
 
   let total = 0
 
   for (const attempt of attempts) {
-    const answeredQuestionIds = new Set(attempt.studentAnswers.map((a) => a.questionId))
+    const answeredExamQuestionIds = new Set(attempt.studentAnswers?.map((a: any) => a.examQuestionId) || [])
 
     const rows: Array<{
       attemptId: string
-      questionId: string
+      examQuestionId: string
       selectedOptionIds: string[]
       isCorrect: boolean
       score: string
     }> = []
 
     for (const eq of attempt.exam.examQuestions) {
-      if (answeredQuestionIds.has(eq.questionId)) continue
+      if (answeredExamQuestionIds.has(eq.id)) continue
 
-      const options = optionsByQuestion.get(eq.questionId) ?? []
-      const correct = answersCorrectly(attempt.id, eq.questionId)
+      const options = optionsByExamQuestion.get(eq.id) ?? []
+      const correct = answersCorrectly(attempt.id, eq.id)
 
       let selectedOptionIds: string[]
       if (options.length === 0) {
@@ -82,7 +78,7 @@ export async function seedStudentAnswers(prisma: PrismaClient): Promise<void> {
 
       rows.push({
         attemptId: attempt.id,
-        questionId: eq.questionId,
+        examQuestionId: eq.id,
         selectedOptionIds,
         isCorrect: correct,
         score: correct ? Number(eq.points).toFixed(2) : '0.00',
@@ -97,7 +93,7 @@ export async function seedStudentAnswers(prisma: PrismaClient): Promise<void> {
         prisma.studentAnswer.create({
           data: {
             attemptId: row.attemptId,
-            questionId: row.questionId,
+            examQuestionId: row.examQuestionId,
             selectedOptionIds: row.selectedOptionIds,
             isCorrect: row.isCorrect,
             score: row.score,

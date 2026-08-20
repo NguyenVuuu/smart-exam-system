@@ -48,6 +48,7 @@ export async function seedExamAttempts(prisma: PrismaClient): Promise<ExamAttemp
         data: {
           attemptNo:       1,
           startedAt,
+          attemptEndAt:    submittedAt,
           submittedAt,
           remainingSeconds: 0,
           lastSavedAt:     submittedAt,
@@ -56,7 +57,6 @@ export async function seedExamAttempts(prisma: PrismaClient): Promise<ExamAttemp
           totalScore:      rawScore.toString(),
           autoScore:       rawScore.toString(),
           manualScore:     '0',
-          isPublished:     true,
           examId:          exam.id,
           studentId,
         },

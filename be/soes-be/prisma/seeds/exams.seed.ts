@@ -39,6 +39,50 @@ async function upsertExam(
   return prisma.exam.create({ data })
 }
 
+// Helper to create exam questions - snapshot từ Question tại thời điểm tạo Exam
+function createExamQuestionsData(subjectQuestions: Question[]) {
+  return subjectQuestions.map((q: any, idx: number) => {
+    // Determine if this is a programming question by checking if it has options
+    const isProgramming = q.type === 'PROGRAMMING'
+    
+    const questionData: any = {
+      orderIndex: idx,
+      content: q.content,
+      type: q.type,
+      difficulty: q.difficulty,
+      language: q.language,
+      sourceQuestionId: q.id,
+      points: '2.00',
+    }
+    
+    if (!isProgramming && q.options && q.options.length > 0) {
+      questionData.options = {
+        create: q.options.map((opt: any, oIdx: number) => ({
+          orderIndex: oIdx,
+          content: opt.content,
+          isCorrect: opt.isCorrect,
+        })),
+      }
+    }
+    
+    if (isProgramming) {
+      questionData.programmingTests = {
+        create: [
+          { input: '5\n3', expectedOutput: '8', weight: 30.00, isHidden: false },
+          { input: '10\n20', expectedOutput: '30', weight: 30.00, isHidden: false },
+          { input: '-5\n10', expectedOutput: '5', weight: 20.00, isHidden: true },
+          { input: '0\n0', expectedOutput: '0', weight: 20.00, isHidden: true },
+        ],
+      }
+      questionData.programmingConfig = {
+        create: { timeLimitMs: 2000, memoryLimitKb: 262144, maxCodeSizeKb: 256 },
+      }
+    }
+    
+    return questionData
+  })
+}
+
 export async function seedExams(
   prisma: PrismaClient,
   { courseOfferings, subjects, teachers, questions }: ExamSeedInput,
@@ -67,6 +111,7 @@ export async function seedExams(
         title:                  `${subject.name} - ${titleSuffix}`,
         description:            `Bài thi ${titleSuffix} môn ${subject.name}`,
         type:                   ExamType.QUIZ,
+        creationMethod:         'MANUAL',
         startTime:              offsetDate(startOffset),
         endTime:                offsetDate(endOffset),
         durationMinutes:        45,
@@ -76,10 +121,14 @@ export async function seedExams(
         showResultImmediately:  true,
         status:                 'CLOSED',       // QUIZ is always CLOSED
         publishedAt:            offsetDate(startOffset - 1), // Published 1 day before start
+        requireFullscreen:      true,
+        enableWebcam:           false,
+        blockCopyPaste:         true,
+        blockRightClick:        true,
         courseOfferingId:       offering.id,
         createdById:            teacher.id,
         examQuestions: {
-          create: examQs.map((q) => ({ questionId: q.id, points: '2.00' })),
+          create: createExamQuestionsData(examQs),
         },
       })
       allExams.push(exam)
@@ -101,6 +150,7 @@ export async function seedExams(
         title:                  `${subject.name} - ${spec.titleSuffix}`,
         description:            `Bài thi ${spec.titleSuffix} môn ${subject.name}`,
         type:                   spec.type,
+        creationMethod:         spec.creationMethod,
         startTime:              offsetDate(spec.startOffset),
         endTime:                offsetDate(spec.endOffset),
         durationMinutes:        spec.durationMinutes,
@@ -110,10 +160,14 @@ export async function seedExams(
         showResultImmediately:  status === 'CLOSED',
         status,
         publishedAt,
+        requireFullscreen:      true,
+        enableWebcam:           spec.type === 'FINAL',
+        blockCopyPaste:         true,
+        blockRightClick:        true,
         courseOfferingId:       offering.id,
         createdById:            teacher.id,
         examQuestions: {
-          create: examQs.map((q) => ({ questionId: q.id, points: '2.00' })),
+          create: createExamQuestionsData(examQs),
         },
       })
       allExams.push(exam)

@@ -1,4 +1,4 @@
-import { ExamType } from '@prisma/client'
+import { ExamType, ExamCreationMethod } from '@prisma/client'
 
 // ── Seed Mode ─────────────────────────────────────────────
 // "demo"  → all exams CLOSED, every student has scores for QUIZ + MIDTERM + FINAL
@@ -26,6 +26,7 @@ export function getQuizCount(subjectCode: string): number {
 }
 
 // ── Fixed exam specs (Midterm + Final) ─────────────────────
+
 export interface FixedExamSpec {
   titleSuffix: string
   type: ExamType
@@ -33,6 +34,7 @@ export interface FixedExamSpec {
   startOffset: number   // days from now
   endOffset: number
   realStatus: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
+  creationMethod: ExamCreationMethod
 }
 
 export const FIXED_EXAMS: FixedExamSpec[] = [
@@ -43,6 +45,7 @@ export const FIXED_EXAMS: FixedExamSpec[] = [
     startOffset:     16,
     endOffset:       17,
     realStatus:      'PUBLISHED',
+    creationMethod:  'MANUAL',
   },
   {
     titleSuffix:     'Cuối kỳ',
@@ -51,6 +54,7 @@ export const FIXED_EXAMS: FixedExamSpec[] = [
     startOffset:     60,
     endOffset:       61,
     realStatus:      'DRAFT',
+    creationMethod:  'MANUAL',
   },
 ]
 

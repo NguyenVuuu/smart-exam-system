@@ -18,6 +18,11 @@ import { seedPosts } from './seeds/posts.seed'
 import { seedViolations } from './seeds/violations.seed'
 import { seedAuditLogs } from './seeds/audit-logs.seed'
 import { seedExamSessions } from './seeds/exam-sessions.seed'
+import { seedAIGenerationHistories } from './seeds/ai-generations.seed'
+import { seedAIGenerationMaterials } from './seeds/ai-generation-materials.seed'
+import { seedProgrammingTestCases } from './seeds/programming-test-cases.seed'
+import { seedProgrammingQuestionConfigs } from './seeds/programming-question-configs.seed'
+import { seedProgrammingSubmissions } from './seeds/programming-submissions.seed'
 
 const prisma = new PrismaClient()
 
@@ -55,6 +60,16 @@ async function main() {
   // Get all users for audit logs
   const allUsers = await prisma.user.findMany()
   await seedAuditLogs(prisma, { users: allUsers })
+
+  // New seed data for AIGeneration and Programming
+  const aiHistories = await seedAIGenerationHistories(prisma, { courseOfferings, teachers })
+  const allMaterials = await prisma.material.findMany()
+  await seedAIGenerationMaterials(prisma, { histories: aiHistories, materials: allMaterials })
+  
+  const allExamQuestions = await prisma.examQuestion.findMany()
+  await seedProgrammingTestCases(prisma, { examQuestions: allExamQuestions })
+  await seedProgrammingQuestionConfigs(prisma, { examQuestions: allExamQuestions })
+  await seedProgrammingSubmissions(prisma, { attempts: await prisma.examAttempt.findMany(), examQuestions: allExamQuestions })
 
   console.log('\n✅ SOES seed completed successfully!\n')
 }

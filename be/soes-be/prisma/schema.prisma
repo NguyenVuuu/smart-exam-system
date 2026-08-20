@@ -34,26 +34,28 @@ model Student {
 }
 
 model Teacher {
-  id              String           @id @default(uuid())
-  teacherCode     String           @unique
+  id              String                @id @default(uuid())
+  teacherCode     String                @unique
   password        String
-  status          AccountStatus    @default(ACTIVE)
-  userId          String           @unique
-  courseOfferings CourseOffering[] @relation("TeacherCourseOfferings")
-  exams           Exam[]           @relation("CreatorExams")
-  posts           Post[]           @relation("TeacherPosts")
-  materials       Material[]       @relation("UploaderMaterials")
-  questions       Question[]       @relation("OwnerQuestions")
-  user            User             @relation(fields: [userId], references: [id])
+  status          AccountStatus         @default(ACTIVE)
+  userId          String                @unique
+  courseOfferings CourseOffering[]      @relation("TeacherCourseOfferings")
+  exams           Exam[]                @relation("CreatorExams")
+  posts           Post[]                @relation("TeacherPosts")
+  materials       Material[]            @relation("UploaderMaterials")
+  questions       Question[]            @relation("OwnerQuestions")
+  aiGenerations   AIGenerationHistory[]
+  user            User                  @relation(fields: [userId], references: [id])
 }
 
 model Admin {
-  id        String        @id @default(uuid())
-  adminCode String        @unique
-  password  String
-  status    AccountStatus @default(ACTIVE)
-  userId    String        @unique
-  user      User          @relation(fields: [userId], references: [id])
+  id                  String             @id @default(uuid())
+  adminCode           String             @unique
+  password            String
+  status              AccountStatus      @default(ACTIVE)
+  userId              String             @unique
+  user                User               @relation(fields: [userId], references: [id])
+  questionBankReviews QuestionBankItem[] @relation("QuestionBankReviews")
 }
 
 model CodeGenerationSetting {
@@ -89,24 +91,26 @@ model Subject {
   updatedAt       DateTime         @updatedAt
   courseOfferings CourseOffering[]
   questions       Question[]
+  questionBank    QuestionBank?
 }
 
 model CourseOffering {
-  id          String               @id @default(uuid())
-  code        String               @unique
-  status      CourseOfferingStatus @default(ACTIVE)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  semesterId  String
-  subjectId   String
-  teacherId   String
-  semester    Semester             @relation(fields: [semesterId], references: [id])
-  subject     Subject              @relation(fields: [subjectId], references: [id])
-  teacher     Teacher              @relation("TeacherCourseOfferings", fields: [teacherId], references: [id])
-  enrollments Enrollment[]
-  exams       Exam[]
-  materials   Material[]
-  posts       Post[]
+  id            String                @id @default(uuid())
+  code          String                @unique
+  status        CourseOfferingStatus  @default(ACTIVE)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  semesterId    String
+  subjectId     String
+  teacherId     String
+  semester      Semester              @relation(fields: [semesterId], references: [id])
+  subject       Subject               @relation(fields: [subjectId], references: [id])
+  teacher       Teacher               @relation("TeacherCourseOfferings", fields: [teacherId], references: [id])
+  enrollments   Enrollment[]
+  exams         Exam[]
+  materials     Material[]
+  posts         Post[]
+  aiGenerations AIGenerationHistory[]
 
   @@index([teacherId])
   @@index([semesterId])
@@ -139,7 +143,6 @@ model Post {
   createdBy        Teacher          @relation("TeacherPosts", fields: [createdById], references: [id])
   attachments      PostAttachment[]
 
-  @@index([courseOfferingId])
   @@index([createdById])
   @@index([courseOfferingId, publishedAt])
 }
@@ -161,48 +164,79 @@ model PostAttachment {
 }
 
 model Material {
-  id               String         @id @default(uuid())
+  id               String                 @id @default(uuid())
   fileName         String
   objectName       String
   fileSize         Int
   contentType      String
   storagePath      String
-  aiEnabled        Boolean        @default(false)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  aiEnabled        Boolean                @default(false)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
   courseOfferingId String
   uploaderId       String
-  courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id])
-  uploader         Teacher        @relation("UploaderMaterials", fields: [uploaderId], references: [id])
+  courseOffering   CourseOffering         @relation(fields: [courseOfferingId], references: [id])
+  uploader         Teacher                @relation("UploaderMaterials", fields: [uploaderId], references: [id])
+  aiGenerations    AIGenerationMaterial[]
 
   @@unique([courseOfferingId, fileName])
   @@index([courseOfferingId])
   @@index([uploaderId])
 }
 
+model QuestionBank {
+  id        String             @id @default(uuid())
+  subjectId String             @unique
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  subject   Subject            @relation(fields: [subjectId], references: [id])
+  items     QuestionBankItem[]
+
+  @@index([subjectId])
+}
+
+model QuestionBankItem {
+  id              String                 @id @default(uuid())
+  questionBankId  String
+  questionId      String                 @unique
+  status          QuestionBankItemStatus @default(PENDING)
+  reviewedAt      DateTime?
+  reviewedById    String?
+  rejectionReason String?
+  addedAt         DateTime               @default(now())
+  removedAt       DateTime? // Soft-delete khỏi bank, Question vẫn tồn tại
+  reviewedBy      Admin?                 @relation("QuestionBankReviews", fields: [reviewedById], references: [id])
+  questionBank    QuestionBank           @relation(fields: [questionBankId], references: [id])
+  question        Question               @relation(fields: [questionId], references: [id])
+
+  @@index([questionBankId, status, removedAt])
+}
+
 model Question {
-  id               String                @id @default(uuid())
+  id               String               @id @default(uuid())
   content          String
   explanation      String?
   type             QuestionType
   difficulty       QuestionDifficulty
   source           QuestionSource
   language         ProgrammingLanguage?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
+  aiReviewStatus   AIReviewStatus? // BR-12A: Giảng viên review câu AI
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
   ownerId          String
   subjectId        String
-  attemptQuestions ExamAttemptQuestion[]
-  examQuestions    ExamQuestion[]
-  programmingTests ProgrammingTestCase[]
-  owner            Teacher               @relation("OwnerQuestions", fields: [ownerId], references: [id])
-  subject          Subject               @relation(fields: [subjectId], references: [id])
+  aiGenerationId   String?
+  owner            Teacher              @relation("OwnerQuestions", fields: [ownerId], references: [id])
+  subject          Subject              @relation(fields: [subjectId], references: [id])
+  aiGeneration     AIGenerationHistory? @relation(fields: [aiGenerationId], references: [id])
+  examQuestions    ExamQuestion[]       @relation("ExamQuestionSource")
+  questionBankItem QuestionBankItem?
   options          QuestionOption[]
-  studentAnswers   StudentAnswer[]
 
   @@index([ownerId])
   @@index([subjectId])
   @@index([type])
+  @@index([aiGenerationId])
 }
 
 model QuestionOption {
@@ -215,40 +249,66 @@ model QuestionOption {
   @@index([questionId])
 }
 
-model ProgrammingTestCase {
-  id             String   @id @default(uuid())
-  input          String
-  expectedOutput String
-  weight         Decimal  @db.Decimal(5, 2)
-  isHidden       Boolean  @default(false)
-  questionId     String
-  question       Question @relation(fields: [questionId], references: [id])
+model AIGenerationHistory {
+  id               String                 @id @default(uuid())
+  teacherId        String
+  courseOfferingId String
+  prompt           String
+  aiModel          String
+  questionCount    Int
+  status           AIGenerationStatus     @default(PENDING)
+  createdAt        DateTime               @default(now())
+  completedAt      DateTime?
+  teacher          Teacher                @relation(fields: [teacherId], references: [id])
+  courseOffering   CourseOffering         @relation(fields: [courseOfferingId], references: [id])
+  materials        AIGenerationMaterial[]
+  questions        Question[]
 
-  @@index([questionId])
+  @@index([teacherId])
+  @@index([courseOfferingId])
+}
+
+model AIGenerationMaterial {
+  id         String              @id @default(uuid())
+  historyId  String
+  materialId String
+  history    AIGenerationHistory @relation(fields: [historyId], references: [id])
+  material   Material            @relation(fields: [materialId], references: [id])
+
+  @@unique([historyId, materialId])
+  @@index([historyId])
+  @@index([materialId])
 }
 
 model Exam {
-  id                      String         @id @default(uuid())
+  id                      String             @id @default(uuid())
   title                   String
   description             String?
   password                String?
   startTime               DateTime
   endTime                 DateTime
   durationMinutes         Int
-  maxAttempts             Int            @default(1)
-  shuffleQuestions        Boolean        @default(false)
-  shuffleOptions          Boolean        @default(false)
-  showResultImmediately   Boolean        @default(false)
-  allowReviewBeforeSubmit Boolean        @default(false)
-  status                  ExamStatus     @default(DRAFT)
-  createdAt               DateTime       @default(now())
-  updatedAt               DateTime       @updatedAt
+  maxAttempts             Int                @default(1)
+  shuffleQuestions        Boolean            @default(false)
+  shuffleOptions          Boolean            @default(false)
+  showResultImmediately   Boolean            @default(false)
+  allowReviewBeforeSubmit Boolean            @default(false)
+  resultPublished         Boolean            @default(false)
+  resultPublishedAt       DateTime?
+  status                  ExamStatus         @default(DRAFT)
+  creationMethod          ExamCreationMethod @default(MANUAL)
+  type                    ExamType           @default(QUIZ)
+  requireFullscreen       Boolean            @default(false)
+  enableWebcam            Boolean            @default(false)
+  blockCopyPaste          Boolean            @default(true)
+  blockRightClick         Boolean            @default(true)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
   publishedAt             DateTime?
   courseOfferingId        String
   createdById             String
-  type                    ExamType
-  courseOffering          CourseOffering @relation(fields: [courseOfferingId], references: [id])
-  createdBy               Teacher        @relation("CreatorExams", fields: [createdById], references: [id])
+  courseOffering          CourseOffering     @relation(fields: [courseOfferingId], references: [id])
+  createdBy               Teacher            @relation("CreatorExams", fields: [createdById], references: [id])
   examAttempts            ExamAttempt[]
   examQuestions           ExamQuestion[]
 
@@ -258,41 +318,68 @@ model Exam {
 }
 
 model ExamQuestion {
-  id         String   @id @default(uuid())
-  points     Decimal  @db.Decimal(5, 2)
-  examId     String
-  questionId String
-  exam       Exam     @relation(fields: [examId], references: [id])
-  question   Question @relation(fields: [questionId], references: [id])
+  id         String  @id @default(uuid())
+  orderIndex Int
+  points     Decimal @db.Decimal(5, 2)
 
-  @@unique([examId, questionId])
+  // Snapshot của Question tại thời điểm thêm vào Exam
+  content                String
+  explanation            String?
+  type                   QuestionType
+  difficulty             QuestionDifficulty
+  language               ProgrammingLanguage?
+  sourceQuestionId       String?
+  examId                 String
+  exam                   Exam                       @relation(fields: [examId], references: [id])
+  sourceQuestion         Question?                  @relation("ExamQuestionSource", fields: [sourceQuestionId], references: [id])
+  options                ExamQuestionOption[]
+  attemptQuestions       ExamAttemptQuestion[]
+  programmingTests       ProgrammingTestCase[]
+  programmingConfig      ProgrammingQuestionConfig?
+  studentAnswers         StudentAnswer[]
+  programmingSubmissions ProgrammingSubmission[]
+
+  @@unique([examId, orderIndex])
   @@index([examId])
-  @@index([questionId])
+  @@index([sourceQuestionId])
+}
+
+model ExamQuestionOption {
+  id             String       @id @default(uuid())
+  content        String
+  isCorrect      Boolean      @default(false)
+  orderIndex     Int
+  examQuestionId String
+  examQuestion   ExamQuestion @relation(fields: [examQuestionId], references: [id])
+
+  @@unique([examQuestionId, orderIndex])
+  @@index([examQuestionId])
 }
 
 model ExamAttempt {
-  id               String                @id @default(uuid())
-  attemptNo        Int
-  startedAt        DateTime              @default(now())
-  submittedAt      DateTime?
-  remainingSeconds Int
-  lastSavedAt      DateTime?
-  endedBy          AttemptEndedBy?
-  status           AttemptStatus         @default(IN_PROGRESS)
-  totalScore       Decimal?              @db.Decimal(5, 2)
-  autoScore        Decimal?              @db.Decimal(5, 2)
-  manualScore      Decimal?              @db.Decimal(5, 2)
-  isPublished      Boolean               @default(false)
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  examId           String
-  studentId        String
-  exam             Exam                  @relation(fields: [examId], references: [id])
-  student          Student               @relation("StudentExamAttempts", fields: [studentId], references: [id])
-  attemptQuestions ExamAttemptQuestion[]
-  examSessions     ExamSession?
-  studentAnswers   StudentAnswer[]
-  violations       Violation[]
+  id                     String                  @id @default(uuid())
+  attemptNo              Int
+  startedAt              DateTime                @default(now())
+  attemptEndAt           DateTime
+  submittedAt            DateTime?
+  remainingSeconds       Int
+  lastSavedAt            DateTime?
+  endedBy                AttemptEndedBy?
+  status                 AttemptStatus           @default(IN_PROGRESS)
+  totalScore             Decimal?                @db.Decimal(5, 2)
+  autoScore              Decimal?                @db.Decimal(5, 2)
+  manualScore            Decimal?                @db.Decimal(5, 2)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  examId                 String
+  studentId              String
+  exam                   Exam                    @relation(fields: [examId], references: [id])
+  student                Student                 @relation("StudentExamAttempts", fields: [studentId], references: [id])
+  attemptQuestions       ExamAttemptQuestion[]
+  examSession            ExamSession?
+  studentAnswers         StudentAnswer[]
+  programmingSubmissions ProgrammingSubmission[]
+  violations             Violation[]
 
   @@unique([examId, studentId, attemptNo])
   @@index([studentId])
@@ -300,17 +387,18 @@ model ExamAttempt {
 }
 
 model ExamAttemptQuestion {
-  id         String      @id @default(uuid())
-  orderIndex Int
-  attemptId  String
-  questionId String
-  attempt    ExamAttempt @relation(fields: [attemptId], references: [id])
-  question   Question    @relation(fields: [questionId], references: [id])
+  id                String       @id @default(uuid())
+  displayOrder      Int
+  attemptId         String
+  examQuestionId    String
+  shuffledOptionIds String[]
+  attempt           ExamAttempt  @relation(fields: [attemptId], references: [id])
+  examQuestion      ExamQuestion @relation(fields: [examQuestionId], references: [id])
 
-  @@unique([attemptId, questionId])
-  @@unique([attemptId, orderIndex])
+  @@unique([attemptId, examQuestionId])
+  @@unique([attemptId, displayOrder])
   @@index([attemptId])
-  @@index([questionId])
+  @@index([examQuestionId])
 }
 
 model ExamSession {
@@ -326,20 +414,87 @@ model ExamSession {
 }
 
 model StudentAnswer {
-  id                String      @id @default(uuid())
-  sourceCode        String?
-  selectedOptionIds Json?
-  essayAnswer       String?
-  score             Decimal?    @db.Decimal(5, 2)
+  id                String       @id @default(uuid())
+  selectedOptionIds String[]     @default([])
+  draftSourceCode   String?
+  score             Decimal?     @db.Decimal(5, 2)
   isCorrect         Boolean?
   attemptId         String
-  questionId        String
-  attempt           ExamAttempt @relation(fields: [attemptId], references: [id])
-  question          Question    @relation(fields: [questionId], references: [id])
+  examQuestionId    String
+  attempt           ExamAttempt  @relation(fields: [attemptId], references: [id])
+  examQuestion      ExamQuestion @relation(fields: [examQuestionId], references: [id])
 
-  @@unique([attemptId, questionId])
+  @@unique([attemptId, examQuestionId])
   @@index([attemptId])
-  @@index([questionId])
+  @@index([examQuestionId])
+}
+
+model ProgrammingSubmission {
+  id              String                            @id @default(uuid())
+  clientRequestId String                            @unique
+  submissionNo    Int
+  sourceCode      String
+  language        ProgrammingLanguage
+  status          ProgrammingSubmissionStatus       @default(PENDING)
+  score           Decimal?                          @db.Decimal(5, 2)
+  passedTestCases Int                               @default(0)
+  totalTestCases  Int                               @default(0)
+  executionTimeMs Int?
+  memoryUsedKb    Int?
+  compilerOutput  String?
+  runtimeError    String?
+  submittedAt     DateTime                          @default(now())
+  createdAt       DateTime                          @default(now())
+  updatedAt       DateTime                          @updatedAt
+  attemptId       String
+  examQuestionId  String
+  attempt         ExamAttempt                       @relation(fields: [attemptId], references: [id])
+  examQuestion    ExamQuestion                      @relation(fields: [examQuestionId], references: [id])
+  testResults     ProgrammingSubmissionTestResult[]
+
+  @@unique([attemptId, examQuestionId, submissionNo])
+  @@index([attemptId, examQuestionId, submittedAt])
+}
+
+model ProgrammingSubmissionTestResult {
+  id              String                      @id @default(uuid())
+  status          ProgrammingTestResultStatus
+  actualOutput    String?
+  executionTimeMs Int?
+  memoryUsedKb    Int?
+  errorMessage    String?
+  judge0Token     String?
+  submissionId    String
+  testCaseId      String
+  submission      ProgrammingSubmission       @relation(fields: [submissionId], references: [id])
+  testCase        ProgrammingTestCase         @relation(fields: [testCaseId], references: [id])
+
+  @@unique([submissionId, testCaseId])
+  @@index([submissionId])
+  @@index([testCaseId])
+}
+
+model ProgrammingTestCase {
+  id                String                            @id @default(uuid())
+  input             String
+  expectedOutput    String
+  weight            Decimal                           @db.Decimal(5, 2)
+  isSample          Boolean                           @default(false)
+  isHidden          Boolean                           @default(false)
+  examQuestionId    String
+  examQuestion      ExamQuestion                      @relation(fields: [examQuestionId], references: [id])
+  submissionResults ProgrammingSubmissionTestResult[]
+
+  @@index([examQuestionId])
+}
+
+model ProgrammingQuestionConfig {
+  id             String       @id @default(uuid())
+  timeLimitMs    Int          @default(2000)
+  memoryLimitKb  Int          @default(262144)
+  maxCodeSizeKb  Int          @default(256)
+  examQuestionId String       @unique
+  examQuestion   ExamQuestion @relation(fields: [examQuestionId], references: [id])
 }
 
 model Violation {
@@ -365,7 +520,7 @@ model Notification {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 
-  @@index([userId])
+  @@index([userId, isRead, createdAt])
 }
 
 model AuditLog {
@@ -391,13 +546,20 @@ enum AccountStatus {
 enum PostStatus {
   DRAFT
   PUBLISHED
-  ARCHIVED
+  HIDDEN
 }
 
 enum ExamType {
   QUIZ
   MIDTERM
   FINAL
+}
+
+enum ExamCreationMethod {
+  MANUAL
+  QUESTION_BANK
+  AI_GENERATED
+  MIXED
 }
 
 enum SemesterStatus {
@@ -409,6 +571,12 @@ enum SemesterStatus {
 enum SubjectStatus {
   ACTIVE
   INACTIVE
+}
+
+enum QuestionBankItemStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum QuestionType {
@@ -429,10 +597,45 @@ enum QuestionSource {
   IMPORTED
 }
 
+enum AIReviewStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum AIGenerationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 enum ProgrammingLanguage {
   JAVA
   C
   CPP
+}
+
+enum ProgrammingSubmissionStatus {
+  PENDING
+  COMPILING
+  COMPILE_ERROR
+  RUNNING
+  ACCEPTED
+  WRONG_ANSWER
+  RUNTIME_ERROR
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  SYSTEM_ERROR
+}
+
+enum ProgrammingTestResultStatus {
+  PASSED
+  WRONG_ANSWER
+  RUNTIME_ERROR
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  SYSTEM_ERROR
 }
 
 enum ExamStatus {
