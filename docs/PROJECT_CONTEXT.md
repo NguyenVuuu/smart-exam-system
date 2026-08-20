@@ -54,14 +54,14 @@ Các nhiệm vụ chính:
 ### Sinh viên (Student)
 
 Chịu trách nhiệm tham gia các kỳ thi.
-Student chỉ được xem và thống kê những điểm thuộc các bài kiểm tra đã được Teacher publish.
+Student chỉ được xem và thống kê những điểm thuộc các bài kiểm tra đã được Teacher công bố bằng cách set `Exam.result_published = true`.
 
 Các nhiệm vụ chính:
 
 - Truy cập các lớp học phần được phân công.
 - Tham gia kỳ thi.
 - Nộp đáp án và mã nguồn.
-- Xem kết quả thi và phản hồi.
+- Xem kết quả thi và phản hồi (chỉ khi `result_published = true`).
 
 ---
 
@@ -125,9 +125,10 @@ Các loại đề thi được hỗ trợ:
 - Đề thi lập trình.
 - Đề thi hỗn hợp.
 Mỗi đề thi lưu:
-- Loại đề thi.
-- Phương thức tạo đề.
-- Trạng thái công bố điểm.
+- Loại đề thi (QUIZ/MIDTERM/FINAL).
+- Phương thức tạo đề (MANUAL/QUESTION_BANK/AI_GENERATED/MIXED).
+- Trạng thái công bố điểm (`result_published`).
+- Cấu hình chống gian lận (full-screen, webcam, block copy-paste, right-click).
 
 ### Thi lập trình
 

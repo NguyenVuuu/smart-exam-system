@@ -424,6 +424,7 @@ export class StudentCourseDetailRepository {
         courseOfferingId,
         status: ExamStatus.PUBLISHED,
         publishedAt: { not: null },
+        resultPublished: true,
       },
       select: {
         id: true,
@@ -435,7 +436,6 @@ export class StudentCourseDetailRepository {
           where: { studentId },
           select: {
             totalScore: true,
-            isPublished: true,
             updatedAt: true,
           },
           orderBy: {
@@ -450,7 +450,7 @@ export class StudentCourseDetailRepository {
       .map((exam) => {
         const latestAttempt = exam.examAttempts[0]
         // Only include exams where the student's score has been published
-        if (!latestAttempt || !latestAttempt.isPublished || latestAttempt.totalScore === null) {
+        if (!latestAttempt || latestAttempt.totalScore === null) {
           return null
         }
         return {

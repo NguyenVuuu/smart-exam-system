@@ -94,7 +94,7 @@ function makeQuestions(subject: Subject, teacher: Teacher): Array<{
         { content: 'Đáp án A', isCorrect: false },
         { content: 'Đáp án B - Đúng', isCorrect: true },
         { content: 'Đáp án C', isCorrect: false },
-        { content: 'Đáp án D', isCorrect: false },
+        { content: 'Đáp ��n D', isCorrect: false },
       ],
     },
   ]
@@ -147,34 +147,6 @@ export async function seedQuestions(
           options: questionType === 'PROGRAMMING' ? undefined : {
             create: qData.options,
           },
-          programmingTests: questionType === 'PROGRAMMING' ? {
-            create: [
-              {
-                input: '5\n3',
-                expectedOutput: '8',
-                weight: 30.00,
-                isHidden: false,
-              },
-              {
-                input: '10\n20',
-                expectedOutput: '30',
-                weight: 30.00,
-                isHidden: false,
-              },
-              {
-                input: '-5\n10',
-                expectedOutput: '5',
-                weight: 20.00,
-                isHidden: true,
-              },
-              {
-                input: '0\n0',
-                expectedOutput: '0',
-                weight: 20.00,
-                isHidden: true,
-              },
-            ],
-          } : undefined,
         },
       })
       allQuestions.push(question)

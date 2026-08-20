@@ -3,16 +3,16 @@ import { PrismaClient } from '@prisma/client'
 export async function seedExamAttemptQuestions(prisma: PrismaClient): Promise<void> {
   console.log('Seeding Exam Attempt Questions...')
 
-  // Fetch all submitted attempts that don't yet have attemptQuestions
+  // Fetch all submitted attempts
   const attempts = await prisma.examAttempt.findMany({
     where: { status: 'SUBMITTED' },
     include: {
-      attemptQuestions: { select: { id: true } },
+      attemptQuestions: { select: { examQuestionId: true } },
       exam: {
         include: {
           examQuestions: {
-            select: { questionId: true },
-            orderBy: { id: 'asc' },
+            select: { id: true },
+            orderBy: { orderIndex: 'asc' },
           },
         },
       },
@@ -22,13 +22,19 @@ export async function seedExamAttemptQuestions(prisma: PrismaClient): Promise<vo
   let total = 0
 
   for (const attempt of attempts) {
-    if (attempt.attemptQuestions.length > 0) continue // already seeded
+    if (attempt.exam.examQuestions.length === 0) continue
 
-    const rows = attempt.exam.examQuestions.map((eq, index) => ({
-      attemptId: attempt.id,
-      questionId: eq.questionId,
-      orderIndex: index + 1,
-    }))
+    // Get existing exam question IDs for this attempt
+    const existingQuestionIds = new Set(attempt.attemptQuestions.map((aq: any) => aq.examQuestionId))
+
+    const rows = attempt.exam.examQuestions
+      .filter((eq) => !existingQuestionIds.has(eq.id))
+      .map((eq, index) => ({
+        attemptId: attempt.id,
+        examQuestionId: eq.id,
+        displayOrder: index + 1,
+        shuffledOptionIds: [],
+      }))
 
     if (rows.length === 0) continue
 
