@@ -610,7 +610,14 @@ Giảng viên có thể ghi đè điểm do hệ thống chấm tự động.
 
 ## BR-31: Công bố kết quả
 
-Sinh viên chỉ được xem kết quả sau khi giảng viên công bố.
+Sinh viên chỉ được xem kết quả sau khi giảng viên công bố bằng cách set `Exam.result_published = true`.
+
+Quy tắc:
+
+- Việc công bố điểm áp dụng cho toàn bộ sinh viên tham gia bài thi.
+- Không có trường hợp một sinh viên thấy điểm và sinh viên khác không thấy điểm trong cùng một bài thi.
+- Publish điểm áp dụng toàn bộ sinh viên trong Course Offering.
+- Student không thấy điểm khi `Exam.result_published = false`.
 
 ---
 
@@ -669,10 +676,10 @@ Nhật ký hệ thống phải được lưu trữ để phục vụ công tác 
 - Việc công bố điểm áp dụng cho toàn bộ sinh viên tham gia bài thi.
 - Không có trường hợp một sinh viên thấy điểm và sinh viên khác không thấy điểm trong cùng một bài thi.
 - Publish điểm áp dụng toàn bộ sinh viên trong Course Offering.
-- Student không thấy điểm chưa publish.
+- Student không thấy điểm khi `Exam.result_published = false`.
 - Quiz:
     Có nhiều bài kiểm tra.
-    Chỉ tính trung bình các Quiz đã publish.
+    Chỉ tính trung bình các Quiz đã publish (`result_published = true`).
 - Midterm:
     Chỉ có một điểm.
     Không tính trung bình.
@@ -680,6 +687,6 @@ Nhật ký hệ thống phải được lưu trữ để phục vụ công tác 
     Chỉ có một điểm.
     Không tính trung bình.
 - Dashboard:
-    Không hiển thị môn chưa có điểm publish.
+    Không hiển thị môn chưa có điểm publish (`result_published = true`).
     Không hiển thị giá trị null/0 thay thế.
     Chỉ render dữ liệu có published score.

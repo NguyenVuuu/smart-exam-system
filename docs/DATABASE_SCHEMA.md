@@ -12,6 +12,7 @@ The schema is designed to support:
 - Automatic grading
 - Anti-cheating and proctoring
 - Audit and system logging
+- Post and material management
 
 The design follows a **Modular Monolithic Architecture** and is optimized for extensibility.
 
@@ -48,26 +49,36 @@ The design follows a **Modular Monolithic Architecture** and is optimized for ex
 
 ### AI Generation
 
-- AIQuestionGeneration
-- AIQuestionGenerationMaterial
+- AIGenerationHistory
+- AIGenerationMaterial
 
 ### Question Bank
 
 - Question
 - QuestionOption
 - ProgrammingTestCase
+- ProgrammingSubmission
+- ProgrammingSubmissionTestResult
+- ProgrammingQuestionConfig
 
 ### Examination
 
 - Exam
+- ExamType (ENUM)
+- ExamCreationMethod (ENUM)
 - ExamQuestion
+- ExamQuestionOption
 - ExamAttempt
+- ExamAttemptQuestion
 - ExamSession
 - StudentAnswer
 
 ### Monitoring & Security
 
 - Violation
+- ProgrammingSubmission (includes programming submissions and test results)
+- ProgrammingTestCase
+- ProgrammingQuestionConfig
 
 ### System
 
@@ -319,10 +330,18 @@ IMPORTED:
 | shuffle_options            | BOOLEAN            |
 | show_result_immediately    | BOOLEAN            |
 | allow_review_before_submit | BOOLEAN            |
+| result_published           | BOOLEAN            |
+| result_published_at        | TIMESTAMP          |
 | status                     | ENUM               |
+| type                       | ENUM               |
+| creation_method            | ENUM               |
+| require_fullscreen         | BOOLEAN            |
+| enable_webcam              | BOOLEAN            |
+| block_copy_paste           | BOOLEAN            |
+| block_right_click          | BOOLEAN            |
+| published_at               | TIMESTAMP          |
 | created_at                 | TIMESTAMP          |
 | updated_at                 | TIMESTAMP          |
-| creation_method            | ENUM               |
 
 ## ExamType
 
@@ -336,27 +355,40 @@ Values:
 - MIXED
 ---
 
+## ExamType
+
+Values:
+- QUIZ
+- MIDTERM
+- FINAL
+
+---
+
+## Exam Creation Method
+
+Determines how exam questions are created.
+Values:
+- MANUAL
+- QUESTION_BANK
+- AI_GENERATED
+- MIXED
+
+---
+
 ## ExamQuestion
 
-| Field       | Type    |
-| ----------- | ------- |
-| id          | UUID    |
-| exam_id     | UUID    |
-| question_id | UUID    |
-| points      | DECIMAL |
-
-Constraint:
-
-(exam_id, question_id) UNIQUE
-
-Notes:
-
-- This table only stores which questions belong to an exam.
-- ExamQuestion stores the original question list of an exam.
-- When a student starts an exam:
-    - System creates ExamAttemptQuestion
-    - Question order is generated
-    - Order is stored permanently for that attempt
+| Field              | Type               |
+| ------------------ | ------------------ |
+| id                 | UUID               |
+| exam_id            | UUID               |
+| order_index        | INT                |
+| points             | DECIMAL            |
+| content            | TEXT               |
+| explanation        | TEXT               |
+| type               | ENUM               |
+| difficulty         | ENUM               |
+| language           | ENUM (nullable)    |
+| source_question_id | UUID (nullable)    |
 
 ---
 
@@ -364,17 +396,23 @@ Notes:
 
 Stores the actual question order for each student attempt.
 
-| Field       | Type |
-| ----------- | ---- |
-| id          | UUID |
-| attempt_id  | UUID |
-| question_id | UUID |
-| order_index | INT  |
+| Field             | Type       |
+| ----------------- | ---------- |
+| id                | UUID       |
+| attempt_id        | UUID       |
+| exam_question_id  | UUID       |
+| display_order     | INT        |
+| shuffled_option_ids | JSONB    |
 
 Constraint:
 
-- (attempt_id, question_id) UNIQUE
-- (attempt_id, order_index) UNIQUE
+- (attempt_id, exam_question_id) UNIQUE
+- (attempt_id, display_order) UNIQUE
+
+### Notes
+
+- `display_order` is the position of the question in this specific attempt (1-based).
+- `shuffled_option_ids` stores the randomized order of option IDs for this attempt.
 
 ---
 
@@ -389,6 +427,7 @@ Constraint:
 | student_id        | UUID      |
 | attempt_no        | INT       |
 | started_at        | TIMESTAMP |
+| attempt_end_at    | TIMESTAMP |
 | submitted_at      | TIMESTAMP |
 | remaining_seconds | INT       |
 | last_saved_at     | TIMESTAMP |
@@ -397,11 +436,16 @@ Constraint:
 | total_score       | DECIMAL   |
 | auto_score        | DECIMAL   |
 | manual_score      | DECIMAL   |
-| is_published      | BOOLEAN   |
 
 Constraint:
 
 (exam_id, student_id, attempt_no) UNIQUE
+
+### Notes
+
+- `attempt_end_at` là authoritative deadline được lưu khi tạo attempt.
+- `remaining_seconds` là snapshot từ thời điểm start exam, không được cập nhật sau đó.
+- Không có field `is_published` trong ExamAttempt. Kết quả được kiểm tra qua `Exam.result_published`.
 
 ---
 
@@ -429,16 +473,26 @@ Stores runtime session information during examination.
 | ------------------- | ------- |
 | id                  | UUID    |
 | attempt_id          | UUID    |
-| question_id         | UUID    |
+| exam_question_id    | UUID    |
 | selected_option_ids | JSONB   |
+| draft_source_code   | TEXT    |
 | score               | DECIMAL |
 | is_correct          | BOOLEAN |
-| source_code         | TEXT    |
-| essay_answer        | TEXT    |
 
 Constraint:
 
-(attempt_id, question_id) UNIQUE
+(attempt_id, exam_question_id) UNIQUE
+
+### Notes
+
+- `selected_option_ids` stores selected answers for multiple-choice questions.
+- `draft_source_code` stores student's programming code during the exam (before submission).
+
+Constraint:
+
+(attempt_id, exam_question_id) UNIQUE
+
+---
 
 # 10. Violation
 
