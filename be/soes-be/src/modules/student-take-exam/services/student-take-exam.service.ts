@@ -2,6 +2,29 @@ import { ConflictError, NotFoundError } from '../../../errors/AppError'
 import type { StartExamResult, ExamContentResult } from '../types'
 import * as repo from '../repositories/student-take-exam.repository'
 
+// Interface cho attempt với các field được include từ repository
+interface ExamContentAttempt {
+  id:        string
+  examId:    string
+  studentId: string
+  startedAt: Date
+  status:    string
+  exam:      {
+    title:           string
+    durationMinutes: number
+    endTime:         Date
+  }
+  attemptQuestions: Array<{
+    displayOrder: number
+    examQuestion: {
+      id:      string
+      content: string
+      type:    string
+      options: Array<{ id: string; content: string }>
+    }
+  }>
+}
+
 export async function startExam(examId: string, studentId: string): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
   const exam = await repo.findExamById(examId)
@@ -66,6 +89,9 @@ export async function startExam(examId: string, studentId: string): Promise<Star
   // ── 9. Create attempt (safe against concurrent duplicate requests) ─────────
   let attempt: { id: string; startedAt: Date; remainingSeconds: number }
 
+  // Note: attemptEndAt is stored as authoritative deadline in DB.
+  // remainingSeconds is stored as a snapshot for countdown initialization only.
+  // Both values are computed from startedAt + exam.durationMinutes, not updated later.
   try {
     attempt = await repo.createAttemptSafe({
       examId,
@@ -109,10 +135,11 @@ export async function getExamContent(
     throw new NotFoundError('Attempt not found')
   }
 
-  const { attempt, pointsMap } = result
+  const { attempt, pointsMap } = result as { attempt: ExamContentAttempt; pointsMap: Map<string, number> }
 
   // ── 2. Compute attemptEndAt and check expiry ───────────────────────────────
-  // attemptEndAt is NEVER stored — always computed from source fields.
+  // attemptEndAt is the authoritative deadline. We recalculate it from DB
+  // fields (startedAt + exam.durationMinutes) to ensure consistency.
   const durationEndAt = new Date(
     attempt.startedAt.getTime() + attempt.exam.durationMinutes * 60 * 1000,
   )
@@ -121,6 +148,8 @@ export async function getExamContent(
     : attempt.exam.endTime
 
   const now              = new Date()
+  // remainingSeconds is recalculated here for the current request.
+  // The DB field stores only a snapshot from attempt creation.
   const remainingSeconds = Math.max(
     0,
     Math.floor((attemptEndAt.getTime() - now.getTime()) / 1000),
@@ -131,21 +160,21 @@ export async function getExamContent(
   }
 
   // ── 3. Build question list from the attempt's snapshot ────────────────────
-  // Source of truth: ExamAttemptQuestion ordered by orderIndex ASC.
+  // Source of truth: ExamAttemptQuestion ordered by displayOrder ASC.
   // PROGRAMMING questions get options: [].
   const questions: ExamContentResult['questions'] = attempt.attemptQuestions.map((aq) => {
-    const q       = aq.question
+    const q       = aq.examQuestion
     const isProgramming = q.type === 'PROGRAMMING'
 
     return {
       id:         q.id,
-      orderIndex: aq.orderIndex,
+      orderIndex: aq.displayOrder,
       content:    q.content,
       type:       q.type,
       points:     pointsMap.get(q.id) ?? 0,
       options:    isProgramming
         ? []
-        : q.options.map((opt) => ({ id: opt.id, content: opt.content })),
+        : q.options.map((opt: any) => ({ id: opt.id, content: opt.content })),
     }
   })
 

@@ -42,7 +42,9 @@ export async function findSubmittedAttempts(studentId: string) {
       studentId,
       status: 'SUBMITTED',
       totalScore: { not: null },
-      isPublished: true,
+      exam: {
+        resultPublished: true,
+      },
     },
     select: {
       totalScore: true,
@@ -74,7 +76,9 @@ export async function findClassAveragesByExam(
       examId: { in: examIds },
       status: 'SUBMITTED',
       totalScore: { not: null },
-      isPublished: true,
+      exam: {
+        resultPublished: true,
+      },
     },
     select: {
       examId: true,

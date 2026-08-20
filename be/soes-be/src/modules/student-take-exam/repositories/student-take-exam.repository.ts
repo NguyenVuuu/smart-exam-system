@@ -15,6 +15,9 @@ export async function findExamById(examId: string) {
       maxAttempts:      true,
       courseOfferingId: true,
       shuffleQuestions: true,
+      examQuestions: {
+        select: { id: true, points: true },
+      },
     },
   })
 }
@@ -65,16 +68,17 @@ export async function findAttemptWithContent(
           endTime:         true,
         },
       },
-      // snapshot ordered by orderIndex ASC — this is the source of truth for question order
+      // snapshot ordered by displayOrder ASC — this is the source of truth for question order
       attemptQuestions: {
-        orderBy: { orderIndex: 'asc' },
+        orderBy: { displayOrder: 'asc' },
         select: {
-          orderIndex: true,
-          question: {
+          displayOrder: true,
+          examQuestion: {
             select: {
               id:      true,
               content: true,
               type:    true,
+              points:  true,
               // isCorrect on options intentionally NOT selected — never expose to student
               options: {
                 select: {
@@ -96,12 +100,12 @@ export async function findAttemptWithContent(
   if (attempt.studentId !== studentId)  return null
 
   // fetch points per question in one query (points live on ExamQuestion, not Question)
-  const questionIds   = attempt.attemptQuestions.map((aq) => aq.question.id)
+  const questionIds = attempt.attemptQuestions.map((aq) => aq.examQuestion.id)
   const examQuestions = await prisma.examQuestion.findMany({
-    where:  { examId, questionId: { in: questionIds } },
-    select: { questionId: true, points: true },
+    where:  { examId, id: { in: questionIds } },
+    select: { id: true, points: true },
   })
-  const pointsMap = new Map(examQuestions.map((eq) => [eq.questionId, Number(eq.points)]))
+  const pointsMap = new Map(examQuestions.map((eq) => [eq.id, Number(eq.points)]))
 
   return { attempt, pointsMap }
 }
@@ -144,22 +148,40 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       throw err
     }
 
-    // ── Fetch exam questions ───────────────────────────────────────────────
+    // ── Fetch exam and exam questions ──────────────────────────────────────
+    const exam = await tx.exam.findUnique({
+      where: { id: examId },
+      select: { durationMinutes: true },
+    })
+
+    if (!exam) {
+      throw new Error('EXAM_NOT_FOUND')
+    }
+
     // Use deterministic ordering (id asc) so the non-shuffled case is stable.
     const examQuestions = await tx.examQuestion.findMany({
       where: { examId },
-      select: { questionId: true },
+      select: { id: true },
       orderBy: { id: 'asc' },
     })
 
-    // ── Create ExamAttempt ────────────────────────────────────────────────
+    // ── Compute attemptEndAt and remainingSeconds ───────────────────────────
+    // attemptEndAt is the authoritative exam deadline, stored in DB.
+    // remainingSeconds is a snapshot for countdown initialization only.
+    // These values are computed from startedAt + exam.durationMinutes and
+    // will NOT be updated during the attempt. Clients should recalculate
+    // remainingSeconds on each API call based on current time.
+
+    const attemptEndAt = new Date(startedAt.getTime() + exam.durationMinutes * 60 * 1000)
+    
     const attempt = await tx.examAttempt.create({
       data: {
         examId,
         studentId,
         attemptNo:       1,
         startedAt,
-        remainingSeconds,
+        attemptEndAt,    // Authoritative deadline - computed, not updated later
+        remainingSeconds, // Snapshot for countdown init - not updated during attempt
         lastSavedAt:     startedAt,
         status:          'IN_PROGRESS',
       },
@@ -180,9 +202,10 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
     if (orderedQuestions.length > 0) {
       await tx.examAttemptQuestion.createMany({
         data: orderedQuestions.map((eq, index) => ({
-          attemptId:  attempt.id,
-          questionId: eq.questionId,
-          orderIndex: index + 1,
+          attemptId:     attempt.id,
+          examQuestionId: eq.id,
+          displayOrder:  index + 1,
+          shuffledOptionIds: [],
         })),
       })
     }
