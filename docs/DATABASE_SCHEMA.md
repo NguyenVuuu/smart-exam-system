@@ -412,7 +412,7 @@ Constraint:
 ### Notes
 
 - `display_order` is the position of the question in this specific attempt (1-based).
-- `shuffled_option_ids` stores the randomized order of option IDs for this attempt.
+- `shuffled_option_ids` stores the randomized order of option IDs for this attempt. Các ID được xáo trộn nếu `exam.shuffleOptions = true`.
 
 ---
 
@@ -443,8 +443,9 @@ Constraint:
 
 ### Notes
 
-- `attempt_end_at` là authoritative deadline được lưu khi tạo attempt.
-- `remaining_seconds` là snapshot từ thời điểm start exam, không được cập nhật sau đó.
+- `attempt_end_at` là authoritative deadline được lưu khi tạo attempt. Giá trị này được tính từ `min(started_at + duration_minutes, exam.endTime)` tại thời điểm start và KHÔNG được cập nhật sau đó.
+- `remaining_seconds` là snapshot từ thời điểm start exam, không được cập nhật sau đó. Clients phải tính lại `remaining_seconds` dựa trên thời gian hiện tại: `max(0, floor((attempt_end_at - now) / 1000))`.
+- `shuffled_option_ids` trong `ExamAttemptQuestion` lưu thứ tự đã xáo trộn của các option ID cho từng câu hỏi trong từng attempt.
 - Không có field `is_published` trong ExamAttempt. Kết quả được kiểm tra qua `Exam.result_published`.
 
 ---

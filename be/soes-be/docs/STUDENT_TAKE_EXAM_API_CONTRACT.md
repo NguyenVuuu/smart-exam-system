@@ -72,7 +72,7 @@ Request Body: None
 | `attemptId` | ID lần làm bài |
 | `startedAt` | Thời điểm Student bắt đầu attempt |
 | `remainingSeconds` | Thời gian còn lại của attempt |
-| `attemptEndAt` | Thời điểm attempt thực tế kết thúc, được tính từ startedAt, Exam.durationMinutes và Exam.endTime |
+| `attemptEndAt` | Thời điểm attempt thực tế kết thúc (authoritative deadline), được lưu trong DB khi start exam. Tính từ `min(startedAt + Exam.durationMinutes, Exam.endTime)` |
 
 ## Status Codes
 
@@ -721,16 +721,10 @@ Lấy nội dung bài thi để sinh viên làm bài.
 - Chỉ trả về các câu hỏi thuộc attempt hiện tại.
 - Không trả về đáp án đúng hoặc dữ liệu phục vụ chấm điểm mà Student không cần biết.
 - Chỉ trả về các trường dữ liệu cần thiết cho giao diện làm bài.
-- `attemptEndAt` là authoritative deadline được lưu trong DB khi tạo attempt.
-- attemptEndAt được tính từ `min(startedAt + exam.durationMinutes, exam.endTime)` tại thời điểm start.
-- `remainingSeconds` là snapshot được lưu trong DB khi tạo attempt. Giá trị này KHÔNG được cập nhật trong quá trình attempt.
-- Mỗi khi cần hiển thị countdown, client phải tính lại remainingSeconds từ `max(0, floor((attemptEndAt - now) / 1000))`.
-- Giá trị `ExamAttempt.remainingSeconds` chỉ dùng để khởi tạo countdown ban đầu, không dùng làm thời gian thực tế.
-- Nếu attempt đã hết thời gian, Student không được tiếp tục làm bài.
-      Nếu now >= attemptEndAt:
-      → không trả nội dung bài thi
-      → trả 409
-      → message: "Exam attempt has ended"
+- `attemptEndAt` là authoritative deadline được lưu trong DB khi tạo attempt. Giá trị này được tính từ `min(startedAt + exam.durationMinutes, exam.endTime)` tại thời điểm start exam và KHÔNG được cập nhật sau đó.
+- `remainingSeconds` là snapshot được lưu trong DB khi tạo attempt. Giá trị này chỉ dùng để khởi tạo countdown ban đầu cho client. Clients phải tính lại `remainingSeconds` trên mỗi API call dựa trên thời gian hiện tại: `max(0, floor((attemptEndAt - now) / 1000))`.
+- Nếu attempt đã hết thời gian (`now >= attemptEndAt`), Student không được tiếp tục làm bài.
+- Trả HTTP 409 với message: "Exam attempt has ended"
 
 - Ví dụ API 1 tạo:
     ExamAttemptQuestion
@@ -1303,8 +1297,7 @@ Lưu câu trả lời trong quá trình sinh viên làm bài.
 
 - `attemptEndAt` được tính lại từ:
   `min(attempt.startedAt + exam.durationMinutes, exam.endTime)`.
-- Không sử dụng `ExamAttempt.remainingSeconds` làm realtime countdown.
-- `remainingSeconds` KHÔNG được cập nhật trong DB khi save answer. Giá trị này là snapshot từ thời điểm start exam.
+- `remainingSeconds` là snapshot từ thời điểm start exam, không được cập nhật trong DB khi save answer. Clients phải tính lại `remainingSeconds` trên mỗi API call dựa trên thời gian hiện tại: `max(0, floor((attemptEndAt - now) / 1000))`.
 - Tại thời điểm save answer:
   `attemptEndAt` vẫn là authoritative deadline.
 - Nếu `now >= attemptEndAt`:
@@ -1475,7 +1468,7 @@ Gửi heartbeat để giữ phiên thi hoạt động và tự động lưu ti�
 
 | Field | Description |
 |-------|------|
-| `remainingSeconds` | Snapshot thời gian còn lại từ thời điểm start exam. Clients phải tính lại remainingSeconds từ `attemptEndAt - now` nếu cần thời gian chính xác. |
+| `remainingSeconds` | Snapshot thời gian còn lại từ thời điểm start exam. Clients phải tính lại `remainingSeconds` từ `max(0, floor((attemptEndAt - now) / 1000))` nếu cần thời gian chính xác. |
 | `isOnline` | Trạng thái kết nối |
 
 ## Status Codes
