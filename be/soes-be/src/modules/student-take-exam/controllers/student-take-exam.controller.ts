@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
-import { examParamsSchema, examAttemptParamsSchema } from '../validators/student-take-exam.validator'
-import { toStartExamResponseDto, toGetExamContentResponseDto } from '../mappers/student-take-exam.mapper'
+import { examParamsSchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema } from '../validators/student-take-exam.validator'
+import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -33,6 +33,32 @@ export async function getExamContent(req: Request, res: Response, next: NextFunc
       success: true,
       message: 'Exam loaded successfully',
       data:    toGetExamContentResponseDto(result),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ─── API 3: Save Answer ───────────────────────────────────────────────────────
+
+export async function saveAnswer(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { examId, attemptId } = saveAnswerParamsSchema.parse(req.params)
+    const { questionId, answer } = saveAnswerBodySchema.parse(req.body)
+    const studentId              = req.user!.profileId
+
+    const result = await takeExamService.saveAnswer(
+      examId,
+      attemptId,
+      studentId,
+      questionId,
+      answer,
+    )
+
+    res.status(200).json({
+      success: true,
+      message: 'Answer saved successfully',
+      data:    toSaveAnswerResponseDto(result.questionId, result.remainingSeconds),
     })
   } catch (err) {
     next(err)

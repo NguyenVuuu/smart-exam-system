@@ -60,6 +60,7 @@ export async function findAttemptWithContent(
       examId:    true,
       studentId: true,
       startedAt: true,
+      attemptEndAt: true,
       status:    true,
       exam: {
         select: {
@@ -78,7 +79,6 @@ export async function findAttemptWithContent(
               id:      true,
               content: true,
               type:    true,
-              points:  true,
               // isCorrect on options intentionally NOT selected — never expose to student
               options: {
                 select: {
@@ -100,9 +100,9 @@ export async function findAttemptWithContent(
   if (attempt.studentId !== studentId)  return null
 
   // fetch points per question in one query (points live on ExamQuestion, not Question)
-  const questionIds = attempt.attemptQuestions.map((aq) => aq.examQuestion.id)
+  // Use examQuestion.id as key since ExamQuestion is the entity that holds points
   const examQuestions = await prisma.examQuestion.findMany({
-    where:  { examId, id: { in: questionIds } },
+    where:  { examId, id: { in: attempt.attemptQuestions.map((aq) => aq.examQuestion.id) } },
     select: { id: true, points: true },
   })
   const pointsMap = new Map(examQuestions.map((eq) => [eq.id, Number(eq.points)]))
@@ -192,6 +192,17 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       },
     })
 
+    // ── Fetch all options for shuffling if exam.shuffleOptions is true ─────
+    const examQuestionsWithOptions = await tx.examQuestion.findMany({
+      where: { examId },
+      select: {
+        id: true,
+        options: {
+          select: { id: true }
+        }
+      }
+    })
+
     // ── Create ExamAttemptQuestion snapshot ───────────────────────────────
     // Apply shuffle when the exam is configured to do so; otherwise preserve
     // the stable ordering determined above.
@@ -199,14 +210,32 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       ? shuffleArray([...examQuestions])
       : examQuestions
 
+    // Check if options should be shuffled (needs exam info)
+    const examDetails = await tx.exam.findUnique({
+      where: { id: examId },
+      select: { shuffleOptions: true }
+    })
+    const shuffleOptions = examDetails?.shuffleOptions ?? false
+
     if (orderedQuestions.length > 0) {
       await tx.examAttemptQuestion.createMany({
-        data: orderedQuestions.map((eq, index) => ({
-          attemptId:     attempt.id,
-          examQuestionId: eq.id,
-          displayOrder:  index + 1,
-          shuffledOptionIds: [],
-        })),
+        data: orderedQuestions.map((eq, index) => {
+          // Find options for this exam question
+          const eqWithOpts = examQuestionsWithOptions.find(q => q.id === eq.id)
+          const optionIds = eqWithOpts?.options?.map(o => o.id) ?? []
+          
+          // Shuffle options if configured
+          const shuffledOptionIds = optionIds.length > 0 && shuffleOptions
+            ? shuffleArray([...optionIds])
+            : optionIds
+
+          return {
+            attemptId:     attempt.id,
+            examQuestionId: eq.id,
+            displayOrder:  index + 1,
+            shuffledOptionIds: shuffledOptionIds,
+          }
+        }),
       })
     }
 
