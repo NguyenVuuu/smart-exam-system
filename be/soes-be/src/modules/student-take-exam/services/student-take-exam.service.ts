@@ -2,29 +2,6 @@ import { ConflictError, NotFoundError } from '../../../errors/AppError'
 import type { StartExamResult, ExamContentResult } from '../types'
 import * as repo from '../repositories/student-take-exam.repository'
 
-// Interface cho attempt với các field được include từ repository
-interface ExamContentAttempt {
-  id:        string
-  examId:    string
-  studentId: string
-  startedAt: Date
-  status:    string
-  exam:      {
-    title:           string
-    durationMinutes: number
-    endTime:         Date
-  }
-  attemptQuestions: Array<{
-    displayOrder: number
-    examQuestion: {
-      id:      string
-      content: string
-      type:    string
-      options: Array<{ id: string; content: string }>
-    }
-  }>
-}
-
 export async function startExam(examId: string, studentId: string): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
   const exam = await repo.findExamById(examId)
@@ -135,31 +112,21 @@ export async function getExamContent(
     throw new NotFoundError('Attempt not found')
   }
 
-  const { attempt, pointsMap } = result as { attempt: ExamContentAttempt; pointsMap: Map<string, number> }
+  const { attempt, pointsMap } = result
 
-  // ── 2. Compute attemptEndAt and check expiry ───────────────────────────────
-  // attemptEndAt is the authoritative deadline. We recalculate it from DB
-  // fields (startedAt + exam.durationMinutes) to ensure consistency.
-  const durationEndAt = new Date(
-    attempt.startedAt.getTime() + attempt.exam.durationMinutes * 60 * 1000,
-  )
-  const attemptEndAt = durationEndAt < attempt.exam.endTime
-    ? durationEndAt
-    : attempt.exam.endTime
-
-  const now              = new Date()
-  // remainingSeconds is recalculated here for the current request.
-  // The DB field stores only a snapshot from attempt creation.
-  const remainingSeconds = Math.max(
-    0,
-    Math.floor((attemptEndAt.getTime() - now.getTime()) / 1000),
-  )
-
-  if (now >= attemptEndAt) {
+  // ── 2. Check expiry using attemptEndAt from DB ─────────────────────────────
+  const now = new Date()
+  if (now >= attempt.attemptEndAt) {
     throw new ConflictError('Exam attempt has ended')
   }
 
-  // ── 3. Build question list from the attempt's snapshot ────────────────────
+  // ── 3. Compute remainingSeconds from attemptEndAt ──────────────────────────
+  const remainingSeconds = Math.max(
+    0,
+    Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
+  )
+
+  // ── 4. Build question list from the attempt's snapshot ────────────────────
   // Source of truth: ExamAttemptQuestion ordered by displayOrder ASC.
   // PROGRAMMING questions get options: [].
   const questions: ExamContentResult['questions'] = attempt.attemptQuestions.map((aq) => {
@@ -174,7 +141,7 @@ export async function getExamContent(
       points:     pointsMap.get(q.id) ?? 0,
       options:    isProgramming
         ? []
-        : q.options.map((opt: any) => ({ id: opt.id, content: opt.content })),
+        : q.options.map((opt) => ({ id: opt.id, content: opt.content })),
     }
   })
 
