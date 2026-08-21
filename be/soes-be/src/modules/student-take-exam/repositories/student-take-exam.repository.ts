@@ -197,12 +197,8 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       where: { examId },
       select: {
         id: true,
-        sourceQuestion: {
-          select: {
-            options: {
-              select: { id: true }
-            }
-          }
+        options: {
+          select: { id: true }
         }
       }
     })
@@ -226,7 +222,7 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
         data: orderedQuestions.map((eq, index) => {
           // Find options for this exam question
           const eqWithOpts = examQuestionsWithOptions.find(q => q.id === eq.id)
-          const optionIds = eqWithOpts?.sourceQuestion?.options.map(o => o.id) ?? []
+          const optionIds = eqWithOpts?.options?.map(o => o.id) ?? []
           
           // Shuffle options if configured
           const shuffledOptionIds = optionIds.length > 0 && shuffleOptions

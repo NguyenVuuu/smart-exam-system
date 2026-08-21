@@ -26,5 +26,13 @@ export interface GetExamContentResponseDto {
   title:            string
   durationMinutes:  number
   remainingSeconds: number
+  attemptEndAt:     string
   questions:        ExamContentQuestionDto[]
+}
+
+// ─── API 3: Save Answer ───────────────────────────────────────────────────────
+
+export interface SaveAnswerResponseDto {
+  questionId:       string
+  remainingSeconds: number
 }

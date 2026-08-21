@@ -21,5 +21,13 @@ router.get(
   takeExamController.getExamContent,
 )
 
+// PUT /api/student/exams/:examId/attempts/:attemptId/answers
+router.put(
+  '/exams/:examId/attempts/:attemptId/answers',
+  authenticate,
+  requireStudent(),
+  takeExamController.saveAnswer,
+)
+
 export default router
 
