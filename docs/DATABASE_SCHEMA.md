@@ -640,9 +640,10 @@ Question 1 -> N ExamQuestion
 Exam 1 -> N ExamAttempt
 User (Student) 1 -> N ExamAttempt
 ExamAttempt 1 -> N ExamAttemptQuestion
-Question 1 -> N ExamAttemptQuestion
+ExamQuestion 1 -> N ExamAttemptQuestion
+ExamQuestion 1 -> N ExamQuestionOption
 ExamAttempt 1 -> N StudentAnswer
-Question 1 -> N StudentAnswer
+ExamQuestion 1 -> N StudentAnswer
 Question 1 -> N QuestionOption
 Question 1 -> N ProgrammingTestCase
 ExamAttempt 1 -> N ExamSession
