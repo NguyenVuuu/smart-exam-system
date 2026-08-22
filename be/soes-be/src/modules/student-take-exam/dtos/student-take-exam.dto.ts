@@ -36,3 +36,10 @@ export interface SaveAnswerResponseDto {
   questionId:       string
   remainingSeconds: number
 }
+
+// ─── API 4: Submit Exam ───────────────────────────────────────────────────────
+
+export interface SubmitExamResponseDto {
+  attemptId:   string
+  submittedAt: string
+}

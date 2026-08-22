@@ -1,6 +1,6 @@
 import { ConflictError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import prisma from "../../../lib/prisma";
-import type { StartExamResult, ExamContentResult } from "../types";
+import type { StartExamResult, ExamContentResult, SubmitExamResult } from "../types";
 import * as repo from "../repositories/student-take-exam.repository";
 
 export async function startExam(
@@ -326,4 +326,93 @@ export async function saveAnswer(
     questionId,
     remainingSeconds,
   };
+}
+
+// ─── API 4: Submit Exam ───────────────────────────────────────────────────────
+
+export async function submitExam(
+  examId: string,
+  attemptId: string,
+  studentId: string,
+): Promise<SubmitExamResult> {
+  const now = new Date();
+
+  // ── Attempt the atomic conditional update ─────────────────────────────────
+  //
+  // We do a conditional UPDATE inside a transaction:
+  //   WHERE id = attemptId
+  //     AND examId = examId          (exam ownership)
+  //     AND studentId = studentId    (student ownership)
+  //     AND status = IN_PROGRESS     (only transition from IN_PROGRESS)
+  //     AND attemptEndAt > now       (deadline not yet reached)
+  //
+  // Prisma's updateMany returns a count. If count === 0 we know the update
+  // did not match, and we run a separate lookup to determine the correct
+  // error message. The uniqueness of the WHERE conditions and the DB-level
+  // unique constraint on (examId, studentId, attemptNo) make this atomic
+  // enough to prevent double-submit races — only one concurrent request can
+  // win the updateMany with status = IN_PROGRESS.
+  //
+  // The transition and submittedAt assignment happen in one statement, so
+  // no intermediate dirty state is visible to other connections.
+
+  const updated = await prisma.examAttempt.updateMany({
+    where: {
+      id:          attemptId,
+      examId:      examId,
+      studentId:   studentId,
+      status:      'IN_PROGRESS',
+      attemptEndAt: { gt: now },        // attemptEndAt > now  ← deadline guard
+    },
+    data: {
+      status:      'SUBMITTED',
+      submittedAt: now,
+      endedBy:     'STUDENT',
+      // attemptEndAt, remainingSeconds, and StudentAnswers are intentionally
+      // NOT touched here, per contract.
+    },
+  });
+
+  // ── Update succeeded → return success ─────────────────────────────────────
+  if (updated.count > 0) {
+    return { attemptId, submittedAt: now };
+  }
+
+  // ── Update did not match → determine why and throw the correct error ───────
+  // Load minimal data to distinguish between: not found / wrong ownership /
+  // wrong exam, already SUBMITTED, already EXPIRED, or deadline passed.
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      id:           true,
+      examId:       true,
+      studentId:    true,
+      status:       true,
+      attemptEndAt: true,
+    },
+  });
+
+  // 404 conditions: attempt missing, belongs to another exam, or another student
+  if (!attempt) {
+    throw new NotFoundError('Attempt not found');
+  }
+  if (attempt.examId !== examId) {
+    throw new NotFoundError('Attempt not found');
+  }
+  if (attempt.studentId !== studentId) {
+    throw new NotFoundError('Attempt not found');
+  }
+
+  // 409 conditions
+  if (attempt.status === 'SUBMITTED') {
+    throw new ConflictError('Exam attempt has already been submitted');
+  }
+
+  // EXPIRED, or still IN_PROGRESS but deadline has passed
+  if (attempt.status === 'EXPIRED') {
+    throw new ConflictError('Exam attempt has ended');
+  }
+
+  // Catch-all: IN_PROGRESS but now >= attemptEndAt, or any other terminal state
+  throw new ConflictError('Exam attempt has ended');
 }

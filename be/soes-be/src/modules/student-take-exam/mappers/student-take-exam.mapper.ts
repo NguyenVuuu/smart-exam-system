@@ -1,5 +1,5 @@
-import type { StartExamResult, ExamContentResult } from '../types'
-import type { StartExamResponseDto, GetExamContentResponseDto, SaveAnswerResponseDto } from '../dtos/student-take-exam.dto'
+import type { StartExamResult, ExamContentResult, SubmitExamResult } from '../types'
+import type { StartExamResponseDto, GetExamContentResponseDto, SaveAnswerResponseDto, SubmitExamResponseDto } from '../dtos/student-take-exam.dto'
 
 export function toStartExamResponseDto(result: StartExamResult): StartExamResponseDto {
   return {
@@ -32,5 +32,14 @@ export function toSaveAnswerResponseDto(
   return {
     questionId,
     remainingSeconds,
+  }
+}
+
+// ─── API 4: Submit Exam ───────────────────────────────────────────────────────
+
+export function toSubmitExamResponseDto(result: SubmitExamResult): SubmitExamResponseDto {
+  return {
+    attemptId:   result.attemptId,
+    submittedAt: result.submittedAt.toISOString(),
   }
 }
