@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { examParamsSchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema } from '../validators/student-take-exam.validator'
-import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto } from '../mappers/student-take-exam.mapper'
+import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -65,3 +65,22 @@ export async function saveAnswer(req: Request, res: Response, next: NextFunction
   }
 }
 
+
+// ─── API 4: Submit Exam ───────────────────────────────────────────────────────
+
+export async function submitExam(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { examId, attemptId } = examAttemptParamsSchema.parse(req.params)
+    const studentId             = req.user!.profileId
+
+    const result = await takeExamService.submitExam(examId, attemptId, studentId)
+
+    res.status(200).json({
+      success: true,
+      message: 'Exam submitted successfully',
+      data:    toSubmitExamResponseDto(result),
+    })
+  } catch (err) {
+    next(err)
+  }
+}

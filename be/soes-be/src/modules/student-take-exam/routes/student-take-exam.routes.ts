@@ -29,5 +29,13 @@ router.put(
   takeExamController.saveAnswer,
 )
 
+// POST /api/student/exams/:examId/attempts/:attemptId/submit
+router.post(
+  '/exams/:examId/attempts/:attemptId/submit',
+  authenticate,
+  requireStudent(),
+  takeExamController.submitExam,
+)
+
 export default router
 
