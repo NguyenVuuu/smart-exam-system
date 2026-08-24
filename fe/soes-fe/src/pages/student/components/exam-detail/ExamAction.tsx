@@ -11,7 +11,7 @@ export default function ExamAction({ data }: ExamActionProps) {
     return (
       <button
         disabled
-        className="w-full sm:w-auto px-6 py-2.5 text-sm font-medium bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed"
+        className="w-full sm:w-auto px-6 py-2.5 text-xs font-medium bg-gray-100 text-gray-400 rounded-xl cursor-not-allowed"
       >
         Đã nộp bài
       </button>
@@ -22,7 +22,7 @@ export default function ExamAction({ data }: ExamActionProps) {
     return (
       <button
         disabled
-        className="w-full sm:w-auto px-6 py-2.5 text-sm font-medium bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed"
+        className="w-full sm:w-auto px-6 py-2.5 text-xs font-medium bg-gray-100 text-gray-400 rounded-xl cursor-not-allowed"
       >
         Đã hết hạn
       </button>
@@ -33,7 +33,7 @@ export default function ExamAction({ data }: ExamActionProps) {
     return (
       <button
         disabled
-        className="w-full sm:w-auto px-6 py-2.5 text-sm font-medium bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed"
+        className="w-full sm:w-auto px-6 py-2.5 text-xs font-medium bg-gray-100 text-gray-400 rounded-xl cursor-not-allowed"
       >
         Vào làm bài
       </button>
@@ -45,8 +45,7 @@ export default function ExamAction({ data }: ExamActionProps) {
   return (
     <button
       disabled
-      className="w-full sm:w-auto px-6 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg opacity-60 cursor-not-allowed"
-      title="Tính năng đang phát triển"
+      className="w-full sm:w-auto px-6 py-2.5 text-xs font-semibold bg-blue-600 text-white rounded-xl opacity-60 cursor-not-allowed"
     >
       {label}
     </button>

@@ -1,0 +1,98 @@
+import type {
+  CourseMaterial,
+  CourseOffering,
+  StudentEnrollment,
+  StudentScoreRecord,
+} from '../types/teacher-course.types'
+
+export const MOCK_TEACHER_COURSES: CourseOffering[] = [
+  {
+    id: 'co-01',
+    subjectId: 'sub-01',
+    subjectCode: 'INT1001',
+    subjectName: 'Lập trình Java căn bản',
+    courseCode: 'JAVA_01_HK1_2026',
+    semesterName: 'Học kỳ 1 năm 2026',
+    semesterId: 'sem-2026-1',
+    teacherName: 'TS. Nguyễn Văn Giảng',
+    totalStudents: 45,
+    totalExams: 3,
+    status: 'ACTIVE',
+    description: 'Lớp Lập trình Java dành cho sinh viên CNTT K67',
+  },
+  {
+    id: 'co-02',
+    subjectId: 'sub-02',
+    subjectCode: 'INT2002',
+    subjectName: 'Cấu trúc dữ liệu và Giải thuật',
+    courseCode: 'DSA_02_HK1_2026',
+    semesterName: 'Học kỳ 1 năm 2026',
+    semesterId: 'sem-2026-1',
+    teacherName: 'TS. Nguyễn Văn Giảng',
+    totalStudents: 50,
+    totalExams: 2,
+    status: 'ACTIVE',
+    description: 'Cấu trúc dữ liệu nâng cao, C++, cây và đồ thị',
+  },
+  {
+    id: 'co-03',
+    subjectId: 'sub-03',
+    subjectCode: 'INT3003',
+    subjectName: 'Lập trình C++',
+    courseCode: 'CPP_01_HK2_2025',
+    semesterName: 'Học kỳ 2 năm 2025',
+    semesterId: 'sem-2025-2',
+    teacherName: 'TS. Nguyễn Văn Giảng',
+    totalStudents: 38,
+    totalExams: 4,
+    status: 'CLOSED',
+    description: 'Lớp học phần C++ hướng đối tượng năm ngoái',
+  },
+]
+
+export const MOCK_COURSE_MATERIALS: CourseMaterial[] = [
+  {
+    id: 'mat-01',
+    courseOfferingId: 'co-01',
+    fileName: 'Chuong_1_Tong_Quan_Java.pdf',
+    fileType: 'PDF',
+    fileSize: '2.4 MB',
+    uploadedAt: '2026-08-01 10:15',
+    selectedForAI: true,
+    downloadUrl: '#',
+  },
+  {
+    id: 'mat-02',
+    courseOfferingId: 'co-01',
+    fileName: 'Chuong_2_Huong_Doi_Tuong_OOP.pdf',
+    fileType: 'PDF',
+    fileSize: '4.1 MB',
+    uploadedAt: '2026-08-05 14:20',
+    selectedForAI: true,
+    downloadUrl: '#',
+  },
+  {
+    id: 'mat-03',
+    courseOfferingId: 'co-01',
+    fileName: 'Thuc_Hanh_Lab_Java.docx',
+    fileType: 'DOCX',
+    fileSize: '1.8 MB',
+    uploadedAt: '2026-08-10 09:30',
+    selectedForAI: false,
+    downloadUrl: '#',
+  },
+]
+
+export const MOCK_ENROLLED_STUDENTS: StudentEnrollment[] = [
+  { id: 'st-01', studentId: 'user-sv001', studentCode: 'SV2026001', fullName: 'Trần Minh Nam', email: 'nam.tm@student.edu.vn', enrolledAt: '2026-08-01', status: 'ACTIVE' },
+  { id: 'st-02', studentId: 'user-sv002', studentCode: 'SV2026002', fullName: 'Lê Thị Thu Thảo', email: 'thao.ltt@student.edu.vn', enrolledAt: '2026-08-01', status: 'ACTIVE' },
+  { id: 'st-03', studentId: 'user-sv003', studentCode: 'SV2026003', fullName: 'Phạm Đức Anh', email: 'anh.pd@student.edu.vn', enrolledAt: '2026-08-02', status: 'ACTIVE' },
+  { id: 'st-04', studentId: 'user-sv004', studentCode: 'SV2026004', fullName: 'Hoàng Ngô Hải', email: 'hai.hng@student.edu.vn', enrolledAt: '2026-08-02', status: 'ACTIVE' },
+]
+
+export const MOCK_STUDENT_SCORES: StudentScoreRecord[] = [
+  { studentId: 'user-sv001', studentCode: 'SV2026001', fullName: 'Trần Minh Nam', quizScores: [8.5, 9.0], midtermScore: 8.0, finalScore: null, averageScore: 8.38 },
+  { studentId: 'user-sv002', studentCode: 'SV2026002', fullName: 'Lê Thị Thu Thảo', quizScores: [9.5, 9.5], midtermScore: 9.0, finalScore: null, averageScore: 9.25 },
+  { studentId: 'user-sv003', studentCode: 'SV2026003', fullName: 'Phạm Đức Anh', quizScores: [7.0, 7.5], midtermScore: 6.5, finalScore: null, averageScore: 6.88 },
+  { studentId: 'user-sv004', studentCode: 'SV2026004', fullName: 'Hoàng Ngô Hải', quizScores: [10.0, 9.0], midtermScore: 9.5, finalScore: null, averageScore: 9.50 },
+]

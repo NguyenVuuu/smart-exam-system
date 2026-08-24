@@ -72,8 +72,9 @@ export async function login(dto: LoginRequestDto): Promise<LoginResponseDto> {
     throw new UnauthorizedError('Invalid credentials')
   }
 
-  // ADMIN can have unlimited sessions; TEACHER and STUDENT are limited to one
-  if (resolved.profile.role !== 'ADMIN') {
+  // STUDENT is limited to one active session to reduce exam impersonation risk.
+  // TEACHER and ADMIN can sign in again because they may manage exams from multiple devices.
+  if (resolved.profile.role === 'STUDENT') {
     const existingSession = await refreshTokenStore.get(resolved.profile.id)
     if (existingSession) {
       logger.warn('Login blocked: active session already exists', {

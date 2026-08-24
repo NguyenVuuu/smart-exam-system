@@ -29,11 +29,11 @@ export default function StudentSubjectsPage() {
       <div className="flex flex-col flex-1 overflow-hidden">
         <StudentTopBar />
 
-        <main className="flex-1 overflow-y-auto px-6 py-5">
+        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
           {/* Page header */}
-          <div className="flex items-center gap-2 mb-5">
-            <BookOpen size={20} className="text-blue-600" />
-            <h1 className="text-lg font-semibold text-gray-900">Môn học của tôi</h1>
+          <div className="flex items-center gap-3">
+            <BookOpen size={24} className="text-blue-600" />
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Môn Học Của Tôi</h1>
           </div>
 
           {/* Toolbar — always visible once semesterOptions arrive */}
