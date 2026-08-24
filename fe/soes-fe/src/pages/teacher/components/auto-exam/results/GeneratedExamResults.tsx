@@ -1,5 +1,5 @@
 import { Eye, FileCheck, Send } from 'lucide-react'
-import type { AutoExamDraftStatus, GeneratedExamCode } from '../../../types/teacher-auto-exam.types'
+import type { AutoExamDraftStatus, GeneratedExamDraft } from '../../../types/teacher-auto-exam.types'
 
 export default function GeneratedExamResults({
   generatedExams,
@@ -8,18 +8,18 @@ export default function GeneratedExamResults({
   onPublish,
   onPreview,
 }: {
-  generatedExams: GeneratedExamCode[]
+  generatedExams: GeneratedExamDraft[]
   draftStatus: AutoExamDraftStatus
   onSaveDraft: () => void
   onPublish: () => void
-  onPreview: (exam: GeneratedExamCode) => void
+  onPreview: (exam: GeneratedExamDraft) => void
 }) {
   if (generatedExams.length === 0) return null
 
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+        <h2 className="text-xs font-bold text-gray-900 flex items-center gap-2">
           <FileCheck size={18} className="text-blue-600" />
           Kết Quả Sinh Đề
         </h2>
@@ -47,20 +47,20 @@ export default function GeneratedExamResults({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {generatedExams.map((exam) => (
-          <div key={exam.code} className="p-4 border border-gray-100 rounded-xl bg-gray-50/60 space-y-3">
+          <div key={exam.id} className="p-4 border border-gray-100 rounded-xl bg-gray-50/60 space-y-3">
             <div className="flex items-center justify-between">
               <span className="px-2.5 py-1 bg-blue-600 text-white font-medium text-xs rounded-lg">
-                {exam.code}
+                Đề đã sinh
               </span>
-              <span className="text-[11px] font-medium text-gray-500">{exam.totalPoints} điểm</span>
+              <span className="text-xs font-medium text-gray-500">{exam.totalPoints} điểm</span>
             </div>
 
             <p className="text-xs text-gray-600 font-medium">
               Gồm {exam.questionIds.length} câu trắc nghiệm. Khi sinh viên vào thi, hệ thống sẽ random theo cấu hình ca thi.
             </p>
 
-            <p className="text-[11px] text-gray-500">
-              Điểm mỗi câu: {exam.pointsPerQuestion} điểm.
+            <p className="text-xs text-gray-500">
+              Điểm được chia chính xác theo tổng mục tiêu; sai số làm tròn được bù vào câu cuối.
             </p>
 
             <div className="flex items-center gap-2 pt-2 border-t border-gray-200/60">

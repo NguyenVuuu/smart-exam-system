@@ -157,7 +157,7 @@ export default function TeacherGradeExportPage() {
     {
       header: 'MSSV',
       width: '120px',
-      render: (g) => <span className="font-bold text-blue-600">{g.studentCode}</span>,
+      render: (g) => <span className="text-blue-600">{g.studentCode}</span>,
     },
     {
       header: 'Họ và Tên Sinh Viên',
@@ -167,26 +167,26 @@ export default function TeacherGradeExportPage() {
       header: 'Quiz / Thường kỳ',
       width: '130px',
       align: 'center',
-      render: (g) => <span className="text-gray-700 font-medium">{g.quizScore.toFixed(1)}</span>,
+      render: (g) => <span className="text-gray-700">{g.quizScore.toFixed(1)}</span>,
     },
     {
       header: 'Giữa Kỳ (40%)',
       width: '130px',
       align: 'center',
-      render: (g) => <span className="text-gray-700 font-medium">{g.midtermScore.toFixed(1)}</span>,
+      render: (g) => <span className="text-gray-700">{g.midtermScore.toFixed(1)}</span>,
     },
     {
       header: 'Cuối Kỳ (60%)',
       width: '130px',
       align: 'center',
-      render: (g) => <span className="text-gray-700 font-medium">{g.finalScore.toFixed(1)}</span>,
+      render: (g) => <span className="text-gray-700">{g.finalScore.toFixed(1)}</span>,
     },
     {
       header: 'Điểm Tổng Kết',
       width: '140px',
       align: 'center',
       render: (g) => (
-        <span className="font-bold text-xs text-gray-900">
+        <span className="font-semibold text-xs text-gray-900">
           {g.totalScore.toFixed(1)}
         </span>
       ),
@@ -196,7 +196,7 @@ export default function TeacherGradeExportPage() {
       width: '100px',
       align: 'center',
       render: (g) => (
-        <AppBadge tone={letterGradeTone[g.letterGrade]} shape="rounded" className="text-xs font-bold">
+        <AppBadge tone={letterGradeTone[g.letterGrade]} shape="rounded" className="text-xs">
           {g.letterGrade}
         </AppBadge>
       ),
@@ -228,9 +228,9 @@ export default function TeacherGradeExportPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-gray-500 block uppercase">Tổng Số Sinh Viên</span>
+                <span className="text-xs font-semibold text-gray-500 block uppercase">Tổng Số Sinh Viên</span>
                 <span className="text-2xl font-bold text-gray-900 block">{totalCount} sinh viên</span>
-                <span className="text-[11px] text-emerald-600 font-medium">100% đã hoàn thành bài thi</span>
+                <span className="text-xs text-emerald-600 font-medium">100% đã hoàn thành bài thi</span>
               </div>
               <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Users size={20} />
@@ -239,9 +239,9 @@ export default function TeacherGradeExportPage() {
 
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-gray-500 block uppercase">Điểm Trung Bình Lớp</span>
+                <span className="text-xs font-semibold text-gray-500 block uppercase">Điểm Trung Bình Lớp</span>
                 <span className="text-2xl font-bold text-blue-600 block">{avgScore} / 10.0</span>
-                <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
                   <TrendingUp size={12} /> Tăng +0.4 so với kỳ trước
                 </span>
               </div>
@@ -252,9 +252,9 @@ export default function TeacherGradeExportPage() {
 
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-gray-500 block uppercase">Tỷ Lệ Đạt (Pass)</span>
+                <span className="text-xs font-semibold text-gray-500 block uppercase">Tỷ Lệ Đạt (Pass)</span>
                 <span className="text-2xl font-bold text-emerald-600 block">{passRate}%</span>
-                <span className="text-[11px] text-gray-400">{passCount}/{totalCount} SV đạt trên 5.0đ</span>
+                <span className="text-xs text-gray-400">{passCount}/{totalCount} SV đạt trên 5.0đ</span>
               </div>
               <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <CheckCircle2 size={20} />
@@ -263,9 +263,9 @@ export default function TeacherGradeExportPage() {
 
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-gray-500 block uppercase">Xếp Loại Giỏi / Xuất Sắc</span>
+                <span className="text-xs font-semibold text-gray-500 block uppercase">Xếp Loại Giỏi / Xuất Sắc</span>
                 <span className="text-2xl font-bold text-amber-600 block">{excellentCount} SV</span>
-                <span className="text-[11px] text-gray-400">Đạt điểm A/A+ (&ge; 8.5)</span>
+                <span className="text-xs text-gray-400">Đạt điểm A/A+ (&ge; 8.5)</span>
               </div>
               <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                 <Award size={20} />
@@ -277,7 +277,7 @@ export default function TeacherGradeExportPage() {
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-gray-900">Phân Phối Phổ Điểm Lớp Học Phần</h3>
+                <h3 className="text-xs font-bold text-gray-900">Phân Phối Phổ Điểm Lớp Học Phần</h3>
                 <p className="text-xs text-gray-500">Biểu đồ tỷ lệ phân loại học lực của sinh viên theo chuẩn điểm thang 10</p>
               </div>
               <span className="text-xs font-semibold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
@@ -297,7 +297,7 @@ export default function TeacherGradeExportPage() {
                     style={{ width: `${(excellentCount / totalCount) * 100}%` }}
                   />
                 </div>
-                <span className="text-[11px] text-emerald-700 font-medium">
+                <span className="text-xs text-emerald-700 font-medium">
                   {Math.round((excellentCount / totalCount) * 100)}% tổng số sinh viên
                 </span>
               </div>
@@ -313,7 +313,7 @@ export default function TeacherGradeExportPage() {
                     style={{ width: `${(goodCount / totalCount) * 100}%` }}
                   />
                 </div>
-                <span className="text-[11px] text-blue-700 font-medium">
+                <span className="text-xs text-blue-700 font-medium">
                   {Math.round((goodCount / totalCount) * 100)}% tổng số sinh viên
                 </span>
               </div>
@@ -329,7 +329,7 @@ export default function TeacherGradeExportPage() {
                     style={{ width: `${(averageCount / totalCount) * 100}%` }}
                   />
                 </div>
-                <span className="text-[11px] text-amber-700 font-medium">
+                <span className="text-xs text-amber-700 font-medium">
                   {Math.round((averageCount / totalCount) * 100)}% tổng số sinh viên
                 </span>
               </div>
@@ -345,7 +345,7 @@ export default function TeacherGradeExportPage() {
                     style={{ width: `${(weakCount / totalCount) * 100}%` }}
                   />
                 </div>
-                <span className="text-[11px] text-rose-700 font-medium">
+                <span className="text-xs text-rose-700 font-medium">
                   {Math.round((weakCount / totalCount) * 100)}% tổng số sinh viên
                 </span>
               </div>

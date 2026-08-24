@@ -7,7 +7,7 @@ export default function AutoExamManualQuestionPicker(props: AutoExamConfigPanelP
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h3 className="text-xs font-bold text-gray-900">Chọn Câu Hỏi Từ Ngân Hàng</h3>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-xs text-gray-500">
             Đã chọn {props.selectedQuestions.length} câu. Có thể bỏ chọn trước khi sinh đề.
           </p>
         </div>
@@ -49,7 +49,7 @@ export default function AutoExamManualQuestionPicker(props: AutoExamConfigPanelP
                 <span className="block text-xs font-medium text-gray-900 line-clamp-2">
                   {question.content}
                 </span>
-                <span className="flex flex-wrap items-center gap-1.5 text-[10px] font-medium">
+                <span className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
                   <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md">
                     {question.difficulty}
                   </span>
@@ -76,7 +76,7 @@ export default function AutoExamManualQuestionPicker(props: AutoExamConfigPanelP
               key={question.id}
               type="button"
               onClick={() => props.toggleQuestionSelection(question.id)}
-              className="px-2.5 py-1 bg-white border border-gray-200 text-gray-700 hover:text-rose-600 hover:border-rose-200 rounded-lg text-[11px] font-medium flex items-center gap-1"
+              className="px-2.5 py-1 bg-white border border-gray-200 text-gray-700 hover:text-rose-600 hover:border-rose-200 rounded-lg text-xs font-medium flex items-center gap-1"
             >
               {question.id}
               <Trash2 size={12} />

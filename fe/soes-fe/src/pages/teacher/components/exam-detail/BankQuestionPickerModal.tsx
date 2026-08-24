@@ -80,8 +80,8 @@ export default function BankQuestionPickerModal({
               <Database size={18} />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-gray-900">Chọn Câu Hỏi Từ Ngân Hàng</h3>
-              <p className="text-[11px] text-gray-500">
+              <h3 className="text-xs font-bold text-gray-900">Chọn Câu Hỏi Từ Ngân Hàng</h3>
+              <p className="text-xs text-gray-500">
                 Đang lọc cho loại đề: <span className="font-bold text-blue-600">{examType === 'MULTIPLE_CHOICE' ? 'Đề trắc nghiệm' : examType === 'PROGRAMMING' ? 'Đề lập trình' : 'Đề hỗn hợp'}</span>
               </p>
             </div>
@@ -146,13 +146,13 @@ export default function BankQuestionPickerModal({
                     />
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-md">
+                        <span className="px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-700 rounded-md">
                           {q.type === 'PROGRAMMING'
                             ? `Lập trình ${q.programmingLanguage}`
                             : questionTypeLabel[q.type]}
                         </span>
-                        <span className="text-[10px] text-gray-400">• {q.bankScope === 'SHARED' ? 'Ngân hàng chung' : 'Cá nhân'}</span>
-                        <span className="text-[10px] text-gray-400">• Môn: {q.subjectName}</span>
+                        <span className="text-xs text-gray-400">• {q.bankScope === 'SHARED' ? 'Ngân hàng chung' : 'Cá nhân'}</span>
+                        <span className="text-xs text-gray-400">• Môn: {q.subjectName}</span>
                       </div>
                       <p className="text-xs font-semibold text-gray-900">{q.content}</p>
                     </div>

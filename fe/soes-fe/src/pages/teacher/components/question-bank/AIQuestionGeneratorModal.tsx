@@ -63,8 +63,8 @@ export default function AIQuestionGeneratorModal({
               <Sparkles size={18} />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-gray-900">AI Sinh Câu Hỏi Từ Tài Liệu (Gemini API)</h3>
-              <p className="text-[11px] text-gray-500">Giảng viên là người đưa ra quyết định duyệt cuối cùng</p>
+              <h3 className="text-xs font-bold text-gray-900">AI Sinh Câu Hỏi Từ Tài Liệu (Gemini API)</h3>
+              <p className="text-xs text-gray-500">Giảng viên là người đưa ra quyết định duyệt cuối cùng</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
@@ -75,17 +75,17 @@ export default function AIQuestionGeneratorModal({
         {/* Step Progress */}
         <div className="flex items-center justify-center gap-6 py-2 bg-gray-50 rounded-xl text-xs">
           <span className={`font-semibold flex items-center gap-1.5 ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px]">1</span>
+            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs">1</span>
             Chọn tài liệu
           </span>
           <ChevronRight size={14} className="text-gray-400" />
           <span className={`font-semibold flex items-center gap-1.5 ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px]">2</span>
+            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs">2</span>
             Cấu hình AI
           </span>
           <ChevronRight size={14} className="text-gray-400" />
           <span className={`font-semibold flex items-center gap-1.5 ${step >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>
-            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px]">3</span>
+            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs">3</span>
             Duyệt nháp
           </span>
         </div>
@@ -95,7 +95,7 @@ export default function AIQuestionGeneratorModal({
           <div className="space-y-4">
             <div className="space-y-1">
               <h4 className="text-xs font-bold text-gray-900">Bước 1: Chọn các tài liệu học tập được phép quét</h4>
-              <p className="text-[11px] text-gray-500">Chỉ những tài liệu được đánh dấu mới được gửi sang Gemini AI để xử lý.</p>
+              <p className="text-xs text-gray-500">Chỉ những tài liệu được đánh dấu mới được gửi sang Gemini AI để xử lý.</p>
             </div>
 
             <div className="space-y-2 max-h-56 overflow-y-auto border border-gray-100 rounded-xl p-3 bg-gray-50/50">
@@ -124,7 +124,7 @@ export default function AIQuestionGeneratorModal({
                       <FileText size={16} className="text-blue-600" />
                       <div>
                         <p className="text-xs font-semibold text-gray-900">{mat.fileName}</p>
-                        <p className="text-[10px] text-gray-400">{mat.fileSize} • {mat.fileType}</p>
+                        <p className="text-xs text-gray-400">{mat.fileSize} • {mat.fileType}</p>
                       </div>
                     </div>
                   </label>
@@ -150,7 +150,7 @@ export default function AIQuestionGeneratorModal({
           <div className="space-y-4">
             <div className="space-y-1">
               <h4 className="text-xs font-bold text-gray-900">Bước 2: Cấu hình tham số Prompt & Model AI</h4>
-              <p className="text-[11px] text-gray-500">AI chỉ sinh các câu hỏi Trắc nghiệm 1 & nhiều đáp án (BR-12A).</p>
+              <p className="text-xs text-gray-500">AI chỉ sinh các câu hỏi Trắc nghiệm 1 & nhiều đáp án (BR-12A).</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -217,7 +217,7 @@ export default function AIQuestionGeneratorModal({
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-gray-900">Bước 3: Màn Hình Duyệt Câu Hỏi Nháp (PENDING_REVIEW - BR-12A)</h4>
-                <p className="text-[11px] text-gray-500">Vui lòng đánh giá từng câu do AI sinh ra trước khi lưu vào ngân hàng.</p>
+                <p className="text-xs text-gray-500">Vui lòng đánh giá từng câu do AI sinh ra trước khi lưu vào ngân hàng.</p>
               </div>
               <span className="text-xs text-blue-600 font-semibold bg-blue-50 px-3 py-1 rounded-lg">
                 Đã duyệt Approved: {draftQuestions.filter((q) => q.status === 'APPROVED').length} / {draftQuestions.length} câu
@@ -230,7 +230,7 @@ export default function AIQuestionGeneratorModal({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-gray-900">Câu nháp #{idx + 1} • {q.type === 'SINGLE_CHOICE' ? '1 Đáp án' : 'Nhiều đáp án'}</span>
                     <span
-                      className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-md ${
+                      className={`px-2.5 py-0.5 text-xs font-semibold rounded-md ${
                         q.status === 'APPROVED'
                           ? 'bg-emerald-100 text-emerald-700'
                           : q.status === 'REJECTED'
@@ -248,7 +248,7 @@ export default function AIQuestionGeneratorModal({
                     {q.options?.map((opt) => (
                       <div
                         key={opt.id}
-                        className={`p-2 rounded-lg border text-[11px] flex items-center justify-between ${
+                        className={`p-2 rounded-lg border text-xs flex items-center justify-between ${
                           opt.isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-800 font-semibold' : 'bg-gray-50 border-gray-200 text-gray-700'
                         }`}
                       >
@@ -259,19 +259,19 @@ export default function AIQuestionGeneratorModal({
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                    <span className="text-[10px] text-gray-400">Nguồn tài liệu: {q.sourceMaterialName}</span>
+                    <span className="text-xs text-gray-400">Nguồn tài liệu: {q.sourceMaterialName}</span>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleUpdateDraftStatus(q.id, 'REJECTED')}
-                        className="px-3 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 text-[11px] font-semibold rounded-lg flex items-center gap-1"
+                        className="px-3 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold rounded-lg flex items-center gap-1"
                       >
                         <XCircle size={13} /> Từ chối
                       </button>
                       <button
                         type="button"
                         onClick={() => handleUpdateDraftStatus(q.id, 'APPROVED')}
-                        className="px-3 py-1 bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-semibold rounded-lg flex items-center gap-1"
+                        className="px-3 py-1 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg flex items-center gap-1"
                       >
                         <CheckCircle2 size={13} /> Chấp nhận (Approve)
                       </button>

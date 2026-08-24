@@ -31,7 +31,7 @@ export default function QuestionDetailModal({
               {question.subjectName || 'Lập trình Java'}
             </span>
             <span
-              className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full uppercase ${
+              className={`px-2.5 py-0.5 text-xs font-bold rounded-full uppercase ${
                 question.difficulty === 'EASY'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   : question.difficulty === 'MEDIUM'
@@ -41,7 +41,7 @@ export default function QuestionDetailModal({
             >
               {question.difficulty}
             </span>
-            <span className="px-2.5 py-0.5 text-[10px] font-semibold bg-gray-100 text-gray-700 rounded-md">
+            <span className="px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-md">
               {questionTypeLabel[question.type]}
             </span>
           </div>
@@ -57,10 +57,10 @@ export default function QuestionDetailModal({
         {/* Modal Body */}
         <div className="overflow-y-auto space-y-4 pr-1 text-xs text-gray-800">
           <div>
-            <span className="text-[11px] font-bold uppercase text-gray-400 tracking-wider block mb-1">
+            <span className="text-xs font-bold uppercase text-gray-400 tracking-wider block mb-1">
               Nội dung câu hỏi:
             </span>
-            <p className="text-sm font-bold text-gray-900 leading-relaxed bg-gray-50/70 p-3.5 rounded-xl border border-gray-100">
+            <p className="text-xs font-bold text-gray-900 leading-relaxed bg-gray-50/70 p-3.5 rounded-xl border border-gray-100">
               {question.content}
             </p>
           </div>
@@ -71,7 +71,7 @@ export default function QuestionDetailModal({
             question.type === 'TRUE_FALSE') &&
             question.options && (
             <div className="space-y-2">
-              <span className="text-[11px] font-bold uppercase text-gray-400 tracking-wider block">
+              <span className="text-xs font-bold uppercase text-gray-400 tracking-wider block">
                 Danh sách lựa chọn đáp án:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -85,13 +85,13 @@ export default function QuestionDetailModal({
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                      <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-700 font-bold text-xs flex items-center justify-center shrink-0">
                         {String.fromCharCode(65 + i)}
                       </span>
                       <span>{opt.content}</span>
                     </span>
                     {opt.isCorrect && (
-                      <span className="text-emerald-600 font-bold text-[11px] inline-flex items-center gap-1 shrink-0">
+                      <span className="text-emerald-600 font-bold text-xs inline-flex items-center gap-1 shrink-0">
                         <Check size={14} /> Đáp án đúng
                       </span>
                     )}
@@ -108,7 +108,7 @@ export default function QuestionDetailModal({
                 <span className="flex items-center gap-1.5 text-blue-700">
                   <Code size={16} /> Ngôn ngữ: {question.programmingLanguage || 'JAVA'}
                 </span>
-                <span className="text-gray-500 font-normal text-[11px]">
+                <span className="text-gray-500 font-normal text-xs">
                   Time Limit: {question.timeLimitMs || 2000}ms | Memory Limit: {question.memoryLimitMb || 256}MB
                 </span>
               </div>
@@ -120,25 +120,25 @@ export default function QuestionDetailModal({
                     key={tc.id}
                     className="bg-white p-3 rounded-lg border border-gray-200 space-y-1"
                   >
-                    <div className="flex justify-between items-center text-[11px]">
+                    <div className="flex justify-between items-center text-xs">
                       <span className="font-bold text-blue-700">Test Case #{idx + 1}</span>
                       {tc.isHidden ? (
-                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-md flex items-center gap-1">
+                        <span className="px-2 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-md flex items-center gap-1">
                           <EyeOff size={12} /> Test ẩn
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md flex items-center gap-1">
+                        <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md flex items-center gap-1">
                           <Eye size={12} /> Public
                         </span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1">
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
                       <div className="bg-gray-50 p-2 rounded border border-gray-100">
-                        <span className="text-gray-400 block text-[10px]">Input:</span>
+                        <span className="text-gray-400 block text-xs">Input:</span>
                         <code className="text-gray-800">{tc.input}</code>
                       </div>
                       <div className="bg-gray-50 p-2 rounded border border-gray-100">
-                        <span className="text-gray-400 block text-[10px]">Expected Output:</span>
+                        <span className="text-gray-400 block text-xs">Expected Output:</span>
                         <code className="text-emerald-700 font-bold">{tc.expectedOutput}</code>
                       </div>
                     </div>

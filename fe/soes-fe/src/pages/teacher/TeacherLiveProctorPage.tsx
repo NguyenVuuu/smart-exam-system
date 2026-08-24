@@ -8,6 +8,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
 import AppSelect from '../../components/common/AppSelect'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -17,6 +18,7 @@ import SendWarningModal from './components/exam-detail/SendWarningModal'
 
 interface StudentSession {
   id: string
+  scheduleId: string
   studentCode: string
   studentName: string
   status: 'ONLINE' | 'WARNING' | 'SUBMITTED' | 'OFFLINE'
@@ -30,6 +32,7 @@ interface StudentSession {
 const MOCK_SESSIONS: StudentSession[] = [
   {
     id: 's-1',
+    scheduleId: 'schedule-01',
     studentCode: 'SV2026001',
     studentName: 'Trần Minh Nam',
     status: 'WARNING',
@@ -41,6 +44,7 @@ const MOCK_SESSIONS: StudentSession[] = [
   },
   {
     id: 's-2',
+    scheduleId: 'schedule-01',
     studentCode: 'SV2026003',
     studentName: 'Phạm Đức Anh',
     status: 'WARNING',
@@ -52,6 +56,7 @@ const MOCK_SESSIONS: StudentSession[] = [
   },
   {
     id: 's-3',
+    scheduleId: 'schedule-01',
     studentCode: 'SV2026002',
     studentName: 'Lê Thị Thu Thảo',
     status: 'SUBMITTED',
@@ -62,6 +67,7 @@ const MOCK_SESSIONS: StudentSession[] = [
   },
   {
     id: 's-4',
+    scheduleId: 'schedule-02',
     studentCode: 'SV2026004',
     studentName: 'Nguyễn Văn Hoàng',
     status: 'ONLINE',
@@ -72,6 +78,7 @@ const MOCK_SESSIONS: StudentSession[] = [
   },
   {
     id: 's-5',
+    scheduleId: 'schedule-02',
     studentCode: 'SV2026005',
     studentName: 'Đặng Mai Phương',
     status: 'ONLINE',
@@ -91,35 +98,39 @@ const sessionStatusTone = {
 
 export default function TeacherLiveProctorPage() {
   const [sessions, setSessions] = useState<StudentSession[]>(MOCK_SESSIONS)
-  const [selectedExamId, setSelectedExamId] = useState('exam-01')
+  const [selectedScheduleId, setSelectedScheduleId] = useState('schedule-01')
   const [searchQuery, setSearchQuery] = useState('')
 
   // State for Warning modal
   const [warningTarget, setWarningTarget] = useState<StudentSession | null>(null)
+  const [actionTarget, setActionTarget] = useState<StudentSession | null>(null)
+  const [actionType, setActionType] = useState<'ADD_TIME' | 'FORCE_SUBMIT'>('ADD_TIME')
+  const [actionReason, setActionReason] = useState('')
+  const [extraMinutes, setExtraMinutes] = useState(5)
 
-  const totalOnline = sessions.filter((s) => s.status === 'ONLINE').length
-  const totalWarning = sessions.filter((s) => s.status === 'WARNING').length
-  const totalSubmitted = sessions.filter((s) => s.status === 'SUBMITTED').length
+  const sessionsInSchedule = sessions.filter((session) => session.scheduleId === selectedScheduleId)
+  const totalOnline = sessionsInSchedule.filter((session) => session.status === 'ONLINE').length
+  const totalWarning = sessionsInSchedule.filter((session) => session.status === 'WARNING').length
+  const totalSubmitted = sessionsInSchedule.filter((session) => session.status === 'SUBMITTED').length
 
-  const handleAddExtraTime = (studentName: string) => {
-    const minutes = prompt(`Nhập số phút muốn cộng thêm cho sinh viên ${studentName} (Ví dụ: 5, 10):`, '5')
-    if (!minutes) return
-    const reason = prompt(`Nhập lý do sự cố:`, 'Sự cố mất kết nối mạng')
-    if (!reason) return
-
-    alert(`Đã cộng thêm +${minutes} phút cho sinh viên ${studentName}. Lý do: ${reason}`)
+  const openAction = (session: StudentSession, type: 'ADD_TIME' | 'FORCE_SUBMIT') => {
+    setActionTarget(session)
+    setActionType(type)
+    setActionReason('')
+    setExtraMinutes(5)
   }
 
-  const handleForceSubmit = (studentName: string) => {
-    const reason = prompt(`Nhập lý do buộc nộp bài đối với sinh viên ${studentName}:`, 'Vi phạm quy chế thi trực tuyến')
-    if (!reason?.trim()) return
-
-    if (confirm(`Xác nhận buộc nộp bài ngay đối với sinh viên ${studentName}?`)) {
+  const applyAction = () => {
+    if (!actionTarget || actionReason.trim().length < 5) return
+    if (actionType === 'FORCE_SUBMIT') {
       setSessions((prev) =>
-        prev.map((s) => (s.studentName === studentName ? { ...s, status: 'SUBMITTED' } : s)),
+        prev.map((session) => (session.id === actionTarget.id ? { ...session, status: 'SUBMITTED' } : session)),
       )
-      alert(`Đã buộc nộp bài đối với sinh viên ${studentName}. Lý do: ${reason.trim()}`)
+      toast.success(`Đã buộc nộp bài của ${actionTarget.studentName}.`)
+    } else {
+      toast.success(`Đã cộng ${extraMinutes} phút cho ${actionTarget.studentName}.`)
     }
+    setActionTarget(null)
   }
 
   const handleSendWarning = (msg: string) => {
@@ -137,11 +148,11 @@ export default function TeacherLiveProctorPage() {
           : s,
       ),
     )
-    alert(`Đã gửi popup cảnh báo tới màn hình thí sinh ${warningTarget.studentName}!`)
+    toast.success(`Đã gửi cảnh báo tới ${warningTarget.studentName}.`)
     setWarningTarget(null)
   }
 
-  const filteredSessions = sessions.filter(
+  const filteredSessions = sessionsInSchedule.filter(
     (s) =>
       s.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.studentCode.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -166,13 +177,13 @@ export default function TeacherLiveProctorPage() {
             actions={
               <>
               <AppSelect
-                value={selectedExamId}
-                onChange={setSelectedExamId}
+                value={selectedScheduleId}
+                onChange={setSelectedScheduleId}
                 className="w-72"
                 buttonClassName="text-gray-900"
                 options={[
-                  { value: 'exam-01', label: 'Thi Giữa Kỳ Java (Ca 1 • 08:00)' },
-                  { value: 'exam-02', label: 'Thi Thực Hành C++ (Ca 2 • 10:00)' },
+                  { value: 'schedule-01', label: 'Giữa kỳ Java • JAVA_01 • 08:00' },
+                  { value: 'schedule-02', label: 'Giữa kỳ Java • JAVA_02 • 13:00' },
                 ]}
               />
 
@@ -189,34 +200,34 @@ export default function TeacherLiveProctorPage() {
           {/* Stat Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-1">
-              <span className="text-[11px] font-semibold text-gray-500 block uppercase">Đang Làm Bài (Online)</span>
+              <span className="text-xs font-semibold text-gray-500 block uppercase">Đang Làm Bài (Online)</span>
               <p className="text-2xl font-bold text-blue-600">{totalOnline}</p>
-              <span className="text-[11px] text-gray-400">Kết nối ổn định</span>
+              <span className="text-xs text-gray-400">Kết nối ổn định</span>
             </div>
 
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-1">
-              <span className="text-[11px] font-semibold text-gray-500 block uppercase">Cảnh Báo Vi Phạm</span>
+              <span className="text-xs font-semibold text-gray-500 block uppercase">Cảnh Báo Vi Phạm</span>
               <p className="text-2xl font-bold text-rose-600">{totalWarning}</p>
-              <span className="text-[11px] text-rose-600 font-medium">Chuyển tab / Mất webcam</span>
+              <span className="text-xs text-rose-600 font-medium">Chuyển tab / Mất webcam</span>
             </div>
 
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-1">
-              <span className="text-[11px] font-semibold text-gray-500 block uppercase">Đã Nộp Bài</span>
+              <span className="text-xs font-semibold text-gray-500 block uppercase">Đã Nộp Bài</span>
               <p className="text-2xl font-bold text-emerald-600">{totalSubmitted}</p>
-              <span className="text-[11px] text-gray-400">Hoàn thành bài thi</span>
+              <span className="text-xs text-gray-400">Hoàn thành bài thi</span>
             </div>
 
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-1">
-              <span className="text-[11px] font-semibold text-gray-500 block uppercase">Tổng Thí Sinh Ca Thi</span>
+              <span className="text-xs font-semibold text-gray-500 block uppercase">Tổng Thí Sinh Ca Thi</span>
               <p className="text-2xl font-bold text-gray-900">{sessions.length}</p>
-              <span className="text-[11px] text-gray-400">Phòng thi trực tuyến</span>
+              <span className="text-xs text-gray-400">Phòng thi trực tuyến</span>
             </div>
           </div>
 
           {/* Sessions Live Table */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-              <h3 className="text-sm font-bold text-gray-900">Danh Sách Thí Sinh Trong Phòng Thi</h3>
+              <h3 className="text-xs font-bold text-gray-900">Danh Sách Thí Sinh Trong Phòng Thi</h3>
 
               <div className="relative w-full sm:w-72">
                 <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -232,7 +243,7 @@ export default function TeacherLiveProctorPage() {
 
             <div className="border border-gray-100 rounded-xl overflow-hidden">
               <table className="w-full text-left text-xs">
-                <thead className="bg-gray-50 text-gray-500 font-semibold uppercase text-[10px] border-b border-gray-100">
+                <thead className="bg-gray-50 text-gray-500 font-semibold uppercase text-xs border-b border-gray-100">
                   <tr>
                     <th className="p-4">Thí Sinh</th>
                     <th className="p-4">Trạng Thái</th>
@@ -247,27 +258,27 @@ export default function TeacherLiveProctorPage() {
                     <tr key={session.id} className="hover:bg-gray-50 transition-colors">
                       <td className="p-4">
                         <div className="space-y-0.5">
-                          <p className="font-bold text-gray-900">{session.studentName}</p>
-                          <p className="text-[11px] text-blue-600 font-medium">MSSV: {session.studentCode}</p>
-                          <p className="text-[10px] text-gray-400">IP: {session.ipAddress}</p>
+                          <p className="font-semibold text-gray-900">{session.studentName}</p>
+                          <p className="text-xs text-blue-600">MSSV: {session.studentCode}</p>
+                          <p className="text-xs text-gray-400">IP: {session.ipAddress}</p>
                         </div>
                       </td>
 
                       <td className="p-4">
                         <AppBadge
                           tone={sessionStatusTone[session.status]}
-                          className={session.status === 'WARNING' ? 'font-bold animate-pulse' : 'font-bold'}
+                          className={session.status === 'WARNING' ? 'font-medium animate-pulse' : 'font-medium'}
                         >
                           ● {session.status}
                         </AppBadge>
                       </td>
 
-                      <td className="p-4 font-semibold text-gray-700">{session.progress}</td>
+                      <td className="p-4 text-gray-700">{session.progress}</td>
 
                       <td className="p-4">
                         <div className="space-y-1">
                           <span
-                            className={`text-xs font-bold ${
+                            className={`text-xs font-medium ${
                               session.integrityScore >= 80
                                 ? 'text-emerald-600'
                                 : session.integrityScore >= 60
@@ -295,13 +306,13 @@ export default function TeacherLiveProctorPage() {
                       <td className="p-4">
                         {session.violationsCount > 0 ? (
                           <div className="space-y-0.5">
-                            <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
+                            <span className="text-xs font-medium text-rose-600 flex items-center gap-1">
                               <AlertTriangle size={13} /> {session.violationsCount} vi phạm
                             </span>
-                            <p className="text-[10px] text-gray-500">{session.lastViolation}</p>
+                            <p className="text-xs text-gray-500">{session.lastViolation}</p>
                           </div>
                         ) : (
-                          <span className="text-emerald-600 text-[11px] font-medium flex items-center gap-1">
+                          <span className="text-emerald-600 text-xs font-medium flex items-center gap-1">
                             <ShieldCheck size={14} /> Không có vi phạm
                           </span>
                         )}
@@ -311,15 +322,15 @@ export default function TeacherLiveProctorPage() {
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => setWarningTarget(session)}
-                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] rounded-lg transition-colors flex items-center gap-1 border border-rose-200"
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1 border border-rose-200"
                             title="Gửi cảnh báo popup tới màn hình thí sinh"
                           >
                             <MessageSquare size={13} /> Cảnh báo
                           </button>
 
                           <button
-                            onClick={() => handleAddExtraTime(session.studentName)}
-                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px] rounded-lg transition-colors flex items-center gap-1 border border-blue-200"
+                            onClick={() => openAction(session, 'ADD_TIME')}
+                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1 border border-blue-200"
                             title="Cộng thêm thời gian làm bài do sự cố"
                           >
                             <Plus size={13} /> Cộng giờ
@@ -327,8 +338,8 @@ export default function TeacherLiveProctorPage() {
 
                           {session.status !== 'SUBMITTED' && (
                             <button
-                              onClick={() => handleForceSubmit(session.studentName)}
-                              className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-[11px] rounded-lg transition-colors flex items-center gap-1"
+                              onClick={() => openAction(session, 'FORCE_SUBMIT')}
+                              className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1"
                               title="Buộc nộp bài ngay"
                             >
                               <Lock size={13} /> Buộc nộp
@@ -354,6 +365,18 @@ export default function TeacherLiveProctorPage() {
           onClose={() => setWarningTarget(null)}
           onSend={handleSendWarning}
         />
+      )}
+      {actionTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
+            <div className="border-b border-gray-100 p-5"><h2 className="text-lg font-bold text-gray-900">{actionType === 'ADD_TIME' ? 'Cộng Thêm Thời Gian' : 'Buộc Nộp Bài Ca Thi'}</h2><p className="mt-0.5 text-sm font-medium text-gray-500">{actionTarget.studentName} • {actionTarget.studentCode}</p></div>
+            <div className="space-y-3 p-5 text-xs">
+              {actionType === 'ADD_TIME' && <label className="block font-semibold text-gray-700">Số phút cộng thêm<input type="number" min={1} max={120} value={extraMinutes} onChange={(event) => setExtraMinutes(Number(event.target.value))} className="mt-1 w-full rounded-xl border border-gray-200 p-2.5 font-bold text-blue-600 focus:outline-none focus:border-blue-500" /></label>}
+              <label className="block font-semibold text-gray-700">Lý do điều chỉnh / Ghi chú sự cố<textarea rows={3} value={actionReason} onChange={(event) => setActionReason(event.target.value)} placeholder="Nhập lý do chi tiết..." className="mt-1 w-full rounded-xl border border-gray-200 p-2.5 focus:outline-none focus:border-blue-500" /></label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 p-4"><button onClick={() => setActionTarget(null)} className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 transition-colors">Hủy bỏ</button><button disabled={actionReason.trim().length < 5 || (actionType === 'ADD_TIME' && extraMinutes < 1)} onClick={applyAction} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 shadow-xs transition-colors disabled:opacity-50">Xác nhận thực hiện</button></div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -102,8 +102,8 @@ export default function AIPdfGeneratorModal({
                 timeLimitMs: 2000,
                 memoryLimitMb: 256,
                 testCases: [
-                  { id: 'tc-ai-1', input: '10', expectedOutput: '30', weight: 5, isHidden: false },
-                  { id: 'tc-ai-2', input: '20', expectedOutput: '110', weight: 5, isHidden: true },
+                  { id: 'tc-ai-1', input: '10', expectedOutput: '30', weight: 50, isHidden: false },
+                  { id: 'tc-ai-2', input: '20', expectedOutput: '110', weight: 50, isHidden: true },
                 ],
                 createdAt: 'AI Vừa xử lý',
               },
@@ -130,8 +130,8 @@ export default function AIPdfGeneratorModal({
               <Sparkles size={18} className="text-amber-300" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-gray-900">AI Sinh & Bóc Tách Câu Hỏi Từ File PDF/Word</h3>
-              <p className="text-[11px] text-gray-500">
+              <h3 className="text-xs font-bold text-gray-900">AI Sinh & Bóc Tách Câu Hỏi Từ File PDF/Word</h3>
+              <p className="text-xs text-gray-500">
                 Tự động trích xuất đề thi cũ hoặc biên soạn câu hỏi mới từ tài liệu bài giảng
               </p>
             </div>
@@ -151,8 +151,8 @@ export default function AIPdfGeneratorModal({
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-bold text-gray-900">Kéo thả file PDF, DOCX đề thi mẫu hoặc Bài giảng vào đây</p>
-                <p className="text-[11px] text-gray-500">Đã chọn file: <span className="font-semibold text-blue-600">{fileName}</span> (2.4 MB)</p>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-xs text-gray-500">Đã chọn file: <span className="font-semibold text-blue-600">{fileName}</span> (2.4 MB)</p>
+                <p className="text-xs text-gray-500">
                   Với đề hỗn hợp, AI có thể bóc tách/gợi ý câu trắc nghiệm và câu lập trình để đưa vào đúng phần thi.
                 </p>
               </div>
@@ -176,7 +176,7 @@ export default function AIPdfGeneratorModal({
                     </span>
                     {aiMode === 'EXTRACT' && <CheckCircle2 size={16} className="text-blue-600" />}
                   </div>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-xs text-gray-500">
                     Đọc file đề thi PDF cũ ➔ Bóc tách thành các câu hỏi A, B, C, D & đáp án đúng vào hệ thống.
                   </p>
                 </label>
@@ -195,7 +195,7 @@ export default function AIPdfGeneratorModal({
                     </span>
                     {aiMode === 'GENERATE_NEW' && <CheckCircle2 size={16} className="text-blue-600" />}
                   </div>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-xs text-gray-500">
                     Đọc tài liệu/slide bài giảng ➔ AI tự sáng tác bộ câu hỏi hoàn toàn mới bám sát kiến thức.
                   </p>
                 </label>
@@ -287,7 +287,7 @@ export default function AIPdfGeneratorModal({
                     <span className="font-bold text-gray-900">
                       Câu AI #{idx + 1} ({q.type === 'PROGRAMMING' ? 'Lập trình' : q.type})
                     </span>
-                    <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">AI Confidence: 96%</span>
+                    <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">AI Confidence: 96%</span>
                   </div>
                   <p className="font-semibold text-gray-800">{q.content}</p>
 
@@ -296,7 +296,7 @@ export default function AIPdfGeneratorModal({
                       {q.options.map((opt, i) => (
                         <div
                           key={opt.id}
-                          className={`p-2 rounded-lg border text-[11px] flex items-center justify-between ${
+                          className={`p-2 rounded-lg border text-xs flex items-center justify-between ${
                             opt.isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-bold' : 'bg-gray-50 border-gray-200 text-gray-600'
                           }`}
                         >
@@ -307,7 +307,7 @@ export default function AIPdfGeneratorModal({
                     </div>
                   )}
                   {q.testCases && (
-                    <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-100 rounded-lg p-2">
+                    <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg p-2">
                       {q.testCases.length} test case • {q.programmingLanguage}
                     </p>
                   )}

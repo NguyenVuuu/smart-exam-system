@@ -83,8 +83,8 @@ export function Toggle({
 export function SummaryBox({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-center">
-      <p className="text-[10px] uppercase font-bold text-gray-400">{label}</p>
-      <p className="text-sm font-bold text-gray-900 mt-0.5">{value}</p>
+      <p className="text-xs uppercase font-bold text-gray-400">{label}</p>
+      <p className="text-xs font-bold text-gray-900 mt-0.5">{value}</p>
     </div>
   )
 }

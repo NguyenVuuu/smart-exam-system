@@ -1,6 +1,6 @@
 import { CalendarClock, Plus } from 'lucide-react'
 import AppCard from '../../../../components/common/AppCard'
-import type { ExamAssignment } from '../../types/teacher-exam.types'
+import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionList } from './session/ExamSessionList'
 
 export default function ExamSessionsTab({
@@ -10,10 +10,10 @@ export default function ExamSessionsTab({
   onEditSession,
   onDeleteSession,
 }: {
-  sessions: ExamAssignment[]
+  sessions: ExamSchedule[]
   onCreateSession: () => void
-  onViewSession: (session: ExamAssignment) => void
-  onEditSession: (session: ExamAssignment) => void
+  onViewSession: (session: ExamSchedule) => void
+  onEditSession: (session: ExamSchedule) => void
   onDeleteSession: (sessionId: string) => void
 }) {
   return (
@@ -24,7 +24,7 @@ export default function ExamSessionsTab({
             <CalendarClock size={18} />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-gray-900">Ca thi / Lớp áp dụng</h2>
+            <h2 className="text-xs font-bold text-gray-900">Ca thi / Lớp áp dụng</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Mỗi ca thi có lớp, thời gian, hiển thị điểm, IP và quy định chống gian lận riêng.
             </p>

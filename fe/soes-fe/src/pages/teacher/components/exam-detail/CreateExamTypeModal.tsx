@@ -60,10 +60,10 @@ export default function CreateExamTypeModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <div>
-              <h3 className="text-base font-bold text-gray-900">Chọn loại đề thi</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Hệ thống sẽ mở đúng bố cục soạn đề và lọc ngân hàng câu hỏi phù hợp
-              </p>
+            <h3 className="text-xs font-bold text-gray-900">Chọn loại đề thi</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Hệ thống sẽ mở đúng bố cục soạn đề và lọc ngân hàng câu hỏi phù hợp
+            </p>
           </div>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
             <X size={18} />
@@ -90,10 +90,10 @@ export default function CreateExamTypeModal({
                     {isChecked && <CheckCircle2 size={18} className="text-blue-600 shrink-0" />}
                   </div>
                   <h4 className="text-xs font-bold text-gray-900">{type.title}</h4>
-                  <p className="text-[11px] text-gray-500 leading-relaxed">{type.desc}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">{type.desc}</p>
                 </div>
 
-                <span className="inline-block px-2 py-0.5 text-[10px] font-bold bg-white border border-gray-200 text-gray-700 rounded-md w-fit">
+                <span className="inline-block px-2 py-0.5 text-xs font-bold bg-white border border-gray-200 text-gray-700 rounded-md w-fit">
                   {type.badge}
                 </span>
               </div>

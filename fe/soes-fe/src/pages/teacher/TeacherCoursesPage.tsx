@@ -1,4 +1,4 @@
-import { BookOpen, ChevronRight, Filter, RotateCcw, Search, Users, X } from 'lucide-react'
+import { BookOpen, ChevronRight, RotateCcw, Search, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppBadge from '../../components/common/AppBadge'
@@ -43,64 +43,57 @@ export default function TeacherCoursesPage() {
           />
 
           {/* Filter Bar with Reset */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
-            <div className="flex items-center gap-2.5 shrink-0">
+          <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
+            <div className="flex items-center gap-3 shrink-0">
               {/* Semester Filter */}
-              <div className="flex items-center gap-1.5">
-                <Filter size={15} className="text-gray-400 shrink-0" />
-                <span className="text-xs font-bold text-gray-700">Học kỳ:</span>
-                <AppSelect
-                  value={selectedSemester}
-                  onChange={setSelectedSemester}
-                  className="w-44"
-                  buttonClassName="bg-blue-50/70 border-blue-200 text-blue-900 py-1.5"
-                  options={[
-                    { value: 'ALL', label: 'Tất cả học kỳ' },
-                    { value: 'sem-2026-1', label: 'Học kỳ 1 năm 2026' },
-                    { value: 'sem-2025-2', label: 'Học kỳ 2 năm 2025' },
-                  ]}
-                />
-              </div>
+              <AppSelect
+                value={selectedSemester}
+                onChange={setSelectedSemester}
+                className="w-48"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
+                options={[
+                  { value: 'ALL', label: 'Học kỳ' },
+                  { value: 'sem-2026-1', label: 'Học kỳ 1 năm 2026' },
+                  { value: 'sem-2025-2', label: 'Học kỳ 2 năm 2025' },
+                ]}
+              />
 
               {/* Subject Filter */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-gray-700">Môn học:</span>
-                <AppSelect
-                  value={selectedSubject}
-                  onChange={setSelectedSubject}
-                  className="w-52"
-                  buttonClassName="bg-gray-50 py-1.5"
-                  options={[
-                    { value: 'ALL', label: 'Tất cả môn học' },
-                    { value: 'sub-01', label: 'Lập trình Java căn bản' },
-                    { value: 'sub-02', label: 'Cấu trúc dữ liệu và Giải thuật' },
-                    { value: 'sub-03', label: 'Lập trình C++' },
-                  ]}
-                />
-              </div>
+              <AppSelect
+                value={selectedSubject}
+                onChange={setSelectedSubject}
+                className="w-52"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
+                options={[
+                  { value: 'ALL', label: 'Môn học' },
+                  { value: 'sub-01', label: 'Lập trình Java căn bản' },
+                  { value: 'sub-02', label: 'Cấu trúc dữ liệu' },
+                  { value: 'sub-03', label: 'Lập trình C++' },
+                ]}
+              />
 
               <button
                 onClick={handleResetFilters}
-                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1 shrink-0"
-                title="Xóa hết từ khóa và đưa bộ lọc về mặc định"
+                className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-800 rounded-xl transition-colors flex items-center justify-center shrink-0"
+                title="Làm mới bộ lọc"
               >
-                <RotateCcw size={13} /> Làm mới
+                <RotateCcw size={16} />
               </button>
             </div>
 
             {/* Search Input */}
-            <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 flex items-center gap-2 w-48 sm:w-60 lg:w-72 shrink-0">
-              <Search size={15} className="text-gray-400 shrink-0" />
+            <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 flex items-center gap-2.5 w-64 sm:w-80 shrink-0">
+              <Search size={16} className="text-gray-400 shrink-0" />
               <input
                 type="text"
                 placeholder="Tìm mã lớp (Ví dụ: JAVA_01)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent text-xs font-medium focus:outline-none text-gray-800 w-full"
+                className="bg-transparent text-sm font-medium focus:outline-none text-gray-800 w-full"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600 shrink-0">
-                  <X size={14} />
+                  <X size={15} />
                 </button>
               )}
             </div>
@@ -125,13 +118,13 @@ export default function TeacherCoursesPage() {
                   </div>
 
                   <div>
-                    <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
                       Mã lớp: {course.courseCode}
                     </span>
-                    <h3 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors mt-0.5">
+                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mt-0.5">
                       {course.subjectName}
                     </h3>
-                    <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{course.description}</p>
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{course.description}</p>
                   </div>
                 </div>
 

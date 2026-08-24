@@ -8,6 +8,7 @@ import type {
   QuestionType,
   TestCase,
 } from '../../types/teacher-question-bank.types'
+import { validateQuestion } from '../../utils/QuestionValidation'
 
 interface QuestionEditorModalProps {
   isOpen: boolean
@@ -24,8 +25,12 @@ const MOCK_SUBJECTS = [
   { id: 'sub-04', name: 'Cơ sở dữ liệu' },
 ]
 
-export default function QuestionEditorModal({
-  isOpen,
+export default function QuestionEditorModal(props: QuestionEditorModalProps) {
+  if (!props.isOpen) return null
+  return <QuestionEditorContent key={props.initialQuestion?.id ?? 'new-question'} {...props} />
+}
+
+function QuestionEditorContent({
   onClose,
   onSave,
   initialQuestion,
@@ -59,13 +64,12 @@ export default function QuestionEditorModal({
   const [memoryLimitMb, setMemoryLimitMb] = useState(initialQuestion?.memoryLimitMb || 256)
   const [testCases, setTestCases] = useState<TestCase[]>(
     initialQuestion?.testCases || [
-      { id: 'tc-1', input: '10', expectedOutput: '17', weight: 5, isHidden: false },
-      { id: 'tc-2', input: '20', expectedOutput: '77', weight: 5, isHidden: false },
+      { id: 'tc-1', input: '10', expectedOutput: '17', weight: 50, isHidden: false },
+      { id: 'tc-2', input: '20', expectedOutput: '77', weight: 50, isHidden: true },
     ],
   )
   const [expandedTcIds, setExpandedTcIds] = useState<string[]>(['tc-1'])
-
-  if (!isOpen) return null
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   const selectedSubjectObj = MOCK_SUBJECTS.find((s) => s.id === subjectId) || MOCK_SUBJECTS[0]
   const questionTypeOptions = [
@@ -139,7 +143,7 @@ export default function QuestionEditorModal({
     const newId = `tc-${Date.now()}`
     setTestCases([
       ...testCases,
-      { id: newId, input: '', expectedOutput: '', weight: 2, isHidden: false },
+      { id: newId, input: '', expectedOutput: '', weight: 0, isHidden: true },
     ])
     setExpandedTcIds([...expandedTcIds, newId])
   }
@@ -160,8 +164,6 @@ export default function QuestionEditorModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim()) return
-
     const payload: Partial<Question> = {
       type: questionType,
       difficulty,
@@ -179,6 +181,13 @@ export default function QuestionEditorModal({
           }),
     }
 
+    const errors = validateQuestion(payload)
+    if (errors.length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+
+    setValidationErrors([])
     onSave(payload)
     onClose()
   }
@@ -188,15 +197,15 @@ export default function QuestionEditorModal({
       <div className="bg-white rounded-2xl max-w-3xl w-full flex flex-col max-h-[85vh] shadow-xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
         {/* Fixed Modal Header */}
         <div className="flex items-center justify-between border-b border-gray-100 p-5 shrink-0 bg-white">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
               ?
             </div>
             <div>
-              <h3 className="text-sm font-bold text-gray-900">
+              <h3 className="text-xs font-bold text-gray-900">
                 {initialQuestion ? 'Chỉnh Sửa Câu Hỏi' : 'Tạo Câu Hỏi Mới Thủ Công'}
               </h3>
-              <p className="text-[11px] text-gray-500">
+              <p className="text-xs text-gray-500">
                 {examType ? `Đang khóa theo loại đề: ${examType}` : 'Quyền sở hữu thuộc về Giảng viên'}
               </p>
             </div>
@@ -208,6 +217,14 @@ export default function QuestionEditorModal({
 
         {/* Scrollable Form Body */}
         <form id="question-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+          {validationErrors.length > 0 && (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+              <p className="font-semibold">Cần kiểm tra lại câu hỏi:</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {validationErrors.map((error) => <li key={error}>{error}</li>)}
+              </ul>
+            </div>
+          )}
           {/* Subject, Question Type & Difficulty */}
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -323,7 +340,7 @@ export default function QuestionEditorModal({
             <div className="space-y-4 border-t border-gray-100 pt-3">
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
                     Ngôn Ngữ Thực Thi
                   </label>
                   <AppSelect
@@ -339,7 +356,7 @@ export default function QuestionEditorModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
                     Giới Hạn Thời Gian (ms)
                   </label>
                   <input
@@ -350,7 +367,7 @@ export default function QuestionEditorModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
                     Giới Hạn Bộ Nhớ (MB)
                   </label>
                   <input
@@ -363,7 +380,7 @@ export default function QuestionEditorModal({
               </div>
 
               {/* Collapsible Test Cases Section (BR-21) */}
-              <p className="text-[11px] text-gray-500">
+              <p className="text-xs text-gray-500">
                 {examType ? `Đang khóa theo loại đề: ${examType}` : 'Quyền sở hữu thuộc về Giảng viên'}
               </p>
               <div className="space-y-3">
@@ -391,7 +408,7 @@ export default function QuestionEditorModal({
                           <div className="flex items-center gap-2">
                             <span>Test Case #{index + 1}</span>
                             {!isTcExpanded && (
-                              <span className="text-[11px] text-gray-500 font-normal">
+                              <span className="text-xs text-gray-500 font-normal">
                                 (Input: <code className="bg-white px-1 rounded border">{tc.input || 'rỗng'}</code> ➔ Output: <code className="bg-white px-1 rounded border">{tc.expectedOutput || 'rỗng'}</code>)
                               </span>
                             )}
@@ -399,7 +416,7 @@ export default function QuestionEditorModal({
 
                           <div className="flex items-center gap-2">
                             <label
-                              className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border flex items-center gap-1 cursor-pointer transition-colors ${
+                              className={`px-2 py-0.5 text-xs font-bold rounded-lg border flex items-center gap-1 cursor-pointer transition-colors ${
                                 tc.isHidden
                                   ? 'bg-amber-50 text-amber-700 border-amber-200'
                                   : 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -438,9 +455,9 @@ export default function QuestionEditorModal({
 
                         {/* Collapsible Body */}
                         {isTcExpanded && (
-                          <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-gray-200/60 animate-in fade-in duration-100">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs pt-2 border-t border-gray-200/60 animate-in fade-in duration-100">
                             <div>
-                              <span className="text-[10px] font-semibold text-gray-600">Input (stdin):</span>
+                              <span className="text-xs font-semibold text-gray-600">Input (stdin):</span>
                               <textarea
                                 rows={2}
                                 value={tc.input}
@@ -450,13 +467,24 @@ export default function QuestionEditorModal({
                               />
                             </div>
                             <div>
-                              <span className="text-[10px] font-semibold text-gray-600">Expected Output (stdout):</span>
+                              <span className="text-xs font-semibold text-gray-600">Expected Output (stdout):</span>
                               <textarea
                                 rows={2}
                                 value={tc.expectedOutput}
                                 onChange={(e) => handleTestCaseChange(tc.id, 'expectedOutput', e.target.value)}
                                 placeholder="Kết quả mong đợi..."
                                 className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono mt-0.5"
+                              />
+                            </div>
+                            <div>
+                              <span className="text-xs font-semibold text-gray-600">Trọng số (%):</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={tc.weight}
+                                onChange={(e) => handleTestCaseChange(tc.id, 'weight', Number(e.target.value))}
+                                className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs mt-0.5"
                               />
                             </div>
                           </div>

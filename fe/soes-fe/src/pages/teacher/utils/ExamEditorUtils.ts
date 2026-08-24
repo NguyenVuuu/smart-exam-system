@@ -76,13 +76,13 @@ export function inferSectionId(question: Question, sections: ExamSection[]) {
   return sections.find((section) => section.type === 'OBJECTIVE')?.id || sections[0].id
 }
 
-function splitPointsByQuestion(totalPoints: number, questionCount: number) {
-  if (questionCount === 0) return []
+export function splitPointsPrecisely(totalPoints: number, itemCount: number) {
+  if (itemCount === 0) return []
 
-  const basePoint = Math.floor((totalPoints / questionCount) * 100) / 100
-  return Array.from({ length: questionCount }, (_, index) => {
-    if (index < questionCount - 1) return Number(basePoint.toFixed(2))
-    return Number((totalPoints - basePoint * (questionCount - 1)).toFixed(2))
+  const basePoint = Math.floor((totalPoints / itemCount) * 100) / 100
+  return Array.from({ length: itemCount }, (_, index) => {
+    if (index < itemCount - 1) return Number(basePoint.toFixed(2))
+    return Number((totalPoints - basePoint * (itemCount - 1)).toFixed(2))
   })
 }
 
@@ -100,7 +100,7 @@ export function balanceQuestionPointsBySection(
     const sectionQuestionIndexes = nextQuestions
       .map((item, index) => (item.sectionId === sectionId ? index : -1))
       .filter((index) => index >= 0)
-    const pointList = splitPointsByQuestion(section.targetPoints, sectionQuestionIndexes.length)
+    const pointList = splitPointsPrecisely(section.targetPoints, sectionQuestionIndexes.length)
 
     nextQuestions = nextQuestions.map((item, index) => {
       const pointIndex = sectionQuestionIndexes.indexOf(index)

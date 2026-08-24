@@ -5,7 +5,7 @@ import AppSelect from '../../../../../components/common/AppSelect'
 import { MOCK_TEACHER_COURSES } from '../../../mock/teacher-course.mock'
 import type {
   ExamIpMode,
-  ExamVariantDistributionMode,
+  ExamDistributionMode,
   ResultReleaseMode,
 } from '../../../types/teacher-exam.types'
 
@@ -13,6 +13,7 @@ export interface ExamSessionDraft {
   courseOfferingId: string
   examDate: string
   startTime: string
+  endTime: string
   durationMinutes: number
   maxAttempts: number
   password: string
@@ -25,17 +26,19 @@ export interface ExamSessionDraft {
   blockRightClick: boolean
   ipMode: ExamIpMode
   allowedIpRange: string
-  distributionMode: ExamVariantDistributionMode
+  distributionMode: ExamDistributionMode
 }
 
 export function ExamSessionForm({
   draft,
+  subjectName,
   onChange,
   onAdd,
   submitLabel = 'Thêm ca',
   showSubmit = true,
 }: {
   draft: ExamSessionDraft
+  subjectName: string
   onChange: (draft: ExamSessionDraft) => void
   onAdd: () => void
   submitLabel?: string
@@ -55,7 +58,7 @@ export function ExamSessionForm({
             onChange={(value) => update('courseOfferingId', value)}
             buttonClassName="bg-gray-50"
             menuClassName="z-50"
-            options={MOCK_TEACHER_COURSES.map((course) => ({
+            options={MOCK_TEACHER_COURSES.filter((course) => course.subjectName === subjectName).map((course) => ({
               value: course.id,
               label: `${course.courseCode} - ${course.subjectName} (${course.totalStudents} SV)`,
             }))}
@@ -80,6 +83,15 @@ export function ExamSessionForm({
           />
         </Field>
 
+        <Field label="Giờ đóng ca">
+          <input
+            type="time"
+            value={draft.endTime}
+            onChange={(event) => update('endTime', event.target.value)}
+            className="w-full bg-gray-50 border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5"
+          />
+        </Field>
+
         <Field label="Thời lượng làm bài">
           <AppNumberInput
             value={draft.durationMinutes}
@@ -88,7 +100,7 @@ export function ExamSessionForm({
           />
         </Field>
 
-        <Field label="Số lần làm bài">
+        <Field label="Số lần làm bài" className="md:col-start-4">
           <input
             type="number"
             min={1}
@@ -188,8 +200,10 @@ export function ExamSessionForm({
           buttonClassName="bg-gray-50"
           menuClassName="z-50"
           options={[
-            { value: 'RANDOM_ONLINE', label: 'Random câu hỏi/đáp án cho từng sinh viên' },
-            { value: 'PAPER_PRINT', label: 'Không random, giữ nguyên thứ tự câu hỏi' },
+              { value: 'FIXED_ORDER', label: 'Giữ nguyên thứ tự câu hỏi' },
+              { value: 'SHUFFLE_ORDER', label: 'Xáo thứ tự câu hỏi' },
+              { value: 'SHUFFLE_QUESTIONS_AND_OPTIONS', label: 'Xáo câu hỏi và phương án' },
+              { value: 'RANDOM_SUBSET', label: 'Chọn tập câu hỏi ngẫu nhiên theo phần' },
           ]}
         />
         {showSubmit && (
@@ -217,7 +231,7 @@ function Field({
 }) {
   return (
     <label className={`block space-y-1 ${className}`}>
-      <span className="text-[11px] text-gray-600">{label}</span>
+      <span className="text-xs text-gray-600">{label}</span>
       {children}
     </label>
   )

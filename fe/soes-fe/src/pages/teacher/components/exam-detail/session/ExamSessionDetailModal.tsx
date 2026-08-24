@@ -1,13 +1,13 @@
 import { CalendarClock, Globe, MonitorCheck, Users, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { releaseLabel } from '../../../constants/ExamEditorConfig'
-import type { ExamAssignment } from '../../../types/teacher-exam.types'
+import type { ExamSchedule } from '../../../types/teacher-exam.types'
 
 export default function ExamSessionDetailModal({
   session,
   onClose,
 }: {
-  session: ExamAssignment | null
+  session: ExamSchedule | null
   onClose: () => void
 }) {
   if (!session) return null
@@ -28,8 +28,8 @@ export default function ExamSessionDetailModal({
               <CalendarClock size={18} />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-gray-900">Chi tiết ca</h2>
-              <p className="text-[11px] text-gray-500 truncate">
+              <h2 className="text-xs font-bold text-gray-900">Chi tiết ca</h2>
+              <p className="text-xs text-gray-500 truncate">
                 {session.courseCode} • {session.subjectName}
               </p>
             </div>
@@ -66,7 +66,7 @@ export default function ExamSessionDetailModal({
               icon={<Globe size={15} className="text-blue-600" />}
               title="Truy cập và công bố điểm"
               lines={[
-                ['Mật khẩu', session.password || 'Không bắt buộc'],
+                ['Mật khẩu', session.password ? '••••••••' : 'Không bắt buộc'],
                 ['Hiển thị điểm', releaseLabel[session.resultReleaseMode ?? 'MANUAL']],
                 ['Xem lại bài làm', session.allowStudentReview ? 'Sinh viên được xem lại sau khi công bố điểm' : 'Không cho sinh viên xem lại'],
                 ['IP', session.ipMode === 'CAMPUS' ? 'Giới hạn IP trường' : 'Thi tại nhà/Online'],
@@ -96,7 +96,7 @@ export default function ExamSessionDetailModal({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <DetailBox
               label="Phân phối đề"
-              value={session.distributionMode === 'PAPER_PRINT' ? 'Không random, giữ nguyên thứ tự câu hỏi' : 'Random đề cho từng sinh viên'}
+              value={distributionModeLabel[session.distributionMode ?? 'FIXED_ORDER']}
             />
             <DetailBox label="Sinh viên đã vào thi" value="0 SV" />
             <DetailBox label="Bài nộp" value="0 bài" />
@@ -107,10 +107,17 @@ export default function ExamSessionDetailModal({
   )
 }
 
+const distributionModeLabel = {
+  FIXED_ORDER: 'Giữ nguyên thứ tự câu hỏi',
+  SHUFFLE_ORDER: 'Xáo thứ tự câu hỏi',
+  SHUFFLE_QUESTIONS_AND_OPTIONS: 'Xáo câu hỏi và phương án',
+  RANDOM_SUBSET: 'Chọn tập câu hỏi ngẫu nhiên theo phần',
+} as const
+
 function DetailBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
-      <p className="text-[11px] text-gray-400">{label}</p>
+      <p className="text-xs text-gray-400">{label}</p>
       <p className="text-xs text-gray-900 mt-0.5">{value}</p>
     </div>
   )

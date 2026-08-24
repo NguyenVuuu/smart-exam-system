@@ -2,7 +2,6 @@ import {
   Clock,
   Edit,
   Eye,
-  Filter,
   Plus,
   RotateCcw,
   Search,
@@ -11,7 +10,6 @@ import {
   X,
 } from 'lucide-react'
 import { useState } from 'react'
-import AppBadge from '../../components/common/AppBadge'
 import AppSelect from '../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -21,28 +19,58 @@ import AIGenerationHistoryModal from './components/question-bank/AIGenerationHis
 import AIQuestionGeneratorModal from './components/question-bank/AIQuestionGeneratorModal'
 import QuestionDetailModal from './components/question-bank/QuestionDetailModal'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
-import { MOCK_QUESTION_BANK } from './mock/teacher-question-bank.mock'
 import type { Question, QuestionType } from './types/teacher-question-bank.types'
+import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 
-const questionTypeLabel: Record<QuestionType, string> = {
-  SINGLE_CHOICE: 'Trắc nghiệm 1 đáp án',
-  MULTIPLE_CHOICE: 'Trắc nghiệm nhiều đáp án',
-  TRUE_FALSE: 'Đúng / Sai',
-  PROGRAMMING: 'Lập trình (Code)',
+const questionTypeBadge: Record<QuestionType, { label: string; className: string }> = {
+  SINGLE_CHOICE: {
+    label: 'Trắc nghiệm 1 đáp án',
+    className: 'bg-blue-100/80 text-blue-700 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+  },
+  MULTIPLE_CHOICE: {
+    label: 'Trắc nghiệm nhiều đáp án',
+    className: 'bg-purple-100/80 text-purple-700 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+  },
+  TRUE_FALSE: {
+    label: 'Đúng / Sai',
+    className: 'bg-amber-100/80 text-amber-800 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+  },
+  PROGRAMMING: {
+    label: 'Lập trình (Code)',
+    className: 'bg-emerald-100/80 text-emerald-700 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+  },
 }
 
-const difficultyTone = {
-  EASY: 'emerald',
-  MEDIUM: 'amber',
-  HARD: 'rose',
+const difficultyBadge = {
+  EASY: {
+    label: 'EASY',
+    className: 'bg-emerald-100/80 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+  },
+  MEDIUM: {
+    label: 'MEDIUM',
+    className: 'bg-amber-100/80 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+  },
+  HARD: {
+    label: 'HARD',
+    className: 'bg-rose-100/80 text-rose-700 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+  },
 } as const
 
 export default function TeacherQuestionBankPage() {
-  const [questions, setQuestions] = useState<Question[]>(MOCK_QUESTION_BANK)
+  const questions = useTeacherWorkspaceStore((state) => state.questions)
+  const upsertQuestion = useTeacherWorkspaceStore((state) => state.upsertQuestion)
+  const addQuestions = useTeacherWorkspaceStore((state) => state.addQuestions)
+  const submitQuestionForReview = useTeacherWorkspaceStore((state) => state.submitQuestionForReview)
+
+  // Tabs state: 'PERSONAL' | 'SHARED'
+  const [activeTab, setActiveTab] = useState<'PERSONAL' | 'SHARED'>('PERSONAL')
+
+  // Filters state
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSubject, setSelectedSubject] = useState('ALL')
   const [selectedType, setSelectedType] = useState('ALL')
   const [selectedDifficulty, setSelectedDifficulty] = useState('ALL')
+  const [selectedStatus, setSelectedStatus] = useState('ALL')
 
   // Modals state
   const [isEditorOpen, setIsEditorOpen] = useState(false)
@@ -56,25 +84,42 @@ export default function TeacherQuestionBankPage() {
     setSelectedSubject('ALL')
     setSelectedType('ALL')
     setSelectedDifficulty('ALL')
+    setSelectedStatus('ALL')
   }
 
   const filteredQuestions = questions.filter((q) => {
+    // Tab filter
+    if (activeTab === 'PERSONAL') {
+      if (q.bankScope && q.bankScope !== 'PERSONAL' && q.reviewStatus === 'APPROVED') {
+        return false
+      }
+    } else {
+      if (q.bankScope !== 'SHARED' && q.reviewStatus !== 'APPROVED') {
+        return false
+      }
+    }
+
+    // Status filter
+    if (selectedStatus !== 'ALL') {
+      if (selectedStatus === 'APPROVED' && q.reviewStatus !== 'APPROVED') return false
+      if (selectedStatus === 'PENDING_REVIEW' && q.reviewStatus !== 'PENDING_REVIEW') return false
+      if (selectedStatus === 'PRIVATE' && q.reviewStatus && q.reviewStatus !== 'PRIVATE') return false
+      if (selectedStatus === 'REJECTED' && q.reviewStatus !== 'REJECTED') return false
+    }
+
     const matchesSubject = selectedSubject === 'ALL' || q.subjectId === selectedSubject
     const matchesSearch =
       q.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (q.subjectName && q.subjectName.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesType = selectedType === 'ALL' || q.type === selectedType
     const matchesDifficulty = selectedDifficulty === 'ALL' || q.difficulty === selectedDifficulty
+
     return matchesSubject && matchesSearch && matchesType && matchesDifficulty
   })
 
   const handleSaveQuestion = (savedQuestionData: Partial<Question>) => {
     if (editingQuestion) {
-      setQuestions((prev) =>
-        prev.map((q) =>
-          q.id === editingQuestion.id ? ({ ...q, ...savedQuestionData } as Question) : q,
-        ),
-      )
+      upsertQuestion({ ...editingQuestion, ...savedQuestionData } as Question)
     } else {
       const newQuestion: Question = {
         id: `q-${Date.now()}`,
@@ -82,7 +127,7 @@ export default function TeacherQuestionBankPage() {
         subjectName: savedQuestionData.subjectName || 'Lập trình Java căn bản',
         teacherId: 'gv-01',
         teacherName: 'TS. Nguyễn Văn Giảng',
-        bankScope: savedQuestionData.bankScope || 'PERSONAL',
+        bankScope: activeTab === 'SHARED' ? 'SHARED' : (savedQuestionData.bankScope || 'PERSONAL'),
         reviewStatus: savedQuestionData.reviewStatus || 'PRIVATE',
         type: savedQuestionData.type || 'SINGLE_CHOICE',
         difficulty: savedQuestionData.difficulty || 'EASY',
@@ -95,27 +140,17 @@ export default function TeacherQuestionBankPage() {
         testCases: savedQuestionData.testCases,
         createdAt: 'Vừa xong',
       }
-      setQuestions([newQuestion, ...questions])
+      upsertQuestion(newQuestion)
     }
     setEditingQuestion(null)
   }
 
   const handleShareToSharedBank = (qId: string) => {
-    setQuestions((prev) =>
-      prev.map((q) =>
-        q.id === qId
-          ? {
-              ...q,
-              bankScope: 'SHARED',
-              reviewStatus: 'PENDING_REVIEW',
-            }
-          : q,
-      ),
-    )
+    submitQuestionForReview(qId)
     alert('Đã gửi yêu cầu đóng góp câu hỏi vào Ngân hàng chung của Bộ môn! Trạng thái: Chờ duyệt.')
   }
 
-  // Table Columns Definition
+  // Restore exact original Table Columns Definition with large clear fonts
   const columns: ColumnDef<Question>[] = [
     {
       header: 'STT',
@@ -124,79 +159,85 @@ export default function TeacherQuestionBankPage() {
       render: (_, idx) => <span className="text-gray-400">{idx + 1}</span>,
     },
     {
-      header: 'Nội dung câu hỏi',
+      header: 'NỘI DUNG CÂU HỎI',
       render: (q) => (
         <div className="space-y-1 py-1">
-          <p className="font-semibold text-gray-900 leading-relaxed text-xs line-clamp-2">
+          <p className="font-semibold text-gray-900 leading-relaxed text-sm line-clamp-2">
             {q.content}
           </p>
-          <p className="text-[11px] text-blue-600 font-medium line-clamp-1">
-            {q.subjectName || 'Lập trình Java'}
+          <p className="text-xs text-blue-600 line-clamp-1">
+            {q.subjectName || 'Lập trình Java căn bản'}
           </p>
         </div>
       ),
     },
     {
-      header: 'Dạng câu hỏi',
-      width: '160px',
-      render: (q) => (
-        <AppBadge shape="rounded" className="py-1 text-xs font-medium">
-          {questionTypeLabel[q.type]}
-        </AppBadge>
-      ),
+      header: 'DẠNG CÂU HỎI',
+      width: '210px',
+      render: (q) => {
+        const badge = questionTypeBadge[q.type] || questionTypeBadge.SINGLE_CHOICE
+        return <span className={badge.className}>{badge.label}</span>
+      },
     },
     {
-      header: 'Độ khó',
-      width: '90px',
+      header: 'ĐỘ KHÓ',
+      width: '100px',
       align: 'center',
-      render: (q) => (
-        <AppBadge tone={difficultyTone[q.difficulty]}>{q.difficulty}</AppBadge>
-      ),
+      render: (q) => {
+        const badge = difficultyBadge[q.difficulty] || difficultyBadge.EASY
+        return <span className={badge.className}>{badge.label}</span>
+      },
     },
     {
-      header: 'Phạm vi & Duyệt',
-      width: '140px',
+      header: 'PHẠM VI & DUYỆT',
+      width: '170px',
       align: 'center',
       render: (q) => {
         const status = q.reviewStatus || 'PRIVATE'
-        const reviewTone =
-          status === 'APPROVED'
-            ? 'emerald'
-            : status === 'PENDING_REVIEW'
-            ? 'amber'
-            : status === 'REJECTED'
-            ? 'rose'
-            : 'gray'
-
+        if (status === 'APPROVED') {
+          return (
+            <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0">
+              Ngân hàng chung
+            </span>
+          )
+        }
+        if (status === 'PENDING_REVIEW') {
+          return (
+            <span className="bg-amber-50 text-amber-600 border border-amber-200 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0">
+              Chờ duyệt
+            </span>
+          )
+        }
+        if (status === 'REJECTED') {
+          return (
+            <span className="bg-rose-50 text-rose-600 border border-rose-200 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0">
+              Bị từ chối
+            </span>
+          )
+        }
         return (
-          <AppBadge tone={reviewTone} shape="rounded" className="py-1 text-[11px]">
-            {status === 'APPROVED'
-              ? 'Ngân hàng chung'
-              : status === 'PENDING_REVIEW'
-              ? 'Chờ duyệt'
-              : status === 'REJECTED'
-              ? 'Bị từ chối'
-              : 'Cá nhân'}
-          </AppBadge>
+          <span className="bg-gray-100 text-gray-600 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0">
+            Cá nhân
+          </span>
         )
       },
     },
     {
-      header: 'Thao tác',
+      header: 'THAO TÁC',
       width: '130px',
       align: 'center',
       render: (q) => (
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center justify-center gap-1 text-gray-400">
           {(!q.reviewStatus || q.reviewStatus === 'PRIVATE') && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 handleShareToSharedBank(q.id)
               }}
-              className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+              className="p-1.5 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
               title="Đóng góp vào Ngân hàng chung của Bộ môn"
             >
-              <Share2 size={15} />
+              <Share2 size={16} />
             </button>
           )}
           <button
@@ -204,10 +245,10 @@ export default function TeacherQuestionBankPage() {
               e.stopPropagation()
               setViewingQuestion(q)
             }}
-            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             title="Xem chi tiết câu hỏi"
           >
-            <Eye size={15} />
+            <Eye size={16} />
           </button>
           <button
             onClick={(e) => {
@@ -215,10 +256,10 @@ export default function TeacherQuestionBankPage() {
               setEditingQuestion(q)
               setIsEditorOpen(true)
             }}
-            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             title="Chỉnh sửa câu hỏi"
           >
-            <Edit size={15} />
+            <Edit size={16} />
           </button>
         </div>
       ),
@@ -226,7 +267,7 @@ export default function TeacherQuestionBankPage() {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen bg-gray-50/50 overflow-hidden font-sans">
       <TeacherSidebar />
 
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -240,7 +281,7 @@ export default function TeacherQuestionBankPage() {
               <>
                 <button
                   onClick={() => setIsHistoryModalOpen(true)}
-                  className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
                 >
                   <Clock size={15} />
                   Lịch sử AI
@@ -248,7 +289,7 @@ export default function TeacherQuestionBankPage() {
 
                 <button
                   onClick={() => setIsAiModalOpen(true)}
-                  className="px-3.5 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-blue-200"
+                  className="px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-blue-200"
                 >
                   <Sparkles size={15} className="text-amber-500" />
                   AI Bóc Tách Đề (PDF / Word)
@@ -259,104 +300,132 @@ export default function TeacherQuestionBankPage() {
                     setEditingQuestion(null)
                     setIsEditorOpen(true)
                   }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-blue-500/20 transition-colors flex items-center gap-1.5"
                 >
-                  <Plus size={16} />
+                  <Plus size={18} />
                   Thêm Câu Hỏi Mới
                 </button>
               </>
             }
           />
 
-          {/* Filter Bar */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <Filter size={15} className="text-gray-400 shrink-0" />
-                <span className="text-xs font-bold text-gray-700">Môn học:</span>
-                <AppSelect
-                  value={selectedSubject}
-                  onChange={(val) => setSelectedSubject(val)}
-                  className="w-52"
-                  buttonClassName="bg-blue-50/70 border-blue-200 text-blue-900 py-1.5"
-                  options={[
-                    { value: 'ALL', label: 'Tất cả môn học' },
-                    { value: 'sub-01', label: 'Lập trình Java căn bản' },
-                    { value: 'sub-02', label: 'Cấu trúc dữ liệu & GT' },
-                    { value: 'sub-03', label: 'Lập trình C++' },
-                    { value: 'sub-04', label: 'Cơ sở dữ liệu' },
-                  ]}
-                />
-              </div>
+          {/* Tabs Switcher: Ngân hàng cá nhân / Ngân hàng chung */}
+          <div className="flex items-center justify-between">
+            <div className="bg-gray-100 p-1 rounded-2xl inline-flex gap-1">
+              <button
+                onClick={() => setActiveTab('PERSONAL')}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  activeTab === 'PERSONAL'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
+                }`}
+              >
+                Ngân hàng cá nhân
+              </button>
+              <button
+                onClick={() => setActiveTab('SHARED')}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  activeTab === 'SHARED'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
+                }`}
+              >
+                Ngân hàng chung
+              </button>
+            </div>
+          </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-gray-700">Dạng câu:</span>
-                <AppSelect
-                  value={selectedType}
-                  onChange={(val) => setSelectedType(val)}
-                  className="w-48"
-                  buttonClassName="bg-gray-50 py-1.5"
-                  options={[
-                    { value: 'ALL', label: 'Tất cả dạng câu' },
-                    { value: 'SINGLE_CHOICE', label: 'Trắc nghiệm 1 đáp án' },
-                    { value: 'MULTIPLE_CHOICE', label: 'Trắc nghiệm nhiều đáp án' },
-                    { value: 'TRUE_FALSE', label: 'Đúng / Sai' },
-                    { value: 'PROGRAMMING', label: 'Lập trình (Code)' },
-                  ]}
-                />
-              </div>
+          {/* Compact Filter Bar Without Text Labels */}
+          <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
+            <div className="flex items-center gap-3 shrink-0">
+              <AppSelect
+                value={selectedSubject}
+                onChange={(val) => setSelectedSubject(val)}
+                className="w-52"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
+                options={[
+                  { value: 'ALL', label: 'Tất cả môn học' },
+                  { value: 'sub-01', label: 'Lập trình Java căn bản' },
+                  { value: 'sub-02', label: 'Cấu trúc dữ liệu & GT' },
+                  { value: 'sub-03', label: 'Lập trình C++' },
+                  { value: 'sub-04', label: 'Cơ sở dữ liệu' },
+                ]}
+              />
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-gray-700">Độ khó:</span>
-                <AppSelect
-                  value={selectedDifficulty}
-                  onChange={(val) => setSelectedDifficulty(val)}
-                  className="w-36"
-                  buttonClassName="bg-gray-50 py-1.5"
-                  options={[
-                    { value: 'ALL', label: 'Mọi độ khó' },
-                    { value: 'EASY', label: 'Dễ' },
-                    { value: 'MEDIUM', label: 'Trung bình' },
-                    { value: 'HARD', label: 'Khó' },
-                  ]}
-                />
-              </div>
+              <AppSelect
+                value={selectedType}
+                onChange={(val) => setSelectedType(val)}
+                className="w-48"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
+                options={[
+                  { value: 'ALL', label: 'Tất cả dạng câu' },
+                  { value: 'SINGLE_CHOICE', label: 'Trắc nghiệm 1 đáp án' },
+                  { value: 'MULTIPLE_CHOICE', label: 'Trắc nghiệm nhiều đáp án' },
+                  { value: 'TRUE_FALSE', label: 'Đúng / Sai' },
+                  { value: 'PROGRAMMING', label: 'Lập trình (Code)' },
+                ]}
+              />
+
+              <AppSelect
+                value={selectedDifficulty}
+                onChange={(val) => setSelectedDifficulty(val)}
+                className="w-36"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
+                options={[
+                  { value: 'ALL', label: 'Mọi độ khó' },
+                  { value: 'EASY', label: 'Dễ' },
+                  { value: 'MEDIUM', label: 'Trung bình' },
+                  { value: 'HARD', label: 'Khó' },
+                ]}
+              />
+
+              <AppSelect
+                value={selectedStatus}
+                onChange={(val) => setSelectedStatus(val)}
+                className="w-44"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
+                options={[
+                  { value: 'ALL', label: 'Trạng thái duyệt' },
+                  { value: 'APPROVED', label: 'Đã duyệt' },
+                  { value: 'PENDING_REVIEW', label: 'Chờ duyệt' },
+                  { value: 'PRIVATE', label: 'Cá nhân' },
+                  { value: 'REJECTED', label: 'Bị từ chối' },
+                ]}
+              />
 
               <button
                 onClick={handleResetFilters}
-                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1 shrink-0"
+                className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-800 rounded-xl transition-colors flex items-center justify-center shrink-0"
                 title="Đặt lại tất cả bộ lọc"
               >
-                <RotateCcw size={13} /> Làm mới
+                <RotateCcw size={16} />
               </button>
             </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 flex items-center gap-2 w-48 sm:w-60 lg:w-72 shrink-0">
-              <Search size={15} className="text-gray-400 shrink-0" />
+            <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 flex items-center gap-2.5 w-64 sm:w-80 shrink-0">
+              <Search size={16} className="text-gray-400 shrink-0" />
               <input
                 type="text"
                 placeholder="Tìm nội dung câu hỏi..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent text-xs font-medium focus:outline-none text-gray-800 w-full"
+                className="bg-transparent text-sm font-medium focus:outline-none text-gray-800 w-full"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600 shrink-0">
-                  <X size={14} />
+                  <X size={15} />
                 </button>
               )}
             </div>
           </div>
 
-          {/* DataTable */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <DataTable
-              columns={columns}
-              data={filteredQuestions}
-              keyExtractor={(q) => q.id}
-              emptyText="Không tìm thấy câu hỏi nào phù hợp với bộ lọc."
-            />
-          </div>
+          {/* DataTable direct flat render without outer wrapper box */}
+          <DataTable
+            columns={columns}
+            data={filteredQuestions}
+            keyExtractor={(q) => q.id}
+            emptyText="Không tìm thấy câu hỏi nào phù hợp với bộ lọc."
+          />
         </main>
       </div>
 
@@ -387,7 +456,7 @@ export default function TeacherQuestionBankPage() {
             subjectName: 'Lập trình Java căn bản',
             teacherId: 'gv-01',
             teacherName: 'TS. Nguyễn Văn Giảng',
-            bankScope: 'PERSONAL',
+            bankScope: activeTab === 'SHARED' ? 'SHARED' : 'PERSONAL',
             reviewStatus: 'PRIVATE',
             type: d.type,
             difficulty: d.difficulty,
@@ -396,7 +465,7 @@ export default function TeacherQuestionBankPage() {
             options: d.options,
             createdAt: 'Vừa xong (AI)',
           }))
-          setQuestions([...converted, ...questions])
+          addQuestions(converted)
           setIsAiModalOpen(false)
         }}
       />

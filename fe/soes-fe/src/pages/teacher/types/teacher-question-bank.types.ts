@@ -29,6 +29,7 @@ export interface Question {
   teacherName: string
   bankScope?: QuestionBankScope
   reviewStatus?: 'PRIVATE' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
+  rejectionReason?: string
   type: QuestionType
   difficulty: DifficultyLevel
   content: string

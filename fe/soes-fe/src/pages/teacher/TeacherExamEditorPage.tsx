@@ -7,7 +7,8 @@ import {
   Save,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { TeacherTwoColumnLayout, TeacherTwoColumnMain } from './components/TeacherTwoColumnLayout'
@@ -28,39 +29,48 @@ import {
   getDefaultTitle,
   inferSectionId,
   isQuestionAllowedForExam,
+  splitPointsPrecisely,
 } from './utils/ExamEditorUtils'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
-import { MOCK_EXAMS } from './mock/teacher-exam.mock'
 import { MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
 import { MOCK_QUESTION_BANK } from './mock/teacher-question-bank.mock'
 import type {
+  Exam,
   ExamCategory,
   ExamQuestionItem,
   ExamSection,
   ExamType,
 } from './types/teacher-exam.types'
 import type { Question } from './types/teacher-question-bank.types'
+import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
+import { useAuthStore } from '../../store/authStore'
 
 export default function TeacherExamEditorPage() {
   const navigate = useNavigate()
+  const { examId } = useParams<{ examId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const sourceExam = MOCK_EXAMS.find((item) => item.id === searchParams.get('copyFrom'))
+  const exams = useTeacherWorkspaceStore((state) => state.exams)
+  const upsertExam = useTeacherWorkspaceStore((state) => state.upsertExam)
+  const currentUser = useAuthStore((state) => state.user)
+  const copyFromId = searchParams.get('copyFrom')
+  const isCopy = Boolean(copyFromId)
+  const sourceExam = exams.find((item) => item.id === (copyFromId || examId))
   const initialTypeFromUrl = sourceExam?.type || (searchParams.get('type') as ExamType) || 'MULTIPLE_CHOICE'
   const initialSections = sourceExam?.sections?.map((section) => ({ ...section })) || buildInitialSections(initialTypeFromUrl)
 
   const [activeStep, setActiveStep] = useState<WizardStepId>('INFO')
   const [title, setTitle] = useState(
-    sourceExam ? `Bản sao - ${sourceExam.title}` : getDefaultTitle(initialTypeFromUrl),
+    sourceExam ? `${isCopy ? 'Bản sao - ' : ''}${sourceExam.title}` : getDefaultTitle(initialTypeFromUrl),
   )
   const [description, setDescription] = useState(
     sourceExam?.description || 'Kiểm tra kiến thức theo nội dung lớp học phần.',
   )
   const [examCategory, setExamCategory] = useState<ExamCategory>(sourceExam?.category || 'QUIZ')
   const [examType, setExamType] = useState<ExamType>(initialTypeFromUrl)
-  const [courseOfferingId, setCourseOfferingId] = useState(sourceExam?.courseOfferingId || 'co-01')
+  const [subjectId, setSubjectId] = useState(sourceExam?.subjectName || MOCK_TEACHER_COURSES[0].subjectName)
   const [sections, setSections] = useState<ExamSection[]>(initialSections)
   const [activeSectionId, setActiveSectionId] = useState(initialSections[0].id)
-  const [durationMinutes, setDurationMinutes] = useState(sourceExam?.durationMinutes || 60)
+  const [durationMinutes, setDurationMinutes] = useState(sourceExam?.defaultDurationMinutes || 60)
   const [targetTotalPoints, setTargetTotalPoints] = useState(sourceExam?.totalPoints || 10)
 
   const [questions, setQuestions] = useState<ExamQuestionItem[]>(() => {
@@ -89,7 +99,11 @@ export default function TeacherExamEditorPage() {
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
 
   const selectedCourse =
-    MOCK_TEACHER_COURSES.find((course) => course.id === courseOfferingId) || MOCK_TEACHER_COURSES[0]
+    MOCK_TEACHER_COURSES.find((course) => course.subjectName === subjectId) || MOCK_TEACHER_COURSES[0]
+  const selectedSubject = {
+    subjectCode: selectedCourse.subjectCode,
+    subjectName: selectedCourse.subjectName,
+  }
   const totalPoints = questions.reduce((sum, item) => sum + item.points, 0)
   const stepIndex = WIZARD_STEPS.findIndex((step) => step.id === activeStep)
   const visibleQuestions = questions.filter((item) => item.sectionId === activeSectionId)
@@ -109,10 +123,13 @@ export default function TeacherExamEditorPage() {
 
   const updateTargetTotalPoints = (points: number) => {
     setTargetTotalPoints(points)
-    if (questions.length === 0) return
-
-    const equalPoints = Number((points / questions.length).toFixed(2))
-    setQuestions((prev) => prev.map((item) => ({ ...item, points: equalPoints })))
+    const sectionPointList = splitPointsPrecisely(points, sections.length)
+    const nextSections = sections.map((section, index) => ({
+      ...section,
+      targetPoints: sectionPointList[index],
+    }))
+    setSections(nextSections)
+    setQuestions((prev) => balanceQuestionPointsBySection(prev, nextSections))
   }
 
   const updateExamType = (nextType: ExamType) => {
@@ -206,18 +223,7 @@ export default function TeacherExamEditorPage() {
 
   const handleAutoBalancePoints = () => {
     if (questions.length === 0) return
-    const equalPoints = Number((10 / questions.length).toFixed(2))
-    setQuestions((prev) => {
-      let accumulated = 0
-      return prev.map((q, idx) => {
-        if (idx === prev.length - 1) {
-          const lastPoint = Number((10 - accumulated).toFixed(2))
-          return { ...q, points: lastPoint }
-        }
-        accumulated += equalPoints
-        return { ...q, points: equalPoints }
-      })
-    })
+    setQuestions((prev) => balanceQuestionPointsBySection(prev, sections))
   }
 
   const validateExam = () => {
@@ -231,31 +237,50 @@ export default function TeacherExamEditorPage() {
       setActiveStep('QUESTIONS')
       return false
     }
-    if (Math.abs(totalPoints - 10) >= 0.05) {
-      const confirmProceed = confirm(
-        `Cảnh báo: Tổng điểm của đề thi hiện tại là ${totalPoints.toFixed(1)}/10.0 điểm. Bạn có muốn tự động làm tròn về 10.0 điểm trước khi lưu không?`,
-      )
-      if (confirmProceed) {
-        handleAutoBalancePoints()
-      }
+    if (Math.abs(totalPoints - targetTotalPoints) >= 0.01) {
+      alert(`Tổng điểm hiện tại là ${totalPoints.toFixed(2)}, phải bằng tổng điểm mục tiêu ${targetTotalPoints.toFixed(2)}.`)
+      setActiveStep('QUESTIONS')
+      return false
     }
     return true
   }
 
+  const buildExam = (status: Exam['status']): Exam => ({
+    id: !isCopy && sourceExam ? sourceExam.id : `exam-${Date.now()}`,
+    authorId: !isCopy && sourceExam ? sourceExam.authorId : currentUser?.profileId ?? 'gv-01',
+    subjectId: sourceExam?.subjectId ?? MOCK_QUESTION_BANK.find((question) => question.subjectName === selectedSubject.subjectName)?.subjectId ?? selectedSubject.subjectCode,
+    subjectCode: sourceExam?.subjectCode ?? selectedSubject.subjectCode,
+    subjectName: selectedSubject.subjectName,
+    title: title.trim(),
+    description: description.trim(),
+    category: examCategory,
+    type: examType,
+    creationMethod: sourceExam?.creationMethod ?? 'MANUAL',
+    status,
+    studentVisibility: status === 'PUBLISHED' ? sourceExam?.studentVisibility ?? 'VISIBLE' : 'HIDDEN',
+    defaultDurationMinutes: durationMinutes,
+    sections,
+    schedules: !isCopy ? sourceExam?.schedules ?? [] : [],
+    questions,
+    totalPoints: targetTotalPoints,
+    createdAt: sourceExam?.createdAt ?? new Date().toISOString(),
+  })
+
   const handleSaveDraft = () => {
     if (!validateExam()) return
-    alert(
-      `Đã lưu nháp ${examTypeLabel[examType]} với ${questions.length} câu hỏi. Bạn có thể tiếp tục chỉnh sửa hoặc tạo ca thi trong chi tiết đề.`,
-    )
+    upsertExam(buildExam('DRAFT'))
+    toast.success(`Đã lưu nháp ${examTypeLabel[examType]} với ${questions.length} câu hỏi.`)
     navigate('/teacher/exams')
   }
 
   const handlePublishExam = () => {
     if (!validateExam()) return
     if (examCategory === 'FINAL') {
-      alert('Đã gửi đề thi Cuối kỳ lên Ban Khảo thí / Trưởng bộ môn phê duyệt! Trạng thái: PENDING_APPROVAL.')
+      upsertExam(buildExam('PENDING_APPROVAL'))
+      toast.success('Đã gửi đề thi cuối kỳ cho Trưởng bộ môn duyệt chuyên môn.')
     } else {
-      alert('Đã công bố đề thi thành công! Bạn có thể tạo ca thi cho sinh viên làm bài ngay.')
+      upsertExam(buildExam('PUBLISHED'))
+      toast.success('Đã hoàn tất đề thi. Bạn có thể tạo ca thi trong trang chi tiết đề.')
     }
     navigate('/teacher/exams')
   }
@@ -339,8 +364,8 @@ export default function TeacherExamEditorPage() {
                   setExamCategory={setExamCategory}
                   examType={examType}
                   updateExamType={updateExamType}
-                  courseOfferingId={courseOfferingId}
-                  setCourseOfferingId={setCourseOfferingId}
+                  subjectId={subjectId}
+                  setSubjectId={setSubjectId}
                 />
               )}
 
@@ -421,7 +446,7 @@ export default function TeacherExamEditorPage() {
             <ExamSummary
               examType={examType}
               title={title}
-              selectedCourse={selectedCourse}
+              selectedSubject={selectedSubject}
               sections={sections}
               sectionStats={sectionStats}
               questions={questions}

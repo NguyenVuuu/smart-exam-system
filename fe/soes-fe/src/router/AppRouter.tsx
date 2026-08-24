@@ -12,6 +12,7 @@ import TeacherAutoExamMatrixPage from '../pages/teacher/TeacherAutoExamMatrixPag
 import TeacherCourseDetailPage from '../pages/teacher/TeacherCourseDetailPage'
 import TeacherCoursesPage from '../pages/teacher/TeacherCoursesPage'
 import TeacherDashboard from '../pages/teacher/TeacherDashboard'
+import TeacherDepartmentApprovalPage from '../pages/teacher/TeacherDepartmentApprovalPage'
 import TeacherExamDetailPage from '../pages/teacher/TeacherExamDetailPage'
 import TeacherExamEditorPage from '../pages/teacher/TeacherExamEditorPage'
 import TeacherExamsPage from '../pages/teacher/TeacherExamsPage'
@@ -150,6 +151,14 @@ export default function AppRouter() {
         />
 
         {/* Proctoring & Reports Hub */}
+        <Route
+          path="/teacher/department-approvals"
+          element={
+            <RoleRoute allowedRoles={['TEACHER']}>
+              <TeacherDepartmentApprovalPage />
+            </RoleRoute>
+          }
+        />
         <Route
           path="/teacher/proctoring"
           element={

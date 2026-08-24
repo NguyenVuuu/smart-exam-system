@@ -31,7 +31,7 @@ export default function TeacherDashboard() {
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-7 text-white shadow-md relative overflow-hidden">
             <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
             <div className="relative z-10 max-w-2xl">
-              <span className="px-2.5 py-1 bg-white/20 text-white rounded-full text-[11px] font-medium tracking-wide uppercase">
+              <span className="px-2.5 py-1 bg-white/20 text-white rounded-full text-xs font-medium tracking-wide uppercase">
                 Học kỳ 1 • 2026
               </span>
               <h1 className="text-2xl font-bold mt-2 tracking-tight">
@@ -66,7 +66,7 @@ export default function TeacherDashboard() {
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500">Lớp HP Phụ Trách</p>
                 <p className="text-2xl font-bold text-gray-900">3</p>
-                <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
                   <span>● 2 lớp đang mở</span>
                 </p>
               </div>
@@ -79,7 +79,7 @@ export default function TeacherDashboard() {
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500">Tổng Sinh Viên</p>
                 <p className="text-2xl font-bold text-gray-900">133</p>
-                <p className="text-[11px] text-gray-400">Đã ghi danh kỳ này</p>
+                <p className="text-xs text-gray-400">Đã ghi danh kỳ này</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                 <Users size={20} />
@@ -90,7 +90,7 @@ export default function TeacherDashboard() {
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500">Câu Hỏi Cần Rà Soát</p>
                 <p className="text-2xl font-bold text-rose-600">4</p>
-                <p className="text-[11px] text-rose-600 font-medium">Thiếu đáp án/test case/giải thích</p>
+                <p className="text-xs text-rose-600 font-medium">Thiếu đáp án/test case/giải thích</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
                 <AlertCircle size={20} />
@@ -101,7 +101,7 @@ export default function TeacherDashboard() {
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500">Kỳ Thi Đã Công Bố</p>
                 <p className="text-2xl font-bold text-emerald-600">2</p>
-                <p className="text-[11px] text-emerald-600 font-medium">Đã mở cho SV làm bài</p>
+                <p className="text-xs text-emerald-600 font-medium">Đã mở cho SV làm bài</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <FileCheck size={20} />
@@ -121,7 +121,7 @@ export default function TeacherDashboard() {
                   <Database size={16} />
                 </div>
                 <p className="text-xs font-semibold text-gray-900 group-hover:text-blue-600">Ngân Hàng Câu Hỏi</p>
-                <p className="text-[10px] text-gray-400">Soạn tay & AI</p>
+                <p className="text-xs text-gray-400">Soạn tay & AI</p>
               </button>
 
               <button
@@ -132,7 +132,7 @@ export default function TeacherDashboard() {
                   <AlertCircle size={16} />
                 </div>
                 <p className="text-xs font-semibold text-gray-900 group-hover:text-rose-600">Rà Soát Câu Hỏi</p>
-                <p className="text-[10px] text-gray-400">Kiểm tra chất lượng</p>
+                <p className="text-xs text-gray-400">Kiểm tra chất lượng</p>
               </button>
 
               <button
@@ -143,7 +143,7 @@ export default function TeacherDashboard() {
                   <Layers size={16} />
                 </div>
                 <p className="text-xs font-semibold text-gray-900 group-hover:text-indigo-600">Sinh Đề Tự Động</p>
-                <p className="text-[10px] text-gray-400">Theo tiêu chí</p>
+                <p className="text-xs text-gray-400">Theo tiêu chí</p>
               </button>
 
               <button
@@ -154,7 +154,7 @@ export default function TeacherDashboard() {
                   <FileText size={16} />
                 </div>
                 <p className="text-xs font-semibold text-gray-900 group-hover:text-blue-600">Quản Lý Bài Thi</p>
-                <p className="text-[10px] text-gray-400">Cấu hình & công bố</p>
+                <p className="text-xs text-gray-400">Cấu hình & công bố</p>
               </button>
 
               <button
@@ -165,7 +165,7 @@ export default function TeacherDashboard() {
                   <ShieldAlert size={16} />
                 </div>
                 <p className="text-xs font-semibold text-gray-900 group-hover:text-amber-600">Giám Sát Ca Thi</p>
-                <p className="text-[10px] text-gray-400">Live Proctoring</p>
+                <p className="text-xs text-gray-400">Live Proctoring</p>
               </button>
 
               <button
@@ -176,7 +176,7 @@ export default function TeacherDashboard() {
                   <FileSpreadsheet size={16} />
                 </div>
                 <p className="text-xs font-semibold text-gray-900 group-hover:text-emerald-600">Thống Kê Phổ Điểm</p>
-                <p className="text-[10px] text-gray-400">Xuất điểm bài thi</p>
+                <p className="text-xs text-gray-400">Xuất điểm bài thi</p>
               </button>
             </div>
           </div>
@@ -186,7 +186,7 @@ export default function TeacherDashboard() {
             {/* Active Courses */}
             <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-gray-900">Lớp Học Phần Đang Phụ Trách</h2>
+                <h2 className="text-xs font-bold text-gray-900">Lớp Học Phần Đang Phụ Trách</h2>
                 <button
                   onClick={() => navigate('/teacher/courses')}
                   className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-medium"
@@ -209,7 +209,7 @@ export default function TeacherDashboard() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="text-xs font-bold text-gray-900 hover:text-blue-600">{course.subjectName}</h3>
-                          <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 rounded-md">
+                          <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-md">
                             {course.courseCode}
                           </span>
                         </div>
@@ -238,17 +238,17 @@ export default function TeacherDashboard() {
                 <div className="p-3 bg-rose-50/70 border border-rose-100 rounded-xl space-y-1">
                   <div className="flex justify-between items-center text-xs font-bold text-rose-800">
                     <span>Phạm Đức Anh (SV2026003)</span>
-                    <span className="text-[10px] text-rose-600 font-mono">10:14:20</span>
+                    <span className="text-xs text-rose-600 font-mono">10:14:20</span>
                   </div>
-                  <p className="text-[11px] text-rose-700">Webcam không phát hiện khuôn mặt quá 15 giây.</p>
+                  <p className="text-xs text-rose-700">Webcam không phát hiện khuôn mặt quá 15 giây.</p>
                 </div>
 
                 <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-xl space-y-1">
                   <div className="flex justify-between items-center text-xs font-bold text-amber-800">
                     <span>Trần Minh Nam (SV2026001)</span>
-                    <span className="text-[10px] text-amber-600 font-mono">10:12:05</span>
+                    <span className="text-xs text-amber-600 font-mono">10:12:05</span>
                   </div>
-                  <p className="text-[11px] text-amber-700">Phát hiện chuyển tab trình duyệt ra ngoài.</p>
+                  <p className="text-xs text-amber-700">Phát hiện chuyển tab trình duyệt ra ngoài.</p>
                 </div>
               </div>
 
