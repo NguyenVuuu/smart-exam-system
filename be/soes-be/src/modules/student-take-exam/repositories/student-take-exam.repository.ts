@@ -242,3 +242,80 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
     return attempt
   })
 }
+
+// ─── API 5: Get Attempt Status ────────────────────────────────────────────────
+
+export interface AttemptStatusData {
+  id:             string
+  examId:         string
+  studentId:      string
+  status:         string
+  startedAt:      Date
+  attemptEndAt:   Date
+  submittedAt:    Date | null
+  endedBy:        string | null
+  lastSavedAt:    Date | null
+  examSession:    { lastHeartbeat: Date } | null
+  _count: {
+    studentAnswers:   number
+    attemptQuestions: number
+  }
+}
+
+/**
+ * Loads an ExamAttempt with session and counts needed for API 5 (Get Attempt Status).
+ * Returns null when the attempt does not exist, does not belong to the given examId,
+ * or does not belong to the given studentId.
+ */
+export async function findAttemptStatus(
+  attemptId: string,
+  examId:    string,
+  studentId: string,
+): Promise<AttemptStatusData | null> {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      id:           true,
+      examId:       true,
+      studentId:    true,
+      status:       true,
+      startedAt:    true,
+      attemptEndAt: true,
+      submittedAt:  true,
+      endedBy:      true,
+      lastSavedAt:  true,
+      // One-to-one: ExamAttempt -> ExamSession
+      examSession: {
+        select: { lastHeartbeat: true },
+      },
+      // Count StudentAnswer records for this attempt
+      _count: {
+        select: {
+          studentAnswers:   true,
+          attemptQuestions: true,
+        },
+      },
+    },
+  })
+
+  if (!attempt)                         return null
+  if (attempt.examId    !== examId)     return null
+  if (attempt.studentId !== studentId)  return null
+
+  return {
+    id:           attempt.id,
+    examId:       attempt.examId,
+    studentId:    attempt.studentId,
+    status:       attempt.status,
+    startedAt:    attempt.startedAt,
+    attemptEndAt: attempt.attemptEndAt,
+    submittedAt:  attempt.submittedAt,
+    endedBy:      attempt.endedBy,
+    lastSavedAt:  attempt.lastSavedAt,
+    examSession:  attempt.examSession,
+    _count: {
+      studentAnswers:   attempt._count.studentAnswers,
+      attemptQuestions: attempt._count.attemptQuestions,
+    },
+  }
+}

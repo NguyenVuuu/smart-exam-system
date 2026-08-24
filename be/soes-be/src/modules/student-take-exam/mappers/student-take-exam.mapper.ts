@@ -1,5 +1,5 @@
-import type { StartExamResult, ExamContentResult, SubmitExamResult } from '../types'
-import type { StartExamResponseDto, GetExamContentResponseDto, SaveAnswerResponseDto, SubmitExamResponseDto } from '../dtos/student-take-exam.dto'
+import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult } from '../types'
+import type { StartExamResponseDto, GetExamContentResponseDto, SaveAnswerResponseDto, SubmitExamResponseDto, GetAttemptStatusResponseDto } from '../dtos/student-take-exam.dto'
 
 export function toStartExamResponseDto(result: StartExamResult): StartExamResponseDto {
   return {
@@ -41,5 +41,23 @@ export function toSubmitExamResponseDto(result: SubmitExamResult): SubmitExamRes
   return {
     attemptId:   result.attemptId,
     submittedAt: result.submittedAt.toISOString(),
+  }
+}
+
+// ─── API 5: Get Attempt Status ────────────────────────────────────────────────
+
+export function toGetAttemptStatusResponseDto(result: AttemptStatusResult): GetAttemptStatusResponseDto {
+  return {
+    attemptId:          result.attemptId,
+    status:             result.status,
+    startedAt:          result.startedAt.toISOString(),
+    attemptEndAt:       result.attemptEndAt.toISOString(),
+    submittedAt:        result.submittedAt ? result.submittedAt.toISOString() : null,
+    endedBy:            result.endedBy,
+    remainingSeconds:   result.remainingSeconds,
+    lastSavedAt:        result.lastSavedAt ? result.lastSavedAt.toISOString() : null,
+    isOnline:           result.isOnline,
+    answeredCount:      result.answeredCount,
+    totalQuestionCount: result.totalQuestionCount,
   }
 }

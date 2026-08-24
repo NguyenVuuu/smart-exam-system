@@ -1,6 +1,7 @@
 import { ConflictError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import prisma from "../../../lib/prisma";
-import type { StartExamResult, ExamContentResult, SubmitExamResult } from "../types";
+import { examConfig } from "../../../config";
+import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult } from "../types";
 import * as repo from "../repositories/student-take-exam.repository";
 
 export async function startExam(
@@ -415,4 +416,46 @@ export async function submitExam(
 
   // Catch-all: IN_PROGRESS but now >= attemptEndAt, or any other terminal state
   throw new ConflictError('Exam attempt has ended');
+}
+
+// ─── API 5: Get Attempt Status ────────────────────────────────────────────────
+
+export async function getAttemptStatus(
+  examId:    string,
+  attemptId: string,
+  studentId: string,
+): Promise<AttemptStatusResult> {
+  // ── 1. Load attempt with session + counts (ownership validated in repo) ───
+  const data = await repo.findAttemptStatus(attemptId, examId, studentId)
+  if (!data) {
+    throw new NotFoundError('Attempt not found')
+  }
+
+  // ── 2. Compute remainingSeconds realtime from attemptEndAt ────────────────
+  // Contract: IN_PROGRESS → realtime calc; SUBMITTED / EXPIRED → 0
+  const now = new Date()
+
+  const remainingSeconds =
+    data.status === 'IN_PROGRESS'
+      ? Math.max(0, Math.floor((data.attemptEndAt.getTime() - now.getTime()) / 1000))
+      : 0
+
+  // ── 3. Compute isOnline from lastHeartbeat (NOT from ExamSession.isOnline) ─
+  // ExamSession.isOnline is intentionally ignored per contract section 9.
+  const isOnline: boolean = data.examSession !== null
+    && (now.getTime() - data.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+
+  return {
+    attemptId:          data.id,
+    status:             data.status,
+    startedAt:          data.startedAt,
+    attemptEndAt:       data.attemptEndAt,
+    submittedAt:        data.submittedAt,
+    endedBy:            data.endedBy,
+    remainingSeconds,
+    lastSavedAt:        data.lastSavedAt,
+    isOnline,
+    answeredCount:      data._count.studentAnswers,
+    totalQuestionCount: data._count.attemptQuestions,
+  }
 }

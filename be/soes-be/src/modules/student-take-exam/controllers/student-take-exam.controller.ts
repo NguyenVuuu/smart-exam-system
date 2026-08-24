@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { examParamsSchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema } from '../validators/student-take-exam.validator'
-import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto } from '../mappers/student-take-exam.mapper'
+import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -79,6 +79,25 @@ export async function submitExam(req: Request, res: Response, next: NextFunction
       success: true,
       message: 'Exam submitted successfully',
       data:    toSubmitExamResponseDto(result),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ─── API 5: Get Attempt Status ────────────────────────────────────────────────
+
+export async function getAttemptStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { examId, attemptId } = examAttemptParamsSchema.parse(req.params)
+    const studentId             = req.user!.profileId
+
+    const result = await takeExamService.getAttemptStatus(examId, attemptId, studentId)
+
+    res.status(200).json({
+      success: true,
+      message: 'Attempt status loaded successfully',
+      data:    toGetAttemptStatusResponseDto(result),
     })
   } catch (err) {
     next(err)

@@ -37,5 +37,13 @@ router.post(
   takeExamController.submitExam,
 )
 
+// GET /api/student/exams/:examId/attempts/:attemptId/status
+router.get(
+  '/exams/:examId/attempts/:attemptId/status',
+  authenticate,
+  requireStudent(),
+  takeExamController.getAttemptStatus,
+)
+
 export default router
 
