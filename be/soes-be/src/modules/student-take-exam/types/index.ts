@@ -49,3 +49,19 @@ export interface SubmitExamResult {
   attemptId:   string
   submittedAt: Date
 }
+
+// ─── API 5: Get Attempt Status ────────────────────────────────────────────────
+
+export interface AttemptStatusResult {
+  attemptId:          string
+  status:             string
+  startedAt:          Date
+  attemptEndAt:       Date
+  submittedAt:        Date | null
+  endedBy:            string | null
+  remainingSeconds:   number
+  lastSavedAt:        Date | null
+  isOnline:           boolean
+  answeredCount:      number
+  totalQuestionCount: number
+}
