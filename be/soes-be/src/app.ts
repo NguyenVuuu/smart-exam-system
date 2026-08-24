@@ -7,17 +7,16 @@ import { studentDashboardRoutes } from './modules/student-dashboard'
 import { studentSubjectsRoutes } from './modules/student-subjects'
 import { studentCourseDetailRoutes } from './modules/student-course-detail'
 import { studentTakeExamRoutes } from './modules/student-take-exam'
+import { corsConfig } from './config'
 
 const app = express()
-
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173').split(',')
 
 // ── Core Middlewares ──────────────────────────────────────
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. curl, Postman)
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      if (!origin || corsConfig.allowedOrigins.includes(origin)) {
         callback(null, true)
       } else {
         callback(new Error(`CORS blocked: ${origin}`))
