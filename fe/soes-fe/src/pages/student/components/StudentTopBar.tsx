@@ -1,15 +1,39 @@
-import { ChevronDown, UserCircle } from 'lucide-react'
-import { useAuthStore } from '../../../store/authStore'
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, UserCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useLogout } from '../../../auth/hooks/useLogout'
-import { useState } from 'react'
+import { useAuthStore } from '../../../store/authStore'
+import { persistentStudentIsCollapsed } from './StudentSidebar'
 
 export default function StudentTopBar() {
   const user = useAuthStore((s) => s.user)
   const { logout } = useLogout()
   const [open, setOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => persistentStudentIsCollapsed)
+
+  useEffect(() => {
+    const handleToggle = () => {
+      setIsSidebarCollapsed((prev) => !prev)
+    }
+    window.addEventListener('toggle-sidebar', handleToggle)
+    return () => window.removeEventListener('toggle-sidebar', handleToggle)
+  }, [])
 
   return (
-    <header className="h-14 bg-white border-b border-gray-100 flex items-center justify-end px-6 relative">
+    <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 relative shrink-0">
+      {/* Left side: Pure Icon-Only Sidebar Toggle button */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
+          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center justify-center"
+          title={isSidebarCollapsed ? 'Mở rộng menu thanh bên' : 'Thu gọn menu thanh bên'}
+        >
+          {isSidebarCollapsed ? (
+            <PanelLeftOpen size={20} className="text-blue-600" />
+          ) : (
+            <PanelLeftClose size={20} />
+          )}
+        </button>
+      </div>
       <div className="relative">
         <button
           onClick={() => setOpen((p) => !p)}

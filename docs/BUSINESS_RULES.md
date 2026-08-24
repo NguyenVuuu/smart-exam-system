@@ -170,7 +170,9 @@ Quy tắc:
 
 Sinh viên **không tự đăng ký** lớp học phần.
 
-Sinh viên được thêm vào lớp học phần bởi ADMIN hoặc TEACHER.
+Sinh viên được thêm vào lớp học phần bởi ADMIN.
+
+Trong phạm vi hệ thống thi trực tuyến, giảng viên chỉ xem danh sách sinh viên đã được ghi danh để giao bài thi, theo dõi làm bài và xem kết quả. Giảng viên không tự thêm, xóa hoặc nhập danh sách sinh viên vào lớp học phần, nhằm tránh sai lệch dữ liệu đào tạo chính thức.
 
 Quy tắc:
 
@@ -188,15 +190,15 @@ Các phương thức hỗ trợ:
 
 ### Thêm thủ công
 
-Giảng viên hoặc quản trị viên tìm kiếm sinh viên theo mã số sinh viên và thêm trực tiếp vào lớp học phần.
+Quản trị viên tìm kiếm sinh viên theo mã số sinh viên và thêm trực tiếp vào lớp học phần.
 
 ### Nhập từ tệp Excel
 
-Giảng viên hoặc quản trị viên tải lên tệp Excel chứa danh sách sinh viên.
+Quản trị viên tải lên tệp Excel chứa danh sách sinh viên.
 
 ### Nhập từ tệp CSV
 
-Giảng viên hoặc quản trị viên tải lên tệp CSV chứa danh sách sinh viên.
+Quản trị viên tải lên tệp CSV chứa danh sách sinh viên.
 
 Hệ thống phải kiểm tra tính hợp lệ của dữ liệu nhập và thông báo các bản ghi không hợp lệ.
 
@@ -382,9 +384,11 @@ Mỗi đề thi phải lưu loại đề thi để phục vụ:
 
 ## BR-14: Phương thức tạo đề thi
 
-Giảng viên có thể tạo đề thi bằng một hoặc nhiều phương thức.
+Giảng viên có thể tạo đề thi trong phạm vi lớp học phần mình phụ trách bằng một hoặc nhiều phương thức.
 
-Giảng viên có thể lưu đề nháp(DRAFT), công bố đề thi(PUBLISHED), đóng đề thi(CLOSED)
+Giảng viên có thể lưu đề nháp (DRAFT), công bố đề thi (PUBLISHED), đóng đề thi (CLOSED).
+
+Trong phạm vi MVP, đề thi không cần quản trị viên phê duyệt trước khi công bố. Trách nhiệm kiểm tra nội dung, cấu hình thời gian, cấu hình chống gian lận và danh sách câu hỏi thuộc về giảng viên phụ trách lớp học phần.
 
 ### Phương thức 1
 
@@ -393,6 +397,8 @@ Tạo câu hỏi thủ công.
 ### Phương thức 2
 
 Chọn câu hỏi từ ngân hàng câu hỏi.
+
+Với câu hỏi lập trình, giảng viên nên chọn thủ công các câu đã có đầy đủ test case, expected output, giới hạn thời gian/bộ nhớ và trọng số chấm điểm.
 
 ### Phương thức 3
 
@@ -409,9 +415,15 @@ Mỗi đề thi phải lưu lại phương thức tạo đề:
 - QUESTION_BANK:
   Giáo viên chọn câu hỏi từ ngân hàng.
 - AI_GENERATED:
-  Đề thi được tạo từ câu hỏi AI.
+  Đề thi được tạo từ câu hỏi AI đã được giảng viên xem xét/chấp nhận.
 - MIXED:
   Kết hợp nhiều nguồn câu hỏi.
+
+Sinh đề tự động:
+- Trong phạm vi MVP, chức năng sinh đề tự động chỉ bốc câu hỏi trắc nghiệm từ ngân hàng câu hỏi theo môn học và độ khó.
+- Hệ thống phải kiểm tra đủ số lượng câu hỏi theo từng độ khó trước khi sinh đề.
+- Câu hỏi lập trình không được tự động bốc theo số lượng vì cần giảng viên kiểm tra test case và cấu hình chấm.
+- Nếu đề có câu lập trình, giảng viên tạo/chọn câu lập trình thủ công rồi hệ thống chỉ dùng phần xáo trộn/phiên bản sau khi nội dung đã được kiểm tra.
 
 ---
 
@@ -421,6 +433,8 @@ Quy tắc:
 
 - Mỗi đề thi chỉ thuộc một lớp học phần.
 - Chỉ các đề thi đã được công bố mới hiển thị cho sinh viên.
+- Đề thi ở trạng thái DRAFT chỉ hiển thị cho giảng viên để xem trước, chỉnh sửa hoặc xóa.
+- Khi công bố, hệ thống khóa cấu hình chính của đề thi để đảm bảo tính nhất quán cho sinh viên.
 - Giảng viên cấu hình:
   - Thời gian bắt đầu
   - Thời gian kết thúc
@@ -434,6 +448,9 @@ Quy tắc:
 
 Quy tắc:
 
+- Với thi trực tuyến, không bắt buộc sinh viên phải nhập mã đề. Hệ thống tự gán phiên bản đề hoặc thứ tự xáo trộn khi sinh viên bắt đầu làm bài.
+- Một đề thi có thể có một hoặc nhiều phiên bản đề để phục vụ xem trước, in ấn hoặc gán tự động.
+- Các phiên bản đề trong phạm vi MVP dùng cùng một bộ câu hỏi, khác thứ tự câu hỏi và/hoặc thứ tự đáp án.
 - Thứ tự câu hỏi phải được xáo trộn cho từng sinh viên.
 - Thứ tự đáp án phải được xáo trộn.
 - Mỗi sinh viên có thể nhận được thứ tự câu hỏi khác nhau.
@@ -610,14 +627,19 @@ Giảng viên có thể ghi đè điểm do hệ thống chấm tự động.
 
 ## BR-31: Công bố kết quả
 
-Sinh viên chỉ được xem kết quả sau khi giảng viên công bố bằng cách set `Exam.result_published = true`.
+Giảng viên cấu hình cách hiển thị điểm cho sinh viên ở cấp bài thi.
 
 Quy tắc:
 
+- Hệ thống hỗ trợ 3 chế độ hiển thị điểm:
+  - `IMMEDIATE`: Sinh viên thấy điểm ngay sau khi nộp bài và hệ thống chấm xong.
+  - `MANUAL`: Sinh viên chưa thấy điểm cho đến khi giảng viên công bố.
+  - `SCHEDULED`: Sinh viên thấy điểm sau thời điểm công bố đã cấu hình.
+- Với bài có câu lập trình, tự luận hoặc cần rà soát vi phạm, nên dùng `MANUAL` hoặc `SCHEDULED`.
 - Việc công bố điểm áp dụng cho toàn bộ sinh viên tham gia bài thi.
 - Không có trường hợp một sinh viên thấy điểm và sinh viên khác không thấy điểm trong cùng một bài thi.
 - Publish điểm áp dụng toàn bộ sinh viên trong Course Offering.
-- Student không thấy điểm khi `Exam.result_published = false`.
+- Student không thấy điểm khi chưa thỏa điều kiện hiển thị điểm của bài thi.
 
 ---
 
@@ -667,19 +689,22 @@ Nhật ký hệ thống phải được lưu trữ để phục vụ công tác 
 
 # 14. Quy tắc hiển thị điểm số
 - Giáo viên có thể xem tất cả điểm số.
-- Học sinh chỉ có thể xem các điểm số đã được công bố.
+- Học sinh chỉ có thể xem điểm khi bài thi thỏa chế độ hiển thị điểm đã cấu hình.
 - Việc công bố điểm áp dụng cho toàn bộ bài thi/lớp học.
-- Các số liệu thống kê trên bảng điều khiển chỉ tính toán dựa trên những điểm số đã được công bố.
+- Các số liệu thống kê trên bảng điều khiển chỉ tính toán dựa trên những điểm số đã đủ điều kiện hiển thị.
 
 # 15. Các quy tắc quản lý điểm số
-- Điểm chỉ hiển thị khi Exam.resultPublished = true.
+- Điểm chỉ hiển thị khi:
+    `resultReleaseMode = IMMEDIATE` và bài đã được chấm xong; hoặc
+    `resultReleaseMode = MANUAL` và giảng viên đã công bố; hoặc
+    `resultReleaseMode = SCHEDULED` và đã đến thời điểm công bố.
 - Việc công bố điểm áp dụng cho toàn bộ sinh viên tham gia bài thi.
 - Không có trường hợp một sinh viên thấy điểm và sinh viên khác không thấy điểm trong cùng một bài thi.
 - Publish điểm áp dụng toàn bộ sinh viên trong Course Offering.
-- Student không thấy điểm khi `Exam.result_published = false`.
+- Student không thấy điểm khi chưa thỏa điều kiện hiển thị điểm.
 - Quiz:
     Có nhiều bài kiểm tra.
-    Chỉ tính trung bình các Quiz đã publish (`result_published = true`).
+    Chỉ tính trung bình các Quiz đã đủ điều kiện hiển thị điểm.
 - Midterm:
     Chỉ có một điểm.
     Không tính trung bình.
@@ -687,6 +712,6 @@ Nhật ký hệ thống phải được lưu trữ để phục vụ công tác 
     Chỉ có một điểm.
     Không tính trung bình.
 - Dashboard:
-    Không hiển thị môn chưa có điểm publish (`result_published = true`).
+    Không hiển thị môn chưa có điểm đủ điều kiện hiển thị.
     Không hiển thị giá trị null/0 thay thế.
     Chỉ render dữ liệu có published score.
