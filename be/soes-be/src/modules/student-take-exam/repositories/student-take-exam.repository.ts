@@ -60,6 +60,7 @@ export async function findAttemptWithContent(
       examId:    true,
       studentId: true,
       startedAt: true,
+      attemptEndAt: true,
       status:    true,
       exam: {
         select: {
@@ -78,7 +79,6 @@ export async function findAttemptWithContent(
               id:      true,
               content: true,
               type:    true,
-              points:  true,
               // isCorrect on options intentionally NOT selected — never expose to student
               options: {
                 select: {
@@ -100,9 +100,9 @@ export async function findAttemptWithContent(
   if (attempt.studentId !== studentId)  return null
 
   // fetch points per question in one query (points live on ExamQuestion, not Question)
-  const questionIds = attempt.attemptQuestions.map((aq) => aq.examQuestion.id)
+  // Use examQuestion.id as key since ExamQuestion is the entity that holds points
   const examQuestions = await prisma.examQuestion.findMany({
-    where:  { examId, id: { in: questionIds } },
+    where:  { examId, id: { in: attempt.attemptQuestions.map((aq) => aq.examQuestion.id) } },
     select: { id: true, points: true },
   })
   const pointsMap = new Map(examQuestions.map((eq) => [eq.id, Number(eq.points)]))
@@ -192,6 +192,17 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       },
     })
 
+    // ── Fetch all options for shuffling if exam.shuffleOptions is true ─────
+    const examQuestionsWithOptions = await tx.examQuestion.findMany({
+      where: { examId },
+      select: {
+        id: true,
+        options: {
+          select: { id: true }
+        }
+      }
+    })
+
     // ── Create ExamAttemptQuestion snapshot ───────────────────────────────
     // Apply shuffle when the exam is configured to do so; otherwise preserve
     // the stable ordering determined above.
@@ -199,17 +210,112 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       ? shuffleArray([...examQuestions])
       : examQuestions
 
+    // Check if options should be shuffled (needs exam info)
+    const examDetails = await tx.exam.findUnique({
+      where: { id: examId },
+      select: { shuffleOptions: true }
+    })
+    const shuffleOptions = examDetails?.shuffleOptions ?? false
+
     if (orderedQuestions.length > 0) {
       await tx.examAttemptQuestion.createMany({
-        data: orderedQuestions.map((eq, index) => ({
-          attemptId:     attempt.id,
-          examQuestionId: eq.id,
-          displayOrder:  index + 1,
-          shuffledOptionIds: [],
-        })),
+        data: orderedQuestions.map((eq, index) => {
+          // Find options for this exam question
+          const eqWithOpts = examQuestionsWithOptions.find(q => q.id === eq.id)
+          const optionIds = eqWithOpts?.options?.map(o => o.id) ?? []
+          
+          // Shuffle options if configured
+          const shuffledOptionIds = optionIds.length > 0 && shuffleOptions
+            ? shuffleArray([...optionIds])
+            : optionIds
+
+          return {
+            attemptId:     attempt.id,
+            examQuestionId: eq.id,
+            displayOrder:  index + 1,
+            shuffledOptionIds: shuffledOptionIds,
+          }
+        }),
       })
     }
 
     return attempt
   })
+}
+
+// ─── API 5: Get Attempt Status ────────────────────────────────────────────────
+
+export interface AttemptStatusData {
+  id:             string
+  examId:         string
+  studentId:      string
+  status:         string
+  startedAt:      Date
+  attemptEndAt:   Date
+  submittedAt:    Date | null
+  endedBy:        string | null
+  lastSavedAt:    Date | null
+  examSession:    { lastHeartbeat: Date } | null
+  _count: {
+    studentAnswers:   number
+    attemptQuestions: number
+  }
+}
+
+/**
+ * Loads an ExamAttempt with session and counts needed for API 5 (Get Attempt Status).
+ * Returns null when the attempt does not exist, does not belong to the given examId,
+ * or does not belong to the given studentId.
+ */
+export async function findAttemptStatus(
+  attemptId: string,
+  examId:    string,
+  studentId: string,
+): Promise<AttemptStatusData | null> {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      id:           true,
+      examId:       true,
+      studentId:    true,
+      status:       true,
+      startedAt:    true,
+      attemptEndAt: true,
+      submittedAt:  true,
+      endedBy:      true,
+      lastSavedAt:  true,
+      // One-to-one: ExamAttempt -> ExamSession
+      examSession: {
+        select: { lastHeartbeat: true },
+      },
+      // Count StudentAnswer records for this attempt
+      _count: {
+        select: {
+          studentAnswers:   true,
+          attemptQuestions: true,
+        },
+      },
+    },
+  })
+
+  if (!attempt)                         return null
+  if (attempt.examId    !== examId)     return null
+  if (attempt.studentId !== studentId)  return null
+
+  return {
+    id:           attempt.id,
+    examId:       attempt.examId,
+    studentId:    attempt.studentId,
+    status:       attempt.status,
+    startedAt:    attempt.startedAt,
+    attemptEndAt: attempt.attemptEndAt,
+    submittedAt:  attempt.submittedAt,
+    endedBy:      attempt.endedBy,
+    lastSavedAt:  attempt.lastSavedAt,
+    examSession:  attempt.examSession,
+    _count: {
+      studentAnswers:   attempt._count.studentAnswers,
+      attemptQuestions: attempt._count.attemptQuestions,
+    },
+  }
 }

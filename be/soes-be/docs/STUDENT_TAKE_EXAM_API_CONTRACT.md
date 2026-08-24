@@ -1,17 +1,20 @@
 # Student Take Exam API Contract
 
+ExamAttempt
+- attemptEndAt: authoritative deadline
+- remainingSeconds: snapshot lúc start, chỉ phục vụ initialization/debug, không dùng để xác định deadline
+
+API response:
+remainingSeconds = max(0, floor((attemptEndAt - now) / 1000))
+
 ## Mục đích
-
 Cung cấp các API phục vụ chức năng sinh viên tham gia làm bài thi online.
-
 Chức năng bao gồm:
-
 - Bắt đầu bài thi.
 - Lấy dữ liệu bài thi.
 - Lưu câu trả lời trong quá trình làm bài.
 - Nộp bài thi.
 - Xem trạng thái bài làm.
-
 ---
 
 # Base URL
@@ -72,16 +75,17 @@ Request Body: None
 | `attemptId` | ID lần làm bài |
 | `startedAt` | Thời điểm Student bắt đầu attempt |
 | `remainingSeconds` | Thời gian còn lại của attempt |
-| `attemptEndAt` | Thời điểm attempt thực tế kết thúc, được tính từ startedAt, Exam.durationMinutes và Exam.endTime |
+| `attemptEndAt` | Thời điểm attempt thực tế kết thúc (authoritative deadline), được lưu trong DB khi start exam. Tính từ `min(startedAt + Exam.durationMinutes, Exam.endTime)` |
 
 ## Status Codes
 
 | Code | Description |
 |------|-------------|
 | 200 | Thành công |
+| 400 | Không hợp lệ |
 | 401 | Không đăng nhập |
 | 403 | Không có quyền |
-| 404 | Không tìm thấy bài thi |
+| 404 | Attemp not found |
 | 409 | Không thể bắt đầu bài thi |
 
 ## Chi tiết các lỗi ra 409
@@ -92,7 +96,7 @@ Request Body: None
 - Nếu Student đã có bất kỳ ExamAttempt nào cho Exam:
     → không tạo ExamAttempt mới.
     → trả 409.
-- Nếu Student đã tồn tại ExamAttempt cho Exam, bất kể trạng thái IN_PROGRESS, SUBMITTED, TIMEOUT hoặc trạng thái kết thúc khác, hệ thống không tạo attempt mới và trả về 409.
+- Nếu Student đã tồn tại ExamAttempt cho Exam, bất kể trạng thái IN_PROGRESS, SUBMITTED, EXPIRED hoặc trạng thái kết thúc khác, hệ thống không tạo attempt mới và trả về 409.
 
 ## Business Rules
 
@@ -636,6 +640,7 @@ Lấy nội dung bài thi để sinh viên làm bài.
     "title": "Giữa kỳ",
     "durationMinutes": 60,
     "remainingSeconds": 3000,
+    "attemptEndAt": "2026-08-10T11:00:00.000Z",
     "questions": [
       {
         "id": "question-uuid-1",
@@ -669,6 +674,7 @@ Lấy nội dung bài thi để sinh viên làm bài.
     "title": "Giữa kỳ",
     "durationMinutes": 60,
     "remainingSeconds": 3000,
+    "attemptEndAt": "2026-08-10T11:00:00.000Z",
     "questions": [
       {
         "id": "question-uuid-2",
@@ -690,7 +696,8 @@ Lấy nội dung bài thi để sinh viên làm bài.
 | `attemptId` | ID lần làm bài |
 | `title` | Tên bài thi |
 | `durationMinutes` | Thời lượng bài thi |
-| `remainingSeconds` | Thời gian còn lại |
+| `remainingSeconds` | Thời gian còn lại (tính theo thời gian hiện tại từ `attemptEndAt`) |
+| `attemptEndAt` | Thời điểm kết thúc thực tế (authoritative deadline), được lưu trong DB khi tạo attempt |
 | `questions` | Danh sách câu hỏi |
 | `content` | Nội dung câu hỏi |
 | `points` | Điểm câu hỏi |
@@ -702,9 +709,10 @@ Lấy nội dung bài thi để sinh viên làm bài.
 | Code | Description |
 |------|-------------|
 | 200 | Thành công |
+| 400 | Không hợp lệ |
 | 401 | Không đăng nhập |
 | 403 | Role không phải STUDENT |
-| 404 | Exam/Attempt không tồn tại, hoặc attempt không thuộc Student/exam |
+| 404 | Attemp not found |
 | 409 | Attempt đã kết thúc / không thể tiếp tục làm bài |
 
 ## Business Rules
@@ -721,16 +729,10 @@ Lấy nội dung bài thi để sinh viên làm bài.
 - Chỉ trả về các câu hỏi thuộc attempt hiện tại.
 - Không trả về đáp án đúng hoặc dữ liệu phục vụ chấm điểm mà Student không cần biết.
 - Chỉ trả về các trường dữ liệu cần thiết cho giao diện làm bài.
-- `attemptEndAt` là authoritative deadline được lưu trong DB khi tạo attempt.
-- attemptEndAt được tính từ `min(startedAt + exam.durationMinutes, exam.endTime)` tại thời điểm start.
-- `remainingSeconds` là snapshot được lưu trong DB khi tạo attempt. Giá trị này KHÔNG được cập nhật trong quá trình attempt.
-- Mỗi khi cần hiển thị countdown, client phải tính lại remainingSeconds từ `max(0, floor((attemptEndAt - now) / 1000))`.
-- Giá trị `ExamAttempt.remainingSeconds` chỉ dùng để khởi tạo countdown ban đầu, không dùng làm thời gian thực tế.
-- Nếu attempt đã hết thời gian, Student không được tiếp tục làm bài.
-      Nếu now >= attemptEndAt:
-      → không trả nội dung bài thi
-      → trả 409
-      → message: "Exam attempt has ended"
+- `attemptEndAt` là authoritative deadline được lưu trong DB khi tạo attempt. Giá trị này được tính từ `min(startedAt + exam.durationMinutes, exam.endTime)` tại thời điểm start exam và KHÔNG được cập nhật sau đó.
+- `remainingSeconds` là snapshot được lưu trong DB khi tạo attempt. Giá trị này chỉ dùng để khởi tạo countdown ban đầu cho client. Clients phải tính lại `remainingSeconds` trên mỗi API call dựa trên thời gian hiện tại: `max(0, floor((attemptEndAt - now) / 1000))`.
+- Nếu attempt đã hết thời gian (`now >= attemptEndAt`), Student không được tiếp tục làm bài.
+- Trả HTTP 409 với message: "Exam attempt has ended"
 
 - Ví dụ API 1 tạo:
     ExamAttemptQuestion
@@ -816,6 +818,7 @@ Authorization: Bearer {{studentToken}}
     "title": "Giữa kỳ",
     "durationMinutes": 60,
     "remainingSeconds": 3580,
+    "attemptEndAt": "2026-08-10T11:00:00.000Z",
     "questions": [
       {
         "id": "question-uuid-1",
@@ -1230,9 +1233,16 @@ pm.test("No isCorrect field in any option", () => {
 ```
 PUT /api/student/exams/:examId/attempts/:attemptId/answers
 ```
-
 ## Mục đích
-Lưu câu trả lời trong quá trình sinh viên làm bài.
+- Lưu hoặc cập nhật câu trả lời hiện tại của Student trong quá trình làm bài.
+- API này chỉ lưu đáp án/nháp, không thực hiện chấm điểm và không tạo ProgrammingSubmission.
+
+## Mapping theo Question Type
+| Question Type     | Lưu vào `StudentAnswer`                           |
+| ----------------- | ------------------------------------------------- |
+| `SINGLE_CHOICE`   | `selectedOptionIds = [optionId]`                  |
+| `MULTIPLE_CHOICE` | `selectedOptionIds = [optionId1, optionId2, ...]` |
+| `PROGRAMMING`     | `draftSourceCode = sourceCode`                    |
 
 ## Authentication
 | Type | Header | Value |
@@ -1240,141 +1250,1522 @@ Lưu câu trả lời trong quá trình sinh viên làm bài.
 | Bearer Token | Authorization | `Bearer <access_token>` |
 
 ## Authorization
-
-- Role: `STUDENT`
-- attemptId phải thuộc examId được truyền trên URL.
+- Role: STUDENT.
+- attemptId phải tồn tại.
+- attemptId phải thuộc examId trên URL.
+- attempt.studentId phải bằng studentId của access token.
+- Student không được lưu answer vào attempt của Student khác.
+- Nếu attempt không tồn tại, không thuộc exam hoặc không thuộc Student hiện tại → trả 404.
 
 ## Request
-
 ```json
 {
   "questionId": "question-uuid",
   "answer": "option-uuid"
 }
 ```
+- answer là dữ liệu polymorphic, phụ thuộc vào loại câu hỏi.
+
+### Answer format theo loại câu hỏi:
+| Question Type     | `answer` type | Ví dụ                                |
+| ----------------- | ------------- | ------------------------------------ |
+| `SINGLE_CHOICE`   | `string`      | `"option-uuid-1"`                    |
+| `MULTIPLE_CHOICE` | `string[]`    | `["option-uuid-1", "option-uuid-2"]` |
+| `PROGRAMMING`     | `string`      | `"public class Main { ... }"`        |
 
 ## Response
-
 ```json
 {
   "success": true,
-  "message": "Answer saved successfully"
+  "message": "Answer saved successfully",
+  "data": {
+    "questionId": "question-uuid",
+    "remainingSeconds": 3520
+  }
 }
 ```
 
 ## Response Fields
 | Field | Description |
 |-------|------|
+| `questionId`       | Question vừa được lưu |
+| `remainingSeconds` | Thời gian còn lại được tính realtime từ `attemptEndAt` |
 
 ## Status Codes
 | Code | Description |
 |------|-------------|
 | 200 | Thành công |
+| 400 | Không hợp lệ |
 | 401 | Không đăng nhập |
 | 403 | Không có quyền |
-| 404 | Không tìm thấy attempt |
+| 404 | Attemp not found |
 | 409 | Attempt đã kết thúc |
+
+## Answer format
+| Question Type     | `answer` type | Ví dụ                                |
+| ----------------- | ------------- | ------------------------------------ |
+| `SINGLE_CHOICE`   | `string`      | `"option-uuid-1"`                    |
+| `MULTIPLE_CHOICE` | `string[]`    | `["option-uuid-1", "option-uuid-2"]` |
+| `PROGRAMMING`     | `string`      | `"public class Main { ... }"`        |
 
 ### Request Validation
 
-- `questionId` là required.
-- `questionId` phải là UUID hợp lệ.
-- `answer` là required.
-- `answer` không được null.
-- `answer` phải phù hợp với loại question.
+- questionId là required.
+- questionId phải là UUID hợp lệ.
+- answer là required.
+- answer không được là null.
+- questionId phải thuộc ExamAttemptQuestion của attempt.
+- Question phải thuộc Exam của attempt.
+Không được chỉ kiểm tra: questionId tồn tại trong Question
+Mà phải kiểm tra: attempt->ExamAttemptQuestion->questionId
+
+#### SINGLE_CHOICE
+Request:
+```json
+{
+  "questionId": "q1",
+  "answer": "option-1"
+}
+```
+Phải kiểm tra:
+answer là string AND option-1 tồn tại AND option-1 thuộc questionId AND questionId thuộc ExamAttemptQuestion của attempt
+Không được chỉ check:
+optionId tồn tại trong database
+Vì có thể xảy ra:
+Question Q1
+  ├── Option A
+  └── Option B
+Question Q2
+  ├── Option C
+  └── Option D
+
+Student đang làm Q1 nhưng gửi:
+{
+  "questionId": "Q1",
+  "answer": "Option-C"
+}
+→ phải reject.
+#### MULTIPLE_CHOICE
+Request:
+```json
+
+{
+  "questionId": "q1",
+  "answer": [
+    "option-1",
+    "option-3"
+  ]
+}
+```
+Phải kiểm tra:
+
+answer là array.
+Array không chứa null.
+Các optionId phải là string.
+Không được duplicate.
+Tất cả optionId phải thuộc question đó.
+Question phải thuộc ExamAttemptQuestion.
+
+Ví dụ này phải reject:
+{
+  "answer": [
+    "option-1",
+    "option-1"
+  ]
+}
+Và:
+{
+  "answer": [
+    "option-of-another-question"
+  ]
+}
+#### PROGRAMMING
+Request:
+```json
+{
+  "questionId": "q1",
+  "answer": "public class Main { ... }"
+}
+```
+Phải check:
+answer là string và lưu source code.
+Không được xử lý nó như optionId.
 
 ## Business Rules
 
-- Chỉ cho phép lưu answer khi `ExamAttempt.status = IN_PROGRESS`.
-    IN_PROGRESS → cho save
-    SUBMITTED   → không cho save
-    TIMEOUT     → không cho save
-- Nếu attempt đã `SUBMITTED`, `TIMEOUT` hoặc trạng thái kết thúc khác → trả 409.
-- Không được sửa bài sau khi submit.
-- Answer được cập nhật nếu câu hỏi đã có câu trả lời trước đó.
-- `attemptId` phải thuộc `examId` được truyền trên URL.
-- Nếu attempt không thuộc examId → trả 404.
-- `questionId` phải tồn tại.
-- `questionId` phải thuộc Exam của attempt.
-- `questionId` phải tồn tại trong `ExamAttemptQuestion` của attempt hiện tại.
-- Student không được gửi answer cho question không thuộc attempt của mình.
+- Chỉ Student được phép gọi API.
+- Student chỉ được save answer cho attempt của chính mình.
+- Attempt phải thuộc examId trên URL.
+- Question phải thuộc Exam của attempt.
+- Question phải tồn tại trong ExamAttemptQuestion của attempt.
+- Không được save answer cho question nằm ngoài attempt.
+- ExamAttempt.status phải là IN_PROGRESS.
+- Nếu attempt đã SUBMITTED, không được sửa answer.
+- Nếu attempt đã EXPIRED, không được sửa answer.
+- Nếu attempt ở trạng thái kết thúc khác, không được sửa answer.
+- Answer của question có thể được cập nhật nhiều lần trong quá trình làm bài.
+- Không tạo duplicate StudentAnswer.
+- API này không thực hiện chấm điểm.
+- API này không tạo ProgrammingSubmission.
 
+### StudentAnswer Persistence
+- StudentAnswer được xác định duy nhất bởi cặp: (attemptId, questionId).
+- Nếu chưa tồn tại StudentAnswer→tạo mới.
+- Nếu đã tồn tại StudentAnswer→cập nhật bản ghi hiện tại.
+- Không tạo StudentAnswer mới cho mỗi lần Student thay đổi answer.
+- Database phải có unique constraint trên:(attemptId, questionId).
+- Việc create/update StudentAnswer phải được thực hiện theo cơ chế atomic/upsert để tránh duplicate khi có concurrent requests.
 ### Time Rules
-
-- `attemptEndAt` được tính lại từ:
-  `min(attempt.startedAt + exam.durationMinutes, exam.endTime)`.
-- Không sử dụng `ExamAttempt.remainingSeconds` làm realtime countdown.
-- `remainingSeconds` KHÔNG được cập nhật trong DB khi save answer. Giá trị này là snapshot từ thời điểm start exam.
+- attemptEndAt được lấy từ ExamAttempt và là authoritative deadline của attempt. API không được tính lại hoặc cập nhật attemptEndAt.
+- Tại thời điểm save answer: if now >= attemptEndAt → HTTP 409. Nếu chưa hết hạn thì cho phép lưu answer.
+    1. Load attempt
+    2. Validate ownership/exam/question
+    3. Check status
+    4. Check attemptEndAt
+    5. Nếu now >= attemptEndAt: reject 409
+    6. Nếu còn thời gian: save answer
+    7. Update lastSavedAt
+    8. Return remainingSeconds
+    *Tuyệt đối không:save answer rồi sau đó mới check deadline
+- `remainingSeconds` là snapshot từ thời điểm start exam, không được cập nhật trong DB khi save answer. Clients phải tính lại `remainingSeconds` trên mỗi API call dựa trên thời gian hiện tại: `max(0, floor((attemptEndAt - now) / 1000))`.
 - Tại thời điểm save answer:
   `attemptEndAt` vẫn là authoritative deadline.
 - Nếu `now >= attemptEndAt`:
   - Không lưu answer.
   - Trả HTTP 409.
   - Message: `"Exam attempt has ended"`.
+### Save Progress Timestamp
+- Sau khi StudentAnswer được create/update thành công:
+  -> Update ExamAttempt.lastSavedAt = now.
+- lastSavedAt không được dùng làm authoritative deadline.
+- attemptEndAt vẫn là authoritative deadline duy nhất.
+### Question Type Validation
+- SINGLE_CHOICE: answer phải là string. answer phải là optionId thuộc question.
+- MULTIPLE_CHOICE: 
+    + answer phải là array.
+    + answer không được null.
+    + answer có thể là [] để biểu diễn trạng thái không chọn đáp án nào.
+    + Các phần tử phải là string.
+    + Không được duplicate.
+    + Tất cả optionId phải thuộc question.
+- PROGRAMMING: answer phải là string. answer được lưu vào draftSourceCode. Không được validate answer như optionId.
+- Không được cho phép answer type khác với Question.type.
+---
+# Test với Postman
+## API 3. Save Answer
+### Pre-condition
+API 3 phụ thuộc vào API 1 và API 2.
+
+1. Gọi `POST /api/student/exams/{{examId}}/start` để tạo attempt.
+2. Lưu `data.attemptId` từ response vào collection variable `{{attemptId}}`.
+3. Gọi `GET /api/student/exams/{{examId}}/attempts/{{attemptId}}` để lấy nội dung bài thi.
+4. Lưu `data.questions[0].id` của câu hỏi đầu tiên vào `{{questionId}}`.
+5. Dùng `{{attemptId}}` và `{{questionId}}` để gọi API 3.
+
+Postman script của API 2 Success case có thể lưu questionId:
+```javascript
+const questions = pm.response.json().data.questions;
+if (questions.length > 0) {
+  pm.collectionVariables.set("questionId", questions[0].id);
+}
+```
+
+### Endpoint
+
+```
+PUT /api/student/exams/:examId/attempts/:attemptId/answers
+```
+
+### Variables
+
+| Variable | Description |
+|----------|-------------|
+| `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
+| `{{studentToken}}` | Valid Student JWT access token |
+| `{{teacherToken}}` | Valid Teacher JWT access token |
+| `{{examId}}` | ID of the exam used in API 1 |
+| `{{attemptId}}` | `data.attemptId` saved from API 1 Success call |
+| `{{questionId}}` | `questions[0].id` saved from API 2 call |
+| `{{questionId_other}}` | questionId that belongs to another exam |
+| `{{optionId}}` | A valid option ID for the question |
+| `{{optionId_wrong}}` | An option ID that belongs to a different question |
+| `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
+| `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
+| `{{attemptId_expired}}` | attemptId whose attemptEndAt is in the past |
+| `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
 
 ---
 
+### Test Cases
+
+#### 1. Success SINGLE_CHOICE – Lưu đáp án thành công
+
+**Pre-condition:** Call API 1 and API 2 first. Use a SINGLE_CHOICE question.
+
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}"
+}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Answer saved successfully",
+  "data": {
+    "questionId": "uuid",
+    "remainingSeconds": 3520
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+
+pm.test("message is 'Answer saved successfully'", () => {
+  pm.expect(pm.response.json().message).to.equal("Answer saved successfully");
+});
+
+const body = pm.response.json().data;
+
+pm.test("data.questionId matches request", () => {
+  const request = pm.request.body.json();
+  pm.expect(body.questionId).to.equal(request.questionId);
+});
+
+pm.test("data.remainingSeconds is a non-negative number", () => {
+  pm.expect(body.remainingSeconds).to.be.a("number").and.be.at.least(0);
+});
+
+// Save remainingSeconds for subsequent tests
+pm.collectionVariables.set("remainingSeconds", body.remainingSeconds);
+```
+
+---
+
+#### 2. Success MULTIPLE_CHOICE – Lưu nhiều đáp án
+
+**Pre-condition:** Call API 1 and API 2 first. Use a MULTIPLE_CHOICE question.
+
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": ["{{optionId1}}", "{{optionId2}}"]
+}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Answer saved successfully",
+  "data": {
+    "questionId": "uuid",
+    "remainingSeconds": 3520
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+```
+
+---
+
+#### 3. Success PROGRAMMING – Lưu source code
+
+**Pre-condition:** Call API 1 and API 2 first. Use a PROGRAMMING question.
+
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "public class Main {\n    public static void main(String[] args) {\n        System.out.println(\"Hello\");\n    }\n}"
+}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Answer saved successfully",
+  "data": {
+    "questionId": "uuid",
+    "remainingSeconds": 3520
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+```
+---
+#### 4. Success Update – Cập nhật answer đã tồn tại
+**Pre-condition:** Call the Success SINGLE_CHOICE test case first.
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}_new"
+}
+```
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Answer saved successfully",
+  "data": {
+    "questionId": "uuid",
+    "remainingSeconds": 3520
+  }
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+```
+---
+#### 5. Unauthorized – Không login → 401
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+*(No Authorization header)*
+**Expected Response (401):**
+```json
+{
+  "success": false,
+  "message": "Missing or invalid authorization header"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 401", () => {
+  pm.response.to.have.status(401);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 6. Forbidden – Teacher gọi API → 403
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}"
+}
+```
+**Expected Response (403):**
+```json
+{
+  "success": false,
+  "message": "Student access required"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 403", () => {
+  pm.response.to.have.status(403);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 7. Attempt not found – attemptId không tồn tại → 404
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/non-existent-attempt-id/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}"
+}
+```
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 8. Attempt belongs to another student → 404
+**Description:** Student A không được save answer cho attempt của Student B.
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_otherStudent}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}"
+}
+```
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 9. Attempt does not belong to examId → 404
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_wrongExam}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}"
+}
+```
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 10. Question not in attempt → 404
+**Description:** questionId không tồn tại trong ExamAttemptQuestion của attempt.
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId_other}}",
+  "answer": "{{optionId}}"
+}
+```
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Question not found in exam attempt"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 11. Option from another question → 409
+**Description:** Student đang làm Q1 nhưng gửi option của Q2.
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId_wrong}}"
+}
+```
+**Expected Response (409):**
+```json
+{
+  "success": false,
+  "message": "Option not found in question"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 409", () => {
+  pm.response.to.have.status(409);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 12. MULTIPLE_CHOICE duplicate options → 409
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": ["{{optionId}}", "{{optionId}}"]
+}
+```
+**Expected Response (409):**
+```json
+{
+  "success": false,
+  "message": "Duplicate options not allowed"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 409", () => {
+  pm.response.to.have.status(409);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 13. Invalid answer type → 400
+**Description:** Gửi string cho MULTIPLE_CHOICE hoặc array cho SINGLE_CHOICE.
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body (for SINGLE_CHOICE question):**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": ["{{optionId}}"]
+}
+```
+**Expected Response (400):**
+```json
+{
+  "success": false,
+  "message": "Validation failed"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 400", () => {
+  pm.response.to.have.status(400);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 14. Attempt SUBMITTED → 409
+**Pre-condition:** Create an attempt and submit it (if API 4 is implemented).
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_submitted}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}"
+}
+```
+**Expected Response (409):**
+```json
+{
+  "success": false,
+  "message": "Exam attempt has ended"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 409", () => {
+  pm.response.to.have.status(409);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+pm.test("message indicates attempt ended", () => {
+  pm.expect(pm.response.json().message).to.include("Exam attempt has ended");
+});
+```
+---
+#### 15. remainingSeconds is realtime
+**Description:** remainingSeconds phải được tính từ `attemptEndAt` và `now`.
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}"
+}
+```
+**Postman Tests:**
+```javascript
+// Save first remainingSeconds
+const firstRemaining = pm.collectionVariables.get("remainingSeconds");
+// Wait a few seconds and call again
+setTimeout(function() {
+  pm.sendRequest({
+    method: 'PUT',
+    url: '{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers',
+    header: {
+      'Authorization': 'Bearer {{studentToken}}',
+      'Content-Type': 'application/json'
+    },
+    body: {
+      mode: 'raw',
+      raw: JSON.stringify({
+        questionId: pm.collectionVariables.get("questionId"),
+        answer: pm.collectionVariables.get("optionId")
+      })
+    }
+  }, function(err, res) {
+    if (err) return;
+    
+    pm.test("remainingSeconds is smaller after waiting", () => {
+      const secondRemaining = res.json().data.remainingSeconds;
+      pm.expect(secondRemaining).to.be.below(firstRemaining);
+    });
+  });
+}, 3000);
+```
+---
+#### 16. QuestionId validation – invalid UUID → 400
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "not-a-uuid",
+  "answer": "{{optionId}}"
+}
+```
+**Expected Response (400):**
+```json
+{
+  "success": false,
+  "message": "Validation failed"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 400", () => {
+  pm.response.to.have.status(400);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
+#### 17. Attempt expired – attemptEndAt đã qua → 409
+**Method:** `PUT`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}/answers`
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+```
+**Request Body:**
+```json
+{
+  "questionId": "{{questionId}}",
+  "answer": "{{optionId}}"
+}
+```
+**Expected Response (409):**
+```json
+{
+  "success": false,
+  "message": "Exam attempt has ended"
+}
+```
+**Postman Tests:**
+```javascript
+pm.test("Status code is 409", () => {
+  pm.response.to.have.status(409);
+});
+pm.test("message is 'Exam attempt has ended'", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam attempt has ended");
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+---
 # API 4. Submit Exam
 
 ## Endpoint
-```
+
 POST /api/student/exams/:examId/attempts/:attemptId/submit
-```
 
 ## Mục đích
-
-Sinh viên nộp bài thi.
+Cho phép Student nộp bài thi.
+API này chỉ thực hiện việc kết thúc ExamAttempt.
+API không thực hiện grading và không tạo ProgrammingSubmission.
 
 ## Authentication
 
 | Type | Header | Value |
-| ---- | ------ | ----- |
+|------|--------|-------|
 | Bearer Token | Authorization | `Bearer <access_token>` |
 
 ## Authorization
 
-- Role: `STUDENT`
-- Attempt thuộc Student đang đăng nhập.
+- Role: STUDENT.
+- attemptId phải tồn tại.
+- attemptId phải thuộc examId trên URL.
+- attempt.studentId phải bằng studentId của access token.
+- Student không được submit attempt của Student khác.
+- Nếu attempt không tồn tại, không thuộc exam hoặc không thuộc Student hiện tại → 404.
 
-## Response
+## Request
+Không có request body.
 
+## Success Response
+HTTP 200
 ```json
 {
   "success": true,
   "message": "Exam submitted successfully",
   "data": {
     "attemptId": "uuid",
-    "submittedAt": "2026-08-01T11:00:00Z"
+    "submittedAt": "2026-08-21T10:00:00.000Z"
   }
 }
 ```
 
 ## Response Fields
-
 | Field | Description |
-|-------|------|
-| `attemptId` | ID lần làm bài |
-| `submittedAt` | Thời điểm nộp bài |
+|------|-------------|
+| attemptId | ID lần làm bài |
+| submittedAt | Thời điểm server ghi nhận Student submit |
 
 ## Status Codes
-
 | Code | Description |
 |------|-------------|
-| 200 | Thành công |
+| 200 | Submit thành công |
+| 400 | Request không hợp lệ |
 | 401 | Không đăng nhập |
-| 403 | Không có quyền |
-| 404 | Không tìm thấy bài thi |
-| 409 | Bài thi đã được submit |
+| 403 | Role không phải STUDENT |
+| 404 | Attemp not found |
+| 409 | Attempt đã kết thúc hoặc đã hết thời gian |
 
 ## Business Rules
 
-- Sau khi submit không thể chỉnh sửa đáp án.
-- Submit có thể xảy ra:
-    Student chủ động nộp.
-    Hệ thống tự động submit khi hết thời gian.
+### 1. Status transition
+Chỉ cho phép submit khi: ExamAttempt.status = IN_PROGRESS
+Nếu submit thành công: IN_PROGRESS → SUBMITTED
+Khi submit thành công:
+- status = SUBMITTED
+- submittedAt = server current time
+- endedBy = STUDENT
+- Không thay đổi attemptEndAt.
+- Không thay đổi remainingSeconds.
+- Không thay đổi các StudentAnswer.
+### 2. Deadline
+attemptEndAt là authoritative deadline duy nhất.
+API không được tính lại hoặc cập nhật attemptEndAt.
+Nếu status = IN_PROGRESS nhưng now >= attemptEndAt, API không cho phép manual submit và trả HTTP 409 với message "Exam attempt has ended". Việc chuyển trạng thái IN_PROGRESS → EXPIRED được xử lý bởi cơ chế timeout riêng của hệ thống (nếu có).
+Tại thời điểm submit: 
+- if now < attemptEndAt:cho phép submit.
+- if now >= attemptEndAt:
+    không cho phép manual submit.
+    Attempt được xử lý là hết hạn.
+    Trả HTTP 409.
+Response:
+```json
+{
+  "success": false,
+  "message": "Exam attempt has ended"
+}
+```
+### 3. Attempt đã SUBMITTED
+Nếu attempt.status = SUBMITTED:
+- Không submit lại.
+- Không thay đổi submittedAt.
+- Trả HTTP 409.
+Message:"Exam attempt has already been submitted"
+### 4. Attempt đã EXPIRED
+Nếu attempt.status = EXPIRED:
+- Không submit lại.
+- Trả HTTP 409.
+Message:"Exam attempt has ended"
+### 5. Unanswered questions
+- Student không bắt buộc phải trả lời tất cả câu hỏi trước khi submit.
+- Các câu hỏi chưa có StudentAnswer được xem là unanswered.
+- API không tự tạo StudentAnswer cho các câu chưa trả lời.
+### 6. Grading
+- API 4 không thực hiện grading.
+- API 4 không tạo ProgrammingSubmission.
+- API 4 chỉ kết thúc ExamAttempt.
+- Nếu now >= attemptEndAt và attempt vẫn đang IN_PROGRESS, API không cho phép manual submit và trả HTTP 409. 
+- Nếu status = IN_PROGRESS nhưng now >= attemptEndAt:
+  - Không cho phép manual submit.
+  - Trả HTTP 409.
+  - Message: "Exam attempt has ended".
+- Việc chuyển:IN_PROGRESS → EXPIRED với: endedBy = TIMEOUT được xử lý bởi cơ chế expiry/timeout riêng của hệ thống (nếu có).
+### 7. submittedAt
+- submittedAt phải được tạo bởi server.
+- Client không được truyền submittedAt.
+- submittedAt chỉ được set khi transition:IN_PROGRESS → SUBMITTED
+- Không được overwrite submittedAt.
+### 8. Concurrency / Double Submit
+- Submit phải được xử lý atomically/transactionally.
+- Hai request submit đồng thời cho cùng một attempt không được tạo ra hai lần submit.
+- Chỉ một request được phép transition:IN_PROGRESS → SUBMITTED
+- Các request còn lại phải nhận HTTP 409.
+- Việc transition IN_PROGRESS → SUBMITTED và ghi submittedAt phải được thực hiện atomically trong database transaction/conditional update. Điều kiện update phải đảm bảo status = IN_PROGRESS và attemptEndAt > now. Chỉ request update thành công mới được xem là submit thành công. Các request đồng thời còn lại phải nhận HTTP 409.
+### 9. Attempt ownership
+- Student A không được submit attempt của Student B.
+- Nếu attempt không thuộc Student hiện tại:
+  + HTTP 404, Message:"Attempt not found"
+### 10. Exam ownership
+- attemptId phải thuộc examId trên URL.
+- Không được chỉ kiểm tra attemptId tồn tại.
+- Phải kiểm tra: attempt.examId = examId
+- Nếu không:HTTP 404, Message: "Attempt not found"
+
+---
+# Test với Postman
+## API 4. Submit Exam
+
+### Pre-condition
+API 4 phụ thuộc vào API 1 (cần tạo attempt trước).
+1. Gọi `POST /api/student/exams/{{examId}}/start` để tạo attempt.
+2. Lưu `data.attemptId` từ response vào collection variable `{{attemptId}}`.
+3. Dùng `{{attemptId}}` để gọi API 4.
+### Endpoint
+POST /api/student/exams/:examId/attempts/:attemptId/submit
+### Variables
+| Variable | Description |
+|----------|-------------|
+| `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
+| `{{studentToken}}` | Valid Student JWT access token |
+| `{{teacherToken}}` | Valid Teacher JWT access token |
+| `{{examId}}` | ID of the exam used in API 1 |
+| `{{attemptId}}` | `data.attemptId` saved from API 1 Success call |
+| `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
+| `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
+| `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
+| `{{attemptId_expired}}` | attemptId with status EXPIRED |
+| `{{attemptId_deadlinePassed}}` | attemptId (IN_PROGRESS) whose attemptEndAt is in the past |
 
 ---
 
+### Test Cases
+
+#### 1. Success – Submit thành công → 200
+
+**Pre-condition:** Call API 1 first to get `{{attemptId}}` with a valid IN_PROGRESS attempt.
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Request Body:** None
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Exam submitted successfully",
+  "data": {
+    "attemptId": "uuid",
+    "submittedAt": "2026-08-21T10:00:00.000Z"
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+
+pm.test("message is 'Exam submitted successfully'", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam submitted successfully");
+});
+
+const body = pm.response.json().data;
+
+pm.test("data.attemptId matches {{attemptId}}", () => {
+  pm.expect(body.attemptId).to.equal(pm.collectionVariables.get("attemptId"));
+});
+
+pm.test("data.submittedAt exists and is a valid ISO string", () => {
+  pm.expect(body.submittedAt).to.be.a("string");
+  pm.expect(new Date(body.submittedAt).getTime()).to.not.be.NaN;
+});
+
+pm.test("data.submittedAt is a recent timestamp (within last 10 seconds)", () => {
+  const submittedAt = new Date(body.submittedAt).getTime();
+  const now = Date.now();
+  pm.expect(now - submittedAt).to.be.below(10000);
+});
+
+// Save submittedAt for subsequent verification
+pm.collectionVariables.set("submittedAt", body.submittedAt);
+```
+
+---
+
+#### 2. Unauthorized – Không login → 401
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+
+**Headers:** *(No Authorization header)*
+
+**Expected Response (401):**
+```json
+{
+  "success": false,
+  "message": "Missing or invalid authorization header"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 401", () => {
+  pm.response.to.have.status(401);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 3. Forbidden – Teacher gọi API → 403
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{teacherToken}}
+```
+
+**Expected Response (403):**
+```json
+{
+  "success": false,
+  "message": "Student access required"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 403", () => {
+  pm.response.to.have.status(403);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 4. Attempt not found – attemptId không tồn tại → 404
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/non-existent-attempt-id/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+
+pm.test("message is 'Attempt not found'", () => {
+  pm.expect(pm.response.json().message).to.equal("Attempt not found");
+});
+```
+
+---
+
+#### 5. Other student's attempt → 404
+
+**Description:** Student A không được submit attempt của Student B. API trả 404 (không phải 403) để tránh leak thông tin existence.
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_otherStudent}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+
+pm.test("message is 'Attempt not found'", () => {
+  pm.expect(pm.response.json().message).to.equal("Attempt not found");
+});
+```
+
+---
+
+#### 6. Wrong exam – attempt thuộc examId khác → 404
+
+**Description:** attemptId tồn tại nhưng thuộc một examId khác với URL.
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_wrongExam}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+
+pm.test("message is 'Attempt not found'", () => {
+  pm.expect(pm.response.json().message).to.equal("Attempt not found");
+});
+```
+
+---
+
+#### 7. Already submitted – status = SUBMITTED → 409
+
+**Pre-condition:** Call the Success test case (case 1) first to submit the attempt.
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_submitted}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (409):**
+```json
+{
+  "success": false,
+  "message": "Exam attempt has already been submitted"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 409", () => {
+  pm.response.to.have.status(409);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+
+pm.test("message is 'Exam attempt has already been submitted'", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam attempt has already been submitted");
+});
+```
+
+---
+
+#### 8. Expired – status = EXPIRED → 409
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (409):**
+```json
+{
+  "success": false,
+  "message": "Exam attempt has ended"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 409", () => {
+  pm.response.to.have.status(409);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+
+pm.test("message is 'Exam attempt has ended'", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam attempt has ended");
+});
+```
+
+---
+
+#### 9. Deadline reached – now >= attemptEndAt với status IN_PROGRESS → 409
+
+**Description:** Attempt vẫn IN_PROGRESS nhưng attemptEndAt đã qua — không được manual submit.
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_deadlinePassed}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (409):**
+```json
+{
+  "success": false,
+  "message": "Exam attempt has ended"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 409", () => {
+  pm.response.to.have.status(409);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+
+pm.test("message is 'Exam attempt has ended'", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam attempt has ended");
+});
+```
+
+---
+
+#### 10. Unanswered questions – vẫn submit được → 200
+
+**Description:** Student không cần trả lời hết tất cả câu hỏi trước khi nộp bài. Submit phải thành công dù có câu chưa trả lời.
+
+**Pre-condition:** Use a fresh attempt that has no StudentAnswer records (no calls to API 3 beforehand).
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Exam submitted successfully",
+  "data": {
+    "attemptId": "uuid",
+    "submittedAt": "2026-08-21T10:00:00.000Z"
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+
+pm.test("Submit succeeds even with unanswered questions", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam submitted successfully");
+});
+```
+
+---
+
+#### 11. Verify submittedAt is server-generated timestamp
+
+**Description:** submittedAt phải được tạo bởi server, không nhận từ client. Kiểm tra giá trị hợp lệ và gần thời điểm hiện tại.
+
+**Postman Tests:**
+```javascript
+const body = pm.response.json().data;
+
+pm.test("submittedAt is present", () => {
+  pm.expect(body.submittedAt).to.not.be.undefined;
+  pm.expect(body.submittedAt).to.not.be.null;
+});
+
+pm.test("submittedAt is a valid ISO 8601 string", () => {
+  pm.expect(body.submittedAt).to.be.a("string");
+  const ts = new Date(body.submittedAt).getTime();
+  pm.expect(ts).to.not.be.NaN;
+  pm.expect(ts).to.be.above(0);
+});
+
+pm.test("submittedAt is recent (server-generated, within 15 seconds)", () => {
+  const submittedAt = new Date(body.submittedAt).getTime();
+  const now = Date.now();
+  const diffMs = Math.abs(now - submittedAt);
+  pm.expect(diffMs).to.be.below(15000);
+});
+```
+
+---
+
+#### 12. Verify response attemptId matches collection variable
+
+**Postman Tests:**
+```javascript
+const body = pm.response.json().data;
+
+pm.test("data.attemptId matches {{attemptId}}", () => {
+  pm.expect(body.attemptId).to.equal(pm.collectionVariables.get("attemptId"));
+});
+
+pm.test("data.attemptId is a non-empty string", () => {
+  pm.expect(body.attemptId).to.be.a("string").and.not.be.empty;
+});
+```
+
+---
+
+#### 13. Double submit – first 200, second 409
+
+**Description:** Gửi hai request submit cho cùng một attempt. Request đầu tiên phải thành công (200), request thứ hai phải bị từ chối (409) với message "Exam attempt has already been submitted".
+
+**Step 1 – First submit (should succeed):**
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Postman Tests (Step 1):**
+```javascript
+pm.test("First submit returns 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("success is true on first submit", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+
+// Save the submittedAt from first submit for later comparison
+pm.collectionVariables.set("firstSubmittedAt", pm.response.json().data.submittedAt);
+```
+
+**Step 2 – Second submit on same attempt (should fail):**
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Postman Tests (Step 2):**
+```javascript
+pm.test("Second submit returns 409", () => {
+  pm.response.to.have.status(409);
+});
+
+pm.test("success is false on second submit", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+
+pm.test("message is 'Exam attempt has already been submitted'", () => {
+  pm.expect(pm.response.json().message).to.equal("Exam attempt has already been submitted");
+});
+```
+---
 # API 5. Get Attempt Status
 
 ## Endpoint
@@ -1384,7 +2775,12 @@ GET /api/student/exams/:examId/attempts/:attemptId/status
 
 ## Mục đích
 
-Lấy trạng thái hiện tại của bài làm.
+Lấy trạng thái hiện tại của ExamAttempt để:
+- Hiển thị trạng thái bài thi.
+- Tính thời gian còn lại realtime.
+- Khôi phục trạng thái khi reload trang.
+- Kiểm tra tiến độ làm bài.
+- Kiểm tra trạng thái session/heartbeat.
 
 ## Authentication
 
@@ -1394,8 +2790,10 @@ Lấy trạng thái hiện tại của bài làm.
 
 ## Authorization
 
-- Role: `STUDENT`
-- Attempt thuộc Student đang đăng nhập.
+- Role: STUDENT.
+- attemptId phải tồn tại.
+- attemptId phải thuộc examId trên URL.
+- attempt.studentId phải bằng studentId của access token.
 
 ## Response
 
@@ -1406,7 +2804,15 @@ Lấy trạng thái hiện tại của bài làm.
   "data": {
     "attemptId": "uuid",
     "status": "IN_PROGRESS",
-    "remainingSeconds": 1200
+    "startedAt": "2026-08-22T03:00:00.000Z",
+    "attemptEndAt": "2026-08-22T04:00:00.000Z",
+    "submittedAt": null,
+    "endedBy": null,
+    "remainingSeconds": 1200,
+    "lastSavedAt": "2026-08-22T03:15:00.000Z",
+    "isOnline": true,
+    "answeredCount": 5,
+    "totalQuestionCount": 20
   }
 }
 ```
@@ -1416,26 +2822,724 @@ Lấy trạng thái hiện tại của bài làm.
 | Field | Description |
 |-------|------|
 | `attemptId` | ID lần làm bài |
-| `status` | Trạng thái bài làm |
-| `remainingSeconds` | Thời gian còn lại |
+| `status` | Trạng thái bài làm(IN_PROGRESS, SUBMITTED, EXPIRED) |
+| `startedAt` | Thời điểm bắt đầu làm bài (ISO 8601) |
+| `attemptEndAt` | Authoritative deadline — không đổi sau khi tạo attempt |
+| `submittedAt` | Thời điểm nộp bài. null nếu chưa nộp |
+| `endedBy` | STUDENT, TIMEOUT, SYSTEM, hoặc null |
+| `remainingSeconds` | max(0, floor((attemptEndAt - now) / 1000)). Tính realtime tại thời điểm gọi API |
+| `lastSavedAt` | Thời điểm lần cuối tiến độ được lưu (từ ExamAttempt.lastSavedAt) |
+| `isOnline` | Trạng thái kết nối tính toán realtime từ ExamSession.lastHeartbeat theo BR-6. false nếu chưa có session hoặc đã quá HEARTBEAT_TIMEOUT |
+| `answeredCount` | Số câu hỏi đã có StudentAnswer cho attempt này |
+| `totalQuestionCount` | Tổng số câu hỏi trong bài thi (số lượng ExamAttemptQuestion) |
 
 ## Status Codes
 
 | Code | Description |
 |------|-------------|
 | 200 | Thành công |
+| 400 | Không hợp lệ |
 | 401 | Không đăng nhập |
 | 403 | Không có quyền |
-| 404 | Không tìm thấy bài thi |
-| 409 | Bài thi đã được submit |
+| 404 | Attemp not found |
 
 ## Business Rules
 
-- Status được tính dựa trên trạng thái attempt.
-- Student chỉ xem được attempt của chính mình.
+### 1. Attempt ownership
+- Student chỉ được xem status của attempt thuộc chính mình.
+- attemptId phải tồn tại.
+- attemptId phải thuộc examId trên URL.
+- attempt.studentId phải bằng studentId từ access token.
+- Nếu attempt không tồn tại, không thuộc exam hoặc không thuộc Student hiện tại:
+  - HTTP 404
+  - Message: "Attempt not found"
+### 2. Status
+- API trả về ExamAttempt.status hiện tại được lưu trong database.
+- API không tự động thay đổi ExamAttempt.status.
+- API không thực hiện:
+  - IN_PROGRESS → SUBMITTED
+  - IN_PROGRESS → EXPIRED
+- Việc chuyển IN_PROGRESS → SUBMITTED được thực hiện bởi API Submit Exam.
+- Việc chuyển IN_PROGRESS → EXPIRED do cơ chế timeout/expiry riêng của hệ thống xử lý.
+- Nếu `status = IN_PROGRESS` nhưng `now >= attemptEndAt` và cơ chế expiry chưa kịp cập nhật status, API 5 vẫn trả `status = IN_PROGRESS` và `remainingSeconds = 0`.
+- API 5 không tự chuyển status.
+### 3. remainingSeconds
+- Nếu status = IN_PROGRESS:remainingSeconds=max(0, floor((attemptEndAt - now) / 1000))
+- Nếu status = SUBMITTED:  remainingSeconds = 0
+- Nếu status = EXPIRED:  remainingSeconds = 0
+    + remainingSeconds = 0 khi attempt đã kết thúc,
+    + bất kể attemptEndAt vẫn còn thời gian.
+    + `remainingSeconds` chỉ là giá trị phục vụ UI/countdown.
+    + `attemptEndAt` mới là authoritative deadline.
+- attemptEndAt là authoritative deadline.
+- Không sử dụng remainingSeconds được lưu tại thời điểm start.
+- API không cập nhật attemptEndAt.
+- API không lưu remainingSeconds vào database.
+- API không thay đổi ExamAttempt.status.
+### 4. Completed attempts
+- Attempt có status SUBMITTED vẫn được phép gọi API 5.
+- Attempt có status EXPIRED vẫn được phép gọi API 5.
+- API trả HTTP 200 cho các trạng thái hợp lệ của attempt.
+- API 5 không trả HTTP 409 chỉ vì attempt đã SUBMITTED hoặc EXPIRED.
+### 5. Read-only
+API 5 chỉ đọc dữ liệu.
+Không được:
+- tạo StudentAnswer
+- cập nhật StudentAnswer
+- submit attempt
+- grading
+- tạo ProgrammingSubmission
+- thay đổi attemptEndAt
+- thay đổi submittedAt
+- thay đổi status
+- cập nhật remainingSeconds vào database
+### 6. isOnline
+- API 5 không sử dụng ExamSession.isOnline để xác định trạng thái online.
+- isOnline được tính realtime dựa trên ExamSession.lastHeartbeat.
+- Với schema hiện tại, mỗi ExamAttempt có tối đa một ExamSession.
+- Nếu không tồn tại ExamSession → isOnline = false.
+- Nếu now - lastHeartbeat <= HEARTBEAT_TIMEOUT → isOnline = true.
+- isOnline=lastHeartbeat != null AND (now-lastHeartbeat)<=HEARTBEAT_TIMEOUT
+- Nếu now - lastHeartbeat > HEARTBEAT_TIMEOUT → isOnline = false.
+- HEARTBEAT_TIMEOUT là cấu hình của hệ thống.
+- Khuyến nghị mặc định: 15 giây.
+- API 5 không cập nhật ExamSession.
+### 7. ExamSession
+- Với schema hiện tại, một ExamAttempt có tối đa một ExamSession.
+- API 5 lấy ExamSession thông qua attemptId.
+- API 5 sử dụng ExamSession.lastHeartbeat để tính isOnline.
+- API 5 không cập nhật ExamSession.
+---
+# Test với Postman
+## API 5. Get Attempt Status
+
+### Pre-condition
+
+API 5 phụ thuộc vào API 1 (cần tạo attempt trước).
+
+1. Gọi `POST /api/student/exams/{{examId}}/start` để tạo attempt.
+2. Lưu `data.attemptId` từ response vào collection variable `{{attemptId}}`.
+3. Dùng `{{attemptId}}` để gọi API 5.
+
+### Endpoint
+
+```
+GET /api/student/exams/:examId/attempts/:attemptId/status
+```
+
+### Variables
+
+| Variable | Description |
+|----------|-------------|
+| `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
+| `{{studentToken}}` | Valid Student JWT access token |
+| `{{teacherToken}}` | Valid Teacher JWT access token |
+| `{{examId}}` | ID of the exam used in API 1 |
+| `{{attemptId}}` | `data.attemptId` saved from API 1 Success call (IN_PROGRESS, còn thời gian) |
+| `{{attemptId_inprogress_overtime}}` | attemptId IN_PROGRESS but attemptEndAt has passed (DB status not yet EXPIRED) |
+| `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
+| `{{attemptId_expired}}` | attemptId with status EXPIRED |
+| `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
+| `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
+| `{{attemptId_noSession}}` | attemptId with no ExamSession record |
+| `{{attemptId_sessionFresh}}` | attemptId with ExamSession.lastHeartbeat within HEARTBEAT_TIMEOUT |
+| `{{attemptId_sessionStale}}` | attemptId with ExamSession.lastHeartbeat beyond HEARTBEAT_TIMEOUT |
 
 ---
 
+### Test Cases
+
+#### 1. Success – IN_PROGRESS còn thời gian → 200, remainingSeconds > 0
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Attempt status loaded successfully",
+  "data": {
+    "attemptId": "uuid",
+    "status": "IN_PROGRESS",
+    "startedAt": "2026-08-22T03:00:00.000Z",
+    "attemptEndAt": "2026-08-22T04:00:00.000Z",
+    "submittedAt": null,
+    "endedBy": null,
+    "remainingSeconds": 1200,
+    "lastSavedAt": "2026-08-22T03:15:00.000Z",
+    "isOnline": false,
+    "answeredCount": 0,
+    "totalQuestionCount": 5
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+
+pm.test("message is 'Attempt status loaded successfully'", () => {
+  pm.expect(pm.response.json().message).to.equal("Attempt status loaded successfully");
+});
+
+const body = pm.response.json().data;
+
+pm.test("data.attemptId matches {{attemptId}}", () => {
+  pm.expect(body.attemptId).to.equal(pm.collectionVariables.get("attemptId"));
+});
+
+pm.test("data.status is IN_PROGRESS", () => {
+  pm.expect(body.status).to.equal("IN_PROGRESS");
+});
+
+pm.test("data.remainingSeconds is a positive number", () => {
+  pm.expect(body.remainingSeconds).to.be.a("number").and.be.above(0);
+});
+
+pm.test("data.startedAt is a valid ISO string", () => {
+  pm.expect(new Date(body.startedAt).getTime()).to.not.be.NaN;
+});
+
+pm.test("data.attemptEndAt is a valid ISO string", () => {
+  pm.expect(new Date(body.attemptEndAt).getTime()).to.not.be.NaN;
+});
+
+pm.test("data.submittedAt is null for IN_PROGRESS", () => {
+  pm.expect(body.submittedAt).to.be.null;
+});
+
+pm.test("data.endedBy is null for IN_PROGRESS", () => {
+  pm.expect(body.endedBy).to.be.null;
+});
+
+pm.test("data.answeredCount is a non-negative integer", () => {
+  pm.expect(body.answeredCount).to.be.a("number").and.be.at.least(0);
+});
+
+pm.test("data.totalQuestionCount is a non-negative integer", () => {
+  pm.expect(body.totalQuestionCount).to.be.a("number").and.be.at.least(0);
+});
+
+pm.test("answeredCount does not exceed totalQuestionCount", () => {
+  pm.expect(body.answeredCount).to.be.at.most(body.totalQuestionCount);
+});
+
+pm.test("data.isOnline is a boolean", () => {
+  pm.expect(body.isOnline).to.be.a("boolean");
+});
+```
+
+---
+
+#### 2. Success – IN_PROGRESS nhưng attemptEndAt đã qua → 200, status=IN_PROGRESS, remainingSeconds=0
+
+**Description:** Attempt vẫn IN_PROGRESS trong DB nhưng deadline đã qua. API 5 phải trả status từ DB, không tự đổi.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_inprogress_overtime}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Attempt status loaded successfully",
+  "data": {
+    "status": "IN_PROGRESS",
+    "remainingSeconds": 0
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("status is still IN_PROGRESS (not auto-transitioned)", () => {
+  pm.expect(pm.response.json().data.status).to.equal("IN_PROGRESS");
+});
+
+pm.test("remainingSeconds is 0 when deadline has passed", () => {
+  pm.expect(pm.response.json().data.remainingSeconds).to.equal(0);
+});
+```
+
+---
+
+#### 3. Success – SUBMITTED → 200, remainingSeconds=0
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_submitted}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Attempt status loaded successfully",
+  "data": {
+    "status": "SUBMITTED",
+    "remainingSeconds": 0,
+    "submittedAt": "2026-08-22T03:30:00.000Z",
+    "endedBy": "STUDENT"
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+const body = pm.response.json().data;
+
+pm.test("status is SUBMITTED", () => {
+  pm.expect(body.status).to.equal("SUBMITTED");
+});
+
+pm.test("remainingSeconds is 0 for SUBMITTED", () => {
+  pm.expect(body.remainingSeconds).to.equal(0);
+});
+
+pm.test("submittedAt is a valid ISO string for SUBMITTED", () => {
+  pm.expect(body.submittedAt).to.be.a("string");
+  pm.expect(new Date(body.submittedAt).getTime()).to.not.be.NaN;
+});
+```
+
+---
+
+#### 4. Success – EXPIRED → 200, remainingSeconds=0
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Attempt status loaded successfully",
+  "data": {
+    "status": "EXPIRED",
+    "remainingSeconds": 0
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+const body = pm.response.json().data;
+
+pm.test("status is EXPIRED", () => {
+  pm.expect(body.status).to.equal("EXPIRED");
+});
+
+pm.test("remainingSeconds is 0 for EXPIRED", () => {
+  pm.expect(body.remainingSeconds).to.equal(0);
+});
+```
+
+---
+
+#### 5. Unauthorized – Không có access token → 401
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/status`
+
+**Headers:** *(No Authorization header)*
+
+**Expected Response (401):**
+```json
+{
+  "success": false,
+  "message": "Missing or invalid authorization header"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 401", () => {
+  pm.response.to.have.status(401);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 6. Forbidden – Teacher gọi API → 403
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{teacherToken}}
+```
+
+**Expected Response (403):**
+```json
+{
+  "success": false,
+  "message": "Student access required"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 403", () => {
+  pm.response.to.have.status(403);
+});
+
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+```
+
+---
+
+#### 7. Attempt không tồn tại → 404
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/00000000-0000-0000-0000-000000000000/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("message is 'Attempt not found'", () => {
+  pm.expect(pm.response.json().message).to.equal("Attempt not found");
+});
+```
+
+---
+
+#### 8. Attempt thuộc exam khác → 404
+
+**Description:** attemptId tồn tại nhưng thuộc một examId khác với URL.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_wrongExam}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("message is 'Attempt not found'", () => {
+  pm.expect(pm.response.json().message).to.equal("Attempt not found");
+});
+```
+
+---
+
+#### 9. Attempt thuộc student khác → 404
+
+**Description:** API trả 404 (không phải 403) để tránh leak thông tin existence.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_otherStudent}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Expected Response (404):**
+```json
+{
+  "success": false,
+  "message": "Attempt not found"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 404", () => {
+  pm.response.to.have.status(404);
+});
+
+pm.test("message is 'Attempt not found'", () => {
+  pm.expect(pm.response.json().message).to.equal("Attempt not found");
+});
+```
+
+---
+
+#### 10. Không có ExamSession → isOnline = false
+
+**Description:** Attempt chưa có ExamSession nào (student chưa connect qua socket).
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_noSession}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("isOnline is false when no ExamSession exists", () => {
+  pm.expect(pm.response.json().data.isOnline).to.be.false;
+});
+```
+
+---
+
+#### 11. lastHeartbeat còn trong HEARTBEAT_TIMEOUT → isOnline = true
+
+**Description:** ExamSession tồn tại và lastHeartbeat gần đây (< 15 giây).
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_sessionFresh}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("isOnline is true when lastHeartbeat is within timeout", () => {
+  pm.expect(pm.response.json().data.isOnline).to.be.true;
+});
+```
+
+---
+
+#### 12. lastHeartbeat quá HEARTBEAT_TIMEOUT → isOnline = false
+
+**Description:** ExamSession tồn tại nhưng lastHeartbeat cũ hơn 15 giây.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_sessionStale}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("isOnline is false when lastHeartbeat is beyond timeout", () => {
+  pm.expect(pm.response.json().data.isOnline).to.be.false;
+});
+```
+
+---
+
+#### 13. Không có StudentAnswer → answeredCount = 0
+
+**Pre-condition:** Fresh attempt, không gọi API 3 trước đó.
+
+**Method:** `GET`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/status`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("answeredCount is 0 when no answers saved", () => {
+  pm.expect(pm.response.json().data.answeredCount).to.equal(0);
+});
+```
+
+---
+
+#### 14. Có StudentAnswer → answeredCount chính xác
+
+**Pre-condition:** Gọi API 3 trước để lưu một số câu trả lời, sau đó gọi API 5.
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+pm.test("answeredCount is greater than 0 after saving answers", () => {
+  pm.expect(pm.response.json().data.answeredCount).to.be.above(0);
+});
+
+pm.test("answeredCount does not exceed totalQuestionCount", () => {
+  const body = pm.response.json().data;
+  pm.expect(body.answeredCount).to.be.at.most(body.totalQuestionCount);
+});
+```
+
+---
+
+#### 15. totalQuestionCount chính xác theo ExamAttemptQuestion
+
+**Description:** totalQuestionCount phải khớp với số ExamAttemptQuestion của attempt, không phải tổng Question của Exam.
+
+**Postman Tests (dùng với attempt đã biết số câu hỏi):**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+// Set EXPECTED_QUESTION_COUNT theo exam đang test
+const EXPECTED_QUESTION_COUNT = 5; // thay theo exam thực tế
+pm.test("totalQuestionCount matches expected ExamAttemptQuestion count", () => {
+  pm.expect(pm.response.json().data.totalQuestionCount).to.equal(EXPECTED_QUESTION_COUNT);
+});
+```
+
+---
+
+#### 16. Verify read-only – API 5 không thay đổi dữ liệu
+
+**Description:** Gọi API 5, sau đó gọi lại API 5 lần nữa và kiểm tra các giá trị không thay đổi. Sau đó so sánh lastSavedAt trước và sau khi gọi API 5.
+
+**Step 1:** Gọi API 5 lần đầu → lưu lastSavedAt.
+
+**Postman Tests (Step 1):**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+// Save values before calling API 5 again
+const body = pm.response.json().data;
+pm.collectionVariables.set("before_status",       body.status);
+pm.collectionVariables.set("before_attemptEndAt", body.attemptEndAt);
+pm.collectionVariables.set("before_lastSavedAt",  body.lastSavedAt ?? "null");
+```
+
+**Step 2:** Gọi API 5 lần hai → kiểm tra không thay đổi.
+
+**Postman Tests (Step 2):**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+
+const body = pm.response.json().data;
+
+pm.test("status is unchanged after calling API 5", () => {
+  pm.expect(body.status).to.equal(pm.collectionVariables.get("before_status"));
+});
+
+pm.test("attemptEndAt is unchanged after calling API 5", () => {
+  pm.expect(body.attemptEndAt).to.equal(pm.collectionVariables.get("before_attemptEndAt"));
+});
+
+pm.test("lastSavedAt is unchanged after calling API 5 (read-only)", () => {
+  const expected = pm.collectionVariables.get("before_lastSavedAt");
+  const actual   = body.lastSavedAt ?? "null";
+  pm.expect(actual).to.equal(expected);
+});
+```
+
+---
+
+#### 17. remainingSeconds tính realtime – gọi hai lần cách nhau vài giây
+
+**Description:** remainingSeconds phải giảm dần theo thời gian thực, không bị cache.
+
+**Step 1:** Gọi API 5 → lưu remainingSeconds.
+
+**Postman Tests (Step 1):**
+```javascript
+pm.collectionVariables.set("first_remainingSeconds", pm.response.json().data.remainingSeconds);
+```
+
+**Step 2 (sau vài giây):** Gọi lại API 5 → remainingSeconds phải nhỏ hơn.
+
+**Postman Tests (Step 2):**
+```javascript
+const second = pm.response.json().data.remainingSeconds;
+const first  = parseInt(pm.collectionVariables.get("first_remainingSeconds"), 10);
+
+pm.test("remainingSeconds decreases over time (realtime)", () => {
+  pm.expect(second).to.be.at.most(first);
+});
+```
+
+---
 # API 6. Send Heartbeat
 
 ## Endpoint
@@ -1475,7 +3579,7 @@ Gửi heartbeat để giữ phiên thi hoạt động và tự động lưu ti�
 
 | Field | Description |
 |-------|------|
-| `remainingSeconds` | Snapshot thời gian còn lại từ thời điểm start exam. Clients phải tính lại remainingSeconds từ `attemptEndAt - now` nếu cần thời gian chính xác. |
+| `remainingSeconds` | `remainingSeconds` là giá trị được server tính realtime tại thời điểm heartbeat:`max(0, floor((attemptEndAt - now) / 1000))`Không sử dụng giá trị `remainingSeconds` được lưu tại thời điểm start. `attemptEndAt` là authoritative deadline. |
 | `isOnline` | Trạng thái kết nối |
 
 ## Status Codes
@@ -1483,9 +3587,10 @@ Gửi heartbeat để giữ phiên thi hoạt động và tự động lưu ti�
 | Code | Description |
 |------|-------------|
 | 200 | Thành công |
+| 400 | Không hợp lệ |
 | 401 | Không đăng nhập |
 | 403 | Không có quyền |
-| 404 | Không tìm thấy attempt |
+| 404 | Attemp not found |
 | 409 | Attempt đã kết thúc |
 
 ## Business Rules

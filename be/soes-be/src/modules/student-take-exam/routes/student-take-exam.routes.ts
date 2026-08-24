@@ -21,5 +21,29 @@ router.get(
   takeExamController.getExamContent,
 )
 
+// PUT /api/student/exams/:examId/attempts/:attemptId/answers
+router.put(
+  '/exams/:examId/attempts/:attemptId/answers',
+  authenticate,
+  requireStudent(),
+  takeExamController.saveAnswer,
+)
+
+// POST /api/student/exams/:examId/attempts/:attemptId/submit
+router.post(
+  '/exams/:examId/attempts/:attemptId/submit',
+  authenticate,
+  requireStudent(),
+  takeExamController.submitExam,
+)
+
+// GET /api/student/exams/:examId/attempts/:attemptId/status
+router.get(
+  '/exams/:examId/attempts/:attemptId/status',
+  authenticate,
+  requireStudent(),
+  takeExamController.getAttemptStatus,
+)
+
 export default router
 
