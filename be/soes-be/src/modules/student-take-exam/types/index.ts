@@ -15,17 +15,29 @@ export interface ExamContentResult {
   durationMinutes:  number
   remainingSeconds: number
   attemptEndAt:     Date
-  questions: Array<{
-    id:         string
-    orderIndex: number
-    content:    string
-    type:       string
-    points:     number
-    options: Array<{
-      id:      string
-      content: string
-    }>
-  }>
+  questions: Array<ExamContentQuestion>
+}
+
+export type ExamContentQuestion =
+  | ExamContentChoiceQuestion
+  | ExamContentProgrammingQuestion
+
+interface ExamContentQuestionBase {
+  id:         string
+  orderIndex: number
+  content:    string
+  points:     number
+}
+
+export interface ExamContentChoiceQuestion extends ExamContentQuestionBase {
+  type:    'SINGLE_CHOICE' | 'MULTIPLE_CHOICE'
+  options: Array<{ id: string; content: string }>
+  answer:  string[]   // selectedOptionIds — empty array if not yet answered
+}
+
+export interface ExamContentProgrammingQuestion extends ExamContentQuestionBase {
+  type:            'PROGRAMMING'
+  draftSourceCode: string | null   // null if not yet answered
 }
 
 // ─── API 3: Save Answer ───────────────────────────────────────────────────────

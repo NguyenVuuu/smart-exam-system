@@ -18,7 +18,6 @@ Chức năng bao gồm:
 ---
 
 # Base URL
-
 ```
 /api/student/exams/:examId
 ```
@@ -50,7 +49,9 @@ Khởi tạo một lần làm bài mới cho sinh viên.
 ## Request
 
 ```json
-Request Body: None
+{
+  "password": "optional-string"
+}
 ```
 
 ## Response
@@ -111,6 +112,7 @@ Request Body: None
   7. startTime <= now < endTime.
   8. Số attempt hiện tại của Student cho Exam chưa đạt maxAttempts.
   9. Student không có active attempt cho Exam.
+  10. Nếu Exam.password != null, password trong request body phải khớp.
 - Khi start thành công:
   1. Tạo một ExamAttempt mới.
   2. Set `startedAt = now`.
@@ -123,7 +125,7 @@ Request Body: None
   7. `remainingSeconds` được tính và lưu trong DB là snapshot cho countdown initialization.
   8. Set `lastSavedAt = now`.
   9. Không tạo duplicate attempt nếu có nhiều request start được gửi đồng thời.
-  11. startedAt và now sử dụng cùng một timestamp được tạo tại thời điểm bắt đầu attempt.
+  10. startedAt và now sử dụng cùng một timestamp được tạo tại thời điểm bắt đầu attempt.
 - `attemptEndAt` được lưu trong `ExamAttempt` và là authoritative deadline cho attempt.
 - attemptEndAt được khởi tạo khi Start Exam và KHÔNG được cập nhật trong quá trình attempt.
 - `remainingSeconds` là giá trị được persist trong `ExamAttempt`. Giá trị này được khởi tạo khi Start Exam như một snapshot.
@@ -135,7 +137,6 @@ Request Body: None
 - Khi Start Exam tạo ExamAttempt, nó phải đồng thời tạo snapshot thứ tự câu hỏi của attempt trong ExamAttemptQuestion.
 
 ### Time Examples
-
 Exam:
 - `startTime = 10:00`
 - `endTime = 12:00`
@@ -149,6 +150,21 @@ Student starts at 11:30:
 Student starts at 11:50:
 - `attemptEndAt = 12:00`
 - `remainingSeconds = 600`
+
+### Password
+- Nếu:Exam.password == null→ Không cần password.
+- Nếu:Exam.password != null thì:
+    + Không gửi password → reject.(403)
+    + Gửi password sai → reject.(403)
+    + Gửi password đúng → cho phép tiếp tục các validation khác.
+- Password phải được kiểm tra trước khi tạo ExamAttempt.
+- Password không được lưu vào ExamAttempt.
+    ```json
+    {
+      "success": false,
+      "message": "Invalid exam password"
+    }
+    ```
 
 ---
 
@@ -176,7 +192,7 @@ POST /api/student/exams/:examId/start
 | `{{examId_ended}}` | examId of an exam where now >= endTime |
 | `{{examId_alreadyAttempted}}` | examId of an exam the student already attempted |
 | `{{examId_otherCourse}}` | examId of an exam the student is NOT enrolled in |
-
+| `{{examId_withPassword}}` | examId of an exam that requires a password |
 ---
 
 ### Test Cases
@@ -264,7 +280,6 @@ pm.test("remainingSeconds matches attemptEndAt - startedAt (floor)", () => {
 // Save attemptId for subsequent requests
 pm.collectionVariables.set("attemptId", pm.response.json().data.attemptId);
 ```
-
 ---
 
 #### 2. Exam not found – examId không tồn tại → 404
@@ -540,7 +555,6 @@ pm.test("success is false", () => {
 });
 ```
 ---
-
 #### 11. Forbidden – Teacher gọi API → 403
 
 **Method:** `POST`
@@ -570,6 +584,102 @@ pm.test("success is false", () => {
 });
 ```
 
+---
+#### 12. Success with password – Exam có password đúng → 200
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId_withPassword}}/start`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+**Request Body:**
+```json
+{
+  "password": "correct-password"
+}
+```
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "message": "Exam started successfully",
+  "data": {
+    "attemptId": "uuid",
+    "startedAt": "2026-08-10T10:00:00.000Z",
+    "attemptEndAt": "2026-08-10T11:00:00.000Z",
+    "remainingSeconds": 3600
+  }
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 200", () => {
+  pm.response.to.have.status(200);
+});
+pm.test("success is true", () => {
+  pm.expect(pm.response.json().success).to.be.true;
+});
+```
+---
+#### 13. Wrong password – Exam có password sai → 403
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId_withPassword}}/start`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+**Request Body:**
+```json
+{
+  "password": "wrong-password"
+}
+```
+**Expected Response (403):**
+```json
+{
+  "success": false,
+  "message": "Invalid exam password"
+}
+```
+
+**Postman Tests:**
+```javascript
+pm.test("Status code is 403", () => {
+  pm.response.to.have.status(403);
+});
+pm.test("success is false", () => {
+  pm.expect(pm.response.json().success).to.be.false;
+});
+pm.test("message is 'Invalid exam password'", () => {
+  pm.expect(pm.response.json().message).to.equal("Invalid exam password");
+});
+```
+---
+#### 14. Missing password – Exam có password nhưng không gửi → 403
+
+**Method:** `POST`
+**URL:** `{{baseUrl}}/api/student/exams/{{examId_withPassword}}/start`
+
+**Headers:**
+```
+Authorization: Bearer {{studentToken}}
+```
+**Request Body:**
+```
+{}
+```
+**Expected Response (403):**
+```json
+{
+  "success": false,
+  "message": "Invalid exam password"
+}
+```
 ---
 
 ### Time Calculation Verification
@@ -657,7 +767,8 @@ Lấy nội dung bài thi để sinh viên làm bài.
             "id": "option-uuid-2",
             "content": "4"
           }
-        ]
+        ],
+        "answer": ["option-uuid-2"]
       }
     ]
   }
@@ -679,10 +790,10 @@ Lấy nội dung bài thi để sinh viên làm bài.
       {
         "id": "question-uuid-2",
         "orderIndex": 1,
-        "content": "content",
+        "content": "Write a program...",
         "type": "PROGRAMMING",
         "points": 1,
-        "options": []
+        "draftSourceCode": "public class Main { ... }"
       }
     ]
   }
@@ -696,13 +807,17 @@ Lấy nội dung bài thi để sinh viên làm bài.
 | `attemptId` | ID lần làm bài |
 | `title` | Tên bài thi |
 | `durationMinutes` | Thời lượng bài thi |
-| `remainingSeconds` | Thời gian còn lại (tính theo thời gian hiện tại từ `attemptEndAt`) |
+| `remainingSeconds` | Thời gian còn lại, được tính realtime tại thời điểm response: max(0, floor((attemptEndAt - now) / 1000)). Không sử dụng giá trị remainingSeconds được lưu tại thời điểm start. |
 | `attemptEndAt` | Thời điểm kết thúc thực tế (authoritative deadline), được lưu trong DB khi tạo attempt |
 | `questions` | Danh sách câu hỏi |
-| `content` | Nội dung câu hỏi |
-| `points` | Điểm câu hỏi |
-| `type` | Loại câu hỏi |
-| `options` | Các lựa chọn của phần đáp án |
+| `questions[].id` | ID câu hỏi |
+| `questions[].orderIndex` | Thứ tự hiển thị (snapshot từ ExamAttemptQuestion) |
+| `questions[].content` | Nội dung câu hỏi |
+| `questions[].type` | Loại câu hỏi |
+| `questions[].points` | Điểm câu hỏi |
+| `questions[].options` | Chỉ có khi type là SINGLE_CHOICE hoặc MULTIPLE_CHOICE. Danh sách các lựa chọn. |
+| `questions[].answer` | Chỉ có khi type là SINGLE_CHOICE hoặc MULTIPLE_CHOICE. Array chứa optionId đã chọn (rỗng nếu chưa trả lời). |
+| `questions[].draftSourceCode` | Chỉ có khi type là PROGRAMMING. Code nháp hiện tại của sinh viên (null nếu chưa nhập). |
 
 ## Status Codes
 
@@ -716,7 +831,6 @@ Lấy nội dung bài thi để sinh viên làm bài.
 | 409 | Attempt đã kết thúc / không thể tiếp tục làm bài |
 
 ## Business Rules
-
 - Chỉ Student được phép truy cập.
 - `attemptId` phải tồn tại.
 - `attemptId` phải thuộc `examId` được truyền trên URL.
@@ -730,10 +844,12 @@ Lấy nội dung bài thi để sinh viên làm bài.
 - Không trả về đáp án đúng hoặc dữ liệu phục vụ chấm điểm mà Student không cần biết.
 - Chỉ trả về các trường dữ liệu cần thiết cho giao diện làm bài.
 - `attemptEndAt` là authoritative deadline được lưu trong DB khi tạo attempt. Giá trị này được tính từ `min(startedAt + exam.durationMinutes, exam.endTime)` tại thời điểm start exam và KHÔNG được cập nhật sau đó.
-- `remainingSeconds` là snapshot được lưu trong DB khi tạo attempt. Giá trị này chỉ dùng để khởi tạo countdown ban đầu cho client. Clients phải tính lại `remainingSeconds` trên mỗi API call dựa trên thời gian hiện tại: `max(0, floor((attemptEndAt - now) / 1000))`.
+- `remainingSeconds` được tính realtime tại thời điểm response dựa trên attemptEndAt và now: max(0, floor((attemptEndAt - now) / 1000)). Không sử dụng giá trị remainingSeconds được lưu trong DB tại thời điểm start.
 - Nếu attempt đã hết thời gian (`now >= attemptEndAt`), Student không được tiếp tục làm bài.
 - Trả HTTP 409 với message: "Exam attempt has ended"
-
+- API 2 trả answer/draftSourceCode hiện tại để frontend khôi phục trạng thái khi reload trang.
+- answer cho choice questions là array selectedOptionIds. Rỗng nếu sinh viên chưa trả lời.
+- draftSourceCode cho programming questions là string hoặc null.
 - Ví dụ API 1 tạo:
     ExamAttemptQuestion
     attemptId   questionId   orderIndex
@@ -772,15 +888,11 @@ Postman script của API 1 Success case đã tự động lưu `attemptId`:
 ```javascript
 pm.collectionVariables.set("attemptId", pm.response.json().data.attemptId);
 ```
-
 ### Endpoint
-
 ```
 GET /api/student/exams/:examId/attempts/:attemptId
 ```
-
 ### Variables
-
 | Variable | Description |
 |----------|-------------|
 | `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
@@ -791,23 +903,16 @@ GET /api/student/exams/:examId/attempts/:attemptId
 | `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
 | `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
 | `{{attemptId_expired}}` | attemptId whose attemptEndAt is in the past |
-
 ---
-
 ### Test Cases
-
 #### 1. Success – Lấy nội dung bài thi thành công
-
 **Pre-condition:** Call API 1 Start Exam first to get `{{attemptId}}`.
-
 **Method:** `GET`
 **URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}`
-
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
 ```
-
 **Expected Response (200):**
 ```json
 {
@@ -879,7 +984,12 @@ pm.test("questions have required fields", () => {
     pm.expect(q.content,    "question.content").to.be.a("string");
     pm.expect(q.type,       "question.type").to.be.a("string");
     pm.expect(q.points,     "question.points").to.be.a("number");
-    pm.expect(q.options,    "question.options").to.be.an("array");
+    if (q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE") {
+      pm.expect(q.options,  "question.options").to.be.an("array");
+    }
+    if (q.type === "PROGRAMMING") {
+      pm.expect(q).to.have.property("draftSourceCode");
+    }
   });
 });
 
@@ -900,17 +1010,13 @@ pm.test("correct answer is NOT exposed in any question", () => {
   });
 });
 ```
-
 ---
-
-#### 2. Success – SINGLE_CHOICE câu hỏi có options
-
+#### 2. Success – SINGLE_CHOICE câu hỏi có options và answer
 **Postman Tests (bổ sung vào Success case):**
 ```javascript
 const singleChoiceQuestions = pm.response.json().data.questions.filter(
   (q) => q.type === "SINGLE_CHOICE"
 );
-
 pm.test("SINGLE_CHOICE questions have non-empty options array", () => {
   if (singleChoiceQuestions.length === 0) return; // skip if no such question in this exam
   singleChoiceQuestions.forEach((q) => {
@@ -921,38 +1027,39 @@ pm.test("SINGLE_CHOICE questions have non-empty options array", () => {
     });
   });
 });
+pm.test("SINGLE_CHOICE questions have answer field as array", () => {
+  singleChoiceQuestions.forEach((q) => {
+    pm.expect(q.answer).to.be.an("array");
+  });
+});
 ```
-
 ---
-
-#### 3. Success – PROGRAMMING câu hỏi có options = []
-
+#### 3. Success – PROGRAMMING câu hỏi không có options, có draftSourceCode
 **Postman Tests (bổ sung vào Success case):**
 ```javascript
 const programmingQuestions = pm.response.json().data.questions.filter(
   (q) => q.type === "PROGRAMMING"
 );
-
-pm.test("PROGRAMMING questions have options = []", () => {
+pm.test("PROGRAMMING questions do NOT have options field", () => {
   programmingQuestions.forEach((q) => {
-    pm.expect(q.options).to.be.an("array").and.have.lengthOf(0);
+    pm.expect(q).to.not.have.property("options");
+  });
+});
+pm.test("PROGRAMMING questions have draftSourceCode field", () => {
+  programmingQuestions.forEach((q) => {
+    pm.expect(q).to.have.property("draftSourceCode");
   });
 });
 ```
-
 ---
-
 #### 4. Success – remainingSeconds được tính realtime
-
 **Description:** remainingSeconds phải phản ánh thời gian thực tế còn lại, không phải giá trị lưu trong DB.
-
 **Postman Tests:**
 ```javascript
 pm.test("remainingSeconds is a non-negative number", () => {
   const remaining = pm.response.json().data.remainingSeconds;
   pm.expect(remaining).to.be.a("number").and.be.at.least(0);
 });
-
 // Soft check: remainingSeconds nên nhỏ hơn durationMinutes * 60
 // (cho phép sai lệch vài giây do network latency)
 pm.test("remainingSeconds is not greater than durationMinutes * 60", () => {
@@ -960,16 +1067,11 @@ pm.test("remainingSeconds is not greater than durationMinutes * 60", () => {
   pm.expect(data.remainingSeconds).to.be.at.most(data.durationMinutes * 60);
 });
 ```
-
 ---
-
 #### 5. Unauthorized – Không login → 401
-
 **Method:** `GET`
 **URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}`
-
 **Headers:** *(No Authorization header)*
-
 **Expected Response (401):**
 ```json
 {
@@ -977,18 +1079,15 @@ pm.test("remainingSeconds is not greater than durationMinutes * 60", () => {
   "message": "Missing or invalid authorization header"
 }
 ```
-
 **Postman Tests:**
 ```javascript
 pm.test("Status code is 401", () => {
   pm.response.to.have.status(401);
 });
-
 pm.test("success is false", () => {
   pm.expect(pm.response.json().success).to.be.false;
 });
 ```
-
 ---
 
 #### 6. Forbidden – Teacher gọi API → 403
@@ -1202,28 +1301,39 @@ pm.test("Question order is consistent across multiple calls", () => {
   pm.expect(JSON.stringify(currentOrder)).to.equal(JSON.stringify(previousOrder));
 });
 ```
-
 ---
-
 #### 13. Verify correct answer is NOT exposed
-
 **Postman Tests:**
 ```javascript
 const questions = pm.response.json().data.questions;
-
 pm.test("No correctAnswer field in any question", () => {
   questions.forEach((q) => {
     pm.expect(q).to.not.have.property("correctAnswer");
     pm.expect(q).to.not.have.property("correctOptionIds");
   });
 });
-
 pm.test("No isCorrect field in any option", () => {
   questions.forEach((q) => {
     q.options.forEach((opt) => {
       pm.expect(opt).to.not.have.property("isCorrect");
     });
   });
+});
+```
+---
+#### 14. Success – Khôi phục answer sau khi save
+**Pre-condition:** Gọi API 3 để lưu answer cho một câu hỏi, sau đó gọi API 2.
+**Postman Tests:**
+```javascript
+const questions = pm.response.json().data.questions;
+
+pm.test("Saved answer is restored in API 2 response", () => {
+  // Tìm câu đã save answer trước đó
+  const answeredQuestion = questions.find(q => q.id === pm.collectionVariables.get("questionId"));
+  if (answeredQuestion && answeredQuestion.type !== "PROGRAMMING") {
+    pm.expect(answeredQuestion.answer).to.be.an("array");
+    pm.expect(answeredQuestion.answer.length).to.be.above(0);
+  }
 });
 ```
 ---

@@ -6,6 +6,14 @@ export const examParamsSchema = z.object({
 
 export type ExamParams = z.infer<typeof examParamsSchema>
 
+// ─── API 1: Start Exam ────────────────────────────────────────────────────────
+
+export const startExamBodySchema = z.object({
+  password: z.string().optional(),
+})
+
+export type StartExamBody = z.infer<typeof startExamBodySchema>
+
 // ─── API 2: Get Exam Content ──────────────────────────────────────────────────
 
 export const examAttemptParamsSchema = z.object({

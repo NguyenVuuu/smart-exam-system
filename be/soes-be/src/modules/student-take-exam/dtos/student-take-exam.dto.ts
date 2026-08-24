@@ -12,14 +12,30 @@ export interface QuestionOptionDto {
   content: string
 }
 
-export interface ExamContentQuestionDto {
+// Choice questions (SINGLE_CHOICE | MULTIPLE_CHOICE)
+export interface ExamContentChoiceQuestionDto {
   id:         string
   orderIndex: number
   content:    string
-  type:       string
+  type:       'SINGLE_CHOICE' | 'MULTIPLE_CHOICE'
   points:     number
   options:    QuestionOptionDto[]
+  answer:     string[]   // selectedOptionIds; [] if unanswered
 }
+
+// Programming questions
+export interface ExamContentProgrammingQuestionDto {
+  id:              string
+  orderIndex:      number
+  content:         string
+  type:            'PROGRAMMING'
+  points:          number
+  draftSourceCode: string | null  // null if unanswered
+}
+
+export type ExamContentQuestionDto =
+  | ExamContentChoiceQuestionDto
+  | ExamContentProgrammingQuestionDto
 
 export interface GetExamContentResponseDto {
   attemptId:        string

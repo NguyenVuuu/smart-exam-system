@@ -1,5 +1,5 @@
-import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult } from '../types'
-import type { StartExamResponseDto, GetExamContentResponseDto, SaveAnswerResponseDto, SubmitExamResponseDto, GetAttemptStatusResponseDto } from '../dtos/student-take-exam.dto'
+import type { StartExamResult, ExamContentResult, ExamContentQuestion, SubmitExamResult, AttemptStatusResult } from '../types'
+import type { StartExamResponseDto, GetExamContentResponseDto, ExamContentQuestionDto, SaveAnswerResponseDto, SubmitExamResponseDto, GetAttemptStatusResponseDto } from '../dtos/student-take-exam.dto'
 
 export function toStartExamResponseDto(result: StartExamResult): StartExamResponseDto {
   return {
@@ -12,6 +12,28 @@ export function toStartExamResponseDto(result: StartExamResult): StartExamRespon
 
 // ─── API 2: Get Exam Content ─────────────────────────────────────────────────
 
+function toExamContentQuestionDto(q: ExamContentQuestion): ExamContentQuestionDto {
+  if (q.type === 'PROGRAMMING') {
+    return {
+      id:              q.id,
+      orderIndex:      q.orderIndex,
+      content:         q.content,
+      type:            'PROGRAMMING',
+      points:          q.points,
+      draftSourceCode: q.draftSourceCode,
+    }
+  }
+  return {
+    id:         q.id,
+    orderIndex: q.orderIndex,
+    content:    q.content,
+    type:       q.type,
+    points:     q.points,
+    options:    q.options,
+    answer:     q.answer,
+  }
+}
+
 export function toGetExamContentResponseDto(result: ExamContentResult): GetExamContentResponseDto {
   return {
     attemptId:        result.attemptId,
@@ -19,7 +41,7 @@ export function toGetExamContentResponseDto(result: ExamContentResult): GetExamC
     durationMinutes:  result.durationMinutes,
     remainingSeconds: result.remainingSeconds,
     attemptEndAt:     result.attemptEndAt.toISOString(),
-    questions:        result.questions,
+    questions:        result.questions.map(toExamContentQuestionDto),
   }
 }
 

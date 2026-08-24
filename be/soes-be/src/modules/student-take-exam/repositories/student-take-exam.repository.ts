@@ -15,6 +15,7 @@ export async function findExamById(examId: string) {
       maxAttempts:      true,
       courseOfferingId: true,
       shuffleQuestions: true,
+      password:         true,   // needed for password-protected exams
       examQuestions: {
         select: { id: true, points: true },
       },
@@ -44,7 +45,8 @@ export async function countAttemptsForExam(examId: string, studentId: string): P
 // ─── API 2: Get Exam Content ──────────────────────────────────────────────────
 
 /**
- * Loads an attempt with the exam details and the question snapshot.
+ * Loads an attempt with the exam details, the question snapshot, and the
+ * student's current answers (for state restoration on reload).
  * Returns null when the attempt does not exist, does not belong to the
  * given examId, or does not belong to the given studentId.
  */
@@ -56,12 +58,12 @@ export async function findAttemptWithContent(
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
     select: {
-      id:        true,
-      examId:    true,
-      studentId: true,
-      startedAt: true,
+      id:           true,
+      examId:       true,
+      studentId:    true,
+      startedAt:    true,
       attemptEndAt: true,
-      status:    true,
+      status:       true,
       exam: {
         select: {
           title:           true,
@@ -69,11 +71,12 @@ export async function findAttemptWithContent(
           endTime:         true,
         },
       },
-      // snapshot ordered by displayOrder ASC — this is the source of truth for question order
+      // snapshot ordered by displayOrder ASC — source of truth for question order
       attemptQuestions: {
         orderBy: { displayOrder: 'asc' },
         select: {
-          displayOrder: true,
+          displayOrder:   true,
+          examQuestionId: true,
           examQuestion: {
             select: {
               id:      true,
@@ -90,6 +93,14 @@ export async function findAttemptWithContent(
           },
         },
       },
+      // load saved answers for state restoration — selectedOptionIds and draftSourceCode
+      studentAnswers: {
+        select: {
+          examQuestionId:   true,
+          selectedOptionIds: true,
+          draftSourceCode:  true,
+        },
+      },
     },
   })
 
@@ -100,14 +111,16 @@ export async function findAttemptWithContent(
   if (attempt.studentId !== studentId)  return null
 
   // fetch points per question in one query (points live on ExamQuestion, not Question)
-  // Use examQuestion.id as key since ExamQuestion is the entity that holds points
   const examQuestions = await prisma.examQuestion.findMany({
     where:  { examId, id: { in: attempt.attemptQuestions.map((aq) => aq.examQuestion.id) } },
     select: { id: true, points: true },
   })
   const pointsMap = new Map(examQuestions.map((eq) => [eq.id, Number(eq.points)]))
 
-  return { attempt, pointsMap }
+  // build answer lookup: examQuestionId → StudentAnswer
+  const answerMap = new Map(attempt.studentAnswers.map((sa) => [sa.examQuestionId, sa]))
+
+  return { attempt, pointsMap, answerMap }
 }
 
 
@@ -115,6 +128,7 @@ export interface CreateAttemptInput {
   examId:           string
   studentId:        string
   startedAt:        Date
+  attemptEndAt:     Date
   remainingSeconds: number
   shuffleQuestions: boolean
 }
@@ -132,7 +146,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 export async function createAttemptSafe(input: CreateAttemptInput) {
-  const { examId, studentId, startedAt, remainingSeconds, shuffleQuestions } = input
+  const { examId, studentId, startedAt, attemptEndAt, remainingSeconds, shuffleQuestions } = input
 
   return prisma.$transaction(async (tx) => {
     // ── Guard: re-check inside transaction ────────────────────────────────
@@ -147,17 +161,15 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       err.name = 'DUPLICATE_ATTEMPT'
       throw err
     }
-
     // ── Fetch exam and exam questions ──────────────────────────────────────
-    const exam = await tx.exam.findUnique({
-      where: { id: examId },
-      select: { durationMinutes: true },
-    })
+    // const exam = await tx.exam.findUnique({
+    //   where: { id: examId },
+    //   select: { durationMinutes: true },
+    // })
 
-    if (!exam) {
-      throw new Error('EXAM_NOT_FOUND')
-    }
-
+    // if (!exam) {
+    //   throw new Error('EXAM_NOT_FOUND')
+    // }
     // Use deterministic ordering (id asc) so the non-shuffled case is stable.
     const examQuestions = await tx.examQuestion.findMany({
       where: { examId },
@@ -171,8 +183,7 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
     // These values are computed from startedAt + exam.durationMinutes and
     // will NOT be updated during the attempt. Clients should recalculate
     // remainingSeconds on each API call based on current time.
-
-    const attemptEndAt = new Date(startedAt.getTime() + exam.durationMinutes * 60 * 1000)
+    //const attemptEndAt = new Date(startedAt.getTime() + exam.durationMinutes * 60 * 1000)
     
     const attempt = await tx.examAttempt.create({
       data: {
