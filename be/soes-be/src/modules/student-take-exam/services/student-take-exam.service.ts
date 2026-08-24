@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError, ValidationError } from "../../../errors/AppError";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import prisma from "../../../lib/prisma";
 import { examConfig } from "../../../config";
 import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult } from "../types";
@@ -7,6 +7,7 @@ import * as repo from "../repositories/student-take-exam.repository";
 export async function startExam(
   examId: string,
   studentId: string,
+  password?: string,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
   const exam = await repo.findExamById(examId);
@@ -14,9 +15,7 @@ export async function startExam(
     throw new NotFoundError("Exam not found");
   }
 
-  // ── 2. CourseOffering must exist (exam carries courseOfferingId, which is
-  //       always set because of the non-null DB constraint, but we still guard
-  //       against a hypothetical null to satisfy business rule 8.2) ──────────
+  // ── 2. CourseOffering must exist ──────────────────────────────────────────
   if (!exam.courseOfferingId) {
     throw new NotFoundError("Course offering not found");
   }
@@ -57,7 +56,14 @@ export async function startExam(
     throw new ConflictError("Maximum attempts reached");
   }
 
-  // ── 8. Compute timing values ──────────────────────────────────────────────
+  // ── 8. Password check (before creating attempt) ───────────────────────────
+  // Contract: checked after all other validations but before attempt creation.
+  // Missing password or wrong password → 403 "Invalid exam password".
+  if (exam.password !== null) {
+    if (!password || password !== exam.password) {
+      throw new ForbiddenError("Invalid exam password");
+    }
+  }
   //
   // Use a single timestamp for all calculations so there are no clock skew
   // issues between startedAt, attemptEndAt, and remainingSeconds.
@@ -85,18 +91,19 @@ export async function startExam(
       examId,
       studentId,
       startedAt,
+      attemptEndAt,
       remainingSeconds,
       shuffleQuestions: exam.shuffleQuestions,
     });
   } catch (err) {
     if (err instanceof Error && err.name === "DUPLICATE_ATTEMPT") {
-      throw new ConflictError("You have already started this exam");
+      throw new ConflictError("Maximum attempts reached");
     }
 
     // Prisma unique constraint violation — concurrent request won the race
     const prismaErr = err as { code?: string };
     if (prismaErr.code === "P2002") {
-      throw new ConflictError("You have already started this exam");
+      throw new ConflictError("Maximum attempts reached");
     }
 
     throw err;
@@ -117,7 +124,7 @@ export async function getExamContent(
   attemptId: string,
   studentId: string,
 ): Promise<ExamContentResult> {
-  // ── 1. Load attempt + questions (ownership validated inside repository) ───
+  // ── 1. Load attempt + questions + saved answers (ownership in repo) ───────
   const result = await repo.findAttemptWithContent(
     attemptId,
     examId,
@@ -127,7 +134,7 @@ export async function getExamContent(
     throw new NotFoundError("Attempt not found");
   }
 
-  const { attempt, pointsMap } = result;
+  const { attempt, pointsMap, answerMap } = result;
 
   // ── 2. Check expiry using attemptEndAt from DB ─────────────────────────────
   const now = new Date();
@@ -135,38 +142,50 @@ export async function getExamContent(
     throw new ConflictError("Exam attempt has ended");
   }
 
-  // ── 3. Compute remainingSeconds from attemptEndAt ──────────────────────────
+  // ── 3. Compute remainingSeconds realtime from attemptEndAt ────────────────
   const remainingSeconds = Math.max(
     0,
     Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
   );
 
-  // ── 4. Build question list from the attempt's snapshot ────────────────────
+  // ── 4. Build question list from the attempt snapshot ─────────────────────
   // Source of truth: ExamAttemptQuestion ordered by displayOrder ASC.
-  // PROGRAMMING questions get options: [].
-  const questions: ExamContentResult["questions"] =
-    attempt.attemptQuestions.map((aq) => {
-      const q = aq.examQuestion;
-      const isProgramming = q.type === "PROGRAMMING";
+  // Choice questions carry options + answer (selectedOptionIds for state restore).
+  // Programming questions carry draftSourceCode (for state restore); no options field.
+  const questions: ExamContentResult["questions"] = attempt.attemptQuestions.map((aq) => {
+    const q       = aq.examQuestion
+    const qId     = q.id
+    const points  = pointsMap.get(qId) ?? 0
+    const savedAnswer = answerMap.get(qId)
 
+    if (q.type === 'PROGRAMMING') {
       return {
-        id: q.id,
-        orderIndex: aq.displayOrder,
-        content: q.content,
-        type: q.type,
-        points: pointsMap.get(q.id) ?? 0,
-        options: isProgramming
-          ? []
-          : q.options.map((opt) => ({ id: opt.id, content: opt.content })),
-      };
-    });
+        id:              qId,
+        orderIndex:      aq.displayOrder,
+        content:         q.content,
+        type:            'PROGRAMMING' as const,
+        points,
+        draftSourceCode: savedAnswer?.draftSourceCode ?? null,
+      }
+    }
+
+    return {
+      id:         qId,
+      orderIndex: aq.displayOrder,
+      content:    q.content,
+      type:       q.type as 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE',
+      points,
+      options:    q.options.map((opt) => ({ id: opt.id, content: opt.content })),
+      answer:     savedAnswer?.selectedOptionIds ?? [],
+    }
+  })
 
   return {
-    attemptId: attempt.id,
-    title: attempt.exam.title,
+    attemptId:       attempt.id,
+    title:           attempt.exam.title,
     durationMinutes: attempt.exam.durationMinutes,
     remainingSeconds,
-    attemptEndAt: attempt.attemptEndAt,
+    attemptEndAt:    attempt.attemptEndAt,
     questions,
   };
 }

@@ -1,14 +1,15 @@
 import { NextFunction, Request, Response } from 'express'
-import { examParamsSchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema } from '../validators/student-take-exam.validator'
+import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema } from '../validators/student-take-exam.validator'
 import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { examId } = examParamsSchema.parse(req.params)
-    const studentId  = req.user!.profileId
+    const { examId }   = examParamsSchema.parse(req.params)
+    const { password } = startExamBodySchema.parse(req.body)
+    const studentId    = req.user!.profileId
 
-    const result = await takeExamService.startExam(examId, studentId)
+    const result = await takeExamService.startExam(examId, studentId, password)
 
     res.status(200).json({
       success: true,
