@@ -20,9 +20,18 @@ export function StepInfo(props: {
   setExamCategory: (value: ExamCategory) => void
   examType: ExamType
   updateExamType: (value: ExamType) => void
-  courseOfferingId: string
-  setCourseOfferingId: (value: string) => void
+  subjectId: string
+  setSubjectId: (value: string) => void
 }) {
+  const subjectOptions = Array.from(
+    new Map(
+      MOCK_TEACHER_COURSES.map((course) => [
+        course.subjectName,
+        { value: course.subjectName, label: course.subjectName },
+      ]),
+    ).values(),
+  )
+
   return (
     <StepCard
       title="Thông tin đề thi"
@@ -44,7 +53,7 @@ export function StepInfo(props: {
                 }`}
               >
                 <span className="text-xs font-bold block">{examTypeLabel[type]}</span>
-                <span className="text-[10px] text-gray-500 mt-1 block leading-relaxed">
+                <span className="text-xs text-gray-500 mt-1 block leading-relaxed">
                   {examTypeDescription[type]}
                 </span>
               </button>
@@ -73,15 +82,12 @@ export function StepInfo(props: {
           />
         </Field>
 
-        <Field label="Môn/lớp mặc định">
+        <Field label="Môn học">
           <AppSelect
-            value={props.courseOfferingId}
-            onChange={props.setCourseOfferingId}
+            value={props.subjectId}
+            onChange={props.setSubjectId}
             buttonClassName="bg-gray-50"
-            options={MOCK_TEACHER_COURSES.map((course) => ({
-              value: course.id,
-              label: `${course.courseCode} - ${course.subjectName}`,
-            }))}
+            options={subjectOptions}
           />
         </Field>
 
@@ -216,11 +222,11 @@ export function StepSections({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-gray-900">{section.title}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700">
                         {sectionTypeLabel[section.type]}
                       </span>
                     </div>
-                    <p className="text-[11px] text-gray-500">{section.description}</p>
+                    <p className="text-xs text-gray-500">{section.description}</p>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -331,7 +337,7 @@ export function StepQuestions(props: {
 
         {props.visibleQuestions.length === 0 ? (
           <div className="border border-dashed border-gray-200 rounded-xl py-10 text-center">
-            <p className="text-sm font-bold text-gray-700">Chưa có câu hỏi trong phần này</p>
+            <p className="text-xs font-bold text-gray-700">Chưa có câu hỏi trong phần này</p>
             <p className="text-xs text-gray-500 mt-1">Chọn từ ngân hàng hoặc tạo câu mới để bắt đầu.</p>
           </div>
         ) : (
@@ -425,8 +431,8 @@ export function StepPreview({
       <div className="space-y-4">
         <div className="border-b border-gray-100 pb-4 flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold text-blue-600 uppercase">{examTypeLabel[examType]}</p>
-            <h2 className="text-base font-semibold text-gray-900 mt-1">{title}</h2>
+            <p className="text-xs font-semibold text-blue-600 uppercase">{examTypeLabel[examType]}</p>
+            <h2 className="text-xs font-semibold text-gray-900 mt-1">{title}</h2>
             <p className="text-xs text-gray-500 mt-1">{description}</p>
           </div>
           <span className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium shrink-0">
@@ -438,8 +444,8 @@ export function StepPreview({
           <div key={section.id} className="border border-gray-100 rounded-xl overflow-hidden">
             <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="text-sm font-bold text-gray-900">{section.title}</p>
-                <p className="text-[11px] text-gray-500">{section.description}</p>
+                <p className="text-xs font-bold text-gray-900">{section.title}</p>
+                <p className="text-xs text-gray-500">{section.description}</p>
               </div>
               <span className="text-xs font-bold text-blue-700">
                 {section.questionCount} câu • {section.points.toFixed(1)} điểm
@@ -452,7 +458,7 @@ export function StepPreview({
                     <p className="text-xs font-semibold text-gray-900 leading-relaxed">
                       Câu {idx + 1}. {item.question.content}
                     </p>
-                    <span className="text-[11px] font-bold text-gray-700 shrink-0">{item.points} điểm</span>
+                    <span className="text-xs font-bold text-gray-700 shrink-0">{item.points} điểm</span>
                   </div>
                   <QuestionAnswerPreview question={item.question} />
                 </div>
@@ -468,7 +474,7 @@ export function StepPreview({
 export function ExamSummary({
   examType,
   title,
-  selectedCourse,
+  selectedSubject,
   sections,
   sectionStats,
   questions,
@@ -477,7 +483,7 @@ export function ExamSummary({
 }: {
   examType: ExamType
   title: string
-  selectedCourse: { courseCode: string; subjectName: string }
+  selectedSubject: { subjectCode: string; subjectName: string }
   sections: ExamSection[]
   sectionStats: Array<ExamSection & { questionCount: number; points: number }>
   questions: ExamQuestionItem[]
@@ -490,10 +496,10 @@ export function ExamSummary({
     <aside className="w-full xl:w-[360px] space-y-4 h-fit xl:sticky xl:top-6 font-sans">
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
         <div>
-          <p className="text-[11px] font-bold uppercase text-blue-600 tracking-wide">{examTypeLabel[examType]}</p>
-          <h2 className="text-sm font-bold text-gray-900 mt-1 leading-snug">{title}</h2>
-          <p className="text-[11px] text-gray-500 mt-0.5">
-            {selectedCourse.courseCode} • {selectedCourse.subjectName}
+          <p className="text-xs font-bold uppercase text-blue-600 tracking-wide">{examTypeLabel[examType]}</p>
+          <h2 className="text-xs font-bold text-gray-900 mt-1 leading-snug">{title}</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {selectedSubject.subjectCode} • {selectedSubject.subjectName}
           </p>
         </div>
 
@@ -501,8 +507,8 @@ export function ExamSummary({
           <SummaryBox label="Phần thi" value={sections.length} />
           <SummaryBox label="Câu hỏi" value={questions.length} />
           <div className={`rounded-xl border p-2.5 text-center ${isPointsBalanced ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/50 border-amber-200'}`}>
-            <span className="text-[10px] text-gray-500 block font-medium">Tổng điểm</span>
-            <span className={`text-base font-bold ${isPointsBalanced ? 'text-emerald-700' : 'text-amber-700'}`}>
+            <span className="text-xs text-gray-500 block font-medium">Tổng điểm</span>
+            <span className={`text-xs font-bold ${isPointsBalanced ? 'text-emerald-700' : 'text-amber-700'}`}>
               {totalPoints.toFixed(1)}/10
             </span>
           </div>
@@ -519,7 +525,7 @@ export function ExamSummary({
         )}
 
         <div className="border-t border-gray-100 pt-3 space-y-2">
-          <span className="text-[11px] font-bold text-gray-700 block">Cơ cấu điểm theo phần:</span>
+          <span className="text-xs font-bold text-gray-700 block">Cơ cấu điểm theo phần:</span>
           {sectionStats.map((section) => (
             <div key={section.id} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-gray-50/80">
               <span className="text-gray-700 font-medium truncate max-w-[180px]">{section.title}</span>

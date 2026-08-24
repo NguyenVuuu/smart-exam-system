@@ -1,6 +1,12 @@
 import type { Question } from './teacher-question-bank.types'
 
-export type ExamStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED'
+export type ExamStatus =
+  | 'DRAFT'
+  | 'PENDING_APPROVAL'
+  | 'REJECTED'
+  | 'PUBLISHED'
+  | 'LOCKED'
+  | 'ARCHIVED'
 export type ExamStudentVisibility = 'VISIBLE' | 'HIDDEN'
 export type ExamType = 'MULTIPLE_CHOICE' | 'PROGRAMMING' | 'MIXED'
 export type ExamCategory = 'QUIZ' | 'MIDTERM' | 'FINAL'
@@ -8,7 +14,11 @@ export type CreationMethod = 'MANUAL' | 'QUESTION_BANK' | 'AI_GENERATED' | 'MIXE
 export type ResultReleaseMode = 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED'
 export type ExamSectionType = 'OBJECTIVE' | 'PROGRAMMING'
 export type ExamIpMode = 'HOME' | 'CAMPUS'
-export type ExamVariantDistributionMode = 'RANDOM_ONLINE' | 'PAPER_PRINT'
+export type ExamDistributionMode =
+  | 'FIXED_ORDER'
+  | 'SHUFFLE_ORDER'
+  | 'SHUFFLE_QUESTIONS_AND_OPTIONS'
+  | 'RANDOM_SUBSET'
 
 export interface ExamQuestionItem {
   questionId: string
@@ -27,8 +37,9 @@ export interface ExamSection {
   order: number
 }
 
-export interface ExamAssignment {
+export interface ExamSchedule {
   id: string
+  examId: string
   courseOfferingId: string
   courseCode: string
   subjectName: string
@@ -46,24 +57,17 @@ export interface ExamAssignment {
   blockRightClick?: boolean
   ipMode?: ExamIpMode
   allowedIpRange?: string
-  distributionMode?: ExamVariantDistributionMode
-  status: 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED'
-}
-
-export interface ExamVariant {
-  id: string
-  code: string
-  status: 'DRAFT' | 'READY' | 'PUBLISHED'
-  questionItems: ExamQuestionItem[]
-  shuffleSeed: string
-  assignedStudentCount?: number
-  createdAt: string
+  distributionMode?: ExamDistributionMode
+  resultsPublished?: boolean
+  proctorIds?: string[]
+  status: 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED' | 'CANCELLED'
 }
 
 export interface Exam {
   id: string
-  courseOfferingId: string
-  courseCode: string
+  authorId: string
+  subjectId: string
+  subjectCode: string
   subjectName: string
   title: string
   description: string
@@ -72,25 +76,18 @@ export interface Exam {
   creationMethod: CreationMethod
   status: ExamStatus
   studentVisibility: ExamStudentVisibility
-  startTime: string
-  endTime: string
-  durationMinutes: number
-  maxAttempts: number
-  password?: string
-  shuffleQuestions: boolean
-  shuffleOptions: boolean
-  resultReleaseMode?: ResultReleaseMode
-  resultReleaseAt?: string
-  resultPublished: boolean
+  defaultDurationMinutes: number
   sections?: ExamSection[]
-  assignments?: ExamAssignment[]
+  schedules?: ExamSchedule[]
   questions: ExamQuestionItem[]
-  variants?: ExamVariant[]
   totalPoints: number
   createdAt: string
+  rejectionReason?: string
+  lockedReason?: string
 }
 
 export interface StudentCodingSubmissionResult {
+  questionId: string
   testCaseId: string
   passed: boolean
   input: string
@@ -100,27 +97,66 @@ export interface StudentCodingSubmissionResult {
   memoryKb: number
 }
 
+export interface GradeAdjustment {
+  id: string
+  oldScore: number
+  newScore: number
+  reason: string
+  adjustedBy: string
+  adjustedAt: string
+}
+
+export interface RegradeRequest {
+  status: 'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'CLOSED'
+  reason: string
+  submittedAt: string
+  resolution?: string
+  resolvedAt?: string
+}
+
 export interface ExamSubmission {
   id: string
   examId: string
+  scheduleId: string
+  attemptId: string
   studentId: string
   studentCode: string
   studentName: string
   submittedAt: string
   autoScore: number
   manualScoreOverride?: number
+  overrideReason?: string
+  scoreAdjustments?: GradeAdjustment[]
+  regradeRequest?: RegradeRequest
   finalScore: number
-  status: 'SUBMITTED' | 'GRADING' | 'GRADED'
+  status: 'SUBMITTED' | 'GRADING' | 'GRADED' | 'INVALIDATED'
   codingResults?: StudentCodingSubmissionResult[]
+  answers?: Array<{
+    questionId: string
+    selectedOptionIds?: string[]
+    sourceCode?: string
+    programmingLanguage?: 'JAVA' | 'C' | 'CPP'
+  }>
 }
 
 export interface ViolationRecord {
   id: string
-  examId: string
+  scheduleId: string
+  attemptId: string
   studentId: string
   studentCode: string
   studentName: string
-  type: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'NO_FACE' | 'MULTIPLE_FACES' | 'INACTIVITY'
+  type:
+    | 'TAB_SWITCH'
+    | 'FULLSCREEN_EXIT'
+    | 'COPY_PASTE'
+    | 'NO_FACE'
+    | 'MULTIPLE_FACES'
+    | 'CAMERA_BLOCKED'
+    | 'IP_CHANGED'
+    | 'HEARTBEAT_MISSED'
+    | 'MULTIPLE_ACTIVE_SESSIONS'
+    | 'INACTIVITY'
   timestamp: string
   severity: 'LOW' | 'MEDIUM' | 'HIGH'
   evidenceImageUrl?: string

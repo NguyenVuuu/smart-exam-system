@@ -8,15 +8,21 @@ import {
   FileSpreadsheet,
   Layers,
   LayoutDashboard,
+  LogOut,
   ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useLogout } from '../../../auth/hooks/useLogout'
+import { useAuthStore } from '../../../store/authStore'
+import type { UserPermission } from '../../../types/auth.types'
 
 interface SubNavItem {
   label: string
   icon: React.ReactNode
   path: string
+  requiredPermissions?: UserPermission[]
 }
 
 interface NavGroup {
@@ -30,43 +36,71 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'overview',
     title: 'TỔNG QUAN',
     items: [
-      { label: 'Trang chủ', icon: <LayoutDashboard size={20} />, path: '/teacher' },
-      { label: 'Lớp học phần', icon: <BookOpen size={20} />, path: '/teacher/courses' },
+      { label: 'Trang chủ', icon: <LayoutDashboard size={19} />, path: '/teacher' },
+      { label: 'Lớp học phần', icon: <BookOpen size={19} />, path: '/teacher/courses' },
     ],
   },
   {
     id: 'questions',
     title: 'CÂU HỎI',
     items: [
-      { label: 'Ngân hàng câu hỏi', icon: <Database size={20} />, path: '/teacher/question-bank' },
-      { label: 'Rà soát câu hỏi', icon: <AlertCircle size={20} />, path: '/teacher/question-audit' },
+      { label: 'Ngân hàng câu hỏi', icon: <Database size={19} />, path: '/teacher/question-bank' },
+      { label: 'Rà soát câu hỏi', icon: <AlertCircle size={19} />, path: '/teacher/question-audit' },
     ],
   },
   {
     id: 'exams',
     title: 'BÀI THI / ĐỀ THI',
     items: [
-      { label: 'Quản lý đề thi', icon: <ClipboardList size={20} />, path: '/teacher/exams' },
-      { label: 'Sinh đề tự động', icon: <Layers size={20} />, path: '/teacher/exams/auto-generator' },
+      { label: 'Quản lý đề thi', icon: <ClipboardList size={19} />, path: '/teacher/exams' },
+      { label: 'Sinh đề tự động', icon: <Layers size={19} />, path: '/teacher/exams/auto-generator' },
     ],
   },
   {
     id: 'reports',
     title: 'KHẢO THÍ & BÁO CÁO',
     items: [
-      { label: 'Giám sát ca thi', icon: <ShieldAlert size={20} />, path: '/teacher/proctoring' },
-      { label: 'Thống kê phổ điểm', icon: <FileSpreadsheet size={20} />, path: '/teacher/grading-reports' },
+      { label: 'Giám sát ca thi', icon: <ShieldAlert size={19} />, path: '/teacher/proctoring' },
+      { label: 'Thống kê phổ điểm', icon: <FileSpreadsheet size={19} />, path: '/teacher/grading-reports' },
+    ],
+  },
+  {
+    id: 'department-approval',
+    title: 'BỘ MÔN',
+    items: [
+      {
+        label: 'Duyệt chuyên môn',
+        icon: <ShieldCheck size={19} />,
+        path: '/teacher/department-approvals',
+        requiredPermissions: ['APPROVE_SHARED_QUESTION', 'APPROVE_FINAL_EXAM'],
+      },
     ],
   },
 ]
 
-// Module-level persistent state across page unmount/remount
+const EMPTY_PERMISSIONS: UserPermission[] = []
+
 export let persistentTeacherIsCollapsed: boolean = false
 let persistentTeacherExpandedGroupIds: string[] | null = null
 
 export default function TeacherSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
+  const user = useAuthStore((state) => state.user)
+  const { logout } = useLogout()
+  const permissions = useAuthStore((state) => state.user?.permissions ?? EMPTY_PERMISSIONS)
+  const navGroups = useMemo(
+    () =>
+      NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) =>
+            !item.requiredPermissions ||
+            item.requiredPermissions.some((permission) => permissions.includes(permission)),
+        ),
+      })).filter((group) => group.items.length > 0),
+    [permissions],
+  )
 
   const isNavItemActive = (path: string) => {
     if (path === '/teacher') return location.pathname === '/teacher'
@@ -80,8 +114,7 @@ export default function TeacherSidebar() {
     return location.pathname === path || location.pathname.startsWith(`${path}/`)
   }
 
-  // Determine initial active group based on route
-  const initialActiveGroup = NAV_GROUPS.find((g) =>
+  const initialActiveGroup = navGroups.find((g) =>
     g.items.some((item) => isNavItemActive(item.path)),
   )
 
@@ -90,12 +123,9 @@ export default function TeacherSidebar() {
     if (persistentTeacherExpandedGroupIds && persistentTeacherExpandedGroupIds.length > 0) {
       return persistentTeacherExpandedGroupIds
     }
-    return [initialActiveGroup?.id || 'overview']
+    return [initialActiveGroup?.id || 'overview', 'questions', 'exams']
   })
 
-  const prevPathnameRef = useRef(location.pathname)
-
-  // Listen to global toggle-sidebar custom event
   useEffect(() => {
     const handleToggle = () => {
       setIsCollapsed((prev) => {
@@ -108,28 +138,9 @@ export default function TeacherSidebar() {
     return () => window.removeEventListener('toggle-sidebar', handleToggle)
   }, [])
 
-  // Sync collapse state to module variable
   useEffect(() => {
     persistentTeacherIsCollapsed = isCollapsed
   }, [isCollapsed])
-
-  // Auto-expand active group ONLY when navigating to a new route
-  useEffect(() => {
-    if (prevPathnameRef.current !== location.pathname) {
-      prevPathnameRef.current = location.pathname
-      const activeGroup = NAV_GROUPS.find((g) =>
-        g.items.some((item) => isNavItemActive(item.path)),
-      )
-      if (activeGroup) {
-        setExpandedGroupIds((prev) => {
-          if (prev.includes(activeGroup.id)) return prev
-          const next = [...prev, activeGroup.id]
-          persistentTeacherExpandedGroupIds = next
-          return next
-        })
-      }
-    }
-  }, [location.pathname])
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroupIds((prev) => {
@@ -145,8 +156,8 @@ export default function TeacherSidebar() {
         isCollapsed ? 'w-16' : 'w-60'
       } shrink-0 bg-white border-r border-gray-100 flex flex-col font-sans transition-[width] duration-300 ease-in-out overflow-hidden`}
     >
-      {/* Logo Header: Fixed logo position, smooth right-to-left collapse */}
-      <div className="h-16 flex items-center px-3.5 border-b border-gray-100 shrink-0 overflow-hidden whitespace-nowrap">
+      {/* Restored Original Logo Header */}
+      <div className="h-16 flex items-center px-4 border-b border-gray-100 shrink-0 overflow-hidden whitespace-nowrap">
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-bold text-base flex items-center justify-center shadow-md shadow-blue-200/50 shrink-0">
             S
@@ -154,7 +165,7 @@ export default function TeacherSidebar() {
           {!isCollapsed && (
             <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap animate-in fade-in duration-200">
               <span className="text-lg font-bold text-gray-900 tracking-tight">SOES</span>
-              <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase shrink-0">
+              <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase shrink-0">
                 Giảng viên
               </span>
             </div>
@@ -163,17 +174,16 @@ export default function TeacherSidebar() {
       </div>
 
       {/* Nav Groups */}
-      <nav className="flex-1 py-4 px-2.5 space-y-3 overflow-y-auto overflow-x-hidden">
-        {NAV_GROUPS.map((group, groupIdx) => {
+      <nav className="flex-1 py-4 px-3 space-y-3 overflow-y-auto overflow-x-hidden">
+        {navGroups.map((group, groupIdx) => {
           const isGroupExpanded = expandedGroupIds.includes(group.id)
 
           return (
             <div key={group.id} className="space-y-1">
               {!isCollapsed ? (
-                /* Expandable Group Accordion Header */
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider hover:text-gray-700 transition-colors overflow-hidden whitespace-nowrap"
+                  className="w-full flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-700 transition-colors overflow-hidden whitespace-nowrap"
                   title={`${isGroupExpanded ? 'Thu gọn' : 'Mở rộng'} cụm ${group.title}`}
                 >
                   <span className="truncate">{group.title}</span>
@@ -187,7 +197,6 @@ export default function TeacherSidebar() {
                 groupIdx > 0 && <div className="border-t border-gray-100 my-2" />
               )}
 
-              {/* Items List - Rendered when expanded or in collapsed mode */}
               {(!isCollapsed ? isGroupExpanded : true) && (
                 <div className="space-y-1">
                   {group.items.map((subItem) => {
@@ -198,9 +207,11 @@ export default function TeacherSidebar() {
                         key={subItem.path}
                         onClick={() => navigate(subItem.path)}
                         title={isCollapsed ? subItem.label : undefined}
-                        className={`w-full flex items-center gap-3.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all overflow-hidden whitespace-nowrap ${
+                        className={`w-full flex items-center ${
+                          isCollapsed ? 'justify-center gap-0 px-0 py-2.5' : 'gap-3 px-3.5 py-2.5'
+                        } text-sm font-medium rounded-xl transition-all overflow-hidden whitespace-nowrap ${
                           isActive
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-200/50 font-bold'
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                         }`}
                       >
@@ -215,6 +226,33 @@ export default function TeacherSidebar() {
           )
         })}
       </nav>
+
+      {/* Bottom Profile Section */}
+      {!isCollapsed && (
+        <div className="p-3 border-t border-gray-100 shrink-0">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
+                NV
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-gray-900 truncate">
+                  {user?.fullName ?? 'Nguyễn Văn An'}
+                </p>
+                <p className="text-[11px] text-gray-500 truncate">Giảng viên</p>
+              </div>
+            </div>
+            <button
+              onClick={() => logout()}
+              title="Đăng xuất"
+              className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }
+

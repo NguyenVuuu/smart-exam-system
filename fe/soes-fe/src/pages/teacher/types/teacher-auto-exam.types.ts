@@ -1,10 +1,10 @@
-export interface GeneratedExamCode {
-  code: string
+export interface GeneratedExamDraft {
+  id: string
   easyCount: number
   mediumCount: number
   hardCount: number
   totalPoints: number
-  pointsPerQuestion: number
+  questionPoints: number[]
   questionIds: string[]
 }
 

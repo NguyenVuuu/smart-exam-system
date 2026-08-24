@@ -61,9 +61,9 @@ export const MOCK_QUESTION_BANK: Question[] = [
     timeLimitMs: 2000,
     memoryLimitMb: 256,
     testCases: [
-      { id: 'tc-01', input: '10', expectedOutput: '17', weight: 3, isHidden: false },
-      { id: 'tc-02', input: '20', expectedOutput: '77', weight: 3, isHidden: false },
-      { id: 'tc-03', input: '100', expectedOutput: '1060', weight: 4, isHidden: true },
+      { id: 'tc-01', input: '10', expectedOutput: '17', weight: 30, isHidden: false },
+      { id: 'tc-02', input: '20', expectedOutput: '77', weight: 30, isHidden: false },
+      { id: 'tc-03', input: '100', expectedOutput: '1060', weight: 40, isHidden: true },
     ],
     createdAt: '2026-08-12 16:45',
   },

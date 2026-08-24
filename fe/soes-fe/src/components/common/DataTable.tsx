@@ -78,12 +78,12 @@ export default function DataTable<T>({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-xs overflow-hidden font-sans">
       <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-xs border-collapse table-auto">
+        <table className="min-w-full text-left text-sm border-collapse table-auto">
           <thead>
-            <tr className="bg-gray-50/80 border-b border-gray-100 text-gray-500 font-semibold uppercase text-[11px] tracking-wide select-none">
-              {expandedRowRender && <th className="py-3.5 px-4 w-12 text-center"></th>}
+            <tr className="bg-gray-50/80 border-b border-gray-100 text-gray-500 font-bold uppercase text-[11px] tracking-wider select-none">
+              {expandedRowRender && <th className="py-4 px-4 w-12 text-center"></th>}
               {selectable && (
-                <th className="py-3.5 px-4 w-12 text-center">
+                <th className="py-4 px-4 w-12 text-center">
                   <input
                     type="checkbox"
                     checked={data.length > 0 && selectedKeys.length === data.length}
@@ -96,7 +96,7 @@ export default function DataTable<T>({
                 <th
                   key={idx}
                   style={{ width: col.width }}
-                  className={`py-3.5 px-5 whitespace-nowrap ${
+                  className={`py-4 px-6 whitespace-nowrap ${
                     col.align === 'center'
                       ? 'text-center'
                       : col.align === 'right'
@@ -110,14 +110,14 @@ export default function DataTable<T>({
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
                   {expandedRowRender && <td className="py-4 px-3 w-10"></td>}
                   {selectable && <td className="py-4 px-3 w-10"></td>}
                   {columns.map((_, cIdx) => (
-                    <td key={cIdx} className="py-4 px-4">
+                    <td key={cIdx} className="py-4 px-6">
                       <div className="h-4 bg-gray-100 rounded-md w-3/4"></div>
                     </td>
                   ))}
@@ -130,10 +130,10 @@ export default function DataTable<T>({
                   className="py-12 px-4 text-center text-gray-400"
                 >
                   <div className="flex flex-col items-center justify-center space-y-2">
-                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                      <Inbox size={20} />
+                    <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400">
+                      <Inbox size={22} />
                     </div>
-                    <p className="text-xs font-medium text-gray-500">{emptyText}</p>
+                    <p className="text-sm font-medium text-gray-500">{emptyText}</p>
                   </div>
                 </td>
               </tr>
@@ -152,22 +152,22 @@ export default function DataTable<T>({
                       } ${
                         isSelected
                           ? 'bg-blue-50/50 hover:bg-blue-50'
-                          : 'hover:bg-gray-50/70'
+                          : 'hover:bg-gray-50/60'
                       }`}
                     >
                       {expandedRowRender && (
-                        <td className="py-3.5 px-3 w-10 text-center">
+                        <td className="py-4 px-3 w-10 text-center">
                           <button
                             onClick={(e) => toggleExpand(key, e)}
                             className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                           >
-                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </button>
                         </td>
                       )}
 
                       {selectable && (
-                        <td className="py-3.5 px-3 w-10 text-center">
+                        <td className="py-4 px-3 w-10 text-center">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -181,7 +181,7 @@ export default function DataTable<T>({
                         <td
                           key={cIdx}
                           style={{ width: col.width }}
-                          className={`py-4 px-5 text-gray-700 align-middle ${
+                          className={`py-4 px-6 text-gray-800 align-middle text-sm ${
                             col.align === 'center'
                               ? 'text-center'
                               : col.align === 'right'
@@ -203,7 +203,7 @@ export default function DataTable<T>({
                       <tr className="bg-gray-50/70 border-b border-gray-100">
                         <td
                           colSpan={columns.length + 1 + (selectable ? 1 : 0)}
-                          className="p-4"
+                          className="p-5"
                         >
                           <div className="animate-in fade-in duration-150">
                             {expandedRowRender(item)}
@@ -221,34 +221,34 @@ export default function DataTable<T>({
 
       {/* Pagination Footer */}
       {!isLoading && data.length > 0 && (
-        <div className="px-4 py-3 bg-white border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+        <div className="px-6 py-4 bg-white border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
           <div>
-            Hiển thị <span className="font-semibold text-gray-800">{(currentPage - 1) * pageSize + 1}</span> -{' '}
-            <span className="font-semibold text-gray-800">
+            Hiển thị <span className="font-bold text-gray-800">{(currentPage - 1) * pageSize + 1}</span> -{' '}
+            <span className="font-bold text-gray-800">
               {Math.min(currentPage * pageSize, data.length)}
             </span>{' '}
-            trên tổng số <span className="font-semibold text-gray-800">{data.length}</span> bản ghi
+            trên tổng số <span className="font-bold text-gray-800">{data.length}</span> bản ghi
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              className="p-2 rounded-xl border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
-              <ChevronLeft size={15} />
+              <ChevronLeft size={16} />
             </button>
 
-            <span className="px-3 font-semibold text-gray-700">
+            <span className="px-3 font-bold text-gray-700">
               {currentPage} / {totalPages}
             </span>
 
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              className="p-2 rounded-xl border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
-              <ChevronRight size={15} />
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>

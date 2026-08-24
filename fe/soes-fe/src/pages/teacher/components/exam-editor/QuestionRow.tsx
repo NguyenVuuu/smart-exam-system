@@ -43,7 +43,7 @@ export function QuestionRow({
           <p className="min-w-0 flex-1 text-xs font-semibold text-gray-900 truncate">
             {item.question.content}
           </p>
-          <span className="shrink-0 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-100 text-[11px] font-bold text-gray-700">
+          <span className="shrink-0 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-700">
             {item.points} điểm
           </span>
         </div>
@@ -70,13 +70,13 @@ export function QuestionRow({
 
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[10px] font-bold">
+                <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md text-xs font-bold">
                   {questionTypeLabel[item.question.type]}
                 </span>
-                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[10px] font-bold">
+                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-bold">
                   {item.question.difficulty}
                 </span>
-                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-[10px] font-bold">
+                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-xs font-bold">
                   {item.question.bankScope === 'SHARED' ? 'Ngân hàng chung' : 'Cá nhân'}
                 </span>
               </div>
@@ -92,14 +92,14 @@ export function QuestionRow({
           <AppSelect
             value={item.sectionId ?? ''}
             onChange={onSectionChange}
-            buttonClassName="bg-gray-50 text-[11px] rounded-lg p-2"
+            buttonClassName="bg-gray-50 text-xs rounded-lg p-2"
             menuClassName="min-w-52"
             options={sections.map((section) => ({
               value: section.id,
               label: section.title,
             }))}
           />
-          <label className="flex items-center gap-2 text-[11px] font-semibold text-gray-600">
+          <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
             Điểm
             <input
               type="number"
@@ -107,7 +107,7 @@ export function QuestionRow({
               step={0.25}
               value={item.points}
               onChange={(e) => onPointChange(Number(e.target.value))}
-              className="w-20 bg-gray-50 border border-gray-200 rounded-lg p-2 text-[11px] font-bold focus:outline-none focus:border-blue-300"
+              className="w-20 bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs font-bold focus:outline-none focus:border-blue-300"
             />
           </label>
           <div className="flex justify-end gap-1">
@@ -127,7 +127,7 @@ export function QuestionRow({
 export function QuestionAnswerPreview({ question }: { question: Question }) {
   if (question.type === 'PROGRAMMING') {
     return (
-      <p className="text-[11px] text-gray-500 flex items-center gap-1">
+      <p className="text-xs text-gray-500 flex items-center gap-1">
         <Code size={13} /> {question.programmingLanguage} • {question.testCases?.length || 0} test case
       </p>
     )
@@ -138,7 +138,7 @@ export function QuestionAnswerPreview({ question }: { question: Question }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
       {question.options.map((opt) => (
-        <div key={opt.id} className="flex items-center gap-2 text-[11px] text-gray-600">
+        <div key={opt.id} className="flex items-center gap-2 text-xs text-gray-600">
           {opt.isCorrect && <Check size={14} className="text-emerald-600 shrink-0" />}
           <span>{opt.content}</span>
         </div>

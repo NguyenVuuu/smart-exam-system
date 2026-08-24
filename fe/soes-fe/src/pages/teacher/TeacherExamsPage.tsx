@@ -1,4 +1,4 @@
-import { Copy, Edit, Eye, Filter, Plus, RotateCcw, Search, Trash2, UserCheck, UserX, X } from 'lucide-react'
+import { Copy, Edit, Eye, Plus, RotateCcw, Search, Trash2, UserCheck, UserX, X } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppBadge from '../../components/common/AppBadge'
@@ -8,18 +8,33 @@ import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import CreateExamTypeModal from './components/exam-detail/CreateExamTypeModal'
-import { MOCK_EXAMS } from './mock/teacher-exam.mock'
 import type { Exam } from './types/teacher-exam.types'
+import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
+import { getExamCapabilities } from './utils/ExamCapabilities'
 
 const examStatusTone = {
   DRAFT: 'amber',
+  PENDING_APPROVAL: 'blue',
+  REJECTED: 'rose',
   PUBLISHED: 'emerald',
-  CLOSED: 'gray',
+  LOCKED: 'gray',
+  ARCHIVED: 'gray',
+} as const
+
+const examStatusLabel = {
+  DRAFT: 'Bản nháp',
+  PENDING_APPROVAL: 'Chờ duyệt',
+  REJECTED: 'Bị từ chối',
+  PUBLISHED: 'Đã công bố',
+  LOCKED: 'Đã khóa',
+  ARCHIVED: 'Đã lưu trữ',
 } as const
 
 export default function TeacherExamsPage() {
   const navigate = useNavigate()
-  const [exams, setExams] = useState<Exam[]>(MOCK_EXAMS)
+  const exams = useTeacherWorkspaceStore((state) => state.exams)
+  const removeDraftExam = useTeacherWorkspaceStore((state) => state.removeDraftExam)
+  const setExamVisibility = useTeacherWorkspaceStore((state) => state.setExamVisibility)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('ALL')
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false)
@@ -33,7 +48,7 @@ export default function TeacherExamsPage() {
     const matchesStatus = selectedStatus === 'ALL' || e.status === selectedStatus
     const matchesSearch =
       e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.courseCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.subjectName.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesStatus && matchesSearch
   })
@@ -46,7 +61,7 @@ export default function TeacherExamsPage() {
     }
 
     if (confirm('Bạn có chắc chắn muốn xóa đề thi này không?')) {
-      setExams(exams.filter((item) => item.id !== exam.id))
+      removeDraftExam(exam.id)
     }
   }
 
@@ -57,16 +72,7 @@ export default function TeacherExamsPage() {
 
   const handleToggleStudentVisibility = (exam: Exam, e: React.MouseEvent) => {
     e.stopPropagation()
-    setExams((prev) =>
-      prev.map((item) =>
-        item.id === exam.id
-          ? {
-              ...item,
-              studentVisibility: item.studentVisibility === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN',
-            }
-          : item,
-      ),
-    )
+    setExamVisibility(exam.id, exam.studentVisibility === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN')
   }
 
   // Columns definition
@@ -82,14 +88,14 @@ export default function TeacherExamsPage() {
       render: (e) => (
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium text-gray-900 text-xs">{e.title}</p>
+            <p className="font-semibold text-gray-900 text-sm">{e.title}</p>
             {e.status !== 'DRAFT' && e.studentVisibility === 'HIDDEN' && (
-              <AppBadge className="font-medium">
+              <AppBadge className="font-medium whitespace-nowrap">
                 <UserX size={11} /> Đã ẩn khỏi SV
               </AppBadge>
             )}
           </div>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-xs text-gray-500 mt-0.5">
             Môn học: {e.subjectName}
           </p>
         </div>
@@ -97,9 +103,9 @@ export default function TeacherExamsPage() {
     },
     {
       header: 'Cấu Trúc Câu Hỏi',
-      width: '160px',
+      width: '180px',
       render: (e) => (
-        <AppBadge tone="blue" shape="rounded" className="py-1 text-xs">
+        <AppBadge tone="blue" shape="rounded" className="py-1 text-xs whitespace-nowrap">
           {e.type === 'MULTIPLE_CHOICE'
             ? 'Trắc nghiệm'
             : e.type === 'PROGRAMMING'
@@ -110,31 +116,30 @@ export default function TeacherExamsPage() {
     },
     {
       header: <span className="whitespace-nowrap">Câu Hỏi</span>,
-      width: '120px',
+      width: '110px',
       align: 'center',
       render: (e) => (
-        <span className="font-medium text-gray-700 text-xs">{e.questions?.length || 0} câu</span>
+        <span className="text-gray-700 text-sm">{e.questions?.length || 0} câu</span>
       ),
     },
     {
       header: 'Thời Gian',
-      width: '160px',
+      width: '150px',
       render: (e) => (
-        <div>
-          <p className="font-semibold text-gray-800 text-xs">{e.durationMinutes} phút</p>
-          <p className="text-[10px] text-gray-400">{e.startTime}</p>
-        </div>
+        <span className="whitespace-nowrap text-sm text-gray-800">
+          {e.defaultDurationMinutes} phút - {e.schedules?.length ?? 0} ca thi
+        </span>
       ),
     },
     {
       header: 'Trạng Thái',
-      width: '120px',
+      width: '150px',
       align: 'center',
-      render: (e) => <AppBadge tone={examStatusTone[e.status]}>{e.status}</AppBadge>,
+      render: (e) => <AppBadge tone={examStatusTone[e.status]} className="whitespace-nowrap">{examStatusLabel[e.status]}</AppBadge>,
     },
     {
       header: 'Thao Tác',
-      width: '110px',
+      width: '130px',
       align: 'right',
       render: (e) => (
         <div className="flex items-center justify-end gap-1">
@@ -148,7 +153,7 @@ export default function TeacherExamsPage() {
           >
             <Eye size={16} />
           </button>
-          {e.status === 'DRAFT' && (
+          {getExamCapabilities(e).canEdit && (
             <button
               onClick={(ev) => {
                 ev.stopPropagation()
@@ -167,7 +172,7 @@ export default function TeacherExamsPage() {
           >
             <Copy size={16} />
           </button>
-          {e.status !== 'DRAFT' && (
+          {getExamCapabilities(e).canToggleStudentVisibility && (
             <button
               onClick={(ev) => handleToggleStudentVisibility(e, ev)}
               className={`p-1.5 rounded-lg transition-colors ${
@@ -180,7 +185,7 @@ export default function TeacherExamsPage() {
               {e.studentVisibility === 'HIDDEN' ? <UserCheck size={16} /> : <UserX size={16} />}
             </button>
           )}
-          {e.status === 'DRAFT' && (
+          {getExamCapabilities(e).canDelete && (
             <button
               onClick={(ev) => handleDeleteExam(e, ev)}
               className="p-1.5 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
@@ -208,7 +213,7 @@ export default function TeacherExamsPage() {
             actions={
               <button
                 onClick={() => setIsTypeModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-blue-500/20 transition-colors flex items-center gap-1.5"
               >
                 <Plus size={16} /> Tạo Đề Thi Mới
               </button>
@@ -216,45 +221,45 @@ export default function TeacherExamsPage() {
           />
 
           {/* Filter Bar */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
+          <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
             <div className="flex items-center gap-3 shrink-0">
-              <div className="flex items-center gap-2">
-                <Filter size={15} className="text-gray-400 shrink-0" />
-                <span className="text-xs font-bold text-gray-700">Trạng thái:</span>
-                <AppSelect
-                  value={selectedStatus}
-                  onChange={setSelectedStatus}
-                  className="w-44"
-                  buttonClassName="bg-blue-50/70 border-blue-200 text-blue-900 py-1.5"
-                  options={[
-                    { value: 'ALL', label: 'Tất cả trạng thái' },
-                    { value: 'DRAFT', label: 'Nháp (DRAFT)' },
-                    { value: 'PUBLISHED', label: 'Công bố (PUBLISHED)' },
-                    { value: 'CLOSED', label: 'Đóng đề (CLOSED)' },
-                  ]}
-                />
-              </div>
+              <AppSelect
+                value={selectedStatus}
+                onChange={setSelectedStatus}
+                className="w-52"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
+                options={[
+                  { value: 'ALL', label: 'Trạng thái đề thi' },
+                  { value: 'DRAFT', label: 'Bản nháp (DRAFT)' },
+                  { value: 'PENDING_APPROVAL', label: 'Chờ duyệt chuyên môn' },
+                  { value: 'REJECTED', label: 'Bị từ chối' },
+                  { value: 'PUBLISHED', label: 'Công bố (PUBLISHED)' },
+                  { value: 'LOCKED', label: 'Đã khóa' },
+                  { value: 'ARCHIVED', label: 'Đã lưu trữ' },
+                ]}
+              />
 
               <button
                 onClick={handleResetFilters}
-                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1 shrink-0"
+                className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-800 rounded-xl transition-colors flex items-center justify-center shrink-0"
+                title="Làm mới bộ lọc"
               >
-                <RotateCcw size={13} /> Làm mới
+                <RotateCcw size={16} />
               </button>
             </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 flex items-center gap-2 w-48 sm:w-60 lg:w-72 shrink-0">
-              <Search size={15} className="text-gray-400 shrink-0" />
+            <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 flex items-center gap-2.5 w-64 sm:w-80 shrink-0">
+              <Search size={16} className="text-gray-400 shrink-0" />
               <input
                 type="text"
                 placeholder="Tìm tên đề thi, môn học..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent text-xs font-medium focus:outline-none text-gray-800 w-full"
+                className="bg-transparent text-sm font-medium focus:outline-none text-gray-800 w-full"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600 shrink-0">
-                  <X size={14} />
+                  <X size={15} />
                 </button>
               )}
             </div>

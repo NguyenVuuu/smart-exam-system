@@ -1,24 +1,27 @@
 import { CheckCircle2, Send, Users, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { MOCK_TEACHER_COURSES } from '../../mock/teacher-course.mock'
-import type { ExamAssignment } from '../../types/teacher-exam.types'
+import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionForm, type ExamSessionDraft } from './session/ExamSessionForm'
 import { ExamSessionList } from './session/ExamSessionList'
 
 interface AssignExamToCourseModalProps {
   isOpen: boolean
   onClose: () => void
+  examId: string
   examTitle: string
+  subjectName: string
   defaultConfig?: Partial<ExamSessionDraft>
-  initialSessions?: ExamAssignment[]
+  initialSessions?: ExamSchedule[]
   initialEditingSessionId?: string | null
-  onCreateSessions?: (sessions: ExamAssignment[]) => void
+  onCreateSessions?: (sessions: ExamSchedule[]) => void
 }
 
 const DEFAULT_DRAFT: ExamSessionDraft = {
   courseOfferingId: 'co-01',
   examDate: '2026-08-25',
   startTime: '08:00',
+  endTime: '10:00',
   durationMinutes: 60,
   maxAttempts: 1,
   password: '',
@@ -31,52 +34,53 @@ const DEFAULT_DRAFT: ExamSessionDraft = {
   blockRightClick: true,
   ipMode: 'HOME',
   allowedIpRange: '192.168.1.1 - 192.168.1.254',
-  distributionMode: 'RANDOM_ONLINE',
+  distributionMode: 'SHUFFLE_QUESTIONS_AND_OPTIONS',
 }
 
-export default function AssignExamToCourseModal({
-  isOpen,
+export default function AssignExamToCourseModal(props: AssignExamToCourseModalProps) {
+  if (!props.isOpen) return null
+  return <AssignExamToCourseModalContent {...props} />
+}
+
+function AssignExamToCourseModalContent({
   onClose,
+  examId,
   examTitle,
+  subjectName,
   defaultConfig,
   initialSessions,
   initialEditingSessionId,
   onCreateSessions,
 }: AssignExamToCourseModalProps) {
   const isEditingExistingSession = Boolean(initialEditingSessionId)
+  const defaultCourseOfferingId = MOCK_TEACHER_COURSES.find((course) => course.subjectName === subjectName)?.id ?? ''
   const [draftSession, setDraftSession] = useState<ExamSessionDraft>({
     ...DEFAULT_DRAFT,
+    courseOfferingId: defaultCourseOfferingId,
     ...defaultConfig,
   })
-  const [publishSessions, setPublishSessions] = useState<ExamAssignment[]>([])
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+  const [publishSessions, setPublishSessions] = useState<ExamSchedule[]>(initialSessions ?? [])
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(initialEditingSessionId ?? null)
   const [isSuccess, setIsSuccess] = useState(false)
 
-  useEffect(() => {
-    if (!isOpen) return
-
-    setDraftSession({
-      ...DEFAULT_DRAFT,
-      ...defaultConfig,
-    })
-    setPublishSessions(initialSessions ?? [])
-    setEditingSessionId(initialEditingSessionId ?? null)
-  }, [isOpen])
-
-  if (!isOpen) return null
-
-  const buildSessionFromDraft = (): ExamAssignment | null => {
+  const buildSessionFromDraft = (): ExamSchedule | null => {
     const course = MOCK_TEACHER_COURSES.find((item) => item.id === draftSession.courseOfferingId)
-    if (!course) return null
+    if (!course || course.subjectName !== subjectName) return null
 
     const startTime = `${draftSession.examDate}T${draftSession.startTime}`
+    const endTime = `${draftSession.examDate}T${draftSession.endTime}`
+    if (new Date(endTime) <= new Date(startTime)) {
+      alert('Giờ đóng ca phải sau giờ mở bài.')
+      return null
+    }
     return {
       id: editingSessionId ?? `session-${Date.now()}-${publishSessions.length}`,
+      examId,
       courseOfferingId: course.id,
       courseCode: course.courseCode,
       subjectName: course.subjectName,
       startTime,
-      endTime: calculateEndTime(startTime, draftSession.durationMinutes),
+      endTime,
       durationMinutes: draftSession.durationMinutes,
       maxAttempts: draftSession.maxAttempts,
       password: draftSession.password,
@@ -119,12 +123,13 @@ export default function AssignExamToCourseModal({
     setEditingSessionId(null)
   }
 
-  const editPublishSession = (session: ExamAssignment) => {
+  const editPublishSession = (session: ExamSchedule) => {
     setEditingSessionId(session.id)
     setDraftSession({
       courseOfferingId: session.courseOfferingId,
       examDate: session.startTime.slice(0, 10),
       startTime: session.startTime.slice(11, 16),
+      endTime: session.endTime.slice(11, 16),
       durationMinutes: session.durationMinutes,
       maxAttempts: session.maxAttempts ?? 1,
       password: session.password ?? '',
@@ -137,7 +142,7 @@ export default function AssignExamToCourseModal({
       blockRightClick: Boolean(session.blockRightClick),
       ipMode: session.ipMode ?? 'HOME',
       allowedIpRange: session.allowedIpRange ?? DEFAULT_DRAFT.allowedIpRange,
-      distributionMode: session.distributionMode ?? 'RANDOM_ONLINE',
+      distributionMode: session.distributionMode ?? 'SHUFFLE_QUESTIONS_AND_OPTIONS',
     })
   }
 
@@ -151,7 +156,7 @@ export default function AssignExamToCourseModal({
       return
     }
 
-    onCreateSessions?.(sessionsToSave as ExamAssignment[])
+    onCreateSessions?.(sessionsToSave as ExamSchedule[])
     setIsSuccess(true)
     setTimeout(() => {
       setIsSuccess(false)
@@ -168,10 +173,10 @@ export default function AssignExamToCourseModal({
               <Users size={18} />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-gray-900">
+              <h2 className="text-xs font-bold text-gray-900">
                 {isEditingExistingSession ? 'Cập nhật ca thi' : 'Tạo ca thi / Phân lớp'}
               </h2>
-              <p className="text-[11px] text-gray-500 truncate">
+              <p className="text-xs text-gray-500 truncate">
                 {examTitle}
               </p>
             </div>
@@ -203,6 +208,7 @@ export default function AssignExamToCourseModal({
           <div className="p-6 space-y-5 text-xs max-h-[calc(100vh-180px)] overflow-y-auto">
             <ExamSessionForm
               draft={draftSession}
+              subjectName={subjectName}
               onChange={setDraftSession}
               onAdd={addPublishSession}
               submitLabel={editingSessionId ? 'Cập nhật thông tin' : 'Thêm ca'}
@@ -213,7 +219,7 @@ export default function AssignExamToCourseModal({
               <div className="space-y-3 pt-2 border-t border-gray-100">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-semibold text-gray-900">Danh sách ca thi sẽ công bố</h3>
-                  <span className="text-[11px] text-gray-500">{publishSessions.length} ca thi</span>
+                  <span className="text-xs text-gray-500">{publishSessions.length} ca thi</span>
                 </div>
                 <ExamSessionList
                   sessions={publishSessions}
@@ -247,17 +253,4 @@ export default function AssignExamToCourseModal({
       </div>
     </div>
   )
-}
-
-function calculateEndTime(startTime: string, durationMinutes: number) {
-  const date = new Date(startTime)
-  date.setMinutes(date.getMinutes() + durationMinutes)
-
-  const yyyy = date.getFullYear()
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
-  const hh = String(date.getHours()).padStart(2, '0')
-  const min = String(date.getMinutes()).padStart(2, '0')
-
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}`
 }

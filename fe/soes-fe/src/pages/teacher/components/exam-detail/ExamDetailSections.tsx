@@ -1,7 +1,7 @@
 import {
   ArrowLeft,
-  Camera,
   CalendarClock,
+  Camera,
   Clock,
   Copy,
   Edit,
@@ -20,11 +20,12 @@ import AppSelect from '../../../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type {
   Exam,
-  ExamAssignment,
+  ExamSchedule,
   ExamSubmission,
   ResultReleaseMode,
   ViolationRecord,
 } from '../../types/teacher-exam.types'
+import { getExamCapabilities } from '../../utils/ExamCapabilities'
 
 export type ExamDetailTab = 'sessions' | 'overview' | 'submissions' | 'proctoring'
 
@@ -33,16 +34,19 @@ const detailTabs: Array<{
   label: string
   icon: ReactNode
 }> = [
-  { id: 'sessions', label: 'Ca thi / Lớp áp dụng', icon: <CalendarClock size={16} /> },
-  { id: 'proctoring', label: 'Giám sát Real-time & Bằng chứng Webcam', icon: <ShieldAlert size={16} /> },
-  { id: 'submissions', label: 'Bài nộp & Chấm lại thủ công', icon: <FileCheck size={16} /> },
-  { id: 'overview', label: 'Tổng quan cài đặt', icon: <Clock size={16} /> },
+  { id: 'sessions', label: 'Ca thi / Lớp áp dụng', icon: <CalendarClock size={18} /> },
+  { id: 'proctoring', label: 'Giám sát Real-time & Bằng chứng Webcam', icon: <ShieldAlert size={18} /> },
+  { id: 'submissions', label: 'Bài nộp & Chấm lại thủ công', icon: <FileCheck size={18} /> },
+  { id: 'overview', label: 'Tổng quan cài đặt', icon: <Clock size={18} /> },
 ]
 
 const examStatusTone = {
   DRAFT: 'amber',
+  PENDING_APPROVAL: 'blue',
+  REJECTED: 'rose',
   PUBLISHED: 'emerald',
-  CLOSED: 'gray',
+  LOCKED: 'gray',
+  ARCHIVED: 'gray',
 } as const
 
 const violationSeverityTone = {
@@ -78,6 +82,7 @@ export function ExamDetailHeader({
   onCopy: () => void
   onToggleStudentVisibility: () => void
 }) {
+  const capabilities = getExamCapabilities(exam)
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
@@ -109,7 +114,7 @@ export function ExamDetailHeader({
         >
           <Copy size={15} /> Sao chép đề
         </button>
-        {exam.status !== 'DRAFT' && (
+        {capabilities.canToggleStudentVisibility && (
           <button
             onClick={onToggleStudentVisibility}
             className={`px-4 py-2 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5 ${
@@ -129,7 +134,7 @@ export function ExamDetailHeader({
             )}
           </button>
         )}
-        {exam.status === 'DRAFT' && (
+        {capabilities.canSchedule && (
           <button
             onClick={onPublish}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
@@ -137,7 +142,7 @@ export function ExamDetailHeader({
             <Send size={15} /> Tạo ca thi
           </button>
         )}
-        {exam.status === 'DRAFT' ? (
+        {capabilities.canEdit ? (
           <button
             onClick={onEdit}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
@@ -146,7 +151,7 @@ export function ExamDetailHeader({
           </button>
         ) : (
           <span className="px-3 py-2 bg-gray-50 border border-gray-100 text-gray-500 font-semibold text-xs rounded-xl">
-            ĐÃ KHÓA
+            {exam.status === 'PENDING_APPROVAL' ? 'ĐANG CHỜ DUYỆT' : 'ĐÃ KHÓA'}
           </span>
         )}
       </div>
@@ -167,10 +172,10 @@ export function ExamDetailTabs({
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${
             activeTab === tab.id
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-800'
+              ? 'border-blue-600 text-blue-600 font-bold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
           }`}
         >
           {tab.icon}
@@ -189,7 +194,7 @@ export function ExamProctoringTab({
   onViewEvidence,
 }: {
   violations: ViolationRecord[]
-  sessions: ExamAssignment[]
+  sessions: ExamSchedule[]
   selectedSessionId: string
   onSessionChange: (sessionId: string) => void
   onViewEvidence: (url: string) => void
@@ -202,8 +207,8 @@ export function ExamProctoringTab({
       header: 'Thí Sinh Vi Phạm',
       render: (v) => (
         <div>
-          <p className="font-medium text-gray-900 text-xs">{v.studentName}</p>
-          <p className="text-[10px] text-gray-400">MSSV: {v.studentCode}</p>
+          <p className="font-semibold text-gray-900 text-xs">{v.studentName}</p>
+          <p className="text-xs text-gray-400">MSSV: {v.studentCode}</p>
         </div>
       ),
     },
@@ -214,7 +219,7 @@ export function ExamProctoringTab({
         <AppBadge
           tone={v.type === 'TAB_SWITCH' ? 'amber' : 'rose'}
           shape="rounded"
-          className="text-[11px] font-medium uppercase"
+          className="text-xs font-medium uppercase"
         >
           {v.type === 'TAB_SWITCH'
             ? 'Chuyển tab trình duyệt'
@@ -232,7 +237,7 @@ export function ExamProctoringTab({
       header: 'Địa Chỉ IP',
       width: '130px',
       render: (v) => (
-        <AppBadge tone="blue" shape="rounded" className="text-[11px] font-medium">
+        <AppBadge tone="blue" shape="rounded" className="text-xs font-medium">
           192.168.1.{100 + (v.id.charCodeAt(v.id.length - 1) % 50)}
         </AppBadge>
       ),
@@ -242,7 +247,7 @@ export function ExamProctoringTab({
       width: '120px',
       align: 'center',
       render: (v) => (
-        <AppBadge tone={violationSeverityTone[v.severity]} className="text-[11px] font-medium uppercase">
+        <AppBadge tone={violationSeverityTone[v.severity]} className="text-xs font-medium uppercase">
           {v.severity}
         </AppBadge>
       ),
@@ -269,7 +274,7 @@ export function ExamProctoringTab({
     <div className="space-y-5">
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-gray-900">Nhật ký giám sát chống gian lận</h2>
+          <h2 className="text-xs font-semibold text-gray-900">Nhật ký giám sát chống gian lận</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             {selectedSession
               ? `${selectedSession.courseCode} • ${selectedSession.startTime.replace('T', ' ')} - ${selectedSession.endTime.replace('T', ' ')}`
@@ -299,7 +304,7 @@ export function ExamProctoringTab({
 
       <DataTable
         columns={columns}
-        data={violations}
+        data={violations.filter((violation) => violation.scheduleId === selectedSession?.id)}
         keyExtractor={(v) => v.id}
         emptyText="Chưa ghi nhận vi phạm nào trong ca thi này"
         pageSize={10}
@@ -310,6 +315,9 @@ export function ExamProctoringTab({
 
 export function ExamSubmissionsTab({
   submissions,
+  sessions,
+  selectedSessionId,
+  onSessionChange,
   resultReleaseText,
   resultReleaseMode,
   resultReleaseAt,
@@ -321,6 +329,9 @@ export function ExamSubmissionsTab({
   onEditSubmission,
 }: {
   submissions: ExamSubmission[]
+  sessions: ExamSchedule[]
+  selectedSessionId: string
+  onSessionChange: (sessionId: string) => void
   resultReleaseText: string
   resultReleaseMode: ResultReleaseMode
   resultReleaseAt: string
@@ -333,8 +344,8 @@ export function ExamSubmissionsTab({
 }) {
   const columns: ColumnDef<ExamSubmission>[] = [
     { header: 'STT', width: '50px', align: 'center', render: (_, idx) => <span className="text-gray-400">{idx + 1}</span> },
-    { header: 'MSSV', width: '110px', render: (s) => <span className="font-medium text-blue-600">{s.studentCode}</span> },
-    { header: 'Họ và Tên', render: (s) => <span className="font-medium text-gray-900">{s.studentName}</span> },
+    { header: 'MSSV', width: '110px', render: (s) => <span className="text-blue-600">{s.studentCode}</span> },
+    { header: 'Họ và Tên', render: (s) => <span className="font-semibold text-gray-900">{s.studentName}</span> },
     { header: 'Thời Gian Nộp', width: '140px', render: (s) => <span className="text-gray-600 text-xs">{s.submittedAt}</span> },
     { header: 'Chấm Tự Động', width: '120px', align: 'center', render: (s) => <span className="text-gray-600 text-xs">{s.autoScore}đ</span> },
     {
@@ -343,7 +354,7 @@ export function ExamSubmissionsTab({
       align: 'center',
       render: (s) =>
         s.manualScoreOverride !== undefined ? (
-          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 font-medium rounded-md">
+          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md">
             {s.manualScoreOverride}đ
           </span>
         ) : (
@@ -351,6 +362,29 @@ export function ExamSubmissionsTab({
         ),
     },
     { header: 'Điểm Chốt', width: '100px', align: 'center', render: (s) => <span className="font-semibold text-gray-900">{s.finalScore}đ</span> },
+    {
+      header: 'Phúc Khảo',
+      width: '120px',
+      align: 'center',
+      render: (s) => {
+        if (!s.regradeRequest) return <span className="text-gray-400">-</span>
+        const labels = {
+          SUBMITTED: 'Đã gửi',
+          IN_REVIEW: 'Đang xem xét',
+          ACCEPTED: 'Đã chấp nhận',
+          REJECTED: 'Đã từ chối',
+          CLOSED: 'Đã đóng',
+        }
+        const tones = {
+          SUBMITTED: 'blue',
+          IN_REVIEW: 'amber',
+          ACCEPTED: 'emerald',
+          REJECTED: 'rose',
+          CLOSED: 'gray',
+        } as const
+        return <AppBadge tone={tones[s.regradeRequest.status]}>{labels[s.regradeRequest.status]}</AppBadge>
+      },
+    },
     {
       header: 'Thao Tác',
       width: '210px',
@@ -378,10 +412,14 @@ export function ExamSubmissionsTab({
 
   return (
     <div className="space-y-5">
+      <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div><p className="text-xs font-semibold text-gray-900">Ca thi đang xem</p><p className="text-xs text-gray-500">Bài nộp và chính sách công bố được quản lý riêng theo từng ca.</p></div>
+        <AppSelect value={selectedSessionId} onChange={onSessionChange} className="w-80" options={sessions.map((session) => ({ value: session.id, label: `${session.courseCode} • ${session.startTime.replace('T', ' ')}` }))} />
+      </div>
       <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-xs font-bold text-gray-900">Cấu hình hiển thị điểm</p>
-          <p className="text-[11px] text-gray-500">{resultReleaseText}</p>
+          <p className="text-xs text-gray-500">{resultReleaseText}</p>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -438,24 +476,41 @@ export function ExamOverviewTab({
   exam: Exam
   resultReleaseText: string
 }) {
+  const firstSchedule = exam.schedules?.[0]
+
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4 text-xs">
-      <h2 className="text-sm font-bold text-gray-900">Chi Tiết Cấu Hình Bài Thi</h2>
+      <h2 className="text-xs font-bold text-gray-900">Chi Tiết Cấu Hình Bài Thi</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl space-y-1">
           <span className="text-gray-400 font-semibold">Thời gian mở ca:</span>
-          <p className="font-bold text-gray-800">{exam.startTime} - {exam.endTime}</p>
+          <p className="font-bold text-gray-800">
+            {firstSchedule ? `${firstSchedule.startTime} - ${firstSchedule.endTime}` : 'Chưa tạo ca thi'}
+          </p>
         </div>
         <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl space-y-1">
           <span className="text-gray-400 font-semibold">Thời lượng làm bài:</span>
-          <p className="font-bold text-gray-800">{exam.durationMinutes} phút (Tối đa {exam.maxAttempts} lần làm)</p>
+          <p className="font-bold text-gray-800">
+            {exam.defaultDurationMinutes} phút mặc định
+            {firstSchedule ? ` (Ca đầu: tối đa ${firstSchedule.maxAttempts ?? 1} lần làm)` : ''}
+          </p>
         </div>
         <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl space-y-1">
           <span className="text-blue-600 font-semibold flex items-center gap-1">
             <Globe size={14} /> Chế độ Kiểm soát IP:
           </span>
-          <p className="font-bold text-blue-900">Thi Tại Nhà (Remote / Online Mode)</p>
-          <p className="text-[11px] text-blue-700">Tự động ghi vết IP Public và cảnh báo trùng IP.</p>
+          <p className="font-semibold text-blue-900">
+            {!firstSchedule
+              ? 'Chưa cấu hình ca thi'
+              : firstSchedule.ipMode === 'CAMPUS'
+              ? 'Giới hạn mạng trường'
+              : 'Thi trực tuyến ngoài trường'}
+          </p>
+          <p className="text-xs text-blue-700">
+            {firstSchedule?.ipMode === 'CAMPUS'
+              ? `Dải IP cho phép: ${firstSchedule.allowedIpRange || 'Chưa nhập'}`
+              : 'Ghi nhận địa chỉ IP và cảnh báo khi thay đổi trong lúc thi.'}
+          </p>
         </div>
         <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl space-y-1">
           <span className="text-emerald-700 font-semibold flex items-center gap-1">

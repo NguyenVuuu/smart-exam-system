@@ -15,7 +15,7 @@ export function NumberField({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-[11px] font-medium text-gray-700">{label}</label>
+      <label className="text-xs font-medium text-gray-700">{label}</label>
       <AppNumberInput value={value} onChange={onChange} suffix={suffix} className="bg-white p-2" />
     </div>
   )
@@ -78,7 +78,7 @@ export function PickModeButton({
         <span className="text-xs font-medium">{title}</span>
         {active && <CheckCircle2 size={16} className="text-blue-600" />}
       </div>
-      <p className="text-[11px] leading-relaxed">{description}</p>
+      <p className="text-xs leading-relaxed">{description}</p>
     </button>
   )
 }

@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, PanelLeftClose, PanelLeftOpen, UserCircle } from 'lucide-react'
+import { Bell, ChevronDown, HelpCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
@@ -26,7 +26,7 @@ export default function TeacherTopBar() {
 
   return (
     <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 relative shrink-0">
-      {/* Left side: Pure Icon-Only Sidebar Toggle button */}
+      {/* Left side: Sidebar Toggle button */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
@@ -41,31 +41,40 @@ export default function TeacherTopBar() {
         </button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
+        {/* Help Circle */}
+        <button
+          className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-gray-800 hover:bg-gray-200 transition-colors flex items-center justify-center text-sm font-semibold"
+          title="Trợ giúp & Hướng dẫn"
+        >
+          <HelpCircle size={18} />
+        </button>
+
         {/* Notification Bell */}
         <div className="relative">
           <button
             onClick={() => setOpenNotifications((p) => !p)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg relative transition-colors"
+            className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full relative transition-colors"
+            title="Thông báo"
           >
-            <Bell size={20} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
+            <Bell size={19} />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
           </button>
 
           {openNotifications && (
-            <div className="absolute right-0 top-9 w-72 bg-white border border-gray-100 rounded-lg shadow-md z-20 py-2">
+            <div className="absolute right-0 top-11 w-72 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2">
               <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-900">Thông báo giảng dạy</span>
-                <span className="text-[10px] text-blue-600 font-medium cursor-pointer">Đã đọc</span>
+                <span className="text-xs text-blue-600 font-medium cursor-pointer">Đã đọc</span>
               </div>
               <div className="max-h-60 overflow-y-auto divide-y divide-gray-50">
                 {notifications.map((item) => (
                   <div key={item.id} className="p-3 text-xs hover:bg-gray-50 cursor-pointer">
                     <div className="flex justify-between items-start mb-0.5">
                       <span className="font-semibold text-gray-900">{item.title}</span>
-                      <span className="text-[10px] text-gray-400">{item.time}</span>
+                      <span className="text-xs text-gray-400">{item.time}</span>
                     </div>
-                    <p className="text-gray-500 text-[11px]">{item.desc}</p>
+                    <p className="text-gray-500 text-xs">{item.desc}</p>
                   </div>
                 ))}
               </div>
@@ -77,41 +86,27 @@ export default function TeacherTopBar() {
         <div className="relative">
           <button
             onClick={() => setOpenUserMenu((p) => !p)}
-            className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2.5 p-1 pr-2.5 rounded-full hover:bg-gray-50 transition-colors"
           >
-            <UserCircle size={22} className="text-gray-400" />
-            <span className="font-medium">{user?.fullName ?? 'Giảng viên'}</span>
-            <ChevronDown size={14} className="text-gray-400" />
+            <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+              NV
+            </div>
+            <div className="text-left hidden sm:block">
+              <p className="text-xs font-bold text-gray-900 leading-tight">
+                {user?.fullName ?? 'Nguyễn Văn An'}
+              </p>
+              <p className="text-[11px] text-gray-400 font-medium leading-none mt-0.5">
+                Giảng viên
+              </p>
+            </div>
+            <ChevronDown size={14} className="text-gray-400 ml-1" />
           </button>
 
           {openUserMenu && (
-            <div className="absolute right-0 top-9 w-52 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1.5 divide-y divide-gray-100 font-sans">
-              <div className="px-4 py-2 text-xs">
-                <p className="font-bold text-gray-900">{user?.fullName ?? 'Giảng viên'}</p>
-                <p className="text-[10px] text-gray-400">Tài khoản: Giảng viên</p>
-              </div>
-
-              <div className="py-1">
-                <button
-                  onClick={() => {
-                    setOpenUserMenu(false)
-                    useAuthStore.getState().setUser({
-                      id: 'usr-admin-01',
-                      profileId: 'prof-admin-01',
-                      email: 'admin@soes.edu.vn',
-                      fullName: 'TS. Trần Khảo Thí (Admin)',
-                      avatarUrl: null,
-                      role: 'ADMIN',
-                      studentCode: null,
-                      teacherCode: null,
-                      adminCode: 'AD000001',
-                    })
-                    window.location.href = '/admin'
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition-colors flex items-center gap-2"
-                >
-                  <span>Chuyển sang Ban Khảo Thí</span>
-                </button>
+            <div className="absolute right-0 top-12 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2 font-sans">
+              <div className="px-4 py-2 text-xs border-b border-gray-100">
+                <p className="font-bold text-gray-900">{user?.fullName ?? 'Nguyễn Văn An'}</p>
+                <p className="text-xs text-gray-400">Tài khoản Giảng viên</p>
               </div>
 
               <div className="py-1">
@@ -120,7 +115,7 @@ export default function TeacherTopBar() {
                     setOpenUserMenu(false)
                     logout()
                   }}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors"
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
                 >
                   Đăng xuất
                 </button>

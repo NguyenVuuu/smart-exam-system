@@ -46,13 +46,13 @@ export default function SendWarningModal({
       <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-              <ShieldAlert size={18} />
+          <div className="flex items-center gap-2 font-sans">
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+              <ShieldAlert size={16} />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-gray-900">Gửi Cảnh Báo Trực Tiếp</h3>
-              <p className="text-[11px] text-gray-500">Tin nhắn popup sẽ hiện ngay trên màn hình thi của thí sinh</p>
+              <h3 className="text-xs font-bold text-gray-900">Gửi Cảnh Báo Trực Tiếp</h3>
+              <p className="text-xs text-gray-500">Tin nhắn popup sẽ hiện ngay trên màn hình thi của thí sinh</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">

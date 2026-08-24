@@ -10,7 +10,7 @@ import type { AutoExamConfigPanelProps } from './config/AutoExamConfigTypes'
 export default function AutoExamConfigPanel(props: AutoExamConfigPanelProps) {
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-      <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+      <h2 className="text-xs font-bold text-gray-900 flex items-center gap-2">
         <Layers size={18} className="text-blue-600" />
         Cấu Hình Sinh Đề Tự Động
       </h2>
