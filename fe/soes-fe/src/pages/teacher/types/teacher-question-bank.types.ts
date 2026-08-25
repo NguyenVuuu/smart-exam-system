@@ -40,6 +40,7 @@ export interface Question {
   memoryLimitMb?: number
   testCases?: TestCase[]
   createdAt: string
+  archivedAt?: string
 }
 
 export interface AIDraftQuestion extends Question {

@@ -152,9 +152,8 @@ export default function TeacherSidebar() {
 
   return (
     <aside
-      className={`${
-        isCollapsed ? 'w-16' : 'w-60'
-      } shrink-0 bg-white border-r border-gray-100 flex flex-col font-sans transition-[width] duration-300 ease-in-out overflow-hidden`}
+      className={`${isCollapsed ? 'w-16' : 'w-64'
+        } shrink-0 bg-white border-r border-gray-100 flex flex-col font-sans transition-[width] duration-300 ease-in-out overflow-hidden`}
     >
       {/* Restored Original Logo Header */}
       <div className="h-16 flex items-center px-4 border-b border-gray-100 shrink-0 overflow-hidden whitespace-nowrap">
@@ -207,13 +206,11 @@ export default function TeacherSidebar() {
                         key={subItem.path}
                         onClick={() => navigate(subItem.path)}
                         title={isCollapsed ? subItem.label : undefined}
-                        className={`w-full flex items-center ${
-                          isCollapsed ? 'justify-center gap-0 px-0 py-2.5' : 'gap-3 px-3.5 py-2.5'
-                        } text-sm font-medium rounded-xl transition-all overflow-hidden whitespace-nowrap ${
-                          isActive
+                        className={`w-full flex items-center ${isCollapsed ? 'justify-center gap-0 px-0 py-2.5' : 'gap-3 px-3.5 py-2.5'
+                          } text-sm font-medium rounded-xl transition-all overflow-hidden whitespace-nowrap ${isActive
                             ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                        }`}
+                          }`}
                       >
                         <span className="shrink-0 flex items-center justify-center w-5 h-5">{subItem.icon}</span>
                         {!isCollapsed && <span className="truncate">{subItem.label}</span>}
@@ -255,4 +252,3 @@ export default function TeacherSidebar() {
     </aside>
   )
 }
-

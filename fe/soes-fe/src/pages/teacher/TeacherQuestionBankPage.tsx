@@ -1,17 +1,22 @@
 import {
+  Archive,
+  ArchiveRestore,
+  CloudUpload,
   Clock,
   Edit,
   Eye,
   Plus,
   RotateCcw,
   Search,
-  Share2,
   Sparkles,
   X,
+  XCircle,
 } from 'lucide-react'
 import { useState } from 'react'
+import AppBadge from '../../components/common/AppBadge'
 import AppSelect from '../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
+import { useAuthStore } from '../../store/authStore'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
@@ -22,45 +27,52 @@ import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
 import type { Question, QuestionType } from './types/teacher-question-bank.types'
 import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 
-const questionTypeBadge: Record<QuestionType, { label: string; className: string }> = {
+type BadgeTone = 'gray' | 'blue' | 'emerald' | 'amber' | 'rose'
+
+const questionTypeBadge: Record<QuestionType, { label: string; tone: BadgeTone }> = {
   SINGLE_CHOICE: {
     label: 'Trắc nghiệm 1 đáp án',
-    className: 'bg-blue-100/80 text-blue-700 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+    tone: 'blue',
   },
   MULTIPLE_CHOICE: {
     label: 'Trắc nghiệm nhiều đáp án',
-    className: 'bg-purple-100/80 text-purple-700 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+    tone: 'blue',
   },
   TRUE_FALSE: {
     label: 'Đúng / Sai',
-    className: 'bg-amber-100/80 text-amber-800 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+    tone: 'amber',
   },
   PROGRAMMING: {
     label: 'Lập trình (Code)',
-    className: 'bg-emerald-100/80 text-emerald-700 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+    tone: 'emerald',
   },
 }
 
 const difficultyBadge = {
   EASY: {
     label: 'EASY',
-    className: 'bg-emerald-100/80 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+    tone: 'emerald',
   },
   MEDIUM: {
     label: 'MEDIUM',
-    className: 'bg-amber-100/80 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+    tone: 'amber',
   },
   HARD: {
     label: 'HARD',
-    className: 'bg-rose-100/80 text-rose-700 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0',
+    tone: 'rose',
   },
-} as const
+} satisfies Record<Question['difficulty'], { label: string; tone: BadgeTone }>
 
 export default function TeacherQuestionBankPage() {
+  const user = useAuthStore((state) => state.user)
   const questions = useTeacherWorkspaceStore((state) => state.questions)
   const upsertQuestion = useTeacherWorkspaceStore((state) => state.upsertQuestion)
   const addQuestions = useTeacherWorkspaceStore((state) => state.addQuestions)
   const submitQuestionForReview = useTeacherWorkspaceStore((state) => state.submitQuestionForReview)
+  const archiveQuestion = useTeacherWorkspaceStore((state) => state.archiveQuestion)
+  const restoreQuestion = useTeacherWorkspaceStore((state) => state.restoreQuestion)
+  const removeQuestionFromSharedBank = useTeacherWorkspaceStore((state) => state.removeQuestionFromSharedBank)
+  const canApproveSharedQuestions = user?.permissions?.includes('APPROVE_SHARED_QUESTION') ?? false
 
   // Tabs state: 'PERSONAL' | 'SHARED'
   const [activeTab, setActiveTab] = useState<'PERSONAL' | 'SHARED'>('PERSONAL')
@@ -88,19 +100,21 @@ export default function TeacherQuestionBankPage() {
   }
 
   const filteredQuestions = questions.filter((q) => {
+    const isArchived = Boolean(q.archivedAt)
+
     // Tab filter
-    if (activeTab === 'PERSONAL') {
-      if (q.bankScope && q.bankScope !== 'PERSONAL' && q.reviewStatus === 'APPROVED') {
-        return false
-      }
-    } else {
-      if (q.bankScope !== 'SHARED' && q.reviewStatus !== 'APPROVED') {
-        return false
-      }
+    if (activeTab === 'SHARED' && q.reviewStatus !== 'APPROVED') {
+      return false
+    }
+
+    if (selectedStatus === 'ARCHIVED') {
+      if (!isArchived) return false
+    } else if (isArchived) {
+      return false
     }
 
     // Status filter
-    if (selectedStatus !== 'ALL') {
+    if (selectedStatus !== 'ALL' && selectedStatus !== 'ARCHIVED') {
       if (selectedStatus === 'APPROVED' && q.reviewStatus !== 'APPROVED') return false
       if (selectedStatus === 'PENDING_REVIEW' && q.reviewStatus !== 'PENDING_REVIEW') return false
       if (selectedStatus === 'PRIVATE' && q.reviewStatus && q.reviewStatus !== 'PRIVATE') return false
@@ -128,7 +142,7 @@ export default function TeacherQuestionBankPage() {
         teacherId: 'gv-01',
         teacherName: 'TS. Nguyễn Văn Giảng',
         bankScope: activeTab === 'SHARED' ? 'SHARED' : (savedQuestionData.bankScope || 'PERSONAL'),
-        reviewStatus: savedQuestionData.reviewStatus || 'PRIVATE',
+        reviewStatus: activeTab === 'SHARED' && canApproveSharedQuestions ? 'APPROVED' : savedQuestionData.reviewStatus || 'PRIVATE',
         type: savedQuestionData.type || 'SINGLE_CHOICE',
         difficulty: savedQuestionData.difficulty || 'EASY',
         content: savedQuestionData.content || '',
@@ -146,8 +160,28 @@ export default function TeacherQuestionBankPage() {
   }
 
   const handleShareToSharedBank = (qId: string) => {
-    submitQuestionForReview(qId)
-    alert('Đã gửi yêu cầu đóng góp câu hỏi vào Ngân hàng chung của Bộ môn! Trạng thái: Chờ duyệt.')
+    submitQuestionForReview(qId, canApproveSharedQuestions)
+    alert(
+      canApproveSharedQuestions
+        ? 'Đã đưa câu hỏi vào Ngân hàng chung của Bộ môn. Trạng thái: Đã duyệt.'
+        : 'Đã gửi yêu cầu đóng góp câu hỏi vào Ngân hàng chung của Bộ môn! Trạng thái: Chờ duyệt.',
+    )
+  }
+
+  const handleArchiveQuestion = (q: Question) => {
+    const confirmed = window.confirm('Lưu trữ câu hỏi này? Câu hỏi sẽ ẩn khỏi danh sách mặc định và không dùng để chọn vào đề mới.')
+    if (!confirmed) return
+    archiveQuestion(q.id)
+  }
+
+  const handleRestoreQuestion = (q: Question) => {
+    restoreQuestion(q.id)
+  }
+
+  const handleRemoveFromSharedBank = (q: Question) => {
+    const confirmed = window.confirm('Gỡ câu hỏi này khỏi Ngân hàng chung? Câu hỏi vẫn còn trong ngân hàng cá nhân của giảng viên.')
+    if (!confirmed) return
+    removeQuestionFromSharedBank(q.id)
   }
 
   // Restore exact original Table Columns Definition with large clear fonts
@@ -161,8 +195,8 @@ export default function TeacherQuestionBankPage() {
     {
       header: 'NỘI DUNG CÂU HỎI',
       render: (q) => (
-        <div className="space-y-1 py-1">
-          <p className="font-semibold text-gray-900 leading-relaxed text-sm line-clamp-2">
+        <div className="min-w-0 w-[360px] max-w-[360px] space-y-1 py-1">
+          <p className="truncate text-sm font-semibold text-gray-900">
             {q.content}
           </p>
           <p className="text-xs text-blue-600 line-clamp-1">
@@ -176,7 +210,7 @@ export default function TeacherQuestionBankPage() {
       width: '210px',
       render: (q) => {
         const badge = questionTypeBadge[q.type] || questionTypeBadge.SINGLE_CHOICE
-        return <span className={badge.className}>{badge.label}</span>
+        return <AppBadge tone={badge.tone}>{badge.label}</AppBadge>
       },
     },
     {
@@ -185,84 +219,116 @@ export default function TeacherQuestionBankPage() {
       align: 'center',
       render: (q) => {
         const badge = difficultyBadge[q.difficulty] || difficultyBadge.EASY
-        return <span className={badge.className}>{badge.label}</span>
+        return <AppBadge tone={badge.tone}>{badge.label}</AppBadge>
       },
     },
     {
       header: 'PHẠM VI & DUYỆT',
       width: '170px',
-      align: 'center',
       render: (q) => {
+        if (q.archivedAt) {
+          return <AppBadge tone="gray">Đã lưu trữ</AppBadge>
+        }
         const status = q.reviewStatus || 'PRIVATE'
         if (status === 'APPROVED') {
-          return (
-            <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0">
-              Ngân hàng chung
-            </span>
-          )
+          return <AppBadge tone="emerald">Ngân hàng chung</AppBadge>
         }
         if (status === 'PENDING_REVIEW') {
-          return (
-            <span className="bg-amber-50 text-amber-600 border border-amber-200 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0">
-              Chờ duyệt
-            </span>
-          )
+          return <AppBadge tone="amber">Chờ duyệt</AppBadge>
         }
         if (status === 'REJECTED') {
-          return (
-            <span className="bg-rose-50 text-rose-600 border border-rose-200 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0">
-              Bị từ chối
-            </span>
-          )
+          return <AppBadge tone="rose">Bị từ chối</AppBadge>
         }
-        return (
-          <span className="bg-gray-100 text-gray-600 px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center justify-center shrink-0">
-            Cá nhân
-          </span>
-        )
+        return <AppBadge tone="gray">Cá nhân</AppBadge>
       },
     },
     {
       header: 'THAO TÁC',
-      width: '130px',
-      align: 'center',
-      render: (q) => (
-        <div className="flex items-center justify-center gap-1 text-gray-400">
-          {(!q.reviewStatus || q.reviewStatus === 'PRIVATE') && (
+      width: activeTab === 'SHARED' ? '92px' : '132px',
+      align: 'right',
+      render: (q) => {
+        const isArchived = Boolean(q.archivedAt)
+        const canShareQuestion = activeTab === 'PERSONAL' && !isArchived && (!q.reviewStatus || q.reviewStatus === 'PRIVATE')
+
+        return (
+          <div className="flex items-center justify-end gap-1 text-gray-400">
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                handleShareToSharedBank(q.id)
+                setViewingQuestion(q)
               }}
-              className="p-1.5 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-              title="Đóng góp vào Ngân hàng chung của Bộ môn"
+              className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Xem chi tiết câu hỏi"
             >
-              <Share2 size={16} />
+              <Eye size={16} />
             </button>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setViewingQuestion(q)
-            }}
-            className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-            title="Xem chi tiết câu hỏi"
-          >
-            <Eye size={16} />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setEditingQuestion(q)
-              setIsEditorOpen(true)
-            }}
-            className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-            title="Chỉnh sửa câu hỏi"
-          >
-            <Edit size={16} />
-          </button>
-        </div>
-      ),
+
+            {activeTab === 'SHARED' && canApproveSharedQuestions && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRemoveFromSharedBank(q)
+                }}
+                className="p-1.5 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                title="Gỡ khỏi Ngân hàng chung"
+              >
+                <XCircle size={16} />
+              </button>
+            )}
+
+            {activeTab === 'PERSONAL' && isArchived && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRestoreQuestion(q)
+                }}
+                className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Khôi phục câu hỏi"
+              >
+                <ArchiveRestore size={16} />
+              </button>
+            )}
+
+            {activeTab === 'PERSONAL' && !isArchived && (
+              <>
+                {canShareQuestion && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleShareToSharedBank(q.id)
+                    }}
+                    className="p-1.5 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                    title="Đóng góp vào Ngân hàng chung của Bộ môn"
+                  >
+                    <CloudUpload size={16} />
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditingQuestion(q)
+                    setIsEditorOpen(true)
+                  }}
+                  className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Chỉnh sửa câu hỏi"
+                >
+                  <Edit size={16} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleArchiveQuestion(q)
+                  }}
+                  className="p-1.5 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                  title="Lưu trữ câu hỏi"
+                >
+                  <Archive size={16} />
+                </button>
+              </>
+            )}
+          </div>
+        )
+      },
     },
   ]
 
@@ -309,30 +375,25 @@ export default function TeacherQuestionBankPage() {
             }
           />
 
-          {/* Tabs Switcher: Ngân hàng cá nhân / Ngân hàng chung */}
-          <div className="flex items-center justify-between">
-            <div className="bg-gray-100 p-1 rounded-2xl inline-flex gap-1">
-              <button
-                onClick={() => setActiveTab('PERSONAL')}
-                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  activeTab === 'PERSONAL'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
+          <div className="inline-flex w-full max-w-md rounded-full bg-white p-1 shadow-sm ring-1 ring-gray-100">
+            <button
+              onClick={() => setActiveTab('PERSONAL')}
+              className={`min-w-0 flex-1 rounded-full px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'PERSONAL'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                 }`}
-              >
-                Ngân hàng cá nhân
-              </button>
-              <button
-                onClick={() => setActiveTab('SHARED')}
-                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  activeTab === 'SHARED'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
+            >
+              Ngân hàng cá nhân
+            </button>
+            <button
+              onClick={() => setActiveTab('SHARED')}
+              className={`min-w-0 flex-1 rounded-full px-4 py-2.5 text-xs font-semibold transition-all ${activeTab === 'SHARED'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                 }`}
-              >
-                Ngân hàng chung
-              </button>
-            </div>
+            >
+              Ngân hàng chung
+            </button>
           </div>
 
           {/* Compact Filter Bar Without Text Labels */}
@@ -390,6 +451,7 @@ export default function TeacherQuestionBankPage() {
                   { value: 'PENDING_REVIEW', label: 'Chờ duyệt' },
                   { value: 'PRIVATE', label: 'Cá nhân' },
                   { value: 'REJECTED', label: 'Bị từ chối' },
+                  { value: 'ARCHIVED', label: 'Đã lưu trữ' },
                 ]}
               />
 

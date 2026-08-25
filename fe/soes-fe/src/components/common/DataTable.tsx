@@ -96,13 +96,12 @@ export default function DataTable<T>({
                 <th
                   key={idx}
                   style={{ width: col.width }}
-                  className={`py-4 px-6 whitespace-nowrap ${
-                    col.align === 'center'
+                  className={`py-4 px-6 whitespace-nowrap ${col.align === 'center'
                       ? 'text-center'
                       : col.align === 'right'
-                      ? 'text-right'
-                      : 'text-left'
-                  } ${col.className || ''}`}
+                        ? 'text-right'
+                        : 'text-left'
+                    } ${col.className || ''}`}
                 >
                   {col.header}
                 </th>
@@ -147,13 +146,11 @@ export default function DataTable<T>({
                   <React.Fragment key={key}>
                     <tr
                       onClick={() => onRowClick && onRowClick(item)}
-                      className={`transition-colors ${
-                        onRowClick ? 'cursor-pointer' : ''
-                      } ${
-                        isSelected
+                      className={`transition-colors ${onRowClick ? 'cursor-pointer' : ''
+                        } ${isSelected
                           ? 'bg-blue-50/50 hover:bg-blue-50'
                           : 'hover:bg-gray-50/60'
-                      }`}
+                        }`}
                     >
                       {expandedRowRender && (
                         <td className="py-4 px-3 w-10 text-center">
@@ -181,19 +178,18 @@ export default function DataTable<T>({
                         <td
                           key={cIdx}
                           style={{ width: col.width }}
-                          className={`py-4 px-6 text-gray-800 align-middle text-sm ${
-                            col.align === 'center'
+                          className={`py-4 px-6 text-gray-800 align-middle text-sm ${col.align === 'center'
                               ? 'text-center'
                               : col.align === 'right'
-                              ? 'text-right'
-                              : 'text-left'
-                          } ${col.className || ''}`}
+                                ? 'text-right'
+                                : 'text-left'
+                            } ${col.className || ''}`}
                         >
                           {col.render
                             ? col.render(item, (currentPage - 1) * pageSize + index)
                             : col.accessorKey
-                            ? String(item[col.accessorKey] ?? '')
-                            : null}
+                              ? String(item[col.accessorKey] ?? '')
+                              : null}
                         </td>
                       ))}
                     </tr>

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { seedSettings } from './seeds/settings.seed'
+import { seedDepartments } from './seeds/departments.seed'
 import { seedSemesters } from './seeds/semesters.seed'
 import { seedSubjects } from './seeds/subjects.seed'
 import { seedAdmins } from './seeds/admins.seed'
@@ -31,11 +32,12 @@ async function main() {
 
   await seedSettings(prisma)
 
+  const departments = await seedDepartments(prisma)
   const semesters = await seedSemesters(prisma)
-  const subjects  = await seedSubjects(prisma)
+  const subjects  = await seedSubjects(prisma, { departments })
 
   await seedAdmins(prisma)
-  const teachers  = await seedTeachers(prisma)
+  const teachers  = await seedTeachers(prisma, { departments })
   const students  = await seedStudents(prisma)
 
   const courseOfferings = await seedCourseOfferings(prisma, { semesters, subjects, teachers })

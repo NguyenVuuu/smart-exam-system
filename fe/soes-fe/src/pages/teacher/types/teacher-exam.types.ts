@@ -66,6 +66,7 @@ export interface ExamSchedule {
 export interface Exam {
   id: string
   authorId: string
+  authorName: string
   subjectId: string
   subjectCode: string
   subjectName: string

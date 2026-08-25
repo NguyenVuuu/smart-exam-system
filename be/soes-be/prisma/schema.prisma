@@ -34,18 +34,26 @@ model Student {
 }
 
 model Teacher {
-  id              String                @id @default(uuid())
-  teacherCode     String                @unique
-  password        String
-  status          AccountStatus         @default(ACTIVE)
-  userId          String                @unique
-  courseOfferings CourseOffering[]      @relation("TeacherCourseOfferings")
-  exams           Exam[]                @relation("CreatorExams")
-  posts           Post[]                @relation("TeacherPosts")
-  materials       Material[]            @relation("UploaderMaterials")
-  questions       Question[]            @relation("OwnerQuestions")
-  aiGenerations   AIGenerationHistory[]
-  user            User                  @relation(fields: [userId], references: [id])
+  id                  String                @id @default(uuid())
+  teacherCode         String                @unique
+  password            String
+  status              AccountStatus         @default(ACTIVE)
+  position            TeacherPosition       @default(LECTURER)
+  departmentId        String?
+  userId              String                @unique
+  courseOfferings     CourseOffering[]      @relation("TeacherCourseOfferings")
+  exams               Exam[]                @relation("CreatorExams")
+  posts               Post[]                @relation("TeacherPosts")
+  materials           Material[]            @relation("UploaderMaterials")
+  questions           Question[]            @relation("OwnerQuestions")
+  aiGenerations       AIGenerationHistory[]
+  questionBankReviews QuestionBankItem[]    @relation("QuestionBankTeacherReviews")
+  examReviews         Exam[]                @relation("TeacherExamReviews")
+  department          Department?           @relation("DepartmentTeachers", fields: [departmentId], references: [id])
+  user                User                  @relation(fields: [userId], references: [id])
+
+  @@index([departmentId])
+  @@index([position])
 }
 
 model Admin {
@@ -56,6 +64,18 @@ model Admin {
   userId              String             @unique
   user                User               @relation(fields: [userId], references: [id])
   questionBankReviews QuestionBankItem[] @relation("QuestionBankReviews")
+}
+
+model Department {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  name        String
+  description String?
+  status      DepartmentStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  teachers    Teacher[]        @relation("DepartmentTeachers")
+  subjects    Subject[]        @relation("DepartmentSubjects")
 }
 
 model CodeGenerationSetting {
@@ -87,11 +107,15 @@ model Subject {
   name            String
   description     String?
   status          SubjectStatus    @default(ACTIVE)
+  departmentId    String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   courseOfferings CourseOffering[]
   questions       Question[]
   questionBank    QuestionBank?
+  department      Department?      @relation("DepartmentSubjects", fields: [departmentId], references: [id])
+
+  @@index([departmentId])
 }
 
 model CourseOffering {
@@ -196,20 +220,23 @@ model QuestionBank {
 }
 
 model QuestionBankItem {
-  id              String                 @id @default(uuid())
-  questionBankId  String
-  questionId      String                 @unique
-  status          QuestionBankItemStatus @default(PENDING)
-  reviewedAt      DateTime?
-  reviewedById    String?
-  rejectionReason String?
-  addedAt         DateTime               @default(now())
-  removedAt       DateTime? // Soft-delete khỏi bank, Question vẫn tồn tại
-  reviewedBy      Admin?                 @relation("QuestionBankReviews", fields: [reviewedById], references: [id])
-  questionBank    QuestionBank           @relation(fields: [questionBankId], references: [id])
-  question        Question               @relation(fields: [questionId], references: [id])
+  id                  String                 @id @default(uuid())
+  questionBankId      String
+  questionId          String                 @unique
+  status              QuestionBankItemStatus @default(PENDING)
+  reviewedAt          DateTime?
+  reviewedById        String?
+  reviewedByTeacherId String?
+  rejectionReason     String?
+  addedAt             DateTime               @default(now())
+  removedAt           DateTime? // Soft-delete khỏi bank, Question vẫn tồn tại
+  reviewedBy          Admin?                 @relation("QuestionBankReviews", fields: [reviewedById], references: [id])
+  reviewedByTeacher   Teacher?               @relation("QuestionBankTeacherReviews", fields: [reviewedByTeacherId], references: [id])
+  questionBank        QuestionBank           @relation(fields: [questionBankId], references: [id])
+  question            Question               @relation(fields: [questionId], references: [id])
 
   @@index([questionBankId, status, removedAt])
+  @@index([reviewedByTeacherId])
 }
 
 model Question {
@@ -296,6 +323,10 @@ model Exam {
   resultPublished         Boolean            @default(false)
   resultPublishedAt       DateTime?
   status                  ExamStatus         @default(DRAFT)
+  approvalStatus          ExamApprovalStatus @default(NOT_REQUIRED)
+  reviewedAt              DateTime?
+  reviewedById            String?
+  rejectionReason         String?
   creationMethod          ExamCreationMethod @default(MANUAL)
   type                    ExamType           @default(QUIZ)
   requireFullscreen       Boolean            @default(false)
@@ -309,12 +340,15 @@ model Exam {
   createdById             String
   courseOffering          CourseOffering     @relation(fields: [courseOfferingId], references: [id])
   createdBy               Teacher            @relation("CreatorExams", fields: [createdById], references: [id])
+  reviewedBy              Teacher?           @relation("TeacherExamReviews", fields: [reviewedById], references: [id])
   examAttempts            ExamAttempt[]
   examQuestions           ExamQuestion[]
 
   @@index([courseOfferingId])
   @@index([createdById])
+  @@index([reviewedById])
   @@index([status])
+  @@index([approvalStatus])
 }
 
 model ExamQuestion {
@@ -543,6 +577,16 @@ enum AccountStatus {
   INACTIVE
 }
 
+enum TeacherPosition {
+  LECTURER
+  DEPARTMENT_HEAD
+}
+
+enum DepartmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum PostStatus {
   DRAFT
   PUBLISHED
@@ -642,6 +686,13 @@ enum ExamStatus {
   DRAFT
   PUBLISHED
   CLOSED
+}
+
+enum ExamApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum AttemptStatus {

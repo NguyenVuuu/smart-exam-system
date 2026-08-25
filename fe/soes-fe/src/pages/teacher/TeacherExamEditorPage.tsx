@@ -248,6 +248,7 @@ export default function TeacherExamEditorPage() {
   const buildExam = (status: Exam['status']): Exam => ({
     id: !isCopy && sourceExam ? sourceExam.id : `exam-${Date.now()}`,
     authorId: !isCopy && sourceExam ? sourceExam.authorId : currentUser?.profileId ?? 'gv-01',
+    authorName: !isCopy && sourceExam ? sourceExam.authorName : currentUser?.fullName ?? 'Nguyễn Văn An',
     subjectId: sourceExam?.subjectId ?? MOCK_QUESTION_BANK.find((question) => question.subjectName === selectedSubject.subjectName)?.subjectId ?? selectedSubject.subjectCode,
     subjectCode: sourceExam?.subjectCode ?? selectedSubject.subjectCode,
     subjectName: selectedSubject.subjectName,
