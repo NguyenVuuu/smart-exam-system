@@ -2,13 +2,14 @@
 
 @layer base {
   html {
-    font-size: 15.5px; /* Phóng to tỷ lệ chữ & khung hình lên ~110% */
+    font-size: 15.5px;
+    /* Phóng to tỷ lệ chữ & khung hình lên ~110% */
   }
 
   * {
     font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   }
-  
+
   body {
     font-family: 'Roboto', sans-serif;
     font-size: 0.95rem;
@@ -18,7 +19,13 @@
     color: #1e293b;
   }
 
-  input, button, select, textarea, table, th, td {
+  input,
+  button,
+  select,
+  textarea,
+  table,
+  th,
+  td {
     font-family: 'Roboto', sans-serif;
   }
 }

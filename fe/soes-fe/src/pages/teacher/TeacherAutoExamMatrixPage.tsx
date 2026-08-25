@@ -175,6 +175,7 @@ export default function TeacherAutoExamMatrixPage() {
     const exam: Exam = {
       id: generated.id,
       authorId: currentUser?.profileId ?? 'gv-01',
+      authorName: currentUser?.fullName ?? 'Nguyễn Văn An',
       subjectId: subject.subjectId,
       subjectCode: subjectCourse?.subjectCode ?? subject.subjectId.toUpperCase(),
       subjectName: subject.subjectName,

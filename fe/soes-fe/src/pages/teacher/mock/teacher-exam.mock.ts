@@ -16,6 +16,7 @@ export const MOCK_EXAMS: Exam[] = [
   {
     id: 'exam-01',
     authorId: 'gv-01',
+    authorName: 'Nguyễn Văn An',
     subjectId: 'sub-01',
     subjectCode: 'CS101',
     subjectName: 'Lập trình Java căn bản',
@@ -79,6 +80,7 @@ export const MOCK_EXAMS: Exam[] = [
   {
     id: 'exam-02',
     authorId: 'gv-01',
+    authorName: 'Nguyễn Văn An',
     subjectId: 'sub-02',
     subjectCode: 'DSA201',
     subjectName: 'Cấu trúc dữ liệu và Giải thuật',
@@ -98,6 +100,7 @@ export const MOCK_EXAMS: Exam[] = [
   {
     id: 'exam-03',
     authorId: 'gv-02',
+    authorName: 'Trần Thị Bích',
     subjectId: 'sub-01',
     subjectCode: 'CS101',
     subjectName: 'Lập trình Java căn bản',

@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AdminDashboard from '../pages/admin/AdminDashboard'
 import AdminExamApprovalPage from '../pages/admin/AdminExamApprovalPage'
 import AdminQuestionApprovalPage from '../pages/admin/AdminQuestionApprovalPage'
+import AdminLoginPage from '../pages/auth/AdminLoginPage'
 import LoginPage from '../pages/auth/LoginPage'
 import StudentCourseDetailPage from '../pages/student/StudentCourseDetailPage'
 import StudentDashboard from '../pages/student/StudentDashboard'
@@ -34,6 +35,14 @@ export default function AppRouter() {
           element={
             <GuestRoute>
               <LoginPage />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/admin/login"
+          element={
+            <GuestRoute>
+              <AdminLoginPage />
             </GuestRoute>
           }
         />

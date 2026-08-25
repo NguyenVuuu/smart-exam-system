@@ -1,5 +1,16 @@
-import type { UserProfileDto } from '../dtos/auth.dto'
+import type { UserPermission, UserProfileDto } from '../dtos/auth.dto'
 import type { AdminWithUser, StudentWithUser, TeacherWithUser } from '../repositories/auth.repository'
+
+const DEPARTMENT_HEAD_PERMISSIONS: UserPermission[] = [
+  'APPROVE_SHARED_QUESTION',
+  'APPROVE_FINAL_EXAM',
+  'VIEW_DEPARTMENT_EXAMS',
+  'VIEW_DEPARTMENT_REPORTS',
+]
+
+function resolveTeacherPermissions(teacher: TeacherWithUser): UserPermission[] {
+  return teacher.position === 'DEPARTMENT_HEAD' ? DEPARTMENT_HEAD_PERMISSIONS : []
+}
 
 export function toStudentProfileDto(student: StudentWithUser): UserProfileDto {
   return {
@@ -26,6 +37,9 @@ export function toTeacherProfileDto(teacher: TeacherWithUser): UserProfileDto {
     studentCode: null,
     teacherCode: teacher.teacherCode,
     adminCode: null,
+    position: teacher.position,
+    departmentId: teacher.departmentId,
+    permissions: resolveTeacherPermissions(teacher),
   }
 }
 

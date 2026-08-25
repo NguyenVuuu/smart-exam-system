@@ -14,7 +14,10 @@ interface TeacherWorkspaceState {
   upsertQuestion: (question: Question) => void
   addQuestions: (questions: Question[]) => void
   removeQuestion: (questionId: string) => void
-  submitQuestionForReview: (questionId: string) => void
+  archiveQuestion: (questionId: string) => void
+  restoreQuestion: (questionId: string) => void
+  submitQuestionForReview: (questionId: string, autoApprove?: boolean) => void
+  removeQuestionFromSharedBank: (questionId: string) => void
   reviewQuestion: (questionId: string, approved: boolean, reason?: string) => void
   reviewExam: (examId: string, approved: boolean, reason?: string) => void
 }
@@ -45,9 +48,24 @@ export const useTeacherWorkspaceStore = create<TeacherWorkspaceState>((set) => (
   removeQuestion: (questionId) => set((state) => ({
     questions: state.questions.filter((item) => item.id !== questionId),
   })),
-  submitQuestionForReview: (questionId) => set((state) => ({
+  archiveQuestion: (questionId) => set((state) => ({
     questions: state.questions.map((question) => question.id === questionId
-      ? { ...question, bankScope: 'SHARED', reviewStatus: 'PENDING_REVIEW' }
+      ? { ...question, archivedAt: new Date().toISOString() }
+      : question),
+  })),
+  restoreQuestion: (questionId) => set((state) => ({
+    questions: state.questions.map((question) => question.id === questionId
+      ? { ...question, archivedAt: undefined }
+      : question),
+  })),
+  submitQuestionForReview: (questionId, autoApprove = false) => set((state) => ({
+    questions: state.questions.map((question) => question.id === questionId
+      ? { ...question, bankScope: 'SHARED', reviewStatus: autoApprove ? 'APPROVED' : 'PENDING_REVIEW' }
+      : question),
+  })),
+  removeQuestionFromSharedBank: (questionId) => set((state) => ({
+    questions: state.questions.map((question) => question.id === questionId
+      ? { ...question, bankScope: 'PERSONAL', reviewStatus: 'PRIVATE', rejectionReason: undefined }
       : question),
   })),
   reviewQuestion: (questionId, approved, reason) => set((state) => ({

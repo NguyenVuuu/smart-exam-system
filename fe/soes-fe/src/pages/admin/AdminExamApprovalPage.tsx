@@ -176,7 +176,7 @@ export default function AdminExamApprovalPage() {
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               : ex.status === 'PENDING_APPROVAL'
               ? 'bg-amber-50 text-amber-700 border border-amber-200'
-              : 'bg-rose-50 text-rose-700 border border-rose-200'
+              : 'bg-slate-100 text-slate-700 border border-slate-200'
           }`}
         >
           {ex.status === 'APPROVED'
@@ -195,14 +195,14 @@ export default function AdminExamApprovalPage() {
         <div className="flex items-center justify-center gap-1.5">
           <button
             onClick={() => setViewingExam(ex)}
-            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px] rounded-lg transition-colors flex items-center gap-1"
+            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px] rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
           >
             <Eye size={13} /> Thẩm định
           </button>
           {ex.status === 'PENDING_APPROVAL' && (
             <button
               onClick={() => handleApproveExam(ex.id)}
-              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
+              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors cursor-pointer"
               title="Duyệt nhanh"
             >
               <CheckCircle2 size={15} />
@@ -235,9 +235,9 @@ export default function AdminExamApprovalPage() {
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
                     statusFilter === st
-                      ? 'bg-rose-600 text-white shadow-xs'
+                      ? 'bg-[#10b981] text-white shadow-xs'
                       : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -262,7 +262,7 @@ export default function AdminExamApprovalPage() {
                 placeholder="Tìm kiếm theo Tên đề thi, Môn học, Giảng viên..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-rose-500"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-[#10b981]"
               />
             </div>
 
@@ -271,7 +271,7 @@ export default function AdminExamApprovalPage() {
                 setSearchQuery('')
                 setStatusFilter('PENDING_APPROVAL')
               }}
-              className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Clock size={14} className="text-gray-500" />
               Làm Mới
@@ -296,7 +296,7 @@ export default function AdminExamApprovalPage() {
           <div className="bg-white rounded-2xl max-w-4xl w-full h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150 border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                   <FileCheck size={20} />
                 </div>
                 <div>
@@ -304,7 +304,7 @@ export default function AdminExamApprovalPage() {
                   <p className="text-[11px] text-gray-500">{viewingExam.subjectName} • Soạn bởi {viewingExam.teacherName}</p>
                 </div>
               </div>
-              <button onClick={() => setViewingExam(null)} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
+              <button onClick={() => setViewingExam(null)} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer">
                 <X size={18} />
               </button>
             </div>
@@ -352,7 +352,7 @@ export default function AdminExamApprovalPage() {
                   setRejectingExam(viewingExam)
                   setRejectReasonInput('')
                 }}
-                className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl transition-colors border border-rose-200 flex items-center gap-1.5"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors border border-slate-200 flex items-center gap-1.5 cursor-pointer"
               >
                 <XCircle size={14} /> Từ chối / Yêu cầu sửa
               </button>
@@ -360,13 +360,13 @@ export default function AdminExamApprovalPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setViewingExam(null)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
                 >
                   Đóng
                 </button>
                 <button
                   onClick={() => handleApproveExam(viewingExam.id)}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                  className="px-5 py-2 bg-[#10b981] hover:bg-[#059669] text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 size={15} /> Phê duyệt đề thi
                 </button>
@@ -388,19 +388,19 @@ export default function AdminExamApprovalPage() {
                 placeholder="Nhập chi tiết yêu cầu giảng viên cần sửa (Ví dụ: Cần tăng độ khó ở phần 2, kiểm tra lại test case câu 3...)"
                 value={rejectReasonInput}
                 onChange={(e) => setRejectReasonInput(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-3 focus:outline-none focus:border-rose-500"
+                className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-3 focus:outline-none focus:border-[#10b981]"
               />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setRejectingExam(null)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl"
+                  className="px-4 py-2 bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Xác nhận gửi từ chối
                 </button>

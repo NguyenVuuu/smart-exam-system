@@ -25,10 +25,10 @@ export default function TeacherPageHeader({
         )}
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{title}</h1>
+            <h1 className="text-lg font-semibold leading-[22.5px] text-gray-900">{title}</h1>
             {titleContent}
           </div>
-          {description && <p className="text-sm font-medium text-gray-500 mt-0.5">{description}</p>}
+          {description && <p className="mt-0.5 text-[13px] font-normal leading-[19.5px] text-gray-500">{description}</p>}
         </div>
       </div>
 

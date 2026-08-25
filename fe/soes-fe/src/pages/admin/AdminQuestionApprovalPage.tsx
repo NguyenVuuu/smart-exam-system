@@ -142,10 +142,10 @@ export default function AdminQuestionApprovalPage() {
           <span
             className={`inline-block px-2 py-0.5 text-[9px] font-bold rounded-full ${
               q.difficulty === 'EASY'
-                ? 'bg-emerald-50 text-emerald-700'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : q.difficulty === 'MEDIUM'
-                ? 'bg-amber-50 text-amber-700'
-                : 'bg-rose-50 text-rose-700'
+                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
             }`}
           >
             {q.difficulty}
@@ -170,7 +170,7 @@ export default function AdminQuestionApprovalPage() {
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               : q.status === 'PENDING_REVIEW'
               ? 'bg-amber-50 text-amber-700 border border-amber-200'
-              : 'bg-rose-50 text-rose-700 border border-rose-200'
+              : 'bg-slate-100 text-slate-700 border border-slate-200'
           }`}
         >
           {q.status === 'APPROVED'
@@ -189,14 +189,14 @@ export default function AdminQuestionApprovalPage() {
         <div className="flex items-center justify-center gap-1.5">
           <button
             onClick={() => setViewingQuestion(q)}
-            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px] rounded-lg transition-colors flex items-center gap-1"
+            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px] rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
           >
             <Eye size={13} /> Xem xét
           </button>
           {q.status === 'PENDING_REVIEW' && (
             <button
               onClick={() => handleApprove(q.id)}
-              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
+              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors cursor-pointer"
               title="Duyệt nhanh vào Ngân hàng chung"
             >
               <CheckCircle2 size={15} />
@@ -229,9 +229,9 @@ export default function AdminQuestionApprovalPage() {
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all ${
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
                     statusFilter === st
-                      ? 'bg-rose-600 text-white shadow-xs'
+                      ? 'bg-[#10b981] text-white shadow-xs'
                       : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -256,7 +256,7 @@ export default function AdminQuestionApprovalPage() {
                 placeholder="Tìm kiếm theo Nội dung câu hỏi, Môn học, Giảng viên..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-rose-500"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-[#10b981]"
               />
             </div>
 
@@ -265,7 +265,7 @@ export default function AdminQuestionApprovalPage() {
                 setSearchQuery('')
                 setStatusFilter('PENDING_REVIEW')
               }}
-              className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <RotateCcw size={14} className="text-gray-500" />
               Làm Mới
@@ -290,7 +290,7 @@ export default function AdminQuestionApprovalPage() {
           <div className="bg-white rounded-2xl max-w-3xl w-full p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-6">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                   <Database size={18} />
                 </div>
                 <div>
@@ -298,14 +298,14 @@ export default function AdminQuestionApprovalPage() {
                   <p className="text-[11px] text-gray-500">{viewingQuestion.subjectName} • Gửi bởi {viewingQuestion.teacherName}</p>
                 </div>
               </div>
-              <button onClick={() => setViewingQuestion(null)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+              <button onClick={() => setViewingQuestion(null)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer">
                 <X size={18} />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
-                <span className="text-[10px] uppercase font-bold text-rose-600 block tracking-wide">Đề bài:</span>
+                <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wide">Đề bài:</span>
                 <p className="text-sm font-semibold text-gray-900 leading-relaxed">{viewingQuestion.content}</p>
               </div>
 
@@ -348,7 +348,7 @@ export default function AdminQuestionApprovalPage() {
                   setRejectingQuestion(viewingQuestion)
                   setRejectReasonInput('')
                 }}
-                className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl transition-colors border border-rose-200 flex items-center gap-1.5"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors border border-slate-200 flex items-center gap-1.5 cursor-pointer"
               >
                 <XCircle size={14} /> Từ chối câu hỏi
               </button>
@@ -356,13 +356,13 @@ export default function AdminQuestionApprovalPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setViewingQuestion(null)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
                 >
                   Đóng
                 </button>
                 <button
                   onClick={() => handleApprove(viewingQuestion.id)}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                  className="px-5 py-2 bg-[#10b981] hover:bg-[#059669] text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 size={15} /> Duyệt vào Ngân hàng chung
                 </button>
@@ -384,19 +384,19 @@ export default function AdminQuestionApprovalPage() {
                 placeholder="Nhập lý do từ chối (Ví dụ: Trùng với câu số 12 trong ngân hàng, đáp án chưa chính xác...)"
                 value={rejectReasonInput}
                 onChange={(e) => setRejectReasonInput(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-3 focus:outline-none focus:border-rose-500"
+                className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-3 focus:outline-none focus:border-[#10b981]"
               />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setRejectingQuestion(null)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl"
+                  className="px-4 py-2 bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Xác nhận từ chối
                 </button>
