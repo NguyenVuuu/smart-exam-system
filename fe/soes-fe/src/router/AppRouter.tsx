@@ -1,7 +1,16 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import AdminAcademicPage from '../pages/admin/AdminAcademicPage'
+import AdminAuditLogPage from '../pages/admin/AdminAuditLogPage'
+import AdminClassSectionsPage from '../pages/admin/AdminClassSectionsPage'
 import AdminDashboard from '../pages/admin/AdminDashboard'
-import AdminExamApprovalPage from '../pages/admin/AdminExamApprovalPage'
-import AdminQuestionApprovalPage from '../pages/admin/AdminQuestionApprovalPage'
+import AdminDepartmentsSubjectsPage from '../pages/admin/AdminDepartmentsSubjectsPage'
+import AdminExamSchedulesPage from '../pages/admin/AdminExamSchedulesPage'
+import AdminExamTrackingPage from '../pages/admin/AdminExamTrackingPage'
+import AdminProctoringPage from '../pages/admin/AdminProctoringPage'
+import AdminReportsPage from '../pages/admin/AdminReportsPage'
+import AdminSettingsPage from '../pages/admin/AdminSettingsPage'
+import AdminSharedQuestionBankPage from '../pages/admin/AdminSharedQuestionBankPage'
+import AdminUsersPage from '../pages/admin/AdminUsersPage'
 import AdminLoginPage from '../pages/auth/AdminLoginPage'
 import LoginPage from '../pages/auth/LoginPage'
 import StudentCourseDetailPage from '../pages/student/StudentCourseDetailPage'
@@ -57,18 +66,95 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/exam-approvals"
+          path="/admin/academic"
           element={
             <RoleRoute allowedRoles={['ADMIN']}>
-              <AdminExamApprovalPage />
+              <AdminAcademicPage />
             </RoleRoute>
           }
         />
         <Route
-          path="/admin/question-approvals"
+          path="/admin/academic-structure"
           element={
             <RoleRoute allowedRoles={['ADMIN']}>
-              <AdminQuestionApprovalPage />
+              <AdminDepartmentsSubjectsPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/admin/courses" element={<Navigate to="/admin/academic-structure" replace />} />
+        <Route path="/admin/departments" element={<Navigate to="/admin/academic-structure" replace />} />
+        <Route
+          path="/admin/class-sections"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminClassSectionsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminUsersPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/admin/shared-question-bank"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminSharedQuestionBankPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/admin/question-approvals" element={<Navigate to="/admin/shared-question-bank" replace />} />
+        <Route
+          path="/admin/exams"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminExamTrackingPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/admin/exam-approvals" element={<Navigate to="/admin/exams" replace />} />
+        <Route
+          path="/admin/exam-schedules"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminExamSchedulesPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/admin/exam-rooms" element={<Navigate to="/admin/exam-schedules" replace />} />
+        <Route
+          path="/admin/proctoring"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminProctoringPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminReportsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/admin/audit-logs"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminAuditLogPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminSettingsPage />
             </RoleRoute>
           }
         />

@@ -9,17 +9,20 @@ import {
   GraduationCap,
   Home,
   LogOut,
+  ScrollText,
+  Settings,
   ShieldAlert,
   Users,
 } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
 
 interface SubNavItem {
   label: string
-  icon: React.ReactNode
+  icon: ReactNode
   path: string
   badgeCount?: number
 }
@@ -43,8 +46,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'HỌC VỤ',
     items: [
       { label: 'Học kỳ và Năm học', icon: <Calendar size={18} />, path: '/admin/academic' },
-      { label: 'Môn học', icon: <BookOpen size={18} />, path: '/admin/courses' },
-      { label: 'Khoa và Bộ môn', icon: <Database size={18} />, path: '/admin/departments' },
+      { label: 'Bộ môn và Môn học', icon: <BookOpen size={18} />, path: '/admin/academic-structure' },
       { label: 'Lớp học phần và Xếp lớp', icon: <GraduationCap size={18} />, path: '/admin/class-sections' },
       { label: 'Người dùng và Tài khoản', icon: <Users size={18} />, path: '/admin/users' },
     ],
@@ -56,13 +58,12 @@ const NAV_GROUPS: NavGroup[] = [
       {
         label: 'Ngân hàng câu hỏi chung',
         icon: <Database size={18} />,
-        path: '/admin/question-approvals',
-        badgeCount: 3,
+        path: '/admin/shared-question-bank',
       },
       {
         label: 'Theo dõi đề thi và duyệt',
         icon: <FileCheck size={18} />,
-        path: '/admin/exam-approvals',
+        path: '/admin/exams',
         badgeCount: 2,
       },
     ],
@@ -72,7 +73,6 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'TỔ CHỨC THI',
     items: [
       { label: 'Lịch thi và Phân công', icon: <Calendar size={18} />, path: '/admin/exam-schedules' },
-      { label: 'Phòng thi', icon: <Home size={18} />, path: '/admin/exam-rooms' },
       { label: 'Giám sát thi', icon: <ShieldAlert size={18} />, path: '/admin/proctoring' },
     ],
   },
@@ -81,6 +81,14 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'BÁO CÁO',
     items: [
       { label: 'Báo cáo', icon: <BarChart3 size={18} />, path: '/admin/reports' },
+    ],
+  },
+  {
+    id: 'system',
+    title: 'HỆ THỐNG',
+    items: [
+      { label: 'Audit Log', icon: <ScrollText size={18} />, path: '/admin/audit-logs' },
+      { label: 'Cấu hình', icon: <Settings size={18} />, path: '/admin/settings' },
     ],
   },
 ]
@@ -114,6 +122,7 @@ export default function AdminSidebar() {
       'expertise',
       'proctoring',
       'reports',
+      'system',
     ]
   })
 
@@ -203,7 +212,7 @@ export default function AdminSidebar() {
                           isCollapsed ? 'justify-center px-0 py-2.5' : 'px-3.5 py-2.5'
                         } text-sm font-medium rounded-xl transition-all overflow-hidden whitespace-nowrap cursor-pointer ${
                           isActive
-                            ? 'bg-[#10b981] text-white shadow-xs font-semibold'
+                            ? 'bg-[#10b981] text-white shadow-xs'
                             : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
                         }`}
                       >
