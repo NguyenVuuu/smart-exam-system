@@ -1,11 +1,13 @@
-import { Archive, Database, Eye, X } from 'lucide-react'
+import { AlertTriangle, Archive, ArchiveRestore, Database, Eye, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
 import { ADMIN_DEPARTMENTS, ADMIN_SHARED_QUESTIONS, ADMIN_SUBJECTS } from './mock/admin.mock'
 import type { SharedQuestionAdmin } from './types/admin.types'
 import { QuestionStatusBadge } from './components/AdminBadges'
 import AdminButton from './components/AdminButton'
+import { AdminTextarea } from './components/AdminFormFields'
 import AdminLayout from './components/AdminLayout'
 import AdminPageHeader from './components/AdminPageHeader'
 import AdminSelect from './components/AdminSelect'
@@ -62,9 +64,11 @@ export default function AdminSharedQuestionBankPage() {
   const [items, setItems] = useState<SharedQuestionAdmin[]>(ADMIN_SHARED_QUESTIONS)
   const [department, setDepartment] = useState('ALL')
   const [subject, setSubject] = useState('ALL')
-  const [status, setStatus] = useState<'ALL' | SharedQuestionAdmin['status']>('ALL')
+  const [status, setStatus] = useState<'ALL' | SharedQuestionAdmin['status']>('APPROVED')
   const [search, setSearch] = useState('')
   const [viewing, setViewing] = useState<SharedQuestionAdmin | null>(null)
+  const [removing, setRemoving] = useState<SharedQuestionAdmin | null>(null)
+  const [removeReason, setRemoveReason] = useState('Gỡ tạm thời để xử lý vấn đề vận hành.')
 
   const subjectsByCode = useMemo(() => new Map(ADMIN_SUBJECTS.map((item) => [item.code, item])), [])
   const visibleSubjects = useMemo(
@@ -81,9 +85,48 @@ export default function AdminSharedQuestionBankPage() {
       item.content.toLowerCase().includes(search.toLowerCase()) ||
       item.contributorName.toLowerCase().includes(search.toLowerCase()) ||
       item.subjectCode.toLowerCase().includes(search.toLowerCase()) ||
-      matchedSubject?.name.toLowerCase().includes(search.toLowerCase())
+      Boolean(matchedSubject?.name.toLowerCase().includes(search.toLowerCase()))
     return matchesDepartment && matchesSubject && matchesStatus && matchesSearch
   }), [department, items, search, status, subject, subjectsByCode])
+
+  const removeFromSharedBank = (item: SharedQuestionAdmin, reason: string) => {
+    setItems((prev) => prev.map((row) => row.id === item.id
+      ? {
+          ...row,
+          status: 'REMOVED',
+          removedBy: 'Trần Quang Huy',
+          removedAt: 'Hôm nay',
+          removalReason: reason,
+        }
+      : row,
+    ))
+    toast.success('Đã gỡ câu hỏi khỏi ngân hàng chung.')
+  }
+
+  const restoreToSharedBank = (item: SharedQuestionAdmin) => {
+    setItems((prev) => prev.map((row) => row.id === item.id
+      ? {
+          ...row,
+          status: 'APPROVED',
+          removedBy: undefined,
+          removedAt: undefined,
+          removalReason: undefined,
+        }
+      : row,
+    ))
+    toast.success('Đã khôi phục câu hỏi vào ngân hàng chung.')
+  }
+
+  const openRemoveDialog = (item: SharedQuestionAdmin) => {
+    setRemoving(item)
+    setRemoveReason('Gỡ tạm thời để xử lý vấn đề vận hành.')
+  }
+
+  const confirmRemoveFromSharedBank = () => {
+    if (!removing || removeReason.trim().length < 5) return
+    removeFromSharedBank(removing, removeReason.trim())
+    setRemoving(null)
+  }
 
   const columns: ColumnDef<SharedQuestionAdmin>[] = [
     {
@@ -106,13 +149,23 @@ export default function AdminSharedQuestionBankPage() {
       render: (item) => (
         <div className="flex justify-end gap-1 text-slate-500">
           <button className="rounded-lg p-1.5 hover:bg-blue-50 hover:text-blue-600" title="Xem câu hỏi" onClick={() => setViewing(item)}><Eye size={17} /></button>
-          <button
-            className="rounded-lg p-1.5 hover:bg-rose-50 hover:text-rose-600"
-            title="Gỡ khỏi ngân hàng chung"
-            onClick={() => setItems((prev) => prev.map((row) => row.id === item.id ? { ...row, status: 'REMOVED' } : row))}
-          >
-            <Archive size={17} />
-          </button>
+          {item.status === 'APPROVED' ? (
+            <button
+              className="rounded-lg p-1.5 hover:bg-rose-50 hover:text-rose-600"
+              title="Gỡ khỏi ngân hàng chung"
+              onClick={() => openRemoveDialog(item)}
+            >
+              <Archive size={17} />
+            </button>
+          ) : (
+            <button
+              className="rounded-lg p-1.5 hover:bg-emerald-50 hover:text-emerald-600"
+              title="Khôi phục vào ngân hàng chung"
+              onClick={() => restoreToSharedBank(item)}
+            >
+              <ArchiveRestore size={17} />
+            </button>
+          )}
         </div>
       ),
     },
@@ -135,7 +188,7 @@ export default function AdminSharedQuestionBankPage() {
             setSearch('')
             setDepartment('ALL')
             setSubject('ALL')
-            setStatus('ALL')
+            setStatus('APPROVED')
           }}
           filters={(
             <>
@@ -156,8 +209,8 @@ export default function AdminSharedQuestionBankPage() {
                 ...visibleSubjects.map((item) => ({ value: item.code, label: `${item.code} - ${item.name}` })),
               ]} />
               <AdminSelect value={status} onChange={setStatus} className="w-48" options={[
-                { value: 'ALL', label: 'Trạng thái duyệt' },
-                { value: 'APPROVED', label: 'Đã duyệt' },
+                { value: 'ALL', label: 'Tất cả trạng thái' },
+                { value: 'APPROVED', label: 'Đang dùng' },
                 { value: 'REMOVED', label: 'Đã gỡ' },
               ]} />
             </>
@@ -166,16 +219,92 @@ export default function AdminSharedQuestionBankPage() {
         <DataTable columns={columns} data={filteredItems} keyExtractor={(item) => item.id} emptyText="Chưa có câu hỏi chung phù hợp." />
       </AdminTablePanel>
 
-      <QuestionDetailModal question={viewing} onClose={() => setViewing(null)} />
+      <QuestionDetailModal
+        question={viewing}
+        subjectName={viewing ? subjectsByCode.get(viewing.subjectCode)?.name : undefined}
+        onClose={() => setViewing(null)}
+      />
+
+      <RemoveSharedQuestionDialog
+        question={removing}
+        reason={removeReason}
+        onReasonChange={setRemoveReason}
+        onClose={() => setRemoving(null)}
+        onConfirm={confirmRemoveFromSharedBank}
+      />
     </AdminLayout>
+  )
+}
+
+function RemoveSharedQuestionDialog({
+  question,
+  reason,
+  onReasonChange,
+  onClose,
+  onConfirm,
+}: {
+  question: SharedQuestionAdmin | null
+  reason: string
+  onReasonChange: (reason: string) => void
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  if (!question) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
+      <div className="flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950">Gỡ khỏi ngân hàng chung</h2>
+            <p className="mt-1 text-[13px] leading-[19px] text-slate-500">
+              Câu hỏi sẽ không còn xuất hiện trong ngân hàng chung đang dùng, nhưng vẫn được giữ lịch sử.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-gray-100 hover:text-slate-700"
+            title="Đóng"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div className="flex gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+            <p className="leading-6">
+              Gỡ câu hỏi: <span className="font-semibold text-slate-900">{question.content}</span>
+            </p>
+          </div>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold text-slate-700">Lý do gỡ</span>
+            <AdminTextarea
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              placeholder="Nhập lý do để lưu vào lịch sử..."
+              className="min-h-24"
+            />
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4">
+          <AdminButton tone="secondary" onClick={onClose}>Hủy</AdminButton>
+          <AdminButton tone="danger" onClick={onConfirm} disabled={reason.trim().length < 5}>Xác nhận gỡ</AdminButton>
+        </div>
+      </div>
+    </div>
   )
 }
 
 function QuestionDetailModal({
   question,
+  subjectName,
   onClose,
 }: {
   question: SharedQuestionAdmin | null
+  subjectName?: string
   onClose: () => void
 }) {
   if (!question) return null
@@ -203,7 +332,8 @@ function QuestionDetailModal({
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <AppBadge tone={question.type === 'PROGRAMMING' ? 'emerald' : 'blue'}>{typeLabel[question.type]}</AppBadge>
             <AppBadge tone={difficultyTone[question.difficulty]}>{difficultyLabel[question.difficulty]}</AppBadge>
-            <AppBadge tone="gray">{question.subjectCode}</AppBadge>
+            <AppBadge tone="gray">{subjectName ?? question.subjectCode}</AppBadge>
+            <QuestionStatusBadge status={question.status} />
           </div>
 
           <p className="text-sm leading-6 text-slate-800">{question.content}</p>
@@ -245,6 +375,13 @@ function QuestionDetailModal({
           <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl bg-gray-50 px-4 py-3 text-sm text-slate-600 md:grid-cols-2">
             <p>Người đóng góp: <span className="font-semibold text-slate-800">{question.contributorName}</span></p>
             <p>Duyệt bởi: <span className="font-semibold text-slate-800">{question.reviewedBy}</span></p>
+            {question.status === 'REMOVED' && (
+              <>
+                <p>Người gỡ: <span className="font-semibold text-slate-800">{question.removedBy ?? 'Chưa ghi nhận'}</span></p>
+                <p>Thời gian gỡ: <span className="font-semibold text-slate-800">{question.removedAt ?? 'Chưa ghi nhận'}</span></p>
+                <p className="md:col-span-2">Lý do gỡ: <span className="font-semibold text-slate-800">{question.removalReason ?? 'Không có lý do.'}</span></p>
+              </>
+            )}
           </div>
         </div>
 

@@ -28,8 +28,11 @@ export interface Question {
   teacherId: string
   teacherName: string
   bankScope?: QuestionBankScope
-  reviewStatus?: 'PRIVATE' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
+  reviewStatus?: 'PRIVATE' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'REMOVED'
   rejectionReason?: string
+  removedByName?: string
+  removedAt?: string
+  removalReason?: string
   type: QuestionType
   difficulty: DifficultyLevel
   content: string

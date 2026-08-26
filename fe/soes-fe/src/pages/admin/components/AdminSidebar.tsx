@@ -61,10 +61,9 @@ const NAV_GROUPS: NavGroup[] = [
         path: '/admin/shared-question-bank',
       },
       {
-        label: 'Theo dõi đề thi và duyệt',
+        label: 'Theo dõi đề thi',
         icon: <FileCheck size={18} />,
         path: '/admin/exams',
-        badgeCount: 2,
       },
     ],
   },

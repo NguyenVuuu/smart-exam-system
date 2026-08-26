@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 export interface AppSelectOption<T extends string | number = string> {
   value: T
   label: ReactNode
+  disabled?: boolean
 }
 
 export interface AppSelectProps<T extends string | number = string> {
@@ -115,15 +116,19 @@ export default function AppSelect<T extends string | number = string>({
             <button
               key={String(option.value)}
               type="button"
+              disabled={option.disabled}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
+                if (option.disabled) return
                 onChange(option.value)
                 setIsOpen(false)
               }}
-              className={`w-full px-3 py-2 rounded-lg text-left text-xs transition-colors ${
-                option.value === value
+              className={`w-full px-3 py-2 rounded-lg text-left text-xs transition-colors disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 ${
+                option.value === value && !option.disabled
                   ? accentClassName.selected
-                  : accentClassName.option
+                  : option.disabled
+                    ? ''
+                    : accentClassName.option
               }`}
             >
               {option.label}

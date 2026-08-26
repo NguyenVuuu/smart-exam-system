@@ -3,7 +3,6 @@ import {
   BarChart2,
   CheckCircle2,
   FileSpreadsheet,
-  Search,
   TrendingUp,
   Users,
 } from 'lucide-react'
@@ -13,6 +12,8 @@ import AppSelect from '../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
+import TeacherTablePanel from './components/TeacherTablePanel'
+import TeacherToolbar from './components/TeacherToolbar'
 import TeacherTopBar from './components/TeacherTopBar'
 
 interface StudentGradeRow {
@@ -204,16 +205,17 @@ export default function TeacherGradeExportPage() {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
 
-        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
           <TeacherPageHeader
             title="Khảo Thí, Phổ Điểm & Báo Cáo Kết Quả"
             description="Thống kê phổ điểm, phân tích kết quả học tập và xuất bảng điểm lớp học phần"
+            icon={<FileSpreadsheet size={21} />}
             actions={
               <button
                 onClick={handleExportExcel}
@@ -352,36 +354,32 @@ export default function TeacherGradeExportPage() {
             </div>
           </div>
 
-          {/* Filter Bar & Data Table */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
-              <div className="w-full sm:w-80">
+          <TeacherTablePanel>
+            <TeacherToolbar
+              filters={
                 <AppSelect
                   value={selectedCourse}
                   onChange={(val) => setSelectedCourse(val)}
+                  className="w-80"
                   options={COURSE_OPTIONS}
                 />
-              </div>
-
-              <div className="relative flex-1 max-w-sm">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm theo MSSV hoặc Họ tên sinh viên..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
+              }
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Tìm theo MSSV hoặc họ tên sinh viên..."
+              onReset={() => {
+                setSelectedCourse('co-01')
+                setSearchQuery('')
+              }}
+            />
             <DataTable
+              embedded
               columns={columns}
               data={filteredGrades}
               keyExtractor={(g) => g.id}
               emptyText="Không tìm thấy bản ghi điểm nào phù hợp."
             />
-          </div>
+          </TeacherTablePanel>
         </main>
       </div>
     </div>

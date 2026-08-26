@@ -36,7 +36,7 @@ export function ExamStatusBadge({ status }: { status: AdminExam['status'] }) {
   const label: Record<AdminExam['status'], string> = {
     DRAFT: 'Nháp',
     PENDING_APPROVAL: 'Chờ Trưởng bộ môn',
-    APPROVED: 'Đã duyệt / Sẵn sàng',
+    APPROVED: 'Sẵn sàng',
     REJECTED: 'Bị từ chối',
     LOCKED: 'Đã khóa',
   }
@@ -53,7 +53,7 @@ export function ExamStatusBadge({ status }: { status: AdminExam['status'] }) {
 
 export function QuestionStatusBadge({ status }: { status: SharedQuestionAdmin['status'] }) {
   return status === 'APPROVED'
-    ? <AppBadge tone="emerald">Đã duyệt</AppBadge>
+    ? <AppBadge tone="emerald">Đang dùng</AppBadge>
     : <AppBadge tone="gray">Đã gỡ</AppBadge>
 }
 

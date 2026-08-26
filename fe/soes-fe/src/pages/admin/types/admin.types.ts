@@ -64,11 +64,17 @@ export interface SharedQuestionAdmin {
   contributorName: string
   reviewedBy: string
   status: 'APPROVED' | 'REMOVED'
+  removedBy?: string
+  removedAt?: string
+  removalReason?: string
 }
 
 export interface AdminExam {
   id: string
   title: string
+  semesterCode: string
+  departmentId: string
+  subjectCode: string
   subjectName: string
   authorName: string
   category: 'QUIZ' | 'MIDTERM' | 'FINAL'
@@ -81,13 +87,25 @@ export interface AdminExam {
 
 export interface AdminExamSchedule {
   id: string
+  examId?: string
   examTitle: string
+  subjectName: string
   courseCodes: string[]
   date: string
   time: string
   location: string
   ipPolicy: string
+  password?: string
+  distributionMode: string
+  releaseMode: string
+  resultReleaseAt?: string
   proctors: string[]
+  proctorAssignments?: Array<{
+    courseOfferingId: string
+    courseCode: string
+    teacherId: string
+    teacherName: string
+  }>
   status: 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED' | 'CANCELLED'
 }
 

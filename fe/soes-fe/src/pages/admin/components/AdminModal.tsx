@@ -10,6 +10,7 @@ interface AdminModalProps {
   confirmText: string
   onClose: () => void
   onConfirm: () => void
+  size?: 'md' | 'lg' | 'xl'
 }
 
 export default function AdminModal({
@@ -20,12 +21,19 @@ export default function AdminModal({
   confirmText,
   onClose,
   onConfirm,
+  size = 'lg',
 }: AdminModalProps) {
   if (!open) return null
 
+  const widthClassName = {
+    md: 'max-w-xl',
+    lg: 'max-w-3xl',
+    xl: 'max-w-5xl',
+  }[size]
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
-      <div className="flex max-h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+      <div className={`flex max-h-[90vh] w-full ${widthClassName} flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl`}>
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
           <div>
             <h2 className="text-base font-semibold text-gray-950">{title}</h2>

@@ -203,14 +203,7 @@ export default function AdminClassSectionsPage() {
     {
       header: 'GIẢNG VIÊN',
       width: '210px',
-      render: (item) => (
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
-            {item.teacherName.split(' ').slice(-1)[0].slice(0, 1)}
-          </div>
-          <span className="text-sm text-slate-700">{item.teacherName}</span>
-        </div>
-      ),
+      render: (item) => <span className="text-sm text-slate-700">{item.teacherName}</span>,
     },
     {
       header: 'SĨ SỐ',
@@ -470,9 +463,6 @@ function StudentEnrollmentRow({
           onChange={onToggle}
           className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
         />
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-          {getInitials(student.fullName)}
-        </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-slate-800">{student.fullName}</p>
           <p className="truncate text-xs text-slate-400">{student.email}</p>
@@ -481,16 +471,6 @@ function StudentEnrollmentRow({
       <span className="shrink-0 text-sm text-slate-500">{student.code}</span>
     </label>
   )
-}
-
-function getInitials(fullName: string) {
-  return fullName
-    .split(' ')
-    .filter(Boolean)
-    .slice(-2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
 }
 
 function createEntityId(prefix: string, value: string) {

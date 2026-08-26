@@ -30,16 +30,17 @@ export default function TeacherCoursesPage() {
   })
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
 
-        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
           <TeacherPageHeader
             title="Lớp Học Phần Giảng Dạy"
             description="Các lớp học phần được phân công giảng dạy trong học kỳ"
+            icon={<BookOpen size={21} />}
           />
 
           {/* Filter Bar with Reset */}

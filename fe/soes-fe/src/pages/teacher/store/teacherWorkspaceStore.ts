@@ -17,7 +17,7 @@ interface TeacherWorkspaceState {
   archiveQuestion: (questionId: string) => void
   restoreQuestion: (questionId: string) => void
   submitQuestionForReview: (questionId: string, autoApprove?: boolean) => void
-  removeQuestionFromSharedBank: (questionId: string) => void
+  removeQuestionFromSharedBank: (questionId: string, reason?: string, actorName?: string) => void
   reviewQuestion: (questionId: string, approved: boolean, reason?: string) => void
   reviewExam: (examId: string, approved: boolean, reason?: string) => void
 }
@@ -63,9 +63,16 @@ export const useTeacherWorkspaceStore = create<TeacherWorkspaceState>((set) => (
       ? { ...question, bankScope: 'SHARED', reviewStatus: autoApprove ? 'APPROVED' : 'PENDING_REVIEW' }
       : question),
   })),
-  removeQuestionFromSharedBank: (questionId) => set((state) => ({
+  removeQuestionFromSharedBank: (questionId, reason, actorName = 'Trưởng bộ môn') => set((state) => ({
     questions: state.questions.map((question) => question.id === questionId
-      ? { ...question, bankScope: 'PERSONAL', reviewStatus: 'PRIVATE', rejectionReason: undefined }
+      ? {
+          ...question,
+          bankScope: 'SHARED',
+          reviewStatus: 'REMOVED',
+          removedByName: actorName,
+          removedAt: 'Vừa xong',
+          removalReason: reason || 'Gỡ khỏi ngân hàng chung để xử lý vấn đề chuyên môn.',
+        }
       : question),
   })),
   reviewQuestion: (questionId, approved, reason) => set((state) => ({
