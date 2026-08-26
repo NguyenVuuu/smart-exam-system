@@ -5,9 +5,10 @@ import { createPortal } from 'react-dom'
 export interface AppSelectOption<T extends string | number = string> {
   value: T
   label: ReactNode
+  disabled?: boolean
 }
 
-interface AppSelectProps<T extends string | number = string> {
+export interface AppSelectProps<T extends string | number = string> {
   value: T
   options: AppSelectOption<T>[]
   onChange: (value: T) => void
@@ -16,6 +17,7 @@ interface AppSelectProps<T extends string | number = string> {
   menuClassName?: string
   disabled?: boolean
   placeholder?: string
+  accent?: 'blue' | 'emerald'
 }
 
 export default function AppSelect<T extends string | number = string>({
@@ -27,6 +29,7 @@ export default function AppSelect<T extends string | number = string>({
   menuClassName = '',
   disabled = false,
   placeholder = 'Chọn',
+  accent = 'blue',
 }: AppSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({})
@@ -36,6 +39,18 @@ export default function AppSelect<T extends string | number = string>({
     () => options.find((option) => option.value === value),
     [options, value],
   )
+  const accentClassName = {
+    blue: {
+      button: 'hover:border-blue-300 focus:border-blue-400',
+      selected: 'bg-blue-600 text-white',
+      option: 'text-gray-700 hover:bg-blue-50 hover:text-blue-700',
+    },
+    emerald: {
+      button: 'hover:border-emerald-300 focus:border-emerald-400',
+      selected: 'bg-emerald-600 text-white',
+      option: 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-700',
+    },
+  }[accent]
 
   const updateMenuPosition = () => {
     const rect = rootRef.current?.getBoundingClientRect()
@@ -82,7 +97,7 @@ export default function AppSelect<T extends string | number = string>({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full bg-white border border-gray-200 hover:border-blue-300 disabled:bg-gray-100 disabled:text-gray-400 text-xs text-gray-800 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 shadow-xs transition-colors focus:outline-none focus:border-blue-400 ${buttonClassName}`}
+        className={`w-full bg-white border border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 text-xs text-gray-800 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 shadow-xs transition-colors focus:outline-none ${accentClassName.button} ${buttonClassName}`}
       >
         <span className="truncate">{selectedOption?.label ?? placeholder}</span>
         <ChevronDown
@@ -101,15 +116,19 @@ export default function AppSelect<T extends string | number = string>({
             <button
               key={String(option.value)}
               type="button"
+              disabled={option.disabled}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
+                if (option.disabled) return
                 onChange(option.value)
                 setIsOpen(false)
               }}
-              className={`w-full px-3 py-2 rounded-lg text-left text-xs transition-colors ${
-                option.value === value
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
+              className={`w-full px-3 py-2 rounded-lg text-left text-xs transition-colors disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 ${
+                option.value === value && !option.disabled
+                  ? accentClassName.selected
+                  : option.disabled
+                    ? ''
+                    : accentClassName.option
               }`}
             >
               {option.label}

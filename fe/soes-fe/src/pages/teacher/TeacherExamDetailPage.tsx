@@ -196,9 +196,9 @@ export default function TeacherExamDetailPage() {
 
   if (!matchedExam) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+      <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
         <TeacherSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <TeacherTopBar />
           <main className="flex-1 grid place-items-center p-6">
             <div className="text-center">
@@ -215,13 +215,13 @@ export default function TeacherExamDetailPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
 
-        <main className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <main className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
           <ExamDetailBackButton onBack={() => navigate('/teacher/exams')} />
           <ExamDetailHeader
             exam={displayExam}

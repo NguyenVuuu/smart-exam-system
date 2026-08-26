@@ -20,13 +20,13 @@ export default function TeacherDashboard() {
   const navigate = useNavigate()
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
 
-        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
           {/* Welcome Banner */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-7 text-white shadow-md relative overflow-hidden">
             <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />

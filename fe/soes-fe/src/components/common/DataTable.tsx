@@ -28,6 +28,7 @@ export interface DataTableProps<T> {
   selectedKeys?: string[]
   onSelectChange?: (selectedKeys: string[]) => void
   onRowClick?: (item: T) => void
+  embedded?: boolean
 }
 
 export default function DataTable<T>({
@@ -42,6 +43,7 @@ export default function DataTable<T>({
   selectedKeys = [],
   onSelectChange,
   onRowClick,
+  embedded = false,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [expandedKeys, setExpandedKeys] = useState<string[]>([])
@@ -76,7 +78,13 @@ export default function DataTable<T>({
   }
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-xs overflow-hidden font-sans">
+    <div
+      className={
+        embedded
+          ? 'overflow-hidden bg-white font-sans'
+          : 'overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans shadow-xs'
+      }
+    >
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm border-collapse table-auto">
           <thead>

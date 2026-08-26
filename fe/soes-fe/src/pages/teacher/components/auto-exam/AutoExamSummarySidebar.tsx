@@ -1,4 +1,4 @@
-import type { AutoExamPickMode } from '../../types/teacher-auto-exam.types'
+﻿import type { AutoExamPickMode } from '../../types/teacher-auto-exam.types'
 
 export default function AutoExamSummarySidebar({
   totalQuestions,
@@ -20,15 +20,15 @@ export default function AutoExamSummarySidebar({
   const pointsPerQuestion = totalQuestions > 0 ? Number((targetTotalPoints / totalQuestions).toFixed(2)) : 0
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4 h-fit xl:sticky xl:top-6">
-      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 h-fit xl:sticky xl:top-6">
+      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
         Tổng Quan Đề Tự Động
       </h3>
       <div className="text-3xl font-bold text-gray-900">
-        {totalQuestions} <span className="text-xs font-normal text-gray-500">câu hỏi / đề</span>
+        {totalQuestions} <span className="text-sm font-normal text-gray-500">câu hỏi / đề</span>
       </div>
 
-      <div className="space-y-2 text-xs border-t border-gray-100 pt-3">
+      <div className="space-y-3 text-sm border-t border-gray-100 pt-4">
         {pickMode === 'AUTO' ? (
           <>
             <SummaryLine label="Câu dễ:" value={`${easyCount} câu`} />
@@ -48,9 +48,9 @@ export default function AutoExamSummarySidebar({
 
 function SummaryLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium text-gray-900">{value}</span>
+    <div className="flex justify-between items-center">
+      <span className="text-gray-500 text-sm">{label}</span>
+      <span className="font-semibold text-gray-900 text-sm">{value}</span>
     </div>
   )
 }

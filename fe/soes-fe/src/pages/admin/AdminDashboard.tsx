@@ -1,177 +1,155 @@
-import {
-  ArrowRight,
-  CheckCircle2,
-  Database,
-  FileCheck,
-  GraduationCap,
-  Users,
-} from 'lucide-react'
+import { BarChart3, CalendarClock, Database, FileCheck, GraduationCap, Users } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import AdminSidebar from './components/AdminSidebar'
-import AdminTopBar from './components/AdminTopBar'
+import AppBadge from '../../components/common/AppBadge'
+import AdminButton from './components/AdminButton'
+import AdminLayout from './components/AdminLayout'
+import AdminPageHeader from './components/AdminPageHeader'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      <AdminSidebar />
+    <AdminLayout>
+      <AdminPageHeader
+        icon={<BarChart3 size={20} />}
+        title="Dashboard"
+        description="Tổng quan vận hành học vụ, đề thi, lịch thi, giám sát và báo cáo toàn hệ thống."
+      />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <AdminTopBar />
-
-        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-          {/* Welcome Banner - Emerald Green Theme */}
-          <div className="bg-gradient-to-r from-[#10b981] via-[#059669] to-[#047857] rounded-2xl p-7 text-white shadow-md relative overflow-hidden">
-            <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-            <div className="relative z-10 max-w-2xl">
-              <span className="px-2.5 py-1 bg-white/20 text-white rounded-full text-[11px] font-medium tracking-wide uppercase">
-                Kỳ Khảo Thí Học Kỳ 1 • 2026
-              </span>
-              <h1 className="text-2xl font-bold mt-2 tracking-tight flex items-center gap-2">
-                Bảng Điều Khiển Khảo Thí & Quản Trị Hệ Thống
-              </h1>
-              <p className="text-xs text-emerald-100 mt-1 leading-relaxed">
-                Hệ thống ghi nhận 2 đề thi Cuối kỳ và 3 câu hỏi đóng góp đang chờ Ban Khảo thí thẩm định phê duyệt.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-3 mt-4">
-                <button
-                  onClick={() => navigate('/admin/exam-approvals')}
-                  className="px-4 py-2 bg-white text-emerald-800 hover:bg-emerald-50 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <FileCheck size={15} />
-                  Thẩm Định Đề Thi (2)
-                </button>
-                <button
-                  onClick={() => navigate('/admin/question-approvals')}
-                  className="px-4 py-2 bg-emerald-800/60 hover:bg-emerald-800 text-white font-semibold text-xs rounded-xl transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
-                >
-                  <Database size={15} />
-                  Duyệt Ngân Hàng Chung (3)
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Stat KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div
-              onClick={() => navigate('/admin/exam-approvals')}
-              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between cursor-pointer hover:border-emerald-300 transition-all"
-            >
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-gray-500">Đề Thi Chờ Duyệt</p>
-                <p className="text-2xl font-bold text-emerald-600">2 đề</p>
-                <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
-                  <CheckCircle2 size={12} /> Đề thi Cuối kỳ cần duyệt
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <FileCheck size={20} />
-              </div>
-            </div>
-
-            <div
-              onClick={() => navigate('/admin/question-approvals')}
-              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between cursor-pointer hover:border-teal-300 transition-all"
-            >
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-gray-500">Câu Hỏi Chờ Thẩm Định</p>
-                <p className="text-2xl font-bold text-teal-600">3 câu</p>
-                <p className="text-[11px] text-teal-700 font-medium flex items-center gap-1">
-                  <Database size={12} /> Đóng góp Ngân hàng chung
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
-                <Database size={20} />
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-gray-500">Lớp Học Phần Đang Mở</p>
-                <p className="text-2xl font-bold text-gray-900">12 lớp</p>
-                <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
-                  <GraduationCap size={12} /> Đã phân công giảng viên
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <GraduationCap size={20} />
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-gray-500">Tổng Sinh Viên Ghi Danh</p>
-                <p className="text-2xl font-bold text-gray-900">540 SV</p>
-                <p className="text-[11px] text-gray-400">Dữ liệu đào tạo chính thức</p>
-              </div>
-              <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <Users size={20} />
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Approval Queue Table */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">Danh Sách Đề Thi Gửi Phê Duyệt Gần Đây</h3>
-                <p className="text-xs text-gray-500">Các đề thi Cuối kỳ do Giảng viên gửi lên chờ Ban Khảo thí phê duyệt</p>
-              </div>
-              <button
-                onClick={() => navigate('/admin/exam-approvals')}
-                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
-              >
-                Xem tất cả <ArrowRight size={13} />
-              </button>
-            </div>
-
-            <div className="border border-gray-100 rounded-xl divide-y divide-gray-100">
-              <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-gray-50 transition-colors">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-md border border-emerald-100">
-                      CUỐI KỲ (FINAL)
-                    </span>
-                    <h4 className="font-bold text-xs text-gray-900">Đề Thi Cuối Kỳ Lập Trình Java - Học Kỳ 1 2026</h4>
-                  </div>
-                  <p className="text-[11px] text-gray-500">
-                    Môn: <strong>Lập trình Java căn bản</strong> • Soạn bởi: <strong>TS. Nguyễn Văn Giảng</strong> • Gửi lúc 08:30 hôm nay
-                  </p>
-                </div>
-                <button
-                  onClick={() => navigate('/admin/exam-approvals')}
-                  className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl transition-colors shrink-0 cursor-pointer"
-                >
-                  Thẩm định ngay
-                </button>
-              </div>
-
-              <div className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-gray-50 transition-colors">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-md border border-emerald-100">
-                      CUỐI KỲ (FINAL)
-                    </span>
-                    <h4 className="font-bold text-xs text-gray-900">Đề Thi Cuối Kỳ Cấu Trúc Dữ Liệu & Giải Thuật</h4>
-                  </div>
-                  <p className="text-[11px] text-gray-500">
-                    Môn: <strong>Cấu trúc dữ liệu & Giải thuật</strong> • Soạn bởi: <strong>ThS. Trần Thu Hà</strong> • Gửi lúc 15:45 hôm qua
-                  </p>
-                </div>
-                <button
-                  onClick={() => navigate('/admin/exam-approvals')}
-                  className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl transition-colors shrink-0 cursor-pointer"
-                >
-                  Thẩm định ngay
-                </button>
-              </div>
-            </div>
-          </div>
-        </main>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard title="Lớp đang mở" value="4 lớp" subtitle="HK1_2026" icon={<GraduationCap size={20} />} />
+        <KpiCard title="Tài khoản hoạt động" value="6" subtitle="Admin, giảng viên, sinh viên" icon={<Users size={20} />} />
+        <KpiCard title="Đề chờ chuyên môn" value="1 đề" subtitle="Cuối kỳ cần Trưởng bộ môn duyệt" icon={<FileCheck size={20} />} tone="amber" />
+        <KpiCard title="Ca thi đang mở" value="1 ca" subtitle="Có 5 cảnh báo realtime" icon={<CalendarClock size={20} />} tone="rose" />
       </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.4fr_1fr]">
+        <section className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950">Công việc cần xử lý</h2>
+              <p className="mt-1 text-[13px] text-slate-500">Các hàng đợi vận hành quan trọng trong ngày.</p>
+            </div>
+            <AdminButton tone="secondary" onClick={() => navigate('/admin/exams')}>Xem đề thi</AdminButton>
+          </div>
+          <div className="divide-y divide-gray-100">
+            <QueueItem
+              badge={<AppBadge tone="amber">Chờ Trưởng bộ môn</AppBadge>}
+              title="Bài thi Cuối kỳ Lập trình Java"
+              description="Giảng viên Nguyễn Văn An gửi đề, chưa đủ điều kiện tạo lịch thi tập trung."
+              actionLabel="Theo dõi"
+              onAction={() => navigate('/admin/exams')}
+            />
+            <QueueItem
+              badge={<AppBadge tone="emerald">Sẵn sàng</AppBadge>}
+              title="Bài thi Giữa kỳ Lập trình Java"
+              description="Có thể tạo ca thi cho JAVA_01_HK1_2026 và JAVA_02_HK1_2026."
+              actionLabel="Tạo lịch"
+              onAction={() => navigate('/admin/exam-schedules')}
+            />
+            <QueueItem
+              badge={<AppBadge tone="rose">Cảnh báo</AppBadge>}
+              title="Ca thi Giữa kỳ Lập trình Java 08:00"
+              description="5 cảnh báo gian lận, 1 sinh viên mất kết nối cần theo dõi."
+              actionLabel="Giám sát"
+              onAction={() => navigate('/admin/proctoring')}
+            />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-950">Truy cập nhanh</h2>
+          <p className="mt-1 text-[13px] text-slate-500">Các luồng Admin dùng thường xuyên.</p>
+          <div className="mt-5 grid grid-cols-1 gap-3">
+            <QuickAction icon={<GraduationCap size={18} />} label="Quản lý lớp học phần" onClick={() => navigate('/admin/class-sections')} />
+            <QuickAction icon={<Database size={18} />} label="Ngân hàng câu hỏi chung" onClick={() => navigate('/admin/shared-question-bank')} />
+            <QuickAction icon={<CalendarClock size={18} />} label="Lịch thi và phân công" onClick={() => navigate('/admin/exam-schedules')} />
+            <QuickAction icon={<BarChart3 size={18} />} label="Báo cáo toàn trường" onClick={() => navigate('/admin/reports')} />
+          </div>
+        </section>
+      </div>
+    </AdminLayout>
+  )
+}
+
+function KpiCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  tone = 'emerald',
+}: {
+  title: string
+  value: string
+  subtitle: string
+  icon: ReactNode
+  tone?: 'emerald' | 'amber' | 'rose'
+}) {
+  const toneClassName = {
+    emerald: 'bg-emerald-50 text-emerald-600',
+    amber: 'bg-amber-50 text-amber-600',
+    rose: 'bg-rose-50 text-rose-600',
+  }[tone]
+
+  return (
+    <section className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div>
+        <p className="text-xs font-medium text-slate-500">{title}</p>
+        <p className="mt-1 text-2xl font-semibold text-slate-950">{value}</p>
+        <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
+      </div>
+      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${toneClassName}`}>
+        {icon}
+      </div>
+    </section>
+  )
+}
+
+function QueueItem({
+  badge,
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: {
+  badge: ReactNode
+  title: string
+  description: string
+  actionLabel: string
+  onAction: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          {badge}
+          <p className="text-sm font-semibold text-slate-950">{title}</p>
+        </div>
+        <p className="text-[13px] text-slate-500">{description}</p>
+      </div>
+      <AdminButton tone="secondary" onClick={onAction}>{actionLabel}</AdminButton>
     </div>
+  )
+}
+
+function QuickAction({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+    >
+      {icon}
+      {label}
+    </button>
   )
 }

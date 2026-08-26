@@ -25,12 +25,12 @@ export default function TeacherTopBar() {
   ]
 
   return (
-    <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 relative shrink-0">
+    <header className="relative flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 font-sans text-slate-800">
       {/* Left side: Sidebar Toggle button */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
-          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center justify-center"
+          className="flex items-center justify-center rounded-xl p-2 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
           title={isSidebarCollapsed ? 'Mở rộng menu thanh bên' : 'Thu gọn menu thanh bên'}
         >
           {isSidebarCollapsed ? (
@@ -44,7 +44,7 @@ export default function TeacherTopBar() {
       <div className="flex items-center gap-4">
         {/* Help Circle */}
         <button
-          className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-gray-800 hover:bg-gray-200 transition-colors flex items-center justify-center text-sm font-semibold"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-slate-500 transition-colors hover:bg-gray-200 hover:text-slate-800"
           title="Trợ giúp & Hướng dẫn"
         >
           <HelpCircle size={18} />
@@ -54,7 +54,7 @@ export default function TeacherTopBar() {
         <div className="relative">
           <button
             onClick={() => setOpenNotifications((p) => !p)}
-            className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full relative transition-colors"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-800"
             title="Thông báo"
           >
             <Bell size={19} />
@@ -62,19 +62,19 @@ export default function TeacherTopBar() {
           </button>
 
           {openNotifications && (
-            <div className="absolute right-0 top-11 w-72 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2">
+            <div className="absolute right-0 top-11 z-20 w-72 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl">
               <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">Thông báo giảng dạy</span>
+                <span className="text-xs font-semibold text-slate-950">Thông báo giảng dạy</span>
                 <span className="text-xs text-blue-600 font-medium cursor-pointer">Đã đọc</span>
               </div>
               <div className="max-h-60 overflow-y-auto divide-y divide-gray-50">
                 {notifications.map((item) => (
                   <div key={item.id} className="p-3 text-xs hover:bg-gray-50 cursor-pointer">
                     <div className="flex justify-between items-start mb-0.5">
-                      <span className="font-semibold text-gray-900">{item.title}</span>
+                      <span className="font-semibold text-slate-900">{item.title}</span>
                       <span className="text-xs text-gray-400">{item.time}</span>
                     </div>
-                    <p className="text-gray-500 text-xs">{item.desc}</p>
+                    <p className="text-xs text-slate-500">{item.desc}</p>
                   </div>
                 ))}
               </div>
@@ -86,16 +86,16 @@ export default function TeacherTopBar() {
         <div className="relative">
           <button
             onClick={() => setOpenUserMenu((p) => !p)}
-            className="flex items-center gap-2.5 p-1 pr-2.5 rounded-full hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2.5 rounded-full p-1 pr-2.5 transition-colors hover:bg-gray-50"
           >
-            <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-xs">
               NV
             </div>
             <div className="text-left hidden sm:block">
-              <p className="text-xs font-bold text-gray-900 leading-tight">
+              <p className="text-xs font-semibold leading-tight text-slate-950">
                 {user?.fullName ?? 'Nguyễn Văn An'}
               </p>
-              <p className="text-[11px] text-gray-400 font-medium leading-none mt-0.5">
+              <p className="mt-0.5 text-[11px] font-normal leading-none text-slate-500">
                 Giảng viên
               </p>
             </div>
@@ -103,10 +103,10 @@ export default function TeacherTopBar() {
           </button>
 
           {openUserMenu && (
-            <div className="absolute right-0 top-12 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2 font-sans">
+            <div className="absolute right-0 top-12 z-20 w-56 rounded-2xl border border-gray-100 bg-white py-2 font-sans shadow-xl">
               <div className="px-4 py-2 text-xs border-b border-gray-100">
-                <p className="font-bold text-gray-900">{user?.fullName ?? 'Nguyễn Văn An'}</p>
-                <p className="text-xs text-gray-400">Tài khoản Giảng viên</p>
+                <p className="font-semibold text-slate-950">{user?.fullName ?? 'Nguyễn Văn An'}</p>
+                <p className="text-xs text-slate-500">Tài khoản Giảng viên</p>
               </div>
 
               <div className="py-1">
@@ -115,7 +115,7 @@ export default function TeacherTopBar() {
                     setOpenUserMenu(false)
                     logout()
                   }}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
+                  className="w-full px-4 py-2 text-left text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
                 >
                   Đăng xuất
                 </button>

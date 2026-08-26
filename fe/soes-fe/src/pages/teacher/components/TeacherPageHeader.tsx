@@ -16,23 +16,27 @@ export default function TeacherPageHeader({
   icon,
 }: TeacherPageHeaderProps) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex items-center gap-3.5">
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-4">
         {icon && (
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-xs">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
             {icon}
           </div>
         )}
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold leading-[22.5px] text-gray-900">{title}</h1>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-[18px] font-semibold leading-[22.5px] text-slate-950">{title}</h1>
             {titleContent}
           </div>
-          {description && <p className="mt-0.5 text-[13px] font-normal leading-[19.5px] text-gray-500">{description}</p>}
+          {description && (
+            <p className="mt-1 text-[13px] font-normal leading-[19.5px] text-slate-500">
+              {description}
+            </p>
+          )}
         </div>
       </div>
 
-      {actions && <div className="flex items-center gap-2.5 shrink-0">{actions}</div>}
+      {actions && <div className="flex shrink-0 items-center gap-2.5">{actions}</div>}
     </div>
   )
 }
