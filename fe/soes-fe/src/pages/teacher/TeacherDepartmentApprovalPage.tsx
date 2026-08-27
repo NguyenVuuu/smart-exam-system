@@ -2,6 +2,7 @@ import {
   Check,
   CheckCircle2,
   Eye,
+  ShieldCheck,
   X,
   XCircle,
 } from 'lucide-react'
@@ -192,6 +193,7 @@ export default function TeacherDepartmentApprovalPage() {
         <TeacherPageHeader
           title="Duyệt chuyên môn"
           description="Chỉ Trưởng bộ môn hoặc người được ủy quyền mới truy cập được màn hình này"
+          icon={<ShieldCheck size={21} />}
         />
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
           Tài khoản này không có quyền duyệt chuyên môn của Bộ môn.
@@ -205,6 +207,7 @@ export default function TeacherDepartmentApprovalPage() {
       <TeacherPageHeader
         title="Duyệt chuyên môn"
         description="Duyệt câu hỏi chung và đề cuối kỳ thuộc bộ môn bạn phụ trách. Không thể tự duyệt nội dung do chính mình soạn."
+        icon={<ShieldCheck size={21} />}
       />
 
       <div className="inline-flex w-full max-w-md rounded-full bg-white p-1 shadow-sm ring-1 ring-gray-100">
@@ -253,11 +256,11 @@ export default function TeacherDepartmentApprovalPage() {
 
 function TeacherShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50/50 font-sans">
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
-        <main className="flex-1 space-y-6 overflow-y-auto px-8 py-6">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">{children}</main>
       </div>
     </div>
   )

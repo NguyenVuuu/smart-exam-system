@@ -157,6 +157,22 @@ export default function QuestionDetailModal({
               <p className="text-blue-800 leading-relaxed">{question.explanation}</p>
             </div>
           )}
+
+          {question.reviewStatus === 'REMOVED' && (
+            <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl space-y-1">
+              <span className="font-bold text-gray-800 block text-xs">
+                Trạng thái ngân hàng chung:
+              </span>
+              <p className="text-gray-700 leading-relaxed">
+                Câu hỏi đã được gỡ khỏi ngân hàng chung
+                {question.removedByName ? ` bởi ${question.removedByName}` : ''}
+                {question.removedAt ? ` vào ${question.removedAt}` : ''}.
+              </p>
+              {question.removalReason && (
+                <p className="text-gray-500 leading-relaxed">Lý do: {question.removalReason}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

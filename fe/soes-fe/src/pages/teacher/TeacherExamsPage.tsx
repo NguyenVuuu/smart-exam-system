@@ -1,4 +1,4 @@
-import { Copy, Edit, Eye, Plus, RotateCcw, Search, Trash2, UserCheck, UserX, X } from 'lucide-react'
+import { ClipboardList, Copy, Edit, Eye, Plus, Trash2, UserCheck, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppBadge from '../../components/common/AppBadge'
@@ -6,6 +6,8 @@ import AppSelect from '../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
+import TeacherTablePanel from './components/TeacherTablePanel'
+import TeacherToolbar from './components/TeacherToolbar'
 import TeacherTopBar from './components/TeacherTopBar'
 import CreateExamTypeModal from './components/exam-detail/CreateExamTypeModal'
 import type { Exam } from './types/teacher-exam.types'
@@ -200,16 +202,17 @@ export default function TeacherExamsPage() {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
 
-        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
           <TeacherPageHeader
             title="Quản Lý Đề Thi & Bài Kiểm Tra"
             description="Tạo và công bố đề thi trắc nghiệm, lập trình, hỗn hợp"
+            icon={<ClipboardList size={21} />}
             actions={
               <button
                 onClick={() => setIsTypeModalOpen(true)}
@@ -220,60 +223,39 @@ export default function TeacherExamsPage() {
             }
           />
 
-          {/* Filter Bar */}
-          <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
-            <div className="flex items-center gap-3 shrink-0">
-              <AppSelect
-                value={selectedStatus}
-                onChange={setSelectedStatus}
-                className="w-52"
-                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
-                options={[
-                  { value: 'ALL', label: 'Trạng thái đề thi' },
-                  { value: 'DRAFT', label: 'Bản nháp (DRAFT)' },
-                  { value: 'PENDING_APPROVAL', label: 'Chờ duyệt chuyên môn' },
-                  { value: 'REJECTED', label: 'Bị từ chối' },
-                  { value: 'PUBLISHED', label: 'Công bố (PUBLISHED)' },
-                  { value: 'LOCKED', label: 'Đã khóa' },
-                  { value: 'ARCHIVED', label: 'Đã lưu trữ' },
-                ]}
-              />
-
-              <button
-                onClick={handleResetFilters}
-                className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-800 rounded-xl transition-colors flex items-center justify-center shrink-0"
-                title="Làm mới bộ lọc"
-              >
-                <RotateCcw size={16} />
-              </button>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 flex items-center gap-2.5 w-64 sm:w-80 shrink-0">
-              <Search size={16} className="text-gray-400 shrink-0" />
-              <input
-                type="text"
-                placeholder="Tìm tên đề thi, môn học..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent text-sm font-medium focus:outline-none text-gray-800 w-full"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600 shrink-0">
-                  <X size={15} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Reusable DataTable Component */}
-          <DataTable
-            columns={columns}
-            data={filteredExams}
-            keyExtractor={(e) => e.id}
-            emptyText="Chưa có đề thi nào được khởi tạo"
-            pageSize={10}
-            onRowClick={(e) => navigate(`/teacher/exams/${e.id}`)}
-          />
+          <TeacherTablePanel>
+            <TeacherToolbar
+              filters={
+                <AppSelect
+                  value={selectedStatus}
+                  onChange={setSelectedStatus}
+                  className="w-52"
+                  options={[
+                    { value: 'ALL', label: 'Trạng thái đề thi' },
+                    { value: 'DRAFT', label: 'Bản nháp (DRAFT)' },
+                    { value: 'PENDING_APPROVAL', label: 'Chờ duyệt chuyên môn' },
+                    { value: 'REJECTED', label: 'Bị từ chối' },
+                    { value: 'PUBLISHED', label: 'Công bố (PUBLISHED)' },
+                    { value: 'LOCKED', label: 'Đã khóa' },
+                    { value: 'ARCHIVED', label: 'Đã lưu trữ' },
+                  ]}
+                />
+              }
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Tìm tên đề thi, môn học..."
+              onReset={handleResetFilters}
+            />
+            <DataTable
+              embedded
+              columns={columns}
+              data={filteredExams}
+              keyExtractor={(e) => e.id}
+              emptyText="Chưa có đề thi nào được khởi tạo"
+              pageSize={10}
+              onRowClick={(e) => navigate(`/teacher/exams/${e.id}`)}
+            />
+          </TeacherTablePanel>
         </main>
       </div>
 

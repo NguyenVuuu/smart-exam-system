@@ -20,8 +20,8 @@ export default function AdminTopBar() {
   }, [])
 
   const notifications = [
-    { id: '1', title: 'Yêu cầu duyệt đề thi', desc: 'GV Nguyễn Văn Giảng đã gửi đề thi Cuối Kỳ Java', time: '10 phút trước' },
-    { id: '2', title: 'Yêu cầu duyệt câu hỏi', desc: 'Có 3 câu hỏi mới gửi vào Ngân hàng chung', time: '25 phút trước' },
+    { id: '1', title: 'Đề cuối kỳ chờ chuyên môn', desc: 'GV Nguyễn Văn Giảng đã gửi đề thi Cuối kỳ Java cho Trưởng bộ môn', time: '10 phút trước' },
+    { id: '2', title: 'Câu hỏi chờ chuyên môn', desc: 'Có 3 câu hỏi mới gửi vào ngân hàng chung của bộ môn', time: '25 phút trước' },
   ]
 
   return (

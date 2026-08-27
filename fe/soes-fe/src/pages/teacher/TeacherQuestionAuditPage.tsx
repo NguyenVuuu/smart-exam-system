@@ -6,6 +6,8 @@ import DataTable, { type ColumnDef } from '../../components/common/DataTable'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
+import TeacherTablePanel from './components/TeacherTablePanel'
+import TeacherToolbar from './components/TeacherToolbar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 import type { Question } from './types/teacher-question-bank.types'
@@ -45,13 +47,19 @@ export default function TeacherQuestionAuditPage() {
   const questions = useTeacherWorkspaceStore((state) => state.questions)
   const upsertQuestion = useTeacherWorkspaceStore((state) => state.upsertQuestion)
   const [selectedSeverity, setSelectedSeverity] = useState<'ALL' | AuditIssue['severity']>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [editingIssue, setEditingIssue] = useState<AuditIssue | null>(null)
 
   const issues = buildAuditIssues(questions)
-  const visibleIssues = issues.filter(
-    (issue) => selectedSeverity === 'ALL' || issue.severity === selectedSeverity,
-  )
+  const visibleIssues = issues.filter((issue) => {
+    const matchesSeverity = selectedSeverity === 'ALL' || issue.severity === selectedSeverity
+    const matchesSearch =
+      issue.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      issue.subjectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      issue.description.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesSeverity && matchesSearch
+  })
   const highSeverityCount = issues.filter((issue) => issue.severity === 'HIGH').length
   const healthScore = Math.max(0, 100 - highSeverityCount * 15 - (issues.length - highSeverityCount) * 5)
 
@@ -96,14 +104,15 @@ export default function TeacherQuestionAuditPage() {
     : null
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
-        <main className="flex-1 space-y-6 overflow-y-auto px-8 py-6">
+        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
           <TeacherPageHeader
             title="Rà soát câu hỏi"
             description="Kiểm tra trực tiếp dữ liệu hiện có trong ngân hàng câu hỏi"
+            icon={<ShieldCheck size={21} />}
             actions={
               <button onClick={runScan} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white">
                 <RefreshCw size={15} className={isScanning ? 'animate-spin' : ''} /> Rà soát lại
@@ -117,23 +126,40 @@ export default function TeacherQuestionAuditPage() {
             <Metric label="Tổng vấn đề" value={issues.length} icon={<AlertCircle size={18} />} tone="amber" />
           </div>
 
-          <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <AppSelect
-                value={selectedSeverity}
-                onChange={setSelectedSeverity}
-                className="w-48"
-                options={[
-                  { value: 'ALL', label: 'Tất cả mức độ' },
-                  { value: 'HIGH', label: 'Cao' },
-                  { value: 'MEDIUM', label: 'Trung bình' },
-                  { value: 'LOW', label: 'Thấp' },
-                ]}
-              />
-              <span className="text-xs text-gray-500">{visibleIssues.length} vấn đề</span>
-            </div>
-            <DataTable columns={columns} data={visibleIssues} keyExtractor={(issue) => issue.id} emptyText="Ngân hàng câu hỏi hiện đạt yêu cầu." />
-          </div>
+          <TeacherTablePanel>
+            <TeacherToolbar
+              filters={
+                <>
+                  <AppSelect
+                    value={selectedSeverity}
+                    onChange={setSelectedSeverity}
+                    className="w-48"
+                    options={[
+                      { value: 'ALL', label: 'Tất cả mức độ' },
+                      { value: 'HIGH', label: 'Cao' },
+                      { value: 'MEDIUM', label: 'Trung bình' },
+                      { value: 'LOW', label: 'Thấp' },
+                    ]}
+                  />
+                  <span className="text-sm text-slate-500">{visibleIssues.length} vấn đề</span>
+                </>
+              }
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Tìm câu hỏi hoặc lỗi..."
+              onReset={() => {
+                setSelectedSeverity('ALL')
+                setSearchQuery('')
+              }}
+            />
+            <DataTable
+              embedded
+              columns={columns}
+              data={visibleIssues}
+              keyExtractor={(issue) => issue.id}
+              emptyText="Ngân hàng câu hỏi hiện đạt yêu cầu."
+            />
+          </TeacherTablePanel>
         </main>
       </div>
 

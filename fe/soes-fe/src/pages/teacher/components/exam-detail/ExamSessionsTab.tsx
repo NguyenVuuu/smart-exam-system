@@ -1,4 +1,4 @@
-import { CalendarClock, Plus } from 'lucide-react'
+﻿import { CalendarClock, Plus } from 'lucide-react'
 import AppCard from '../../../../components/common/AppCard'
 import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionList } from './session/ExamSessionList'
@@ -18,14 +18,14 @@ export default function ExamSessionsTab({
 }) {
   return (
     <div className="space-y-5">
-      <AppCard className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <CalendarClock size={18} />
+      <AppCard className="p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <CalendarClock size={22} />
           </div>
           <div>
-            <h2 className="text-xs font-bold text-gray-900">Ca thi / Lớp áp dụng</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h2 className="text-base font-semibold text-gray-900">Ca thi / Lớp áp dụng</h2>
+            <p className="text-sm text-gray-500 mt-1">
               Mỗi ca thi có lớp, thời gian, hiển thị điểm, IP và quy định chống gian lận riêng.
             </p>
           </div>
@@ -34,9 +34,9 @@ export default function ExamSessionsTab({
         <button
           type="button"
           onClick={onCreateSession}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-xl flex items-center justify-center gap-1.5"
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors"
         >
-          <Plus size={15} /> Tạo ca thi
+          <Plus size={17} /> Tạo ca thi
         </button>
       </AppCard>
 
