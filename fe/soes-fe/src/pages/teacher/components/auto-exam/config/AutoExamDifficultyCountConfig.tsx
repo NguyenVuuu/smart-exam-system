@@ -1,5 +1,5 @@
-﻿import { Minus, Plus } from 'lucide-react'
-import type { AutoExamConfigPanelProps } from './AutoExamConfigTypes'
+import { Minus, Plus } from 'lucide-react'
+import type { AutoExamConfigPanelProps } from '../../../types/auto-exam-config.types'
 
 export default function AutoExamDifficultyCountConfig(props: AutoExamConfigPanelProps) {
   const easyAvailable = props.eligibleQuestions.filter((q) => q.difficulty === 'EASY').length

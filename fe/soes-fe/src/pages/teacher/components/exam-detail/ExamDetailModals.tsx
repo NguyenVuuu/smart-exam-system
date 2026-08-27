@@ -136,8 +136,8 @@ export function ExamPreviewModal({
       <div className="bg-white rounded-2xl w-full max-w-6xl h-[92vh] shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-xs font-bold text-gray-900">Xem trước đề thi</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-lg font-semibold text-gray-900">Xem trước đề thi</h3>
+            <p className="text-sm text-gray-500 mt-0.5">
               {exam.title} • {exam.status === 'DRAFT' ? 'Bản nháp chưa công bố' : 'Đề đã khóa'}
             </p>
           </div>

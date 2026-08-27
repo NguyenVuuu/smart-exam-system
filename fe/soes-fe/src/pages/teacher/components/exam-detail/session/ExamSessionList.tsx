@@ -34,54 +34,52 @@ export function ExamSessionList({
       {sessions.map((session) => {
         const canChange = session.status === 'DRAFT' || session.status === 'SCHEDULED'
         const showManagementActions = variant === 'manage' && canChange && (onEdit || onRemove)
+        const showDraftActions = variant === 'draft' && canChange && (onEdit || onRemove)
 
         return (
-          <AppCard key={session.id} className="relative p-5 rounded-2xl min-h-[200px] flex flex-col gap-3">
-            <div className={`flex items-start justify-between gap-3 ${variant === 'draft' ? 'pr-14' : ''}`}>
+          <AppCard key={session.id} className="relative flex min-h-[178px] flex-col gap-3 rounded-2xl p-4">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-base font-bold text-gray-900 truncate">{session.courseCode}</p>
-                <p className="text-sm text-gray-500 truncate mt-0.5">{session.subjectName}</p>
-                <p className="text-sm text-blue-700 font-semibold mt-1">
-                  {session.startTime.replace('T', ' ')} - {session.endTime.replace('T', ' ')}
+                <p className="truncate text-sm font-semibold text-slate-950">{session.courseCode}</p>
+                <p className="mt-0.5 truncate text-[13px] leading-[19px] text-slate-500">{session.subjectName}</p>
+                <p className="mt-1 whitespace-normal break-words text-[13px] font-semibold leading-[19px] text-blue-600">
+                  {formatSessionTime(session)}
                 </p>
               </div>
-              <StatusBadge status={session.status} />
-            </div>
-
-            {variant === 'draft' && canChange && (onEdit || onRemove) && (
-              <div className="absolute right-3 top-3 flex items-center gap-1">
-                {canChange && onEdit && (
+              <div className="flex shrink-0 items-center gap-2">
+                <StatusBadge status={session.status} />
+                {showDraftActions && onEdit && (
                   <button
                     type="button"
                     onClick={() => onEdit(session)}
-                    className="p-2 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                    className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
                     title="Sửa ca thi"
                   >
                     <Edit3 size={16} />
                   </button>
                 )}
-                {canChange && onRemove && (
+                {showDraftActions && onRemove && (
                   <button
                     type="button"
                     onClick={() => onRemove(session.id)}
-                    className="p-2 rounded-xl text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                    className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                     title="Xóa ca thi"
                   >
                     <X size={17} />
                   </button>
                 )}
               </div>
-            )}
+            </div>
 
-            <div className="flex flex-wrap gap-2 text-xs">
-              <RuleBadge icon={<Clock size={14} />} label={`${session.durationMinutes} phút`} />
-              <RuleBadge icon={<MonitorCheck size={14} />} label={securitySummary(session)} />
+            <div className="flex flex-wrap gap-2">
+              <RuleBadge icon={<Clock size={13} />} label={`${session.durationMinutes} phút`} />
+              <RuleBadge icon={<MonitorCheck size={13} />} label={securitySummary(session)} />
               <RuleBadge
-                icon={<Globe size={14} />}
+                icon={<Globe size={13} />}
                 label={session.ipMode === 'CAMPUS' ? 'Giới hạn IP trường' : 'Thi tại nhà/Online'}
               />
               <RuleBadge
-                icon={session.allowStudentReview ? <Eye size={14} /> : <EyeOff size={14} />}
+                icon={session.allowStudentReview ? <Eye size={13} /> : <EyeOff size={13} />}
                 label={session.allowStudentReview ? 'Cho xem lại' : 'Ẩn bài làm'}
               />
             </div>
@@ -164,11 +162,30 @@ function StatusBadge({ status }: { status: ExamSchedule['status'] }) {
 
 function RuleBadge({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200/60 text-gray-700 text-xs font-medium">
+    <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200/60 bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-slate-600">
       {icon}
-      <span>{label}</span>
+      <span className="truncate">{label}</span>
     </span>
   )
+}
+
+function formatSessionTime(session: ExamSchedule) {
+  const { date: startDate, time: startTime } = parseSessionDateTime(session.startTime)
+  const { time: endTime } = parseSessionDateTime(session.endTime)
+  return `${formatDisplayDate(startDate)} · ${startTime} - ${endTime}`
+}
+
+function parseSessionDateTime(value: string) {
+  const [date = '', rawTime = ''] = value.includes('T') ? value.split('T') : value.split(' ')
+  return {
+    date,
+    time: rawTime.slice(0, 5),
+  }
+}
+
+function formatDisplayDate(date: string) {
+  const [year, month, day] = date.split('-')
+  return year && month && day ? `${day}/${month}/${year}` : date
 }
 
 function securitySummary(session: ExamSchedule) {

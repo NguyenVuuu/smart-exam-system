@@ -1,4 +1,4 @@
-﻿import type { AutoExamConfigPanelProps } from './AutoExamConfigTypes'
+import type { AutoExamConfigPanelProps } from '../../../types/auto-exam-config.types'
 import { PickModeButton } from './AutoExamConfigControls'
 
 export default function AutoExamQuestionPickModeConfig(props: AutoExamConfigPanelProps) {

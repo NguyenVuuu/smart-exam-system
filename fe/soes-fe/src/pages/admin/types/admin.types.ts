@@ -99,6 +99,11 @@ export interface AdminExamSchedule {
   distributionMode: string
   releaseMode: string
   resultReleaseAt?: string
+  allowStudentReview?: boolean
+  requireFullscreen?: boolean
+  enableWebcam?: boolean
+  blockCopyPaste?: boolean
+  blockRightClick?: boolean
   proctors: string[]
   proctorAssignments?: Array<{
     courseOfferingId: string

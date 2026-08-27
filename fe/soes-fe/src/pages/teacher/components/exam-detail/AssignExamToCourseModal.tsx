@@ -1,5 +1,6 @@
 import { CheckCircle2, Send, Users, X } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { MOCK_TEACHER_COURSES } from '../../mock/teacher-course.mock'
 import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionForm, type ExamSessionDraft } from './session/ExamSessionForm'
@@ -70,7 +71,7 @@ function AssignExamToCourseModalContent({
     const startTime = `${draftSession.examDate}T${draftSession.startTime}`
     const endTime = `${draftSession.examDate}T${draftSession.endTime}`
     if (new Date(endTime) <= new Date(startTime)) {
-      alert('Giờ đóng ca phải sau giờ mở bài.')
+      toast.error('Giờ đóng ca phải sau giờ mở bài.')
       return null
     }
     return {
@@ -111,7 +112,7 @@ function AssignExamToCourseModalContent({
     )
 
     if (exists) {
-      alert('Ca thi này đã có trong danh sách.')
+      toast.error('Ca thi này đã có trong danh sách.')
       return
     }
 
@@ -136,10 +137,10 @@ function AssignExamToCourseModalContent({
       resultReleaseMode: session.resultReleaseMode ?? 'MANUAL',
       resultReleaseAt: session.resultReleaseAt ?? DEFAULT_DRAFT.resultReleaseAt,
       allowStudentReview: Boolean(session.allowStudentReview),
-      requireFullscreen: Boolean(session.requireFullscreen),
-      enableWebcam: Boolean(session.enableWebcam),
-      blockCopyPaste: Boolean(session.blockCopyPaste),
-      blockRightClick: Boolean(session.blockRightClick),
+      requireFullscreen: session.requireFullscreen ?? true,
+      enableWebcam: session.enableWebcam ?? true,
+      blockCopyPaste: session.blockCopyPaste ?? true,
+      blockRightClick: session.blockRightClick ?? true,
       ipMode: session.ipMode ?? 'HOME',
       allowedIpRange: session.allowedIpRange ?? DEFAULT_DRAFT.allowedIpRange,
       distributionMode: session.distributionMode ?? 'SHUFFLE_QUESTIONS_AND_OPTIONS',
@@ -152,7 +153,7 @@ function AssignExamToCourseModalContent({
       : publishSessions
 
     if (sessionsToSave.length === 0) {
-      alert('Vui lòng thêm ít nhất một ca thi trước khi công bố.')
+      toast.error('Vui lòng thêm ít nhất một ca thi trước khi công bố.')
       return
     }
 
@@ -166,17 +167,17 @@ function AssignExamToCourseModalContent({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-gray-100">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+        <div className="shrink-0 px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-4">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Users size={18} />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <Users size={21} />
             </div>
             <div className="min-w-0">
-              <h2 className="text-xs font-bold text-gray-900">
+              <h2 className="text-base font-semibold text-gray-950">
                 {isEditingExistingSession ? 'Cập nhật ca thi' : 'Tạo ca thi / Phân lớp'}
               </h2>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="mt-1 truncate text-[13px] leading-[19px] text-slate-500">
                 {examTitle}
               </p>
             </div>
@@ -191,7 +192,7 @@ function AssignExamToCourseModalContent({
         </div>
 
         {isSuccess ? (
-          <div className="p-8 text-center space-y-3">
+          <div className="min-h-0 flex-1 p-8 text-center space-y-3">
             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle2 size={36} />
             </div>
@@ -205,35 +206,39 @@ function AssignExamToCourseModalContent({
             </p>
           </div>
         ) : (
-          <div className="p-6 space-y-5 text-xs max-h-[calc(100vh-180px)] overflow-y-auto">
-            <ExamSessionForm
-              draft={draftSession}
-              subjectName={subjectName}
-              onChange={setDraftSession}
-              onAdd={addPublishSession}
-              submitLabel={editingSessionId ? 'Cập nhật thông tin' : 'Thêm ca'}
-              showSubmit={!isEditingExistingSession}
-            />
-
-            {!isEditingExistingSession && (
-              <div className="space-y-3 pt-2 border-t border-gray-100">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold text-gray-900">Danh sách ca thi sẽ công bố</h3>
-                  <span className="text-xs text-gray-500">{publishSessions.length} ca thi</span>
-                </div>
-                <ExamSessionList
-                  sessions={publishSessions}
-                  variant="draft"
-                  onEdit={editPublishSession}
-                  onRemove={(sessionId) =>
-                    setPublishSessions((prev) => prev.filter((session) => session.id !== sessionId))
-                  }
-                  emptyText="Thêm ít nhất một ca thi để công bố đề cho lớp."
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-xs">
+              <div className="space-y-5">
+                <ExamSessionForm
+                  draft={draftSession}
+                  subjectName={subjectName}
+                  onChange={setDraftSession}
+                  onAdd={addPublishSession}
+                  submitLabel={editingSessionId ? 'Cập nhật thông tin' : 'Thêm ca'}
+                  showSubmit={!isEditingExistingSession}
                 />
-              </div>
-            )}
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                {!isEditingExistingSession && (
+                  <div className="space-y-3 pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-slate-900">Danh sách ca thi sẽ công bố</h3>
+                      <span className="text-xs text-gray-500">{publishSessions.length} ca thi</span>
+                    </div>
+                    <ExamSessionList
+                      sessions={publishSessions}
+                      variant="draft"
+                      onEdit={editPublishSession}
+                      onRemove={(sessionId) =>
+                        setPublishSessions((prev) => prev.filter((session) => session.id !== sessionId))
+                      }
+                      emptyText="Thêm ít nhất một ca thi để công bố đề cho lớp."
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4">
               <button
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-xl transition-colors"
@@ -248,7 +253,7 @@ function AssignExamToCourseModalContent({
                 {isEditingExistingSession ? 'Lưu thay đổi' : `Công bố ${publishSessions.length} ca thi`}
               </button>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

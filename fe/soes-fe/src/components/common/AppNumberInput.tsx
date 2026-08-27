@@ -23,12 +23,12 @@ export default function AppNumberInput({
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className={`w-full bg-gray-50 border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5 focus:outline-none focus:border-blue-400 ${
+        className={`h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-normal text-slate-800 focus:border-blue-400 focus:outline-none ${
           suffix ? 'pr-12' : ''
         } ${className}`}
       />
       {suffix && (
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-gray-500">
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
           {suffix}
         </span>
       )}

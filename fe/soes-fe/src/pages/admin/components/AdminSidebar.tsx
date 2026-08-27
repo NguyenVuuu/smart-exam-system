@@ -1,4 +1,4 @@
-import {
+﻿import {
   BarChart3,
   BookOpen,
   Calendar,
@@ -15,7 +15,7 @@ import {
   Users,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
@@ -37,9 +37,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     id: 'overview',
     title: 'TỔNG QUAN',
-    items: [
-      { label: 'Dashboard', icon: <Home size={18} />, path: '/admin' },
-    ],
+    items: [{ label: 'Dashboard', icon: <Home size={18} />, path: '/admin' }],
   },
   {
     id: 'academic',
@@ -78,9 +76,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     id: 'reports',
     title: 'BÁO CÁO',
-    items: [
-      { label: 'Báo cáo', icon: <BarChart3 size={18} />, path: '/admin/reports' },
-    ],
+    items: [{ label: 'Báo cáo', icon: <BarChart3 size={18} />, path: '/admin/reports' }],
   },
   {
     id: 'system',
@@ -92,44 +88,81 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
+const ALL_ADMIN_GROUP_IDS = ['overview', 'academic', 'expertise', 'proctoring', 'reports', 'system']
+const STORAGE_KEY_ADMIN_EXPANDED = 'soes_admin_expanded_groups'
+const STORAGE_KEY_ADMIN_SCROLL = 'soes_admin_sidebar_scroll'
+const STORAGE_KEY_ADMIN_COLLAPSED = 'soes_admin_is_collapsed'
+
 export let persistentAdminIsCollapsed: boolean = false
-let persistentAdminExpandedGroupIds: string[] | null = null
 
 export default function AdminSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAuthStore((state) => state.user)
   const { logout } = useLogout()
+  const navRef = useRef<HTMLElement>(null)
 
   const isNavItemActive = (path: string) => {
     if (path === '/admin') return location.pathname === '/admin'
     return location.pathname === path || location.pathname.startsWith(`${path}/`)
   }
 
-  const initialActiveGroup = NAV_GROUPS.find((g) =>
-    g.items.some((item) => isNavItemActive(item.path)),
-  )
-
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => persistentAdminIsCollapsed)
-  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>(() => {
-    if (persistentAdminExpandedGroupIds && persistentAdminExpandedGroupIds.length > 0) {
-      return persistentAdminExpandedGroupIds
-    }
-    return [
-      initialActiveGroup?.id || 'overview',
-      'academic',
-      'expertise',
-      'proctoring',
-      'reports',
-      'system',
-    ]
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY_ADMIN_COLLAPSED)
+      if (saved !== null) return saved === 'true'
+    } catch {}
+    return persistentAdminIsCollapsed
   })
+
+  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY_ADMIN_EXPANDED)
+      if (saved !== null) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return ALL_ADMIN_GROUP_IDS
+  })
+
+  // Khi route thay đổi: chỉ mở nhóm của route đang active nếu nó chưa có, tuyệt đối không can thiệp các nhóm khác
+  useEffect(() => {
+    const currentGroup = NAV_GROUPS.find((g) =>
+      g.items.some((item) => isNavItemActive(item.path)),
+    )
+    if (currentGroup) {
+      setExpandedGroupIds((prev) => {
+        if (prev.includes(currentGroup.id)) return prev
+        const next = [...prev, currentGroup.id]
+        try {
+          sessionStorage.setItem(STORAGE_KEY_ADMIN_EXPANDED, JSON.stringify(next))
+        } catch {}
+        return next
+      })
+    }
+  }, [location.pathname])
+
+  // Khôi phục vị trí scroll
+  useLayoutEffect(() => {
+    if (navRef.current) {
+      try {
+        const savedScroll = sessionStorage.getItem(STORAGE_KEY_ADMIN_SCROLL)
+        if (savedScroll) {
+          navRef.current.scrollTop = Number(savedScroll) || 0
+        }
+      } catch {}
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     const handleToggle = () => {
       setIsCollapsed((prev) => {
         const next = !prev
         persistentAdminIsCollapsed = next
+        try {
+          sessionStorage.setItem(STORAGE_KEY_ADMIN_COLLAPSED, String(next))
+        } catch {}
         return next
       })
     }
@@ -139,14 +172,25 @@ export default function AdminSidebar() {
 
   useEffect(() => {
     persistentAdminIsCollapsed = isCollapsed
+    try {
+      sessionStorage.setItem(STORAGE_KEY_ADMIN_COLLAPSED, String(isCollapsed))
+    } catch {}
   }, [isCollapsed])
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroupIds((prev) => {
       const next = prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
-      persistentAdminExpandedGroupIds = next
+      try {
+        sessionStorage.setItem(STORAGE_KEY_ADMIN_EXPANDED, JSON.stringify(next))
+      } catch {}
       return next
     })
+  }
+
+  const handleNavScroll = (e: React.UIEvent<HTMLElement>) => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY_ADMIN_SCROLL, String(e.currentTarget.scrollTop))
+    } catch {}
   }
 
   return (
@@ -174,7 +218,11 @@ export default function AdminSidebar() {
       </div>
 
       {/* Nav Groups - Parent / Child Collapsible */}
-      <nav className="flex-1 py-3 px-3 space-y-3 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <nav
+        ref={navRef}
+        onScroll={handleNavScroll}
+        className="flex-1 py-3 px-3 space-y-3 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {NAV_GROUPS.map((group, groupIdx) => {
           const isGroupExpanded = expandedGroupIds.includes(group.id)
 
@@ -182,6 +230,7 @@ export default function AdminSidebar() {
             <div key={group.id} className="space-y-1">
               {!isCollapsed ? (
                 <button
+                  type="button"
                   onClick={() => toggleGroup(group.id)}
                   className="w-full flex items-center justify-between px-3 py-1 text-[11.5px] font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition-colors overflow-hidden whitespace-nowrap cursor-pointer"
                   title={`${isGroupExpanded ? 'Thu gọn' : 'Mở rộng'} danh mục ${group.title}`}
@@ -204,6 +253,7 @@ export default function AdminSidebar() {
 
                     return (
                       <button
+                        type="button"
                         key={subItem.path}
                         onClick={() => navigate(subItem.path)}
                         title={isCollapsed ? subItem.label : undefined}
@@ -245,7 +295,11 @@ export default function AdminSidebar() {
 
       {/* Bottom Profile Section */}
       <div className="p-3 border-t border-slate-700/60 shrink-0">
-        <div className={`flex items-center ${isCollapsed ? 'justify-center p-1' : 'justify-between p-2.5'} rounded-xl bg-slate-900/60 hover:bg-slate-900/90 transition-colors`}>
+        <div
+          className={`flex items-center ${
+            isCollapsed ? 'justify-center p-1' : 'justify-between p-2.5'
+          } rounded-xl bg-slate-900/60 hover:bg-slate-900/90 transition-colors`}
+        >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full bg-[#e11d48] text-white font-bold text-xs flex items-center justify-center shrink-0">
               TQ
@@ -261,6 +315,7 @@ export default function AdminSidebar() {
           </div>
           {!isCollapsed && (
             <button
+              type="button"
               onClick={() => logout()}
               title="Đăng xuất"
               className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg transition-colors shrink-0 cursor-pointer"

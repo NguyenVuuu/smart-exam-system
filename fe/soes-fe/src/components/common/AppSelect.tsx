@@ -97,7 +97,7 @@ export default function AppSelect<T extends string | number = string>({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full bg-white border border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 text-xs text-gray-800 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 shadow-xs transition-colors focus:outline-none ${accentClassName.button} ${buttonClassName}`}
+        className={`flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 shadow-xs transition-colors focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 ${accentClassName.button} ${buttonClassName}`}
       >
         <span className="truncate">{selectedOption?.label ?? placeholder}</span>
         <ChevronDown
@@ -123,7 +123,7 @@ export default function AppSelect<T extends string | number = string>({
                 onChange(option.value)
                 setIsOpen(false)
               }}
-              className={`w-full px-3 py-2 rounded-lg text-left text-xs transition-colors disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 ${
+              className={`w-full rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 ${
                 option.value === value && !option.disabled
                   ? accentClassName.selected
                   : option.disabled
