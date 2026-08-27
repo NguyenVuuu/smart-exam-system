@@ -31,6 +31,7 @@ export interface ExamContentProgrammingQuestionDto {
   type:            'PROGRAMMING'
   points:          number
   draftSourceCode: string | null  // null if unanswered
+  language:        string
 }
 
 export type ExamContentQuestionDto =
@@ -74,4 +75,51 @@ export interface GetAttemptStatusResponseDto {
   isOnline:           boolean
   answeredCount:      number
   totalQuestionCount: number
+}
+
+
+// ─── API 6: Send Heartbeat ─────────────────────────────────────────────────────
+
+export interface SendHeartbeatResponseDto {
+  remainingSeconds: number
+  isOnline: boolean
+}
+
+// ─── API 7: Run Code ───────────────────────────────────────────────────────────
+
+export interface RunCodeTestCaseDtoBase {
+  testCaseId: string
+  isSample: boolean
+  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
+}
+
+export interface RunCodeSampleTestCaseDto extends RunCodeTestCaseDtoBase {
+  isSample: true
+  input: string
+  expectedOutput: string
+  actualOutput: string | null
+  executionTimeMs: number
+  memoryUsedKb: number
+}
+
+export interface RunCodeHiddenTestCaseDto extends RunCodeTestCaseDtoBase {
+  isSample: false
+}
+
+export type RunCodeTestCaseDto = RunCodeSampleTestCaseDto | RunCodeHiddenTestCaseDto
+
+export interface RunCodeResponseDto {
+  questionId: string
+  remainingSeconds: number
+  isOnline: boolean
+  compilationStatus: 'COMPILED' | 'COMPILE_ERROR'
+  compilerOutput: string | null
+  runtimeError: string | null
+  hasSystemError: boolean 
+  summary: {
+    passedCount: number
+    totalCount: number
+    message: string
+  }
+  testCases: RunCodeTestCaseDto[]
 }

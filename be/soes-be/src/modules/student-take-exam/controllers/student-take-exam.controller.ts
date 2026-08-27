@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
-import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema } from '../validators/student-take-exam.validator'
-import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto } from '../mappers/student-take-exam.mapper'
+import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema, sendHeartbeatParamsSchema, runCodeParamsSchema, runCodeBodySchema } from '../validators/student-take-exam.validator'
+import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto, toSendHeartbeatResponseDto, toRunCodeResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -9,7 +9,17 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
     const { password } = startExamBodySchema.parse(req.body)
     const studentId    = req.user!.profileId
 
-    const result = await takeExamService.startExam(examId, studentId, password)
+    // Lấy IP thực (xử lý cả trường hợp đứng sau proxy)
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.ip ||
+      'unknown'
+
+    const deviceInfo = req.headers['user-agent'] || 'unknown'
+
+    const passwordParam = password ?? undefined
+
+    const result = await takeExamService.startExam(examId, studentId, ipAddress, deviceInfo, passwordParam)
 
     res.status(200).json({
       success: true,
@@ -99,6 +109,56 @@ export async function getAttemptStatus(req: Request, res: Response, next: NextFu
       success: true,
       message: 'Attempt status loaded successfully',
       data:    toGetAttemptStatusResponseDto(result),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+
+// ─── API 6: Send Heartbeat ───────────────────────────────────────────────────
+
+export async function sendHeartbeat(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { examId, attemptId } = sendHeartbeatParamsSchema.parse(req.params)
+    const studentId = req.user!.profileId
+
+    const result = await takeExamService.sendHeartbeat(examId, attemptId, studentId)
+
+    res.status(200).json({
+      success: true,
+      message: 'Heartbeat received',
+      data: toSendHeartbeatResponseDto(result),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ─── API 7: Run Code ───────────────────────────────────────────────────────────
+
+export async function runCode(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { examId, attemptId, questionId } = runCodeParamsSchema.parse(req.params)
+    const { sourceCode } = runCodeBodySchema.parse(req.body)
+    const studentId = req.user!.profileId
+
+    const result = await takeExamService.runCode(
+      examId,
+      attemptId,
+      questionId,
+      studentId,
+      sourceCode,
+    )
+
+    const message = result.compilationStatus === 'COMPILE_ERROR' 
+      ? 'Compilation failed'
+      : 'Code executed successfully'
+
+    res.status(200).json({
+      success: true,
+      message,
+      data: toRunCodeResponseDto(result),
     })
   } catch (err) {
     next(err)

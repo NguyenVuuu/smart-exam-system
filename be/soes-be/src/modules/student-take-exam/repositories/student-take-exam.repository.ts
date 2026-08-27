@@ -77,13 +77,16 @@ export async function findAttemptWithContent(
         select: {
           displayOrder:   true,
           examQuestionId: true,
+          shuffledOptionIds: true,
           examQuestion: {
             select: {
               id:      true,
               content: true,
               type:    true,
-              // isCorrect on options intentionally NOT selected — never expose to student
+              language: true, 
+              // options ordered by orderIndex ASC for deterministic result
               options: {
+                orderBy: { orderIndex: 'asc' },
                 select: {
                   id:      true,
                   content: true,
@@ -131,6 +134,8 @@ export interface CreateAttemptInput {
   attemptEndAt:     Date
   remainingSeconds: number
   shuffleQuestions: boolean
+  ipAddress:        string   
+  deviceInfo:       string   
 }
 
 /**
@@ -200,6 +205,16 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
         id:               true,
         startedAt:        true,
         remainingSeconds: true,
+      },
+    })
+    // ── Create ExamSession ─────────────────────────────────────────────────────
+    await tx.examSession.create({
+      data: {
+        attemptId:     attempt.id,
+        lastHeartbeat: startedAt,
+        isOnline:      true,
+        ipAddress:     input.ipAddress, 
+        deviceInfo:    input.deviceInfo,
       },
     })
 
@@ -329,4 +344,190 @@ export async function findAttemptStatus(
       attemptQuestions: attempt._count.attemptQuestions,
     },
   }
+}
+
+
+// ─── API 6: Send Heartbeat ───────────────────────────────────────────────────
+
+export async function upsertExamSessionHeartbeat(
+  attemptId: string,
+  lastHeartbeat: Date,
+): Promise<void> {
+  await prisma.examSession.upsert({
+    where: { attemptId },
+    update: { lastHeartbeat },
+    create: {
+      attemptId,
+      lastHeartbeat,
+      isOnline: true,
+      ipAddress: 'unknown', // API 6 doesn't receive ipAddress/deviceInfo
+      deviceInfo: 'unknown',
+    },
+  })
+}
+
+export async function findAttemptForHeartbeat(
+  attemptId: string,
+  examId: string,
+  studentId: string,
+): Promise<{
+  id: string
+  status: string
+  attemptEndAt: Date
+  examSession: { lastHeartbeat: Date } | null
+} | null> {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      id: true,
+      examId: true,
+      studentId: true,
+      status: true,
+      attemptEndAt: true,
+      examSession: {
+        select: { lastHeartbeat: true },
+      },
+    },
+  })
+
+  if (!attempt) return null
+  if (attempt.examId !== examId) return null
+  if (attempt.studentId !== studentId) return null
+
+  return {
+    id: attempt.id,
+    status: attempt.status,
+    attemptEndAt: attempt.attemptEndAt,
+    examSession: attempt.examSession,
+  }
+}
+
+// ─── API 7: Run Code ─────────────────────────────────────────────────────────
+
+export interface ProgrammingQuestionData {
+  id: string
+  type: string
+  language: string
+  programmingQuestionConfig: {
+    maxCodeSizeKb: number
+    timeLimitMs: number
+    memoryLimitKb: number
+  } | null
+  programmingTestCases: Array<{
+    id: string
+    isSample: boolean
+    input: string
+    expectedOutput: string
+  }>
+}
+
+export async function findProgrammingQuestionWithTestCases(
+  questionId: string,
+  attemptId: string,
+  examId: string,
+  studentId: string,
+): Promise<{
+  attempt: {
+    id: string
+    status: string
+    attemptEndAt: Date
+    examSession: { lastHeartbeat: Date } | null
+  }
+  question: ProgrammingQuestionData | null
+} | null> {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      id: true,
+      examId: true,
+      studentId: true,
+      status: true,
+      attemptEndAt: true,
+      examSession: {
+        select: { lastHeartbeat: true },
+      },
+      attemptQuestions: {
+        where: { examQuestionId: questionId },
+        select: {
+          examQuestion: {
+            select: {
+              id: true,
+              type: true,
+              language: true,
+              programmingConfig: {
+                select: {
+                  maxCodeSizeKb: true,
+                  timeLimitMs: true,
+                  memoryLimitKb: true,
+                },
+              },
+              programmingTests: {
+                select: {
+                  id: true,
+                  isSample: true,
+                  input: true,
+                  expectedOutput: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!attempt) return null
+  if (attempt.examId !== examId) return null
+  if (attempt.studentId !== studentId) return null
+
+  const attemptQuestion = attempt.attemptQuestions[0]
+  if (!attemptQuestion) return null
+
+  return {
+    attempt: {
+      id: attempt.id,
+      status: attempt.status,
+      attemptEndAt: attempt.attemptEndAt,
+      examSession: attempt.examSession,
+    },
+    question: attemptQuestion.examQuestion.type === 'PROGRAMMING' ? {
+      id: attemptQuestion.examQuestion.id,
+      type: attemptQuestion.examQuestion.type,
+      language: attemptQuestion.examQuestion.language || 'UNKNOWN',
+      programmingQuestionConfig: attemptQuestion.examQuestion.programmingConfig,
+      programmingTestCases: attemptQuestion.examQuestion.programmingTests,
+    } : null,
+  }
+}
+
+export async function upsertStudentAnswerForProgramming(
+  attemptId: string,
+  questionId: string,
+  draftSourceCode: string,
+): Promise<void> {
+  await prisma.studentAnswer.upsert({
+    where: {
+      attemptId_examQuestionId: {
+        attemptId,
+        examQuestionId: questionId,
+      },
+    },
+    update: { draftSourceCode },
+    create: {
+      attemptId,
+      examQuestionId: questionId,
+      draftSourceCode,
+      selectedOptionIds: [],
+    },
+  })
+}
+
+export async function updateAttemptLastSavedAt(
+  attemptId: string,
+  lastSavedAt: Date,
+): Promise<void> {
+  await prisma.examAttempt.update({
+    where: { id: attemptId },
+    data: { lastSavedAt },
+  })
 }
