@@ -35,3 +35,21 @@ export const examConfig = {
     return parseInt(process.env.HEARTBEAT_TIMEOUT ?? '15000', 10)
   },
 } as const
+
+export const judge0Config = {
+  get baseUrl(): string {
+    return process.env.JUDGE0_BASE_URL ?? 'http://localhost:2358'
+  },
+  
+  get apiKey(): string | null {
+    return process.env.JUDGE0_API_KEY ?? null
+  },
+  
+  get defaultTimeoutMs(): number {
+    return parseInt(process.env.JUDGE0_DEFAULT_TIMEOUT_MS ?? '5000', 10)
+  },
+  
+  get maxSubmissionsPerRequest(): number {
+    return parseInt(process.env.JUDGE0_MAX_SUBMISSIONS_PER_REQUEST ?? '20', 10)
+  },
+} as const

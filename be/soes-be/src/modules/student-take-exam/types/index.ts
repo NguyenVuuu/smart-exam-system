@@ -38,6 +38,7 @@ export interface ExamContentChoiceQuestion extends ExamContentQuestionBase {
 export interface ExamContentProgrammingQuestion extends ExamContentQuestionBase {
   type:            'PROGRAMMING'
   draftSourceCode: string | null   // null if not yet answered
+  language:        string
 }
 
 // ─── API 3: Save Answer ───────────────────────────────────────────────────────
@@ -76,4 +77,51 @@ export interface AttemptStatusResult {
   isOnline:           boolean
   answeredCount:      number
   totalQuestionCount: number
+}
+
+
+// ─── API 6: Send Heartbeat ─────────────────────────────────────────────────────
+
+export interface SendHeartbeatResult {
+  remainingSeconds: number
+  isOnline: boolean
+}
+
+// ─── API 7: Run Code ───────────────────────────────────────────────────────────
+
+export interface RunCodeResult {
+  questionId: string
+  remainingSeconds: number
+  isOnline: boolean
+  compilationStatus: 'COMPILED' | 'COMPILE_ERROR'
+  compilerOutput: string | null
+  runtimeError: string | null
+  hasSystemError: boolean 
+  summary: {
+    passedCount: number
+    totalCount: number
+    message: string
+  }
+  testCases: RunCodeTestCase[]
+}
+
+export type RunCodeTestCase = RunCodeSampleTestCase | RunCodeHiddenTestCase
+
+export interface RunCodeTestCaseBase {
+  testCaseId: string
+  isSample: boolean
+  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
+}
+
+export interface RunCodeSampleTestCase extends RunCodeTestCaseBase {
+  isSample: true
+  input: string
+  expectedOutput: string
+  actualOutput: string | null
+  executionTimeMs: number
+  memoryUsedKb: number
+}
+
+export interface RunCodeHiddenTestCase extends RunCodeTestCaseBase {
+  isSample: false
 }

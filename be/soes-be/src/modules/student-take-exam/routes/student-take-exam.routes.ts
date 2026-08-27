@@ -45,5 +45,20 @@ router.get(
   takeExamController.getAttemptStatus,
 )
 
-export default router
+// POST /api/student/exams/:examId/attempts/:attemptId/heartbeat
+router.post(
+  '/exams/:examId/attempts/:attemptId/heartbeat',
+  authenticate,
+  requireStudent(),
+  takeExamController.sendHeartbeat,
+)
 
+// POST /api/student/exams/:examId/attempts/:attemptId/questions/:questionId/run
+router.post(
+  '/exams/:examId/attempts/:attemptId/questions/:questionId/run',
+  authenticate,
+  requireStudent(),
+  takeExamController.runCode,
+)
+
+export default router

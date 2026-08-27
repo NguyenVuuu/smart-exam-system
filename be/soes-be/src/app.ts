@@ -29,6 +29,8 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
 
+app.set('trust proxy', true)   // hoặc số lượng proxy hop, ví dụ: 1
+
 // ── Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
 app.use('/api/student', studentDashboardRoutes)

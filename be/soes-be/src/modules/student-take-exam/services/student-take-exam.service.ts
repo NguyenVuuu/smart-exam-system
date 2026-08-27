@@ -2,11 +2,34 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from ".
 import prisma from "../../../lib/prisma";
 import { examConfig } from "../../../config";
 import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult } from "../types";
+import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
+import { judge0Service, Judge0Service } from '../../../lib/judge0'
+import type { Judge0Submission, Judge0SubmissionResult } from '../../../lib/judge0'
 import * as repo from "../repositories/student-take-exam.repository";
+
+/**
+ * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
+ * Ví dụ: 10 test case → 2 lô × 5 cái song song.
+ */
+async function runInBatches<T, R>(
+  items: T[],
+  batchSize: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = []
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize)
+    const batchResults = await Promise.all(batch.map(fn))
+    results.push(...batchResults)
+  }
+  return results
+}
 
 export async function startExam(
   examId: string,
   studentId: string,
+  ipAddress: string,      
+  deviceInfo: string,  
   password?: string,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
@@ -94,6 +117,8 @@ export async function startExam(
       attemptEndAt,
       remainingSeconds,
       shuffleQuestions: exam.shuffleQuestions,
+      ipAddress,
+      deviceInfo,  
     });
   } catch (err) {
     if (err instanceof Error && err.name === "DUPLICATE_ATTEMPT") {
@@ -138,7 +163,7 @@ export async function getExamContent(
 
   // ── 2. Check expiry using attemptEndAt from DB ─────────────────────────────
   const now = new Date();
-  if (now >= attempt.attemptEndAt) {
+  if (attempt.status !== 'IN_PROGRESS' || now >= attempt.attemptEndAt) {
     throw new ConflictError("Exam attempt has ended");
   }
 
@@ -166,8 +191,14 @@ export async function getExamContent(
         type:            'PROGRAMMING' as const,
         points,
         draftSourceCode: savedAnswer?.draftSourceCode ?? null,
+        language: q.language ?? 'UNKNOWN',   // ← fallback nếu null
       }
     }
+
+    // Order options according to shuffledOptionIds (API 2 requirement)
+    const orderedOptions = aq.shuffledOptionIds?.length > 0
+      ? aq.shuffledOptionIds.map(id => q.options.find(o => o.id === id)).filter((o): o is { id: string; content: string } => o !== undefined)
+      : q.options;
 
     return {
       id:         qId,
@@ -175,7 +206,7 @@ export async function getExamContent(
       content:    q.content,
       type:       q.type as 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE',
       points,
-      options:    q.options.map((opt) => ({ id: opt.id, content: opt.content })),
+      options:    orderedOptions.map(opt => ({ id: opt.id, content: opt.content })),
       answer:     savedAnswer?.selectedOptionIds ?? [],
     }
   })
@@ -395,6 +426,9 @@ export async function submitExam(
 
   // ── Update succeeded → return success ─────────────────────────────────────
   if (updated.count > 0) {
+    // Trigger background grading (do not await — fire-and-forget)
+    // TODO: Implement gradingService.gradeExamAttempt(attemptId)
+    // For now, this ensures the contract is followed.
     return { attemptId, submittedAt: now };
   }
 
@@ -476,5 +510,280 @@ export async function getAttemptStatus(
     isOnline,
     answeredCount:      data._count.studentAnswers,
     totalQuestionCount: data._count.attemptQuestions,
+  }
+}
+
+// ─── API 6: Send Heartbeat ───────────────────────────────────────────────────
+
+export async function sendHeartbeat(
+  examId: string,
+  attemptId: string,
+  studentId: string,
+): Promise<SendHeartbeatResult> {
+  const now = new Date()
+
+  // ── 1. Load attempt and validate ownership ─────────────────────────────────
+  const attemptData = await repo.findAttemptForHeartbeat(attemptId, examId, studentId)
+  if (!attemptData) {
+    throw new NotFoundError("Attempt not found")
+  }
+
+  // ── 2. Check attempt status ────────────────────────────────────────────────
+  if (attemptData.status !== "IN_PROGRESS") {
+    if (attemptData.status === "SUBMITTED") {
+      throw new ConflictError("Exam attempt has already been submitted")
+    }
+    throw new ConflictError("Exam attempt has ended") // EXPIRED or other terminal state
+  }
+
+  // ── 3. Check deadline (attemptEndAt) ───────────────────────────────────────
+  if (now >= attemptData.attemptEndAt) {
+    throw new ConflictError("Exam attempt has ended")
+  }
+
+  // ── 4. Update ExamSession.lastHeartbeat atomically ─────────────────────────
+  await repo.upsertExamSessionHeartbeat(attemptId, now)
+
+  // ── 5. Compute remainingSeconds realtime ───────────────────────────────────
+  const remainingSeconds = Math.max(
+    0,
+    Math.floor((attemptData.attemptEndAt.getTime() - now.getTime()) / 1000),
+  )
+
+  // ── 6. Return result with isOnline = true (student just sent heartbeat) ─────
+  return {
+    remainingSeconds,
+    isOnline: true,
+  }
+}
+
+// ─── API 7: Run Code ─────────────────────────────────────────────────────────
+
+
+export async function runCode(
+  examId: string,
+  attemptId: string,
+  questionId: string,
+  studentId: string,
+  sourceCode: string,
+): Promise<RunCodeResult> {
+  const now = new Date()
+
+  // ── 1. Load attempt and question data (with test cases) ───────────────────
+  const data = await repo.findProgrammingQuestionWithTestCases(
+    questionId,
+    attemptId,
+    examId,
+    studentId,
+  )
+  if (!data) {
+    throw new NotFoundError("Attempt not found")
+  }
+
+  const { attempt, question } = data
+
+  if (!question) {
+    throw new NotFoundError("Question not found in this attempt")
+  }
+
+  // ── 2. Validate attempt status and deadline ────────────────────────────────
+  if (attempt.status !== "IN_PROGRESS") {
+    if (attempt.status === "SUBMITTED") {
+      throw new ConflictError("Exam attempt has already been submitted")
+    }
+    throw new ConflictError("Exam attempt has ended")
+  }
+
+  if (now >= attempt.attemptEndAt) {
+    throw new ConflictError("Exam attempt has ended")
+  }
+
+  // ── 3. Validate question type ──────────────────────────────────────────────
+  if (question.type !== "PROGRAMMING") {
+    throw new ValidationError("Question is not a programming question")
+  }
+
+  // ── 4. Validate source code size ───────────────────────────────────────────
+  const maxCodeSizeKb = question.programmingQuestionConfig?.maxCodeSizeKb ?? 64 // default 64KB
+  const maxCodeSizeBytes = maxCodeSizeKb * 1024
+  // Calculate UTF-8 byte length without Buffer
+  const encoder = new TextEncoder()
+  const byteLength = encoder.encode(sourceCode).length
+  if (byteLength > maxCodeSizeBytes) {
+    throw new ValidationError("Source code exceeds maximum allowed size")
+  }
+
+  // ── 5. Save draftSourceCode to StudentAnswer (atomic upsert) ───────────────
+  await repo.upsertStudentAnswerForProgramming(attemptId, questionId, sourceCode)
+
+  // ── 6. Update ExamAttempt.lastSavedAt ──────────────────────────────────────
+  await repo.updateAttemptLastSavedAt(attemptId, now)
+
+  // ── 7. Prepare test cases ──────────────────────────────────────────────────
+  const testCases = question.programmingTestCases
+  if (testCases.length === 0) {
+    // If no test cases, return empty results
+    const remainingSeconds = Math.max(
+      0,
+      Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
+    )
+    const isOnline = attempt.examSession !== null &&
+      (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+
+    return {
+      questionId,
+      remainingSeconds,
+      isOnline,
+      compilationStatus: "COMPILED" as const,
+      compilerOutput: null,
+      runtimeError: null,
+      hasSystemError: false,
+      summary: {
+        passedCount: 0,
+        totalCount: 0,
+        message: "Không có test case nào để kiểm tra",
+      },
+      testCases: [],
+    }
+  }
+
+  // ── 8. Prepare Judge0 submissions ──────────────────────────────────────────
+  const timeLimitMs = question.programmingQuestionConfig?.timeLimitMs ?? 2000 // default 2s
+  const memoryLimitKb = question.programmingQuestionConfig?.memoryLimitKb ?? 256 * 1024 // default 256MB
+
+  // Pass expected_output for ALL test cases (sample + hidden) to avoid false passes on hidden
+  const submissions: Judge0Submission[] = testCases.map(testCase => ({
+    source_code: sourceCode,
+    language_id: question.language, // "JAVA", "C", "CPP"
+    stdin: testCase.input,
+    expected_output: testCase.expectedOutput, // Always pass expected_output
+    cpu_time_limit: timeLimitMs / 1000, // Convert ms to seconds
+    memory_limit: memoryLimitKb,
+  }))
+
+    // ── 9. Execute submissions via Judge0 ──────────────────────────────────────
+  // Chạy theo lô 5 test case song song để tránh quá tải Judge0.
+  // Nếu 1 test case lỗi hạ tầng, trả placeholder SYSTEM_ERROR để lô còn lại vẫn chạy.
+  const BATCH_SIZE = 5
+
+  const judge0Results = await runInBatches(
+    submissions,
+    BATCH_SIZE,
+    async (submission) => {
+      try {
+        return await judge0Service.submitSingle(submission)
+      } catch (error) {
+        return {
+          stdout: null,
+          stderr: null,
+          compile_output: "System error during code execution",
+          message: error instanceof Error ? error.message : "Unknown error",
+          status: { id: 13, description: "System Error" },
+          time: null,
+          memory: null,
+        }
+      }
+    },
+  )
+
+  // ── 10. Process Judge0 results ────────────────────────────────────────────
+  let compilationStatus: 'COMPILED' | 'COMPILE_ERROR' = 'COMPILED'
+  let compilerOutput: string | null = null
+  let runtimeError: string | null = null
+  let passedCount = 0
+
+  const processedTestCases: RunCodeTestCase[] = []
+
+  for (let i = 0; i < testCases.length; i++) {
+    const testCase = testCases[i]
+    const judge0Result = judge0Results[i]
+    
+    // Check for compilation error (if any test case fails compilation, all fail)
+    if (judge0Result.status.id === 6) { // Compilation Error
+      compilationStatus = "COMPILE_ERROR"
+      compilerOutput = judge0Result.compile_output || judge0Result.stderr || "Compilation failed"
+      // Stop processing test cases
+      break
+    }
+
+    // Map Judge0 status to our internal status
+    const status = Judge0Service.mapStatusToInternal(judge0Result.status.id)
+
+    // Check if passed (only for COMPILED submissions)
+    const isPassed = status === 'PASSED'
+    if (isPassed) {
+      passedCount++
+    }
+
+    // Track first runtime error in sample test cases
+    if (testCase.isSample && 
+        (status === 'RUNTIME_ERROR' || status === 'TIME_LIMIT_EXCEEDED' || status === 'MEMORY_LIMIT_EXCEEDED') &&
+        runtimeError === null) {
+      runtimeError = judge0Result.stderr || judge0Result.message || "Runtime error occurred"
+    }
+
+    // Build test case result
+    if (testCase.isSample) {
+      processedTestCases.push({
+        testCaseId: testCase.id,
+        isSample: true,
+        status,
+        input: testCase.input,
+        expectedOutput: testCase.expectedOutput,
+        actualOutput: judge0Result.stdout,
+        executionTimeMs: parseFloat(judge0Result.time || '0') * 1000, // Convert seconds to ms
+        memoryUsedKb: judge0Result.memory || 0,
+      })
+    } else {
+      processedTestCases.push({
+        testCaseId: testCase.id,
+        isSample: false,
+        status,
+      })
+    }
+  }
+  // ← THÊM DÒNG NÀY sau vòng lặp for
+  // hasSystemError = true nếu có ít nhất 1 test case bị lỗi hạ tầng (status.id === 13)
+  // và KHÔNG phải do lỗi biên dịch (compile error là lỗi code, không phải hạ tầng)
+  const hasSystemError =
+    compilationStatus !== 'COMPILE_ERROR' &&
+    judge0Results.some((r) => r.status.id === 13)
+
+  // ── 11. Compute remainingSeconds and isOnline ──────────────────────────────
+  const remainingSeconds = Math.max(
+    0,
+    Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
+  )
+  
+  const isOnline = attempt.examSession !== null &&
+    (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+
+  // ── 12. Build summary message ──────────────────────────────────────────────
+  const totalCount = testCases.length
+  let message: string
+  
+  if (compilationStatus === "COMPILE_ERROR") {
+    message = "Biên dịch thất bại"
+  } else if (totalCount === 0) {
+    message = "Không có test case nào để kiểm tra"
+  } else {
+    message = `Bạn đã pass ${passedCount}/${totalCount} test cases`
+  }
+
+  // ── 13. Return result ─────────────────────────────────────────────────────
+  return {
+    questionId,
+    remainingSeconds,
+    isOnline,
+    compilationStatus,
+    compilerOutput,
+    runtimeError,
+    hasSystemError, 
+    summary: {
+      passedCount: compilationStatus === "COMPILE_ERROR" ? 0 : passedCount,
+      totalCount: compilationStatus === "COMPILE_ERROR" ? 0 : totalCount,
+      message,
+    },
+    testCases: processedTestCases,
   }
 }

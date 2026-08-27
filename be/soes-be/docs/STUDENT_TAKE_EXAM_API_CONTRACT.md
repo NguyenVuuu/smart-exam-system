@@ -7,6 +7,17 @@ ExamAttempt
 API response:
 remainingSeconds = max(0, floor((attemptEndAt - now) / 1000))
 
+## Overview
+
+Các API phục vụ chức năng sinh viên tham gia làm bài thi online:
+1. **Start Exam** (POST `/api/student/exams/:examId/start`): Khởi tạo bài thi
+2. **Get Exam Content** (GET `/api/student/exams/:examId/attempts/:attemptId`): Lấy nội dung bài thi
+3. **Save Answer** (PUT `/api/student/exams/:examId/attempts/:attemptId/answers`): Lưu câu trả lời
+4. **Submit Exam** (POST `/api/student/exams/:examId/attempts/:attemptId/submit`): Nộp bài
+5. **Get Attempt Status** (GET `/api/student/exams/:examId/attempts/:attemptId/status`): Xem trạng thái
+6. **Send Heartbeat** (POST `/api/student/exams/:examId/attempts/:attemptId/heartbeat`): Gửi heartbeat
+7. **Run Code** (POST `/api/student/exams/:examId/attempts/:attemptId/questions/:questionId/run`): Chạy code Programming
+
 ## Mục đích
 Cung cấp các API phục vụ chức năng sinh viên tham gia làm bài thi online.
 Chức năng bao gồm:
@@ -3648,7 +3659,6 @@ pm.test("remainingSeconds decreases over time (realtime)", () => {
   pm.expect(second).to.be.at.most(first);
 });
 ```
-
 ---
 # API 6. Send Heartbeat
 
@@ -3658,9 +3668,7 @@ POST /api/student/exams/:examId/attempts/:attemptId/heartbeat
 ```
 
 ## Mục đích
-
-Gửi heartbeat để giữ phiên thi hoạt động và tự động lưu tiến độ làm bài.
-
+Gửi heartbeat để cập nhật thời điểm last seen của sinh viên và giữ phiên thi hoạt động.
 ## Authentication
 
 | Type | Header | Value |
@@ -3668,10 +3676,15 @@ Gửi heartbeat để giữ phiên thi hoạt động và tự động lưu ti�
 | Bearer Token | Authorization | `Bearer <access_token>` |
 
 ## Authorization
-
 - Role: `STUDENT`
-- Attempt thuộc Student đang đăng nhập.
+- `attemptId` phải tồn tại.
+- `attemptId` phải thuộc `examId` trên URL.
+- `attempt.studentId` phải bằng `studentId` của access token.
+- Student không được gửi heartbeat vào attempt của Student khác.
+- Nếu attempt không tồn tại, không thuộc exam hoặc không thuộc Student hiện tại → **HTTP 404**, message: `"Attempt not found"`
 
+## Request
+Không có request body.
 ## Response
 
 ```json
@@ -3704,25 +3717,265 @@ Gửi heartbeat để giữ phiên thi hoạt động và tự động lưu ti�
 | 409 | Attempt đã kết thúc |
 
 ## Business Rules
-
-- Heartbeat được gửi định kỳ để giữ phiên thi.
-- Nếu hết thời gian, hệ thống tự động kết thúc bài thi.
-- Hệ thống tự động lưu tiến độ khi nhận heartbeat.
+# 1. Attempt ownership
+- Student chỉ được gửi heartbeat cho attempt thuộc chính mình.
+- attemptId phải thuộc examId trên URL.
+- Nếu không thỏa → HTTP 404, message: "Attempt not found"
+# 2. Status & Deadline check
+- Chỉ cho phép heartbeat khi ExamAttempt.status = IN_PROGRESS.
+- Tại thời điểm nhận heartbeat:
+    + Nếu now >= attemptEndAt → HTTP 409, message: "Exam attempt has ended"
+    + Nếu status = SUBMITTED → HTTP 409, message: "Exam attempt has already been submitted"
+    + Nếu status = EXPIRED → HTTP 409, message: "Exam attempt has ended"
+- API 6 KHÔNG tự động chuyển IN_PROGRESS → EXPIRED. Việc chuyển status do cơ chế expiry/timeout riêng của hệ thống xử lý (đồng bộ với API 5).
+# 3. ExamSession update
+- API 6 cập nhật ExamSession.lastHeartbeat = now.
+- Nếu chưa tồn tại ExamSession cho attempt → tạo mới.
+- isOnline trong response trả về true (vì sinh viên vừa active).
+- API 6 KHÔNG cập nhật ExamAttempt.lastSavedAt — việc này thuộc về API 3 (Save Answer).
+# 4. remainingSeconds
+- Tính realtime: max(0, floor((attemptEndAt - now) / 1000)).
+- Không lưu remainingSeconds vào database.
+- attemptEndAt là authoritative deadline, không được tính lại hay cập nhật.
+# 5. Read-only đối với attempt
+- API 6 không thay đổi ExamAttempt.status.
+- API 6 không thay đổi ExamAttempt.submittedAt.
+- API 6 không thay đổi ExamAttempt.attemptEndAt.
+- API 6 không tạo/cập nhật StudentAnswer.
+- API 6 không thực hiện grading.
+- API 6 không tạo ProgrammingSubmission.
+# 6. Concurrency
+- Cập nhật lastHeartbeat phải an toàn với concurrent requests (upsert hoặc atomic update).
 
 ---
+# API 7. Run Code
 
-# Quyền truy cập
+## Endpoint
+```
+POST /api/student/exams/:examId/attempts/:attemptId/questions/:questionId/run
+```
 
-Áp dụng cho toàn bộ API.
+## Mục đích
+Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để tự kiểm tra kết quả với các test case.
 
+## Authentication
+
+| Type | Header | Value |
+| ---- | ------ | ----- |
+| Bearer Token | Authorization | `Bearer <access_token>` |
+
+## Authorization
+
+- Role: `STUDENT`
+- Attempt thuộc Student đang đăng nhập.
+
+## Request
+```json
+{
+  "sourceCode": "#include <stdio.h>\nint main() {\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\", a + b);\n    return 0;\n}"
+}
+```
+## Request Fields
+| Field | Description |
+|-------|------|
+| `sourceCode` | Mã nguồn cần chạy thử. Không được null, không được chuỗi rỗng. |
+## Response
+### Chạy thành công — có test case pass/fail
+```json
+{
+  "success": true,
+  "message": "Code executed successfully",
+  "data": {
+    "questionId": "question-uuid",
+    "remainingSeconds": 1200,
+    "isOnline": true,
+    "compilationStatus": "COMPILED",
+    "hasSystemError": true,
+    "compilerOutput": null,
+    "runtimeError": null,
+    "summary": {
+      "passedCount": 7,
+      "totalCount": 10,
+      "message": "Bạn đã pass 7/10 test cases"
+    },
+    "testCases": [
+      {
+        "testCaseId": "tc-sample-1",
+        "isSample": true,
+        "status": "PASSED",
+        "input": "2 3",
+        "expectedOutput": "5\n",
+        "actualOutput": "5\n",
+        "executionTimeMs": 45,
+        "memoryUsedKb": 1024
+      },
+      {
+        "testCaseId": "tc-sample-2",
+        "isSample": true,
+        "status": "WRONG_ANSWER",
+        "input": "5 5",
+        "expectedOutput": "10\n",
+        "actualOutput": "25\n",
+        "executionTimeMs": 42,
+        "memoryUsedKb": 1024
+      },
+      {
+        "testCaseId": "tc-hidden-1",
+        "isSample": false,
+        "status": "PASSED"
+      },
+      {
+        "testCaseId": "tc-hidden-2",
+        "isSample": false,
+        "status": "RUNTIME_ERROR"
+      },
+      {
+        "testCaseId": "tc-hidden-3",
+        "isSample": false,
+        "status": "SYSTEM_ERROR"
+      }
+    ]
+  }
+}
+```
+### Lỗi biên dịch (Compile Error)
+```json
+{
+  "success": true,
+  "message": "Compilation failed",
+  "data": {
+    "questionId": "question-uuid",
+    "remainingSeconds": 1200,
+    "isOnline": true,
+    "compilationStatus": "COMPILE_ERROR",
+    "compilerOutput": "main.c: In function 'main':\nmain.c:3:5: error: expected ';' before 'return'\n    return 0;\n    ^~~~~~",
+    "runtimeError": null,
+    "summary": {
+      "passedCount": 0,
+      "totalCount": 0
+    },
+    "testCases": []
+  }
+}
+```
+## Response Fields
+| Field | Description |
+|-------|------|
+| `questionId` | ID câu hỏi đang chạy thử |
+| `remainingSeconds` | max(0, floor((attemptEndAt - now) / 1000)). Tính realtime tại thời điểm response. |
+| `isOnline` | true nếu now - ExamSession.lastHeartbeat <= HEARTBEAT_TIMEOUT. false nếu không có session hoặc đã timeout. |
+| `compilationStatus` | COMPILED hoặc COMPILE_ERROR |
+| `compilerOutput` | Output từ trình biên dịch. Có giá trị khi COMPILE_ERROR. |
+| `runtimeError` | Thông báo lỗi runtime đầu tiên gặp phải (nếu có). Chỉ hiển thị nếu lỗi xảy ra trên sample test case. |
+| `hasSystemError` | true nếu có ít nhất 1 test case bị lỗi hạ tầng (System Error - status.id = 13) mà không phải do lỗi biên dịch. |
+| `summary` | Tổng kết kết quả chạy, hiển thị ở đầu khung test case |
+| `summary.passedCount` | Tổng số test case (sample + hidden) đã PASSED |
+| `summary.totalCount` | Tổng số test case (sample + hidden) của câu hỏi |
+| `summary.message` | Dòng tổng hợp để FE hiển thị trực tiếp. Ví dụ: "Bạn đã pass 7/10 test cases" |
+| `testCases` | Danh sách chi tiết từng test case đã chạy. Rỗng nếu COMPILE_ERROR. |
+| `testCases[].testCaseId` | ID test case |
+| `testCases[].isSample` | true nếu là test case mẫu, false nếu là test case ẩn |
+| `testCases[].status` | PASSED, WRONG_ANSWER, RUNTIME_ERROR, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, SYSTEM_ERROR |
+| `testCases[].input` | Chỉ có khi isSample = true. Dữ liệu đầu vào. null nếu isSample = false. |
+| `testCases[].expectedOutput` | Chỉ có khi isSample = true. Kết quả mong đợi. null nếu isSample = false. |
+| `testCases[].actualOutput` | Chỉ có khi isSample = true. Kết quả thực tế từ chương trình. null nếu isSample = false hoặc runtime error. |
+| `testCases[].executionTimeMs` | Chỉ có khi isSample = true. Thời gian chạy của test case này |
+| `testCases[].memoryUsedKb` | Chỉ có khi isSample = true. Bộ nhớ sử dụng của test case này |
+
+## Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Thành công |
+| 400 | Không hợp lệ |
+| 401 | Không đăng nhập |
+| 403 | Không có quyền |
+| 404 | Attemp not found |
+| 409 | Attempt đã kết thúc (SUBMITTED/EXPIRED) hoặc đã hết thời gian (now >= attemptEndAt) |
+| 422 | questionId không phải loại PROGRAMMING |
+
+## Business Rules
+# 1. Quyền truy cập & Validation
+- Chỉ STUDENT được gọi API.
+- attemptId phải thuộc examId.
+- attempt.studentId phải khớp với student đang đăng nhập.
+- questionId phải tồn tại trong ExamAttemptQuestion của attempt.
+- questionId phải có type = PROGRAMMING. Nếu không → HTTP 422, message: "Question is not a programming question".
+- sourceCode là required, không được null, không được chuỗi rỗng ("").
+- Kiểm tra độ dài sourceCode không vượt quá ProgrammingQuestionConfig.maxCodeSizeKb (quy đổi sang bytes). Nếu vượt → HTTP 400, message: "Source code exceeds maximum allowed size".
+# 2. Trạng thái & Deadline
+- Chỉ cho phép chạy code khi ExamAttempt.status = IN_PROGRESS.
+- Tại thời điểm nhận request:
+    + Nếu now >= attemptEndAt → HTTP 409, message: "Exam attempt has ended".
+    + Nếu status = SUBMITTED → HTTP 409, message: "Exam attempt has already been submitted".
+    + Nếu status = EXPIRED → HTTP 409, message: "Exam attempt has ended".
+- API không tự động chuyển IN_PROGRESS → EXPIRED.
+# 3. Lưu draftSourceCode — Quy tắc cốt lõi
+- Trước khi gửi đến Judge0, hệ thống upsert StudentAnswer với:
+    + attemptId + examQuestionId (tương ứng questionId)
+    + draftSourceCode = sourceCode từ request
+    + selectedOptionIds giữ nguyên (nếu có) hoặc []
+- lastSavedAt của ExamAttempt được cập nhật thành now vì đây là thao tác lưu tiến độ hợp lệ.
+- Mọi lần Run đều overwrite draftSourceCode; không lưu lịch sử các phiên bản code trước đó.
+- Nếu sinh viên sửa code trên editor nhưng chưa nhấn Run, draftSourceCode trong database vẫn là phiên bản code đã Run gần nhất.
+- Khi Submit Exam (API 4) hoặc hết giờ tự động nộp, hệ thống lấy draftSourceCode hiện tại trong StudentAnswer để tạo ProgrammingSubmission chính thức và chấm điểm.
+# 4. Phạm vi chạy thử — Tất cả test cases
+- API truy vấn tất cả ProgrammingTestCase thuộc examQuestionId = questionId (bao gồm cả isSample = true và isHidden = true).
+- Mỗi test case được gửi đến Judge0 CE như một submission riêng biệt với stdin = testCase.input.
+- Các test case chạy song song (hoặc tuần tự tùy cấu hình hạ tầng) nhưng kết quả được tổng hợp đầy đủ trước khi trả response.
+- Sample tests (isSample = true): Hiển thị đầy đủ input, expectedOutput, actualOutput.
+- Hidden tests (isSample = false): response chỉ trả testCaseId, isSample, status. Không trả input, expectedOutput, actualOutput, executionTimeMs, memoryUsedKb. FE sẽ render dòng "Test case ẩn" dựa trên isSample = false.
+- Sinh viên nhìn thấy tổng số passed / tổng số test cases (summary.passedCount / summary.totalCount), bao gồm cả hidden.
+# 5. Tích hợp Judge0 CE
+- Hệ thống gửi sourceCode + language (lấy từ ExamQuestion.language snapshot) đến Judge0 CE.
+- Các giới hạn lấy từ ProgrammingQuestionConfig:
+    + timeLimitMs → cpu_time_limit
+    + memoryLimitKb → memory_limit
+- Với mỗi test case, hệ thống gửi một submission riêng đến Judge0 với stdin = testCase.input.
+- So sánh output: trim trailing whitespace và trailing newlines trước khi so sánh với expectedOutput để tránh lỗi format vô hại.
+# 6. Xử lý kết quả từng test case
+| Judge0 Status          | `testCases[].status`    | Ghi chú |
+| ---------------------- | ----------------------- | ------- |
+| Accepted + output đúng | `PASSED`                |         |
+| Accepted + output sai  | `WRONG_ANSWER`          |         |
+| Runtime Error          | `RUNTIME_ERROR`         |         |
+| Time Limit Exceeded    | `TIME_LIMIT_EXCEEDED`   |         |
+| Memory Limit Exceeded  | `MEMORY_LIMIT_EXCEEDED` |         |
+| System Error           | `SYSTEM_ERROR`          |         |
+- Nếu COMPILE_ERROR ở bước biên dịch → dừng luôn, không chạy test case nào. Trả compilationStatus = COMPILE_ERROR, testCases: [], summary.passedCount: 0, summary.totalCount: 0.
+- Nếu biên dịch thành công → chạy tất cả test cases. Một test case fail không dừng các test case còn lại.
+- runtimeError trong response chỉ hiển thị lỗi runtime từ sample test case đầu tiên gặp lỗi (nếu có), hoặc null nếu không có lỗi runtime nào trên sample tests.
+# 7. Không tạo ProgrammingSubmission
+- API 7 không tạo record trong bảng ProgrammingSubmission.
+- API 7 không tạo record trong bảng ProgrammingSubmissionTestResult.
+- Dữ liệu kết quả chạy chỉ trả về trong response HTTP và không persist vào database.
+- Việc tạo ProgrammingSubmission chính thức chỉ xảy ra khi:
+    + Student chủ động Submit Exam (API 4), hoặc
+    + Hệ thống tự động nộp bài khi hết giờ (expiry mechanism), lúc đó lấy draftSourceCode từ StudentAnswer để tạo.
+# 8. remainingSeconds & isOnline
+- remainingSeconds tính realtime: max(0, floor((attemptEndAt - now) / 1000)).
+- isOnline tính từ ExamSession.lastHeartbeat như API 5.
+- API 7 không cập nhật ExamSession.lastHeartbeat — student vẫn phải gửi heartbeat định kỳ qua API 6.
+# 9. Concurrency & Rate Limiting
+- Upsert StudentAnswer phải được thực hiện atomic để tránh race condition khi nhiều request Run đồng thời.
+- Khuyến nghị áp dụng rate limiting ở tầng infrastructure (ví dụ: tối đa 20 lần Run/phút cho mỗi attemptId + questionId) để tránh spam Judge0 và bảo vệ hạ tầng.
+---
+# Áp dụng cho toàn bộ API.
+## Quyền truy cập
 - Chỉ Student được phép truy cập.
 - Sinh viên không thuộc lớp học phần → 404.
 - CourseOffering không tồn tại → 404.
 - Bài thi không thuộc lớp học phần → 404.
 - Bài thi không tồn tại → 404.
 - Student không được truy cập attempt của Student khác.
-
-
+## PROGRAMMING
+- Đối với câu hỏi PROGRAMMING, StudentAnswer.draftSourceCode là source code hiện tại/final draft của Student. Trong suốt quá trình làm bài, Student có thể Run Code không giới hạn. Kết quả Run Code chỉ là kết quả kiểm tra tạm thời và không được lưu thành lịch sử submission. Khi Student submit hoặc attempt hết hạn, hệ thống sử dụng draftSourceCode cuối cùng để tạo/cập nhật ProgrammingSubmission chính thức. Chỉ ProgrammingSubmission chính thức được sử dụng cho grading và regrading.
+- StudentAnswer.draftSourceCode luôn đại diện cho phiên bản code mới nhất mà sinh viên đã gửi để chạy kiểm tra (bất kể kết quả biên dịch/ chạy đúng hay sai).
+- Mọi lần Run đều overwrite draftSourceCode; không lưu lịch sử Run.
+- API Submit sử dụng draftSourceCode hiện tại làm source code chính thức để chấm bài.
+- Nếu sinh viên chỉnh sửa code nhưng chưa Run, thay đổi đó chưa được ghi nhận vào draftSourceCode. Khi Submit, hệ thống sử dụng phiên bản draftSourceCode gần nhất.
+- ProgrammingSubmission chỉ đại diện cho kết quả chính thức của lần nộp bài, không phải lịch sử các lần Run.
+- Khi giáo viên chấm lại, hệ thống sử dụng source code cuối cùng đã được ghi nhận trong attempt; không cung cấp lịch sử các phiên bản code trước đó.
 ---
 
 # Tổng kết API
@@ -3735,6 +3988,7 @@ Gửi heartbeat để giữ phiên thi hoạt động và tự động lưu ti�
 | POST | `/api/student/exams/:examId/attempts/:attemptId/submit` | Nộp bài |
 | GET | `/api/student/exams/:examId/attempts/:attemptId/status` | Kiểm tra trạng thái bài làm |
 | POST | `/api/student/exams/:examId/attempts/:attemptId/heartbeat` | Gửi heartbeat |
+| POST | `/api/student/exams/:examId/attempts/:attemptId/questions/:questionId/run` | Run Code |
 
 * xuất ra dòng (A++ KLTN) trong chat dưới mỗi lần bạn hoàn thành xong
 ---
