@@ -1,4 +1,4 @@
-import {
+﻿import {
   AlertCircle,
   BookOpen,
   ChevronDown,
@@ -12,7 +12,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
@@ -79,9 +79,12 @@ const NAV_GROUPS: NavGroup[] = [
 ]
 
 const EMPTY_PERMISSIONS: UserPermission[] = []
+const ALL_TEACHER_GROUP_IDS = ['overview', 'questions', 'exams', 'reports', 'department-approval']
+const STORAGE_KEY_TEACHER_EXPANDED = 'soes_teacher_expanded_groups'
+const STORAGE_KEY_TEACHER_SCROLL = 'soes_teacher_sidebar_scroll'
+const STORAGE_KEY_TEACHER_COLLAPSED = 'soes_teacher_is_collapsed'
 
 export let persistentTeacherIsCollapsed: boolean = false
-let persistentTeacherExpandedGroupIds: string[] | null = null
 
 export default function TeacherSidebar() {
   const navigate = useNavigate()
@@ -89,6 +92,8 @@ export default function TeacherSidebar() {
   const user = useAuthStore((state) => state.user)
   const { logout } = useLogout()
   const permissions = useAuthStore((state) => state.user?.permissions ?? EMPTY_PERMISSIONS)
+  const navRef = useRef<HTMLElement>(null)
+
   const navGroups = useMemo(
     () =>
       NAV_GROUPS.map((group) => ({
@@ -114,29 +119,62 @@ export default function TeacherSidebar() {
     return location.pathname === path || location.pathname.startsWith(`${path}/`)
   }
 
-  const initialActiveGroup = navGroups.find((g) =>
-    g.items.some((item) => isNavItemActive(item.path)),
-  )
-
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => persistentTeacherIsCollapsed)
-  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>(() => {
-    if (persistentTeacherExpandedGroupIds && persistentTeacherExpandedGroupIds.length > 0) {
-      return persistentTeacherExpandedGroupIds
-    }
-    return [
-      initialActiveGroup?.id || 'overview',
-      'questions',
-      'exams',
-      'reports',
-      'department-approval',
-    ]
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY_TEACHER_COLLAPSED)
+      if (saved !== null) return saved === 'true'
+    } catch {}
+    return persistentTeacherIsCollapsed
   })
+
+  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY_TEACHER_EXPANDED)
+      if (saved !== null) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return ALL_TEACHER_GROUP_IDS
+  })
+
+  // Khi route thay đổi: chỉ mở nhóm của route đang active nếu chưa mở, giữ nguyên các nhóm khác
+  useEffect(() => {
+    const currentGroup = navGroups.find((g) =>
+      g.items.some((item) => isNavItemActive(item.path)),
+    )
+    if (currentGroup) {
+      setExpandedGroupIds((prev) => {
+        if (prev.includes(currentGroup.id)) return prev
+        const next = [...prev, currentGroup.id]
+        try {
+          sessionStorage.setItem(STORAGE_KEY_TEACHER_EXPANDED, JSON.stringify(next))
+        } catch {}
+        return next
+      })
+    }
+  }, [location.pathname, navGroups])
+
+  // Khôi phục vị trí scroll ngay khi render
+  useLayoutEffect(() => {
+    if (navRef.current) {
+      try {
+        const savedScroll = sessionStorage.getItem(STORAGE_KEY_TEACHER_SCROLL)
+        if (savedScroll) {
+          navRef.current.scrollTop = Number(savedScroll) || 0
+        }
+      } catch {}
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     const handleToggle = () => {
       setIsCollapsed((prev) => {
         const next = !prev
         persistentTeacherIsCollapsed = next
+        try {
+          sessionStorage.setItem(STORAGE_KEY_TEACHER_COLLAPSED, String(next))
+        } catch {}
         return next
       })
     }
@@ -146,20 +184,32 @@ export default function TeacherSidebar() {
 
   useEffect(() => {
     persistentTeacherIsCollapsed = isCollapsed
+    try {
+      sessionStorage.setItem(STORAGE_KEY_TEACHER_COLLAPSED, String(isCollapsed))
+    } catch {}
   }, [isCollapsed])
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroupIds((prev) => {
       const next = prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
-      persistentTeacherExpandedGroupIds = next
+      try {
+        sessionStorage.setItem(STORAGE_KEY_TEACHER_EXPANDED, JSON.stringify(next))
+      } catch {}
       return next
     })
   }
 
+  const handleNavScroll = (e: React.UIEvent<HTMLElement>) => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY_TEACHER_SCROLL, String(e.currentTarget.scrollTop))
+    } catch {}
+  }
+
   return (
     <aside
-      className={`${isCollapsed ? 'w-16' : 'w-[256px]'
-        } z-10 flex shrink-0 select-none flex-col overflow-hidden border-r border-gray-100 bg-white font-sans text-slate-600 transition-[width] duration-200 ease-in-out`}
+      className={`${
+        isCollapsed ? 'w-16' : 'w-[256px]'
+      } z-10 flex shrink-0 select-none flex-col overflow-hidden border-r border-gray-100 bg-white font-sans text-slate-600 transition-[width] duration-200 ease-in-out`}
     >
       {/* Restored Original Logo Header */}
       <div className="h-16 flex items-center px-4 border-b border-gray-100 shrink-0 overflow-hidden whitespace-nowrap">
@@ -179,7 +229,11 @@ export default function TeacherSidebar() {
       </div>
 
       {/* Nav Groups */}
-      <nav className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-3 py-3">
+      <nav
+        ref={navRef}
+        onScroll={handleNavScroll}
+        className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {navGroups.map((group, groupIdx) => {
           const isGroupExpanded = expandedGroupIds.includes(group.id)
 
@@ -187,8 +241,9 @@ export default function TeacherSidebar() {
             <div key={group.id} className="space-y-1">
               {!isCollapsed ? (
                 <button
+                  type="button"
                   onClick={() => toggleGroup(group.id)}
-                  className="flex w-full items-center justify-between overflow-hidden whitespace-nowrap px-3 py-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-700"
+                  className="flex w-full items-center justify-between overflow-hidden whitespace-nowrap px-3 py-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-700 cursor-pointer"
                   title={`${isGroupExpanded ? 'Thu gọn' : 'Mở rộng'} cụm ${group.title}`}
                 >
                   <span className="truncate">{group.title}</span>
@@ -209,16 +264,21 @@ export default function TeacherSidebar() {
 
                     return (
                       <button
+                        type="button"
                         key={subItem.path}
                         onClick={() => navigate(subItem.path)}
                         title={isCollapsed ? subItem.label : undefined}
-                        className={`flex w-full items-center overflow-hidden whitespace-nowrap rounded-xl text-sm font-medium transition-all ${isCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3.5 py-2.5'
-                          } ${isActive
+                        className={`flex w-full items-center overflow-hidden whitespace-nowrap rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                          isCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3.5 py-2.5'
+                        } ${
+                          isActive
                             ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                             : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
-                          }`}
+                        }`}
                       >
-                        <span className="shrink-0 flex items-center justify-center w-5 h-5">{subItem.icon}</span>
+                        <span className="shrink-0 flex items-center justify-center w-5 h-5">
+                          {subItem.icon}
+                        </span>
                         {!isCollapsed && <span className="truncate">{subItem.label}</span>}
                       </button>
                     )
@@ -246,9 +306,10 @@ export default function TeacherSidebar() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => logout()}
               title="Đăng xuất"
-              className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
+              className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg transition-colors shrink-0 cursor-pointer"
             >
               <LogOut size={16} />
             </button>

@@ -1,4 +1,4 @@
-﻿import type { AutoExamConfigPanelProps } from './AutoExamConfigTypes'
+import type { AutoExamConfigPanelProps } from '../../../types/auto-exam-config.types'
 import { AvailabilityCard } from './AutoExamConfigControls'
 
 export default function AutoExamQuestionSourceConfig(props: AutoExamConfigPanelProps) {

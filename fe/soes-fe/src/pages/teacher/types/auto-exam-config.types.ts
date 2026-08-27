@@ -1,9 +1,9 @@
 import type {
   AutoExamDraftStatus,
   AutoExamPickMode,
-} from '../../../types/teacher-auto-exam.types'
-import type { ExamCategory } from '../../../types/teacher-exam.types'
-import type { Question } from '../../../types/teacher-question-bank.types'
+} from './teacher-auto-exam.types'
+import type { ExamCategory } from './teacher-exam.types'
+import type { Question } from './teacher-question-bank.types'
 
 export interface AutoExamConfigPanelProps {
   examTitle: string

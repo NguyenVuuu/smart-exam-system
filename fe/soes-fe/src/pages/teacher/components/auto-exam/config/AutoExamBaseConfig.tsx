@@ -1,5 +1,5 @@
-﻿import AppSelect from '../../../../../components/common/AppSelect'
-import type { AutoExamConfigPanelProps } from './AutoExamConfigTypes'
+import AppSelect from '../../../../../components/common/AppSelect'
+import type { AutoExamConfigPanelProps } from '../../../types/auto-exam-config.types'
 import { NumberField } from './AutoExamConfigControls'
 
 export default function AutoExamBaseConfig(props: AutoExamConfigPanelProps) {

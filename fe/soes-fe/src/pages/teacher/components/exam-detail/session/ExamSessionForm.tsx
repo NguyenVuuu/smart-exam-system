@@ -9,6 +9,13 @@ import type {
   ResultReleaseMode,
 } from '../../../types/teacher-exam.types'
 
+const inputClassName =
+  'h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-normal text-slate-800 outline-none transition-colors focus:border-blue-400'
+const whiteInputClassName =
+  'h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition-colors focus:border-blue-400'
+const selectButtonClassName = 'bg-gray-50'
+const whiteSelectButtonClassName = 'bg-white'
+
 export interface ExamSessionDraft {
   courseOfferingId: string
   examDate: string
@@ -56,7 +63,7 @@ export function ExamSessionForm({
           <AppSelect
             value={draft.courseOfferingId}
             onChange={(value) => update('courseOfferingId', value)}
-            buttonClassName="bg-gray-50"
+            buttonClassName={selectButtonClassName}
             menuClassName="z-50"
             options={MOCK_TEACHER_COURSES.filter((course) => course.subjectName === subjectName).map((course) => ({
               value: course.id,
@@ -70,7 +77,7 @@ export function ExamSessionForm({
             type="date"
             value={draft.examDate}
             onChange={(event) => update('examDate', event.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5"
+            className={inputClassName}
           />
         </Field>
 
@@ -79,7 +86,7 @@ export function ExamSessionForm({
             type="time"
             value={draft.startTime}
             onChange={(event) => update('startTime', event.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5"
+            className={inputClassName}
           />
         </Field>
 
@@ -88,7 +95,7 @@ export function ExamSessionForm({
             type="time"
             value={draft.endTime}
             onChange={(event) => update('endTime', event.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5"
+            className={inputClassName}
           />
         </Field>
 
@@ -106,7 +113,7 @@ export function ExamSessionForm({
             min={1}
             value={draft.maxAttempts}
             onChange={(event) => update('maxAttempts', Number(event.target.value))}
-            className="w-full bg-gray-50 border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5"
+            className={inputClassName}
           />
         </Field>
       </div>
@@ -118,7 +125,7 @@ export function ExamSessionForm({
             value={draft.password}
             onChange={(event) => update('password', event.target.value)}
             placeholder="Không bắt buộc"
-            className="w-full bg-gray-50 border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5"
+            className={inputClassName}
           />
         </Field>
 
@@ -126,7 +133,7 @@ export function ExamSessionForm({
           <AppSelect
             value={draft.resultReleaseMode}
             onChange={(value) => update('resultReleaseMode', value)}
-            buttonClassName="bg-gray-50"
+            buttonClassName={selectButtonClassName}
             menuClassName="z-50"
             options={[
               { value: 'IMMEDIATE', label: 'Hiện điểm ngay sau khi nộp' },
@@ -142,7 +149,7 @@ export function ExamSessionForm({
               type="datetime-local"
               value={draft.resultReleaseAt}
               onChange={(event) => update('resultReleaseAt', event.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5"
+              className={inputClassName}
             />
           </Field>
         )}
@@ -167,14 +174,14 @@ export function ExamSessionForm({
         </div>
 
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
-          <div className="flex items-center gap-1.5 text-xs text-gray-700">
+          <div className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
             <Globe size={14} className="text-blue-600" />
             <span>Kiểm soát IP</span>
           </div>
           <AppSelect
             value={draft.ipMode}
             onChange={(value) => update('ipMode', value)}
-            buttonClassName="bg-white"
+            buttonClassName={whiteSelectButtonClassName}
             menuClassName="z-50"
             options={[
               { value: 'HOME', label: 'Thi tại nhà / Online' },
@@ -186,7 +193,7 @@ export function ExamSessionForm({
               value={draft.allowedIpRange}
               onChange={(event) => update('allowedIpRange', event.target.value)}
               placeholder="Ví dụ: 192.168.1.1 - 192.168.1.254"
-              className="w-full bg-white border border-gray-200 text-xs text-gray-800 rounded-xl p-2.5"
+              className={whiteInputClassName}
             />
           )}
         </div>
@@ -197,7 +204,7 @@ export function ExamSessionForm({
         <AppSelect
           value={draft.distributionMode}
           onChange={(value) => update('distributionMode', value)}
-          buttonClassName="bg-gray-50"
+          buttonClassName={selectButtonClassName}
           menuClassName="z-50"
           options={[
               { value: 'FIXED_ORDER', label: 'Giữ nguyên thứ tự câu hỏi' },
@@ -210,7 +217,7 @@ export function ExamSessionForm({
           <button
             type="button"
             onClick={onAdd}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-xl flex items-center justify-center gap-1.5"
+            className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
           >
             <Clock size={15} /> {submitLabel}
           </button>
@@ -230,8 +237,8 @@ function Field({
   children: ReactNode
 }) {
   return (
-    <label className={`block space-y-1 ${className}`}>
-      <span className="text-xs text-gray-600">{label}</span>
+    <label className={`block space-y-1.5 ${className}`}>
+      <span className="text-sm font-semibold text-slate-700">{label}</span>
       {children}
     </label>
   )
@@ -239,7 +246,7 @@ function Field({
 
 function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs font-medium text-gray-900">
+    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
       {icon}
       <span>{title}</span>
     </div>
@@ -256,12 +263,12 @@ function Toggle({
   label: string
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer select-none">
+    <label className="flex cursor-pointer select-none items-center gap-2 text-sm font-normal text-slate-700">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="rounded text-blue-600 focus:ring-blue-500"
+        className="h-4 w-4 rounded border-gray-300 accent-blue-600"
       />
       <span>{label}</span>
     </label>

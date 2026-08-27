@@ -4,7 +4,7 @@ import AutoExamGenerationActions from './config/AutoExamGenerationActions'
 import AutoExamManualQuestionPicker from './config/AutoExamManualQuestionPicker'
 import AutoExamQuestionPickModeConfig from './config/AutoExamQuestionPickModeConfig'
 import AutoExamQuestionSourceConfig from './config/AutoExamQuestionSourceConfig'
-import type { AutoExamConfigPanelProps } from './config/AutoExamConfigTypes'
+import type { AutoExamConfigPanelProps } from '../../types/auto-exam-config.types'
 
 export default function AutoExamConfigPanel(props: AutoExamConfigPanelProps) {
   return (

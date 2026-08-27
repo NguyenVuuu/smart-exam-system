@@ -1,5 +1,5 @@
-﻿import { CheckCircle2, Search, Trash2 } from 'lucide-react'
-import type { AutoExamConfigPanelProps } from './AutoExamConfigTypes'
+import { CheckCircle2, Search, Trash2 } from 'lucide-react'
+import type { AutoExamConfigPanelProps } from '../../../types/auto-exam-config.types'
 
 export default function AutoExamManualQuestionPicker(props: AutoExamConfigPanelProps) {
   return (
