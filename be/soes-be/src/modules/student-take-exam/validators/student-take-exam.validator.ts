@@ -9,7 +9,7 @@ export type ExamParams = z.infer<typeof examParamsSchema>
 // ─── API 1: Start Exam ────────────────────────────────────────────────────────
 
 export const startExamBodySchema = z.object({
-  password: z.string().optional(),
+  password: z.string().optional().nullable()
 })
 
 export type StartExamBody = z.infer<typeof startExamBodySchema>
@@ -41,3 +41,29 @@ export const saveAnswerParamsSchema = z.object({
 })
 
 export type SaveAnswerParams = z.infer<typeof saveAnswerParamsSchema>
+
+
+// ─── API 6: Send Heartbeat ─────────────────────────────────────────────────────
+
+export const sendHeartbeatParamsSchema = z.object({
+  examId:    z.string().uuid({ message: 'examId must be a valid UUID' }),
+  attemptId: z.string().uuid({ message: 'attemptId must be a valid UUID' }),
+})
+
+export type SendHeartbeatParams = z.infer<typeof sendHeartbeatParamsSchema>
+
+// ─── API 7: Run Code ───────────────────────────────────────────────────────────
+
+export const runCodeParamsSchema = z.object({
+  examId:    z.string().uuid({ message: 'examId must be a valid UUID' }),
+  attemptId: z.string().uuid({ message: 'attemptId must be a valid UUID' }),
+  questionId: z.string().uuid({ message: 'questionId must be a valid UUID' }),
+})
+
+export type RunCodeParams = z.infer<typeof runCodeParamsSchema>
+
+export const runCodeBodySchema = z.object({
+  sourceCode: z.string().min(1, { message: 'sourceCode is required and cannot be empty' }),
+})
+
+export type RunCodeBody = z.infer<typeof runCodeBodySchema>
