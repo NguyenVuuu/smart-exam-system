@@ -69,6 +69,8 @@ export async function findAttemptWithContent(
           title:           true,
           durationMinutes: true,
           endTime:         true,
+          blockCopyPaste:  true,
+          blockRightClick: true,
         },
       },
       // snapshot ordered by displayOrder ASC — source of truth for question order
