@@ -20,6 +20,7 @@ export interface ExamContentResult {
 }
 
 export interface ExamIntegritySettings {
+  enableWebcam: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
 }

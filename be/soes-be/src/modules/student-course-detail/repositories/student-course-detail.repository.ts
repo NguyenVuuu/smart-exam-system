@@ -231,6 +231,7 @@ export class StudentCourseDetailRepository {
         endTime: true,
         durationMinutes: true,
         maxAttempts: true,
+        enableWebcam: true,
         status: true,
         publishedAt: true,
         examAttempts: {
@@ -325,6 +326,7 @@ export class StudentCourseDetailRepository {
       attemptUsed,
       remainingAttempts,
       canStart,
+      enableWebcam: exam.enableWebcam,
       status,
       remainingSeconds,
       canResume,
@@ -551,6 +553,7 @@ export interface ExamDetailRow {
   attemptUsed: number
   remainingAttempts: number
   canStart: boolean
+  enableWebcam: boolean
   status: string
   remainingSeconds?: number | null
   canResume?: boolean

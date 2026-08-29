@@ -1,4 +1,4 @@
-import { Calendar, Clock, Hash, RefreshCw } from 'lucide-react'
+import { Calendar, Camera, Clock, Hash, RefreshCw } from 'lucide-react'
 import type { ExamDetail } from '../../types/exam-detail.types'
 
 interface ExamInformationProps {
@@ -66,6 +66,11 @@ export default function ExamInformation({ data }: ExamInformationProps) {
           icon={<Hash size={15} className="text-gray-400" />}
           label="Còn lại"
           value={`${data.remainingAttempts} lượt`}
+        />
+        <InfoRow
+          icon={<Camera size={15} className={data.enableWebcam ? 'text-emerald-500' : 'text-gray-400'} />}
+          label="Yêu cầu camera"
+          value={data.enableWebcam ? 'Bắt buộc bật trong khi thi' : 'Không bắt buộc'}
         />
       </div>
     </div>

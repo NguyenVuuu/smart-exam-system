@@ -4,12 +4,14 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import ExamSubmitDialog from './components/take-exam/ExamSubmitDialog'
+import ExamWebcamPanel from './components/take-exam/ExamWebcamPanel'
 import QuestionCard from './components/take-exam/QuestionCard'
 import QuestionNavigator from './components/take-exam/QuestionNavigator'
 import TakeExamHeader from './components/take-exam/TakeExamHeader'
 import TakeExamProgress from './components/take-exam/TakeExamProgress'
 import './components/take-exam/take-exam.css'
 import { useExamIntegrityGuard } from './hooks/take-exam/useExamIntegrityGuard'
+import { useExamWebcam } from './hooks/take-exam/useExamWebcam'
 import { useTakeExam } from './hooks/take-exam/useTakeExam'
 import { useGetExamAttempt, useRunCodeMutation } from './hooks/take-exam/useTakeExamApi'
 import type {
@@ -19,6 +21,10 @@ import type {
 import type { RunCodeResponse } from './api/student-take-exam.api'
 import { hasAnswer } from './components/take-exam/take-exam.utils'
 import { useDebounce } from 'use-debounce'
+import {
+  cancelScheduledExamWebcamStop,
+  scheduleExamWebcamStop,
+} from './utils/exam-webcam'
 
 export default function StudentTakeExamPage() {
   const { courseOfferingId, examId } = useParams<{
@@ -41,6 +47,17 @@ export default function StudentTakeExamPage() {
 
   const { data: session, isLoading, error } = useGetExamAttempt(examId ?? '', attemptId, !!examId && !!attemptId)
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
+  const {
+    stream: webcamStream,
+    status: webcamStatus,
+    errorMessage: webcamErrorMessage,
+    start: startWebcam,
+  } = useExamWebcam(session?.integritySettings.enableWebcam ?? false)
+
+  useEffect(() => {
+    cancelScheduledExamWebcamStop()
+    return scheduleExamWebcamStop
+  }, [])
 
   const defaultAnswers = useMemo<TakeExamAnswers>(() => {
     if (!session) return {}
@@ -133,6 +150,10 @@ export default function StudentTakeExamPage() {
     [currentQuestion, setValue],
   )
 
+  const handleEnableExamCamera = useCallback(() => {
+    void startWebcam().catch(() => undefined)
+  }, [startWebcam])
+
   const handleRunCode = useCallback(
     (sourceCode: string) => {
       if (!examId || !attemptId || !currentQuestion || phase !== 'IN_PROGRESS') return
@@ -215,6 +236,13 @@ export default function StudentTakeExamPage() {
 
   return (
     <div className="take-exam-workspace h-dvh min-h-0 w-full overflow-hidden bg-slate-50">
+      <ExamWebcamPanel
+        required={session.integritySettings.enableWebcam}
+        stream={webcamStream}
+        status={webcamStatus}
+        errorMessage={webcamErrorMessage}
+        onEnableCamera={handleEnableExamCamera}
+      />
       <main className="take-exam-page relative h-full overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
         <div className="relative mx-auto w-full max-w-[1180px] space-y-4">
             <TakeExamHeader

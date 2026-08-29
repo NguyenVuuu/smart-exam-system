@@ -13,6 +13,7 @@ interface BaseResponse<T> {
 
 export interface StartExamRequest {
   password?: string
+  webcamConfirmed?: boolean
 }
 
 export interface StartExamResponse {
@@ -77,6 +78,7 @@ export interface AttemptStatus {
 const BASE_URL = '/student/exams'
 
 interface ApiExamIntegritySettings {
+  enableWebcam?: boolean
   blockCopyPaste?: boolean
   blockRightClick?: boolean
 }
@@ -135,6 +137,7 @@ export const takeExamApi = {
     return {
       ...data,
       integritySettings: {
+        enableWebcam: data.integritySettings?.enableWebcam ?? false,
         blockCopyPaste: data.integritySettings?.blockCopyPaste ?? true,
         blockRightClick: data.integritySettings?.blockRightClick ?? true,
       },

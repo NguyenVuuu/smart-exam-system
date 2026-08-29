@@ -6,7 +6,7 @@ import * as takeExamService from '../services/student-take-exam.service'
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { examId }   = examParamsSchema.parse(req.params)
-    const { password } = startExamBodySchema.parse(req.body)
+    const { password, webcamConfirmed } = startExamBodySchema.parse(req.body)
     const studentId    = req.user!.profileId
 
     // Lấy IP thực (xử lý cả trường hợp đứng sau proxy)
@@ -19,7 +19,14 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
 
     const passwordParam = password ?? undefined
 
-    const result = await takeExamService.startExam(examId, studentId, ipAddress, deviceInfo, passwordParam)
+    const result = await takeExamService.startExam(
+      examId,
+      studentId,
+      ipAddress,
+      deviceInfo,
+      passwordParam,
+      webcamConfirmed,
+    )
 
     res.status(200).json({
       success: true,
