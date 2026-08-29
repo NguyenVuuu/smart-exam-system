@@ -16,7 +16,9 @@ import LoginPage from '../pages/auth/LoginPage'
 import StudentCourseDetailPage from '../pages/student/StudentCourseDetailPage'
 import StudentDashboard from '../pages/student/StudentDashboard'
 import StudentExamDetailPage from '../pages/student/StudentExamDetailPage'
+import StudentExamResultPage from '../pages/student/StudentExamResultPage'
 import StudentPostDetailPage from '../pages/student/StudentPostDetailPage'
+import StudentTakeExamPage from '../pages/student/StudentTakeExamPage'
 import StudentSubjectsPage from '../pages/student/StudentSubjectsPage'
 import TeacherAutoExamMatrixPage from '../pages/teacher/TeacherAutoExamMatrixPage'
 import TeacherCourseDetailPage from '../pages/teacher/TeacherCourseDetailPage'
@@ -309,6 +311,22 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['STUDENT']}>
               <StudentPostDetailPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/course-offerings/:courseOfferingId/exams/:examId/take"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentTakeExamPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/course-offerings/:courseOfferingId/exams/:examId/result"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentExamResultPage />
             </RoleRoute>
           }
         />
