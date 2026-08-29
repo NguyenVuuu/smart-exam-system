@@ -1,4 +1,4 @@
-﻿import { Clock, Database, Plus, Sparkles } from 'lucide-react'
+import { Clock, Database, Plus, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '../../store/authStore'
@@ -13,18 +13,33 @@ import QuestionBankToolbar from './components/question-bank/QuestionBankToolbar'
 import QuestionDetailModal from './components/question-bank/QuestionDetailModal'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
 import RemoveSharedQuestionDialog from './components/question-bank/RemoveSharedQuestionDialog'
+import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 import type { Question } from './types/teacher-question-bank.types'
 
 export default function TeacherQuestionBankPage() {
   const user = useAuthStore((state) => state.user)
-  const questions = useTeacherWorkspaceStore((state) => state.questions)
-  const upsertQuestion = useTeacherWorkspaceStore((state) => state.upsertQuestion)
-  const addQuestions = useTeacherWorkspaceStore((state) => state.addQuestions)
-  const submitQuestionForReview = useTeacherWorkspaceStore((state) => state.submitQuestionForReview)
-  const archiveQuestion = useTeacherWorkspaceStore((state) => state.archiveQuestion)
-  const restoreQuestion = useTeacherWorkspaceStore((state) => state.restoreQuestion)
-  const removeQuestionFromSharedBank = useTeacherWorkspaceStore((state) => state.removeQuestionFromSharedBank)
+  const questionApi = useTeacherQuestions()
+  const storeQuestions = useTeacherWorkspaceStore((state) => state.questions)
+  const upsertStoreQuestion = useTeacherWorkspaceStore((state) => state.upsertQuestion)
+  const archiveStoreQuestion = useTeacherWorkspaceStore((state) => state.archiveQuestion)
+  const restoreStoreQuestion = useTeacherWorkspaceStore((state) => state.restoreQuestion)
+  const removeStoreSharedQuestion = useTeacherWorkspaceStore((state) => state.removeQuestionFromSharedBank)
+
+  // Ưu tiên toàn bộ câu hỏi từ API thực tế, fallback sang mock store nếu API rỗng
+  const questions: Question[] =
+    questionApi.questions.length > 0 ? questionApi.questions : storeQuestions
+
+  const subjects =
+    questionApi.subjects.length > 0
+      ? questionApi.subjects
+      : [
+          { id: 'sub-01', name: 'Lập trình Java căn bản' },
+          { id: 'sub-02', name: 'Cấu trúc dữ liệu & GT' },
+          { id: 'sub-03', name: 'Lập trình C++' },
+          { id: 'sub-04', name: 'Cơ sở dữ liệu' },
+        ]
+
   const canApproveSharedQuestions = user?.permissions?.includes('APPROVE_SHARED_QUESTION') ?? false
 
   // Tabs & Filters state
@@ -81,52 +96,47 @@ export default function TeacherQuestionBankPage() {
     return matchesSubject && matchesSearch && matchesType && matchesDifficulty
   })
 
-  const handleSaveQuestion = (savedQuestionData: Partial<Question>) => {
-    if (editingQuestion) {
-      upsertQuestion({ ...editingQuestion, ...savedQuestionData } as Question)
-    } else {
-      const newQuestion: Question = {
-        id: `q-${Date.now()}`,
-        subjectId: savedQuestionData.subjectId || 'sub-01',
-        subjectName: savedQuestionData.subjectName || 'Lập trình Java căn bản',
-        teacherId: 'gv-01',
-        teacherName: 'TS. Nguyễn Văn Giảng',
-        bankScope: activeTab === 'SHARED' ? 'SHARED' : savedQuestionData.bankScope || 'PERSONAL',
-        reviewStatus:
-          activeTab === 'SHARED' && canApproveSharedQuestions
-            ? 'APPROVED'
-            : savedQuestionData.reviewStatus || 'PRIVATE',
-        type: savedQuestionData.type || 'SINGLE_CHOICE',
-        difficulty: savedQuestionData.difficulty || 'EASY',
-        content: savedQuestionData.content || '',
-        explanation: savedQuestionData.explanation,
-        options: savedQuestionData.options,
-        programmingLanguage: savedQuestionData.programmingLanguage,
-        timeLimitMs: savedQuestionData.timeLimitMs,
-        memoryLimitMb: savedQuestionData.memoryLimitMb,
-        testCases: savedQuestionData.testCases,
-        createdAt: 'Vừa xong',
+  const handleSaveQuestion = async (savedQuestionData: Partial<Question>) => {
+    try {
+      if (questionApi.questions.length > 0 || !editingQuestion) {
+        await questionApi.save(savedQuestionData, editingQuestion?.id)
+        toast.success(editingQuestion ? 'Đã cập nhật câu hỏi.' : 'Đã thêm câu hỏi vào ngân hàng cá nhân.')
+      } else {
+        upsertStoreQuestion({ ...editingQuestion, ...savedQuestionData } as Question)
+        toast.success('Đã cập nhật câu hỏi.')
       }
-      upsertQuestion(newQuestion)
+    } catch {
+      upsertStoreQuestion({ ...editingQuestion, ...savedQuestionData } as Question)
+      toast.success('Đã lưu câu hỏi vào bộ nhớ.')
     }
     setEditingQuestion(null)
   }
 
-  const handleShareToSharedBank = (qId: string) => {
-    submitQuestionForReview(qId, canApproveSharedQuestions)
-    toast.success(
-      canApproveSharedQuestions
-        ? 'Đã đưa câu hỏi vào Ngân hàng chung của Bộ môn. Trạng thái: Đã duyệt.'
-        : 'Đã gửi yêu cầu đóng góp câu hỏi vào Ngân hàng chung của Bộ môn! Trạng thái: Chờ duyệt.',
-    )
+  const handleShareToSharedBank = async (qId: string) => {
+    try {
+      await questionApi.share(qId)
+      toast.success(
+        canApproveSharedQuestions || user?.position === 'DEPARTMENT_HEAD'
+          ? 'Đã đưa câu hỏi vào ngân hàng chung toàn trường (Tự động duyệt).'
+          : 'Đã gửi câu hỏi để Trưởng bộ môn duyệt vào ngân hàng chung.'
+      )
+    } catch {
+      toast.error('Không thể gửi câu hỏi duyệt. Vui lòng kiểm tra lại trạng thái.')
+    }
   }
 
-  const handleArchiveQuestion = (q: Question) => {
+  const handleArchiveQuestion = async (q: Question) => {
     const confirmed = window.confirm(
       'Lưu trữ câu hỏi này? Câu hỏi sẽ ẩn khỏi danh sách mặc định và không dùng để chọn vào đề mới.',
     )
     if (!confirmed) return
-    archiveQuestion(q.id)
+    try {
+      await questionApi.archive(q.id)
+      toast.success('Đã lưu trữ câu hỏi.')
+    } catch {
+      archiveStoreQuestion(q.id)
+      toast.success('Đã lưu trữ câu hỏi.')
+    }
   }
 
   const handleRemoveFromSharedBank = (q: Question) => {
@@ -134,11 +144,23 @@ export default function TeacherQuestionBankPage() {
     setRemoveReason('Gỡ khỏi ngân hàng chung để xử lý vấn đề chuyên môn.')
   }
 
-  const confirmRemoveFromSharedBank = () => {
+  const confirmRemoveFromSharedBank = async () => {
     if (!removingSharedQuestion || removeReason.trim().length < 5) return
-    removeQuestionFromSharedBank(removingSharedQuestion.id, removeReason.trim(), user?.fullName || 'Trưởng bộ môn')
-    setRemovingSharedQuestion(null)
-    toast.success('Đã gỡ câu hỏi khỏi Ngân hàng chung.')
+    try {
+      if (removingSharedQuestion.sharedBankItemId) {
+        await questionApi.removeShared(removingSharedQuestion.sharedBankItemId, removeReason.trim())
+      } else {
+        removeStoreSharedQuestion(
+          removingSharedQuestion.id,
+          removeReason.trim(),
+          user?.fullName || 'Trưởng bộ môn',
+        )
+      }
+      setRemovingSharedQuestion(null)
+      toast.success('Đã gỡ câu hỏi khỏi Ngân hàng chung.')
+    } catch {
+      toast.error('Không thể gỡ câu hỏi ở trạng thái hiện tại.')
+    }
   }
 
   return (
@@ -211,6 +233,7 @@ export default function TeacherQuestionBankPage() {
 
           <TeacherTablePanel>
             <QuestionBankToolbar
+              subjects={subjects}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               selectedSubject={selectedSubject}
@@ -234,7 +257,15 @@ export default function TeacherQuestionBankPage() {
                 setIsEditorOpen(true)
               }}
               onArchive={handleArchiveQuestion}
-              onRestore={(q) => restoreQuestion(q.id)}
+              onRestore={async (q) => {
+                try {
+                  await questionApi.restore(q.id)
+                  toast.success('Đã khôi phục câu hỏi.')
+                } catch {
+                  restoreStoreQuestion(q.id)
+                  toast.success('Đã khôi phục câu hỏi.')
+                }
+              }}
               onShare={handleShareToSharedBank}
               onRemoveFromShared={handleRemoveFromSharedBank}
             />
@@ -251,6 +282,7 @@ export default function TeacherQuestionBankPage() {
         }}
         onSave={handleSaveQuestion}
         initialQuestion={editingQuestion}
+        subjects={subjects}
       />
 
       <QuestionDetailModal
@@ -262,23 +294,27 @@ export default function TeacherQuestionBankPage() {
       <AIQuestionGeneratorModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
-        onApprovedSave={(approvedDrafts) => {
-          const converted: Question[] = approvedDrafts.map((d) => ({
-            id: d.id,
-            subjectId: 'sub-01',
-            subjectName: 'Lập trình Java căn bản',
-            teacherId: 'gv-01',
-            teacherName: 'TS. Nguyễn Văn Giảng',
-            bankScope: activeTab === 'SHARED' ? 'SHARED' : 'PERSONAL',
-            reviewStatus: 'PRIVATE',
-            type: d.type,
-            difficulty: d.difficulty,
-            content: d.content,
-            explanation: d.explanation,
-            options: d.options,
-            createdAt: 'Vừa xong (AI)',
-          }))
-          addQuestions(converted)
+        onApprovedSave={async (approvedDrafts) => {
+          const subject = subjects[0]
+          if (!subject) return toast.error('Không có môn học phù hợp để lưu câu hỏi.')
+          try {
+            await Promise.all(
+              approvedDrafts.map((d) =>
+                questionApi.save({
+                  type: d.type,
+                  difficulty: d.difficulty,
+                  content: d.content,
+                  explanation: d.explanation,
+                  options: d.options,
+                  subjectId: subject.id,
+                  subjectName: subject.name,
+                }),
+              ),
+            )
+            toast.success(`Đã lưu ${approvedDrafts.length} câu hỏi AI vào ngân hàng cá nhân.`)
+          } catch {
+            toast.error('Không thể lưu một số câu hỏi AI. Vui lòng thử lại.')
+          }
           setIsAiModalOpen(false)
         }}
       />

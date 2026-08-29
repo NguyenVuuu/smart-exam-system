@@ -34,6 +34,34 @@ export interface StudentEnrollment {
   status: 'ACTIVE' | 'DROPPED'
 }
 
+export interface CourseAnnouncement {
+  id: string
+  title: string
+  content: string
+  attachedFiles?: Array<{ name: string; size: string }>
+  createdAt: string
+  teacherName: string
+  pinned?: boolean
+}
+
+export interface CourseExamSchedule {
+  scheduleId: string
+  examId: string
+  title: string
+  totalPoints: number
+  startTime: string
+  endTime: string
+  status: string
+}
+
+export interface TeacherCourseDetail {
+  course: CourseOffering
+  materials: CourseMaterial[]
+  students: StudentEnrollment[]
+  announcements: CourseAnnouncement[]
+  exams: CourseExamSchedule[]
+}
+
 export interface ExcelImportRecord {
   studentCode: string
   fullName: string

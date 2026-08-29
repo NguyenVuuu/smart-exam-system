@@ -1,8 +1,9 @@
-﻿import {
+import {
   ArrowLeft,
   Copy,
   Edit,
   Eye,
+  Lock,
   Send,
   UserCheck,
   UserX,
@@ -117,7 +118,11 @@ export function ExamDetailHeader({
             <Edit size={16} /> Sửa cấu hình đề thi
           </button>
         ) : (
-          <span className="px-4 py-2.5 bg-gray-50 border border-gray-100 text-gray-500 font-semibold text-sm rounded-xl">
+          <span
+            className="px-4 py-2.5 bg-gray-50 border border-gray-200/80 text-gray-500 font-semibold text-sm rounded-xl inline-flex items-center gap-1.5 shadow-2xs"
+            title={capabilities.lockReason || 'Đề thi đã khóa chỉnh sửa'}
+          >
+            <Lock size={15} className="text-gray-400" />
             {exam.status === 'PENDING_APPROVAL' ? 'ĐANG CHỜ DUYỆT' : 'ĐÃ KHÓA'}
           </span>
         )}

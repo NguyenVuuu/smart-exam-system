@@ -37,7 +37,7 @@ export default function Timeline({ courseOfferingId }: TimelineProps) {
     if (item.type === 'POST') {
       navigate(`/student/course-offerings/${courseOfferingId}/posts/${item.id}`)
     } else {
-      navigate(`/student/course-offerings/${courseOfferingId}/exams/${item.id}`)
+      navigate(`/student/course-offerings/${courseOfferingId}/exam-schedules/${item.id}`)
     }
   }
 

@@ -41,7 +41,7 @@ export const ADMIN_ACADEMIC_YEARS: AcademicYear[] = [
     term: 2,
     startDate: '01/01/2025',
     endDate: '30/04/2025',
-    status: 'ARCHIVED',
+    status: 'CLOSED',
   },
 ]
 

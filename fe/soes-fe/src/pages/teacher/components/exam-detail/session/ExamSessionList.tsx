@@ -1,8 +1,21 @@
-﻿import { Clock, Edit3, Eye, EyeOff, Globe, MonitorCheck, X } from 'lucide-react'
+import { Clock, Edit3, Eye, EyeOff, Globe, MonitorCheck, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppCard from '../../../../../components/common/AppCard'
 import type { ExamSchedule } from '../../../types/teacher-exam.types'
+import { formatSessionRange, parseDateTimeParts, formatDate } from '../../../../../utils/date.utils'
+
+function getSessionEffectiveStatus(session: ExamSchedule): ExamSchedule['status'] {
+  if (session.status === 'CANCELLED' || session.status === 'DRAFT') {
+    return session.status
+  }
+  const now = Date.now()
+  const start = new Date(session.startTime).getTime()
+  const end = new Date(session.endTime).getTime()
+  if (now < start) return 'SCHEDULED'
+  if (now >= start && now < end) return 'OPEN'
+  return 'CLOSED'
+}
 
 export function ExamSessionList({
   sessions,
@@ -10,7 +23,7 @@ export function ExamSessionList({
   onView,
   onEdit,
   onRemove,
-  emptyText = 'Chưa có ca thi nào.',
+  emptyText = 'Chưa có ca thi nào được gán.',
 }: {
   sessions: ExamSchedule[]
   variant?: 'manage' | 'draft'
@@ -32,7 +45,8 @@ export function ExamSessionList({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-stretch">
       {sessions.map((session) => {
-        const canChange = session.status === 'DRAFT' || session.status === 'SCHEDULED'
+        const effectiveStatus = getSessionEffectiveStatus(session)
+        const canChange = effectiveStatus === 'DRAFT' || effectiveStatus === 'SCHEDULED'
         const showManagementActions = variant === 'manage' && canChange && (onEdit || onRemove)
         const showDraftActions = variant === 'draft' && canChange && (onEdit || onRemove)
 
@@ -47,7 +61,7 @@ export function ExamSessionList({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <StatusBadge status={session.status} />
+                <StatusBadge status={effectiveStatus} />
                 {showDraftActions && onEdit && (
                   <button
                     type="button"
@@ -169,23 +183,16 @@ function RuleBadge({ icon, label }: { icon: ReactNode; label: string }) {
   )
 }
 
-function formatSessionTime(session: ExamSchedule) {
-  const { date: startDate, time: startTime } = parseSessionDateTime(session.startTime)
-  const { time: endTime } = parseSessionDateTime(session.endTime)
-  return `${formatDisplayDate(startDate)} · ${startTime} - ${endTime}`
+export function formatSessionTime(session: ExamSchedule) {
+  return formatSessionRange(session.startTime, session.endTime)
 }
 
-function parseSessionDateTime(value: string) {
-  const [date = '', rawTime = ''] = value.includes('T') ? value.split('T') : value.split(' ')
-  return {
-    date,
-    time: rawTime.slice(0, 5),
-  }
+export function parseSessionDateTime(value: string) {
+  return parseDateTimeParts(value)
 }
 
-function formatDisplayDate(date: string) {
-  const [year, month, day] = date.split('-')
-  return year && month && day ? `${day}/${month}/${year}` : date
+export function formatDisplayDate(date: string) {
+  return formatDate(date)
 }
 
 function securitySummary(session: ExamSchedule) {

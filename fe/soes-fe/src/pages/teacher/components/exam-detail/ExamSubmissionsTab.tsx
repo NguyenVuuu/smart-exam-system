@@ -1,8 +1,9 @@
-﻿import { Edit, Eye } from 'lucide-react'
+import { Edit, Eye } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import AppSelect from '../../../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { ExamSchedule, ExamSubmission, ResultReleaseMode } from '../../types/teacher-exam.types'
+import { formatSessionRange } from '../../../../utils/date.utils'
 
 export function ExamSubmissionsTab({
   submissions,
@@ -147,7 +148,7 @@ export function ExamSubmissionsTab({
           buttonClassName="bg-gray-50 rounded-xl py-2.5 text-sm"
           options={sessions.map((session) => ({
             value: session.id,
-            label: `${session.courseCode} • ${session.startTime.replace('T', ' ')}`,
+            label: `${session.courseCode} • ${formatSessionRange(session.startTime, session.endTime)}`,
           }))}
         />
       </div>

@@ -28,6 +28,13 @@ export async function seedProgrammingSubmissions(
 
   // Only process programming questions (questions without options in the source question)
   const programmingQuestions = examQuestions.filter((eq) => eq.type === 'PROGRAMMING')
+  const attemptSchedules = await prisma.examAttempt.findMany({
+    where: { id: { in: attempts.map((attempt) => attempt.id) } },
+    select: { id: true, examSchedule: { select: { examId: true } } },
+  })
+  const examIdByAttempt = new Map(
+    attemptSchedules.map((attempt) => [attempt.id, attempt.examSchedule.examId]),
+  )
 
   // Fetch all test cases for programming questions
   const programmingQuestionIds = programmingQuestions.map((eq) => eq.id)
@@ -43,7 +50,8 @@ export async function seedProgrammingSubmissions(
 
   for (const attempt of attempts) {
     // Find programming questions for this exam
-    const examProgrammingQuestions = programmingQuestions.filter((eq) => eq.examId === attempt.examId)
+    const examId = examIdByAttempt.get(attempt.id)
+    const examProgrammingQuestions = programmingQuestions.filter((eq) => eq.examId === examId)
 
     for (const eq of examProgrammingQuestions) {
       const existing = await prisma.programmingSubmission.findFirst({

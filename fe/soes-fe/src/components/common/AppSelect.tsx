@@ -59,7 +59,7 @@ export default function AppSelect<T extends string | number = string>({
     setMenuStyle({
       left: rect.left,
       top: rect.bottom + 4,
-      width: rect.width,
+      width: Math.max(rect.width, 200),
     })
   }
 
@@ -97,7 +97,7 @@ export default function AppSelect<T extends string | number = string>({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 shadow-xs transition-colors focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 ${accentClassName.button} ${buttonClassName}`}
+        className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 shadow-xs transition-colors focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 ${accentClassName.button} ${buttonClassName}`}
       >
         <span className="truncate">{selectedOption?.label ?? placeholder}</span>
         <ChevronDown

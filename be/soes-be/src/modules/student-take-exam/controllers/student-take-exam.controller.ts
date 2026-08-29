@@ -5,7 +5,7 @@ import * as takeExamService from '../services/student-take-exam.service'
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { examId }   = examParamsSchema.parse(req.params)
+    const { scheduleId } = examParamsSchema.parse(req.params)
     const { password } = startExamBodySchema.parse(req.body)
     const studentId    = req.user!.profileId
 
@@ -19,7 +19,7 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
 
     const passwordParam = password ?? undefined
 
-    const result = await takeExamService.startExam(examId, studentId, ipAddress, deviceInfo, passwordParam)
+    const result = await takeExamService.startExam(scheduleId, studentId, ipAddress, deviceInfo, passwordParam)
 
     res.status(200).json({
       success: true,
@@ -35,10 +35,10 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
 
 export async function getExamContent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { examId, attemptId } = examAttemptParamsSchema.parse(req.params)
+    const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
     const studentId             = req.user!.profileId
 
-    const result = await takeExamService.getExamContent(examId, attemptId, studentId)
+    const result = await takeExamService.getExamContent(scheduleId, attemptId, studentId)
 
     res.status(200).json({
       success: true,
@@ -54,12 +54,12 @@ export async function getExamContent(req: Request, res: Response, next: NextFunc
 
 export async function saveAnswer(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { examId, attemptId } = saveAnswerParamsSchema.parse(req.params)
+    const { scheduleId, attemptId } = saveAnswerParamsSchema.parse(req.params)
     const { questionId, answer } = saveAnswerBodySchema.parse(req.body)
     const studentId              = req.user!.profileId
 
     const result = await takeExamService.saveAnswer(
-      examId,
+      scheduleId,
       attemptId,
       studentId,
       questionId,
@@ -81,10 +81,10 @@ export async function saveAnswer(req: Request, res: Response, next: NextFunction
 
 export async function submitExam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { examId, attemptId } = examAttemptParamsSchema.parse(req.params)
+    const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
     const studentId             = req.user!.profileId
 
-    const result = await takeExamService.submitExam(examId, attemptId, studentId)
+    const result = await takeExamService.submitExam(scheduleId, attemptId, studentId)
 
     res.status(200).json({
       success: true,
@@ -100,10 +100,10 @@ export async function submitExam(req: Request, res: Response, next: NextFunction
 
 export async function getAttemptStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { examId, attemptId } = examAttemptParamsSchema.parse(req.params)
+    const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
     const studentId             = req.user!.profileId
 
-    const result = await takeExamService.getAttemptStatus(examId, attemptId, studentId)
+    const result = await takeExamService.getAttemptStatus(scheduleId, attemptId, studentId)
 
     res.status(200).json({
       success: true,
@@ -120,10 +120,10 @@ export async function getAttemptStatus(req: Request, res: Response, next: NextFu
 
 export async function sendHeartbeat(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { examId, attemptId } = sendHeartbeatParamsSchema.parse(req.params)
+    const { scheduleId, attemptId } = sendHeartbeatParamsSchema.parse(req.params)
     const studentId = req.user!.profileId
 
-    const result = await takeExamService.sendHeartbeat(examId, attemptId, studentId)
+    const result = await takeExamService.sendHeartbeat(scheduleId, attemptId, studentId)
 
     res.status(200).json({
       success: true,
@@ -139,12 +139,12 @@ export async function sendHeartbeat(req: Request, res: Response, next: NextFunct
 
 export async function runCode(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { examId, attemptId, questionId } = runCodeParamsSchema.parse(req.params)
+    const { scheduleId, attemptId, questionId } = runCodeParamsSchema.parse(req.params)
     const { sourceCode } = runCodeBodySchema.parse(req.body)
     const studentId = req.user!.profileId
 
     const result = await takeExamService.runCode(
-      examId,
+      scheduleId,
       attemptId,
       questionId,
       studentId,

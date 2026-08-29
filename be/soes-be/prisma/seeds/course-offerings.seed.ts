@@ -30,6 +30,7 @@ export async function seedCourseOfferings(
         id: o.id,
         code: o.code,
         status: 'ACTIVE',
+        maxCapacity: 50,
         semesterId: semesters[o.semesterIdx].id,
         subjectId: subjects[o.subjectIdx].id,
         teacherId: teachers[o.teacherIdx].id,

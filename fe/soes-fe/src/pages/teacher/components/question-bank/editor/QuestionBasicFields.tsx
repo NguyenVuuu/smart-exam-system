@@ -1,14 +1,8 @@
 ﻿import AppSelect from '../../../../../components/common/AppSelect'
 import type { Question, QuestionType } from '../../../types/teacher-question-bank.types'
 
-export const MOCK_SUBJECTS = [
-  { id: 'sub-01', name: 'Lập trình Java căn bản' },
-  { id: 'sub-02', name: 'Cấu trúc dữ liệu và Giải thuật' },
-  { id: 'sub-03', name: 'Lập trình C++' },
-  { id: 'sub-04', name: 'Cơ sở dữ liệu' },
-]
-
 export function QuestionBasicFields({
+  subjects,
   subjectId,
   onSubjectChange,
   questionType,
@@ -19,6 +13,7 @@ export function QuestionBasicFields({
   onContentChange,
   questionTypeOptions,
 }: {
+  subjects: Array<{ id: string; name: string }>
   subjectId: string
   onSubjectChange: (id: string) => void
   questionType: QuestionType
@@ -39,7 +34,7 @@ export function QuestionBasicFields({
             onChange={onSubjectChange}
             buttonClassName="bg-gray-50 text-blue-900"
             menuClassName="z-50"
-            options={MOCK_SUBJECTS.map((subject) => ({
+            options={subjects.map((subject) => ({
               value: subject.id,
               label: subject.name,
             }))}

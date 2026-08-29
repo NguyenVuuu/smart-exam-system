@@ -76,7 +76,16 @@ export async function findStudentSubjects(params: SubjectQueryParams) {
               select: { user: { select: { fullName: true } } },
             },
             _count: {
-              select: { materials: true, exams: true },
+              select: { materials: true },
+            },
+            scheduleCourses: {
+              where: {
+                examSchedule: {
+                  publishedAt: { not: null },
+                  status: { in: ['SCHEDULED', 'OPEN', 'CLOSED'] },
+                },
+              },
+              select: { id: true },
             },
           },
         },

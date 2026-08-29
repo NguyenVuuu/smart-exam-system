@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   EvidenceImageModal,
@@ -21,23 +21,28 @@ import {
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { MOCK_EXAM_SUBMISSIONS, MOCK_VIOLATIONS } from './mock/teacher-exam.mock'
-import type { ExamSchedule, ExamSubmission, ExamStudentVisibility, ResultReleaseMode } from './types/teacher-exam.types'
-import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
+import type { Exam, ExamSchedule, ExamSubmission, ExamStudentVisibility, ResultReleaseMode } from './types/teacher-exam.types'
 import { useAuthStore } from '../../store/authStore'
 import { toast } from 'sonner'
+import { useTeacherExamDetail } from './hooks/useTeacherExamDetail'
+import { useTeacherExamSchedules } from './hooks/useTeacherExamSchedules'
+import CancelTeacherScheduleDialog from './components/exam-detail/CancelTeacherScheduleDialog'
 
 export default function TeacherExamDetailPage() {
   const { examId } = useParams<{ examId: string }>()
+  const { exam, loading, error, retry } = useTeacherExamDetail(examId)
+
+  if (loading) return <ExamDetailState message="Đang tải đề thi..." />
+  if (!exam) return <ExamDetailState message={error ?? 'Không tìm thấy đề thi.'} onRetry={() => void retry()} />
+  return <TeacherExamDetailContent key={exam.id} exam={exam} />
+}
+
+function TeacherExamDetailContent({ exam }: { exam: Exam }) {
   const navigate = useNavigate()
   const currentUser = useAuthStore((state) => state.user)
-  const exams = useTeacherWorkspaceStore((state) => state.exams)
-  const setExamVisibility = useTeacherWorkspaceStore((state) => state.setExamVisibility)
-  const replaceExamSchedules = useTeacherWorkspaceStore((state) => state.replaceExamSchedules)
-  const matchedExam = exams.find((item) => item.id === examId)
-  const exam = matchedExam ?? exams[0]
 
   const [activeTab, setActiveTab] = useState<ExamDetailTab>('sessions')
-  const [sessions, setSessions] = useState<ExamSchedule[]>(exam.schedules ?? [])
+  const { schedules: sessions, courses, save: saveSchedule, cancel: cancelSchedule } = useTeacherExamSchedules(exam.id, exam.subjectId)
   const [studentVisibility, setStudentVisibility] = useState<ExamStudentVisibility>(exam.studentVisibility)
   const [selectedSessionId, setSelectedSessionId] = useState((exam.schedules ?? [])[0]?.id ?? '')
   const [submissions, setSubmissions] = useState<ExamSubmission[]>(MOCK_EXAM_SUBMISSIONS.filter((item) => item.examId === exam.id))
@@ -55,6 +60,11 @@ export default function TeacherExamDetailPage() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [editingSession, setEditingSession] = useState<ExamSchedule | null>(null)
   const [viewingSession, setViewingSession] = useState<ExamSchedule | null>(null)
+  const [cancellingSession, setCancellingSession] = useState<ExamSchedule | null>(null)
+
+  useEffect(() => {
+    if (!selectedSessionId && sessions[0]) setSelectedSessionId(sessions[0].id)
+  }, [selectedSessionId, sessions])
 
   const resultReleaseText =
     resultReleaseMode === 'IMMEDIATE'
@@ -82,6 +92,8 @@ export default function TeacherExamDetailPage() {
           ? {
               ...submission,
               manualScoreOverride: overrideScoreInput,
+
+
               overrideReason: overrideReason.trim(),
               finalScore: overrideScoreInput,
               scoreAdjustments: [
@@ -119,11 +131,8 @@ export default function TeacherExamDetailPage() {
   }
 
   const updateSelectedSchedule = (updates: Partial<ExamSchedule>) => {
-    setSessions((current) => {
-      const next = current.map((schedule) => schedule.id === selectedSessionId ? { ...schedule, ...updates } : schedule)
-      replaceExamSchedules(exam.id, next)
-      return next
-    })
+    const current = sessions.find((schedule) => schedule.id === selectedSessionId)
+    if (current) void saveSchedule({ ...current, ...updates }, current.id)
   }
 
   const selectSession = (sessionId: string) => {
@@ -136,29 +145,33 @@ export default function TeacherExamDetailPage() {
 
   const renderActiveTab = () => {
     switch (activeTab) {
-      case 'sessions':
+      case 'sessions': {
+        const isFinalExam = exam.category === 'FINAL'
         return (
           <ExamSessionsTab
             sessions={sessions}
+            canCreate={!isFinalExam && Boolean(exam.capabilities?.canSchedule)}
             onCreateSession={() => {
               setEditingSession(null)
               setIsAssignModalOpen(true)
             }}
             onViewSession={setViewingSession}
-            onEditSession={(session) => {
-              setEditingSession(session)
-              setIsAssignModalOpen(true)
-            }}
-            onDeleteSession={(sessionId) => {
-              if (!window.confirm('Xác nhận hủy ca thi này? Lịch đã thông báo cho sinh viên sẽ được lưu vết.')) return
-              setSessions((prev) => {
-                const next = prev.map((session) => session.id === sessionId ? { ...session, status: 'CANCELLED' as const } : session)
-                replaceExamSchedules(exam.id, next)
-                return next
-              })
-            }}
+            onEditSession={
+              !isFinalExam
+                ? (session) => {
+                    setEditingSession(session)
+                    setIsAssignModalOpen(true)
+                  }
+                : undefined
+            }
+            onDeleteSession={
+              !isFinalExam
+                ? (sessionId) => setCancellingSession(sessions.find(({ id }) => id === sessionId) ?? null)
+                : undefined
+            }
           />
         )
+      }
       case 'proctoring':
         return (
           <ExamProctoringTab
@@ -194,26 +207,6 @@ export default function TeacherExamDetailPage() {
     }
   }
 
-  if (!matchedExam) {
-    return (
-      <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
-        <TeacherSidebar />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <TeacherTopBar />
-          <main className="flex-1 grid place-items-center p-6">
-            <div className="text-center">
-              <h1 className="text-lg font-semibold text-gray-900">Không tìm thấy đề thi</h1>
-              <p className="mt-1 text-xs text-gray-500">Đề thi không tồn tại hoặc bạn không có quyền truy cập.</p>
-              <button onClick={() => navigate('/teacher/exams')} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700">
-                Quay lại quản lý đề thi
-              </button>
-            </div>
-          </main>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
@@ -232,11 +225,9 @@ export default function TeacherExamDetailPage() {
             }}
             onPreview={() => setIsPreviewOpen(true)}
             onCopy={() => navigate(`/teacher/exams/create?copyFrom=${exam.id}`)}
-            onToggleStudentVisibility={() => setStudentVisibility((current) => {
-              const next = current === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN'
-              setExamVisibility(exam.id, next)
-              return next
-            })}
+            onToggleStudentVisibility={() =>
+              setStudentVisibility((current) => (current === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN'))
+            }
           />
           <ExamDetailTabs activeTab={activeTab} onChange={setActiveTab} />
           {renderActiveTab()}
@@ -272,6 +263,7 @@ export default function TeacherExamDetailPage() {
         isOpen={isAssignModalOpen}
         examId={exam.id}
         subjectName={exam.subjectName}
+        courses={courses}
         onClose={() => {
           setIsAssignModalOpen(false)
           setEditingSession(null)
@@ -296,22 +288,50 @@ export default function TeacherExamDetailPage() {
         }}
         initialSessions={editingSession ? [editingSession] : undefined}
         initialEditingSessionId={editingSession?.id}
-        onCreateSessions={(newSessions) => {
-          setSessions((prev) => {
-            const next = editingSession
-              ? prev.map((session) => (session.id === editingSession.id ? newSessions[0] ?? session : session))
-              : [...prev, ...newSessions]
-            replaceExamSchedules(exam.id, next)
-            return next
-          })
-          setSelectedSessionId((prev) => prev || newSessions[0]?.id || '')
-          setActiveTab('sessions')
+        onCreateSessions={async (newSessions) => {
+          try {
+            const saved = await Promise.all(newSessions.map((session) => saveSchedule(session, editingSession?.id)))
+            setSelectedSessionId((current) => current || saved[0]?.id || '')
+            setActiveTab('sessions')
+            toast.success(editingSession ? 'Đã cập nhật ca thi.' : 'Đã tạo ca thi.')
+          } catch {
+            toast.error('Không thể lưu ca thi. Vui lòng kiểm tra thời gian, lớp và trạng thái đề.')
+            throw new Error('Schedule save failed')
+          }
         }}
       />
       <ExamSessionDetailModal
         session={viewingSession}
         onClose={() => setViewingSession(null)}
       />
+      <CancelTeacherScheduleDialog
+        key={cancellingSession?.id ?? 'closed-schedule-dialog'}
+        schedule={cancellingSession}
+        onClose={() => setCancellingSession(null)}
+        onConfirm={async (reason) => {
+          if (!cancellingSession) return
+          await cancelSchedule(cancellingSession.id, reason)
+          setCancellingSession(null)
+          toast.success('Đã hủy ca thi.')
+        }}
+      />
+    </div>
+  )
+}
+
+function ExamDetailState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
+      <TeacherSidebar />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <TeacherTopBar />
+        <main className="grid flex-1 place-items-center p-6">
+          <div className="text-center">
+            <h1 className="text-lg font-semibold text-gray-900">{message}</h1>
+            {onRetry && <button onClick={onRetry} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Thử lại</button>}
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
-import prisma from "../../../lib/prisma";
+import bcrypt from 'bcrypt'
 import { examConfig } from "../../../config";
 import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
@@ -26,64 +26,67 @@ async function runInBatches<T, R>(
 }
 
 export async function startExam(
-  examId: string,
+  scheduleId: string,
   studentId: string,
   ipAddress: string,      
-  deviceInfo: string,  
+  deviceInfo: string,
   password?: string,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
-  const exam = await repo.findExamById(examId);
-  if (!exam) {
-    throw new NotFoundError("Exam not found");
+  const schedule = await repo.findScheduleById(scheduleId);
+  if (!schedule) {
+    throw new NotFoundError("Exam schedule not found");
   }
 
   // ── 2. CourseOffering must exist ──────────────────────────────────────────
-  if (!exam.courseOfferingId) {
-    throw new NotFoundError("Course offering not found");
-  }
-
-  // ── 3. Student must be enrolled in the exam's course offering ─────────────
-  const enrollment = await repo.findEnrollment(
-    exam.courseOfferingId,
-    studentId,
-  );
+  const enrollment = await repo.findEnrollment(scheduleId, studentId);
   if (!enrollment) {
     throw new NotFoundError("Not Found");
   }
 
   // ── 4. Exam must be PUBLISHED ─────────────────────────────────────────────
-  if (exam.status !== "PUBLISHED") {
-    throw new ConflictError("Exam is not published");
+  if (!['SCHEDULED', 'OPEN'].includes(schedule.status)) {
+    throw new ConflictError("Exam schedule is not available");
   }
 
   // ── 5. Exam must have publishedAt ─────────────────────────────────────────
-  if (!exam.publishedAt) {
-    throw new ConflictError("Exam has not been published yet");
+  if (!schedule.publishedAt) {
+    throw new ConflictError("Exam schedule has not been published yet");
   }
 
-  // ── 6. Time window: startTime <= now < endTime ────────────────────────────
+  // ── 6. Time window & Active attempt resumption ─────────────────────────────
   const now = new Date();
 
-  if (now < exam.startTime) {
+  if (now < schedule.startTime) {
     throw new ConflictError("Exam has not started yet");
   }
 
-  if (now >= exam.endTime) {
+  // Allow student to resume if active attempt is valid (e.g. granted extra time beyond schedule.endTime)
+  const activeAttempt = await repo.findActiveAttempt(scheduleId, studentId);
+  if (activeAttempt && activeAttempt.deadlineAt > now) {
+    return {
+      attemptId: activeAttempt.id,
+      startedAt: activeAttempt.startedAt,
+      attemptEndAt: activeAttempt.deadlineAt,
+      remainingSeconds: Math.floor((activeAttempt.deadlineAt.getTime() - now.getTime()) / 1000),
+    };
+  }
+
+  if (now >= schedule.endTime) {
     throw new ConflictError("Exam has already ended");
   }
 
   // ── 7. Attempt limit ──────────────────────────────────────────────────────
-  const attemptCount = await repo.countAttemptsForExam(examId, studentId);
-  if (attemptCount >= exam.maxAttempts) {
+  const attemptCount = await repo.countAttemptsForSchedule(scheduleId, studentId);
+  if (attemptCount >= schedule.maxAttempts) {
     throw new ConflictError("Maximum attempts reached");
   }
 
   // ── 8. Password check (before creating attempt) ───────────────────────────
   // Contract: checked after all other validations but before attempt creation.
   // Missing password or wrong password → 403 "Invalid exam password".
-  if (exam.password !== null) {
-    if (!password || password !== exam.password) {
+  if (schedule.passwordHash !== null) {
+    if (!password || !(await bcrypt.compare(password, schedule.passwordHash))) {
       throw new ForbiddenError("Invalid exam password");
     }
   }
@@ -93,10 +96,10 @@ export async function startExam(
   const startedAt = now;
 
   const durationEndAt = new Date(
-    startedAt.getTime() + exam.durationMinutes * 60 * 1000,
+    startedAt.getTime() + schedule.durationMinutes * 60 * 1000,
   );
   const attemptEndAt =
-    durationEndAt < exam.endTime ? durationEndAt : exam.endTime;
+    durationEndAt < schedule.endTime ? durationEndAt : schedule.endTime;
 
   const remainingSeconds = Math.max(
     0,
@@ -104,19 +107,23 @@ export async function startExam(
   );
 
   // ── 9. Create attempt (safe against concurrent duplicate requests) ─────────
-  let attempt: { id: string; startedAt: Date; remainingSeconds: number };
+  let attempt: { id: string; startedAt: Date; deadlineAt: Date };
 
   // Note: attemptEndAt is stored as authoritative deadline in DB.
   // remainingSeconds is stored as a snapshot for countdown initialization only.
   // Both values are computed from startedAt + exam.durationMinutes, not updated later.
   try {
     attempt = await repo.createAttemptSafe({
-      examId,
+      scheduleId,
+      examId: schedule.exam.id,
+      courseOfferingId: enrollment.courseOfferingId,
       studentId,
       startedAt,
-      attemptEndAt,
-      remainingSeconds,
-      shuffleQuestions: exam.shuffleQuestions,
+      deadlineAt: attemptEndAt,
+      attemptNo: attemptCount + 1,
+      shuffleQuestions: ['SHUFFLE_QUESTIONS', 'SHUFFLE_QUESTIONS_AND_OPTIONS', 'RANDOM_SUBSET'].includes(schedule.distributionMode),
+      shuffleOptions: ['SHUFFLE_OPTIONS', 'SHUFFLE_QUESTIONS_AND_OPTIONS'].includes(schedule.distributionMode),
+      randomQuestionCount: schedule.randomQuestionCount,
       ipAddress,
       deviceInfo,  
     });
@@ -138,21 +145,21 @@ export async function startExam(
     attemptId: attempt.id,
     startedAt: attempt.startedAt,
     attemptEndAt,
-    remainingSeconds: attempt.remainingSeconds,
+    remainingSeconds,
   };
 }
 
 // ─── API 2: Get Exam Content ──────────────────────────────────────────────────
 
 export async function getExamContent(
-  examId: string,
+  scheduleId: string,
   attemptId: string,
   studentId: string,
 ): Promise<ExamContentResult> {
   // ── 1. Load attempt + questions + saved answers (ownership in repo) ───────
   const result = await repo.findAttemptWithContent(
     attemptId,
-    examId,
+    scheduleId,
     studentId,
   );
   if (!result) {
@@ -163,14 +170,14 @@ export async function getExamContent(
 
   // ── 2. Check expiry using attemptEndAt from DB ─────────────────────────────
   const now = new Date();
-  if (attempt.status !== 'IN_PROGRESS' || now >= attempt.attemptEndAt) {
+  if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
     throw new ConflictError("Exam attempt has ended");
   }
 
   // ── 3. Compute remainingSeconds realtime from attemptEndAt ────────────────
   const remainingSeconds = Math.max(
     0,
-    Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
+    Math.floor((attempt.deadlineAt.getTime() - now.getTime()) / 1000),
   );
 
   // ── 4. Build question list from the attempt snapshot ─────────────────────
@@ -213,10 +220,10 @@ export async function getExamContent(
 
   return {
     attemptId:       attempt.id,
-    title:           attempt.exam.title,
-    durationMinutes: attempt.exam.durationMinutes,
+    title:           attempt.examSchedule.title,
+    durationMinutes: attempt.examSchedule.durationMinutes,
     remainingSeconds,
-    attemptEndAt:    attempt.attemptEndAt,
+    attemptEndAt:    attempt.deadlineAt,
     questions,
   };
 }
@@ -224,56 +231,19 @@ export async function getExamContent(
 // ─── API 3: Save Answer ───────────────────────────────────────────────────────
 
 export async function saveAnswer(
-  examId: string,
+  scheduleId: string,
   attemptId: string,
   studentId: string,
   questionId: string,
   answer: string | string[],
 ): Promise<{ questionId: string; remainingSeconds: number }> {
   // ── 1. Load attempt with exam and attempt questions ───────────────────────
-  const attempt = await prisma.examAttempt.findUnique({
-    where: { id: attemptId },
-    select: {
-      id: true,
-      examId: true,
-      studentId: true,
-      status: true,
-      attemptEndAt: true,
-      lastSavedAt: true,
-      exam: {
-        select: {
-          endTime: true,
-        },
-      },
-      attemptQuestions: {
-        where: {
-          examQuestionId: questionId,
-        },
-        select: {
-          examQuestion: {
-            select: {
-              id: true,
-              type: true,
-              options: true,
-              language: true,
-            },
-          },
-        },
-      },
-    },
-  });
+  const attempt = await repo.findAttemptForAnswer(attemptId, scheduleId, studentId, questionId)
 
   // Validate attempt exists and belongs to student and exam
   if (!attempt) {
     throw new NotFoundError("Attempt not found");
   }
-  if (attempt.studentId !== studentId) {
-    throw new NotFoundError("Attempt not found");
-  }
-  if (attempt.examId !== examId) {
-    throw new NotFoundError("Attempt not found");
-  }
-
   // ── 2. Check attempt status ───────────────────────────────────────────────
   if (attempt.status !== "IN_PROGRESS") {
     throw new ConflictError("Exam attempt has ended");
@@ -281,7 +251,7 @@ export async function saveAnswer(
 
   // ── 3. Check attemptEndAt ──────────────────────────────────────────────────
   const now = new Date();
-  if (now >= attempt.attemptEndAt) {
+  if (now >= attempt.deadlineAt) {
     throw new ConflictError("Exam attempt has ended");
   }
 
@@ -340,37 +310,12 @@ export async function saveAnswer(
 
   // ── 6. Create or update StudentAnswer atomically ───────────────────────────
   // Using upsert to handle both create and update in a single atomic operation
-  await prisma.$transaction([
-    prisma.studentAnswer.upsert({
-      where: {
-        attemptId_examQuestionId: {
-          attemptId,
-          examQuestionId: questionId,
-        },
-      },
-      update: {
-        selectedOptionIds,
-        draftSourceCode,
-      },
-      create: {
-        attemptId,
-        examQuestionId: questionId,
-        selectedOptionIds,
-        draftSourceCode,
-      },
-    }),
-
-    // ── 7. Update lastSavedAt ──────────────────────────────────────────────────
-    prisma.examAttempt.update({
-      where: { id: attemptId },
-      data: { lastSavedAt: now },
-    }),
-  ]);
+  await repo.saveAnswer(attemptId, questionId, selectedOptionIds, draftSourceCode, now)
 
   // ── 8. Calculate remainingSeconds (realtime) ──────────────────────────────
   const remainingSeconds = Math.max(
     0,
-    Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
+    Math.floor((attempt.deadlineAt.getTime() - now.getTime()) / 1000),
   );
 
   return {
@@ -382,7 +327,7 @@ export async function saveAnswer(
 // ─── API 4: Submit Exam ───────────────────────────────────────────────────────
 
 export async function submitExam(
-  examId: string,
+  scheduleId: string,
   attemptId: string,
   studentId: string,
 ): Promise<SubmitExamResult> {
@@ -407,22 +352,7 @@ export async function submitExam(
   // The transition and submittedAt assignment happen in one statement, so
   // no intermediate dirty state is visible to other connections.
 
-  const updated = await prisma.examAttempt.updateMany({
-    where: {
-      id:          attemptId,
-      examId:      examId,
-      studentId:   studentId,
-      status:      'IN_PROGRESS',
-      attemptEndAt: { gt: now },        // attemptEndAt > now  ← deadline guard
-    },
-    data: {
-      status:      'SUBMITTED',
-      submittedAt: now,
-      endedBy:     'STUDENT',
-      // attemptEndAt, remainingSeconds, and StudentAnswers are intentionally
-      // NOT touched here, per contract.
-    },
-  });
+  const updated = await repo.submitAttempt(attemptId, scheduleId, studentId, now)
 
   // ── Update succeeded → return success ─────────────────────────────────────
   if (updated.count > 0) {
@@ -435,22 +365,13 @@ export async function submitExam(
   // ── Update did not match → determine why and throw the correct error ───────
   // Load minimal data to distinguish between: not found / wrong ownership /
   // wrong exam, already SUBMITTED, already EXPIRED, or deadline passed.
-  const attempt = await prisma.examAttempt.findUnique({
-    where: { id: attemptId },
-    select: {
-      id:           true,
-      examId:       true,
-      studentId:    true,
-      status:       true,
-      attemptEndAt: true,
-    },
-  });
+  const attempt = await repo.findAttemptIdentity(attemptId)
 
   // 404 conditions: attempt missing, belongs to another exam, or another student
   if (!attempt) {
     throw new NotFoundError('Attempt not found');
   }
-  if (attempt.examId !== examId) {
+  if (attempt.examScheduleId !== scheduleId) {
     throw new NotFoundError('Attempt not found');
   }
   if (attempt.studentId !== studentId) {
@@ -463,7 +384,7 @@ export async function submitExam(
   }
 
   // EXPIRED, or still IN_PROGRESS but deadline has passed
-  if (attempt.status === 'EXPIRED') {
+  if (attempt.status === 'AUTO_SUBMITTED' || attempt.status === 'INVALIDATED') {
     throw new ConflictError('Exam attempt has ended');
   }
 
@@ -474,12 +395,12 @@ export async function submitExam(
 // ─── API 5: Get Attempt Status ────────────────────────────────────────────────
 
 export async function getAttemptStatus(
-  examId:    string,
+  scheduleId: string,
   attemptId: string,
   studentId: string,
 ): Promise<AttemptStatusResult> {
   // ── 1. Load attempt with session + counts (ownership validated in repo) ───
-  const data = await repo.findAttemptStatus(attemptId, examId, studentId)
+  const data = await repo.findAttemptStatus(attemptId, scheduleId, studentId)
   if (!data) {
     throw new NotFoundError('Attempt not found')
   }
@@ -490,7 +411,7 @@ export async function getAttemptStatus(
 
   const remainingSeconds =
     data.status === 'IN_PROGRESS'
-      ? Math.max(0, Math.floor((data.attemptEndAt.getTime() - now.getTime()) / 1000))
+      ? Math.max(0, Math.floor((data.deadlineAt.getTime() - now.getTime()) / 1000))
       : 0
 
   // ── 3. Compute isOnline from lastHeartbeat (NOT from ExamSession.isOnline) ─
@@ -502,7 +423,7 @@ export async function getAttemptStatus(
     attemptId:          data.id,
     status:             data.status,
     startedAt:          data.startedAt,
-    attemptEndAt:       data.attemptEndAt,
+    attemptEndAt:       data.deadlineAt,
     submittedAt:        data.submittedAt,
     endedBy:            data.endedBy,
     remainingSeconds,
@@ -516,14 +437,14 @@ export async function getAttemptStatus(
 // ─── API 6: Send Heartbeat ───────────────────────────────────────────────────
 
 export async function sendHeartbeat(
-  examId: string,
+  scheduleId: string,
   attemptId: string,
   studentId: string,
 ): Promise<SendHeartbeatResult> {
   const now = new Date()
 
   // ── 1. Load attempt and validate ownership ─────────────────────────────────
-  const attemptData = await repo.findAttemptForHeartbeat(attemptId, examId, studentId)
+  const attemptData = await repo.findAttemptForHeartbeat(attemptId, scheduleId, studentId)
   if (!attemptData) {
     throw new NotFoundError("Attempt not found")
   }
@@ -537,7 +458,7 @@ export async function sendHeartbeat(
   }
 
   // ── 3. Check deadline (attemptEndAt) ───────────────────────────────────────
-  if (now >= attemptData.attemptEndAt) {
+  if (now >= attemptData.deadlineAt) {
     throw new ConflictError("Exam attempt has ended")
   }
 
@@ -547,7 +468,7 @@ export async function sendHeartbeat(
   // ── 5. Compute remainingSeconds realtime ───────────────────────────────────
   const remainingSeconds = Math.max(
     0,
-    Math.floor((attemptData.attemptEndAt.getTime() - now.getTime()) / 1000),
+    Math.floor((attemptData.deadlineAt.getTime() - now.getTime()) / 1000),
   )
 
   // ── 6. Return result with isOnline = true (student just sent heartbeat) ─────
@@ -561,7 +482,7 @@ export async function sendHeartbeat(
 
 
 export async function runCode(
-  examId: string,
+  scheduleId: string,
   attemptId: string,
   questionId: string,
   studentId: string,
@@ -573,7 +494,7 @@ export async function runCode(
   const data = await repo.findProgrammingQuestionWithTestCases(
     questionId,
     attemptId,
-    examId,
+    scheduleId,
     studentId,
   )
   if (!data) {

@@ -92,16 +92,16 @@ export async function getExamDetail(
   try {
     const studentId = req.user!.profileId;
     const courseOfferingId = req.params.courseOfferingId as string;
-    const examId = req.params.examId as string;
+    const scheduleId = req.params.scheduleId as string;
 
     const data = await studentCourseDetailService.getExamDetail(
       studentId,
       courseOfferingId,
-      examId,
+      scheduleId,
     );
 
     if (!data) {
-      throw new NotFoundError("Exam not found");
+      throw new NotFoundError("Exam schedule not found");
     }
 
     res.status(200).json({

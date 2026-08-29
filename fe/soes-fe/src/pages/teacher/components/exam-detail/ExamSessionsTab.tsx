@@ -1,4 +1,4 @@
-﻿import { CalendarClock, Plus } from 'lucide-react'
+import { CalendarClock, Plus } from 'lucide-react'
 import AppCard from '../../../../components/common/AppCard'
 import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionList } from './session/ExamSessionList'
@@ -9,12 +9,14 @@ export default function ExamSessionsTab({
   onViewSession,
   onEditSession,
   onDeleteSession,
+  canCreate = true,
 }: {
   sessions: ExamSchedule[]
   onCreateSession: () => void
   onViewSession: (session: ExamSchedule) => void
-  onEditSession: (session: ExamSchedule) => void
-  onDeleteSession: (sessionId: string) => void
+  onEditSession?: (session: ExamSchedule) => void
+  onDeleteSession?: (sessionId: string) => void
+  canCreate?: boolean
 }) {
   return (
     <div className="space-y-5">
@@ -31,13 +33,15 @@ export default function ExamSessionsTab({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onCreateSession}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors"
-        >
-          <Plus size={17} /> Tạo ca thi
-        </button>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={onCreateSession}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors"
+          >
+            <Plus size={17} /> Tạo ca thi
+          </button>
+        )}
       </AppCard>
 
       <ExamSessionList

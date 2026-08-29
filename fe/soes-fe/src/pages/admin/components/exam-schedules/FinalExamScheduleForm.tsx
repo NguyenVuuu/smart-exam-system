@@ -5,25 +5,38 @@
 } from '../../constants/finalExamScheduleOptions'
 import { useFinalExamScheduleForm } from '../../hooks/useFinalExamScheduleForm'
 import type { AdminExam, AdminExamSchedule } from '../../types/admin.types'
+import type { AdminSubject, AdminUser, CourseOfferingAdmin, Department } from '../../types/admin.types'
 import CourseProctorPicker from './CourseProctorPicker'
 import FinalExamScheduleFields from './FinalExamScheduleFields'
 
 export default function FinalExamScheduleForm({
   exams,
   schedules,
+  departments,
+  subjects,
+  courses,
+  users,
   editingSchedule,
   onClose,
   onSubmit,
 }: {
   exams: AdminExam[]
   schedules: AdminExamSchedule[]
+  departments: Department[]
+  subjects: AdminSubject[]
+  courses: CourseOfferingAdmin[]
+  users: AdminUser[]
   editingSchedule?: AdminExamSchedule | null
   onClose: () => void
-  onSubmit: (schedule: AdminExamSchedule) => void
+  onSubmit: (schedule: AdminExamSchedule) => void | Promise<void>
 }) {
   const { formState, options, actions } = useFinalExamScheduleForm({
     exams,
     schedules,
+    departments,
+    subjects,
+    courses,
+    users,
     editingSchedule,
     onClose,
     onSubmit,

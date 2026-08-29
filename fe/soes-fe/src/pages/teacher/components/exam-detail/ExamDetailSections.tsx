@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   CalendarClock,
   Camera,
@@ -26,6 +26,7 @@ import type {
   ViolationRecord,
 } from '../../types/teacher-exam.types'
 import { getExamCapabilities } from '../../utils/ExamCapabilities'
+import { formatSessionRange } from '../../../../utils/date.utils'
 
 export type ExamDetailTab = 'sessions' | 'overview' | 'submissions' | 'proctoring'
 
@@ -279,7 +280,7 @@ export function ExamProctoringTab({
           <h2 className="text-base font-semibold text-gray-900">Nhật ký giám sát chống gian lận</h2>
           <p className="text-sm text-gray-500 mt-0.5">
             {selectedSession
-              ? `${selectedSession.courseCode} • ${selectedSession.startTime.replace('T', ' ')} - ${selectedSession.endTime.replace('T', ' ')}`
+              ? `${selectedSession.courseCode} • ${formatSessionRange(selectedSession.startTime, selectedSession.endTime)}`
               : 'Chưa có ca thi để giám sát'}
           </p>
         </div>
@@ -292,7 +293,7 @@ export function ExamProctoringTab({
             buttonClassName="bg-gray-50 rounded-xl py-2.5 text-sm"
             options={sessions.map((session) => ({
               value: session.id,
-              label: `${session.courseCode} • ${session.startTime.replace('T', ' ')}`,
+              label: `${session.courseCode} • ${formatSessionRange(session.startTime, session.endTime)}`,
             }))}
           />
           <button
@@ -428,7 +429,7 @@ export function ExamSubmissionsTab({
           buttonClassName="bg-gray-50 rounded-xl py-2.5 text-sm"
           options={sessions.map((session) => ({
             value: session.id,
-            label: `${session.courseCode} • ${session.startTime.replace('T', ' ')}`,
+            label: `${session.courseCode} • ${formatSessionRange(session.startTime, session.endTime)}`,
           }))}
         />
       </div>

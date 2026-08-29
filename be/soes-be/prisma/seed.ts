@@ -11,6 +11,7 @@ import { seedEnrollments } from './seeds/enrollments.seed'
 import { seedMaterials } from './seeds/materials.seed'
 import { seedQuestions } from './seeds/questions.seed'
 import { seedExams } from './seeds/exams.seed'
+import { seedExamSchedules } from './seeds/exam-schedules.seed'
 import { seedExamAttempts } from './seeds/exam-attempts.seed'
 import { seedExamAttemptQuestions } from './seeds/exam-attempt-questions.seed'
 import { seedStudentAnswers } from './seeds/student-answers.seed'
@@ -48,7 +49,8 @@ async function main() {
 
   const questions = await seedQuestions(prisma, { subjects, teachers })
 
-  await seedExams(prisma, { courseOfferings, subjects, teachers, questions })
+  const exams = await seedExams(prisma, { subjects, teachers })
+  await seedExamSchedules(prisma, { exams, courseOfferings, teachers })
 
   // Transaction data — must run after exams
   await seedExamAttempts(prisma)

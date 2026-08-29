@@ -1,4 +1,4 @@
-﻿import { Plus, Upload, Users } from 'lucide-react'
+import { Plus, Upload, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import AdminButton from './components/AdminButton'
@@ -10,320 +10,120 @@ import AdminToolbar from './components/AdminToolbar'
 import ClassEnrollmentModal from './components/class-sections/ClassEnrollmentModal'
 import ClassSectionFormModal from './components/class-sections/ClassSectionFormModal'
 import ClassSectionsTable from './components/class-sections/ClassSectionsTable'
-import {
-  ADMIN_ACADEMIC_YEARS,
-  ADMIN_COURSE_OFFERINGS,
-  ADMIN_DEPARTMENTS,
-  ADMIN_SUBJECTS,
-  ADMIN_USERS,
-} from './mock/admin.mock'
+import { useAdminClassSections } from './hooks/useAdminClassSections'
 import type { CourseOfferingAdmin } from './types/admin.types'
 
 export default function AdminClassSectionsPage() {
-  const [items, setItems] = useState<CourseOfferingAdmin[]>(ADMIN_COURSE_OFFERINGS)
-  const [subject, setSubject] = useState('ALL')
-  const [status, setStatus] = useState<'ALL' | CourseOfferingAdmin['status']>('ALL')
+  const data = useAdminClassSections()
+  const [subjectFilter, setSubjectFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState<'ALL' | CourseOfferingAdmin['status']>('ALL')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingClassId, setEditingClassId] = useState<string | null>(null)
-  const [departmentInput, setDepartmentInput] = useState(ADMIN_DEPARTMENTS[0]?.id ?? '')
-  const [subjectCodeInput, setSubjectCodeInput] = useState(
-    ADMIN_SUBJECTS.find((item) => item.departmentId === ADMIN_DEPARTMENTS[0]?.id)?.code ??
-      ADMIN_SUBJECTS[0]?.code ??
-      '',
-  )
-  const [semesterCodeInput, setSemesterCodeInput] = useState(ADMIN_ACADEMIC_YEARS[0]?.code ?? '')
-  const [classCodeInput, setClassCodeInput] = useState('')
-  const [capacityInput, setCapacityInput] = useState('60')
-  const [teacherIdInput, setTeacherIdInput] = useState(
-    ADMIN_USERS.find((user) => user.role === 'TEACHER')?.id ?? '',
-  )
-  const [classStatusInput, setClassStatusInput] = useState<CourseOfferingAdmin['status']>('OPEN')
+  const [editing, setEditing] = useState<CourseOfferingAdmin | null>(null)
+  const [departmentId, setDepartmentId] = useState('')
+  const [subjectId, setSubjectId] = useState('')
+  const [semesterId, setSemesterId] = useState('')
+  const [classCode, setClassCode] = useState('')
+  const [capacity, setCapacity] = useState('60')
+  const [teacherId, setTeacherId] = useState('')
+  const [classStatus, setClassStatus] = useState<CourseOfferingAdmin['status']>('OPEN')
   const [enrollmentClass, setEnrollmentClass] = useState<CourseOfferingAdmin | null>(null)
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
 
-  const teacherOptions = useMemo(() => ADMIN_USERS.filter((user) => user.role === 'TEACHER'), [])
-  const studentOptions = useMemo(() => ADMIN_USERS.filter((user) => user.role === 'STUDENT'), [])
-  const selectedDepartmentSubjects = useMemo(
-    () => ADMIN_SUBJECTS.filter((item) => item.departmentId === departmentInput),
-    [departmentInput],
+  const departmentSubjects = useMemo(
+    () => data.subjects.filter((item) => item.departmentId === departmentId),
+    [data.subjects, departmentId],
+  )
+  const filteredItems = data.items.filter((item) =>
+    (subjectFilter === 'ALL' || item.subjectId === subjectFilter) &&
+    (statusFilter === 'ALL' || item.status === statusFilter) &&
+    `${item.code} ${item.subjectName} ${item.teacherName}`.toLowerCase().includes(search.toLowerCase()),
+  )
+  const filteredStudents = data.students.filter((item) =>
+    `${item.code} ${item.fullName} ${item.email}`.toLowerCase().includes(studentSearch.toLowerCase()),
   )
 
-  const filteredItems = useMemo(
-    () =>
-      items.filter((item) => {
-        const matchesSubject = subject === 'ALL' || item.subjectCode === subject
-        const matchesStatus = status === 'ALL' || item.status === status
-        const matchesSearch =
-          item.code.toLowerCase().includes(search.toLowerCase()) ||
-          item.subjectName.toLowerCase().includes(search.toLowerCase()) ||
-          item.teacherName.toLowerCase().includes(search.toLowerCase())
-        return matchesSubject && matchesStatus && matchesSearch
-      }),
-    [items, search, status, subject],
-  )
-
-  const filteredStudents = studentOptions.filter(
-    (student) =>
-      student.fullName.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      student.code.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      student.email.toLowerCase().includes(studentSearch.toLowerCase()),
-  )
-
-  const resetClassForm = () => {
-    const defaultDepartmentId = ADMIN_DEPARTMENTS[0]?.id ?? ''
-    const defaultSubject =
-      ADMIN_SUBJECTS.find((item) => item.departmentId === defaultDepartmentId) ?? ADMIN_SUBJECTS[0]
-    setEditingClassId(null)
-    setDepartmentInput(defaultDepartmentId)
-    setSubjectCodeInput(defaultSubject?.code ?? '')
-    setSemesterCodeInput(ADMIN_ACADEMIC_YEARS[0]?.code ?? '')
-    setClassCodeInput('')
-    setCapacityInput('60')
-    setTeacherIdInput(teacherOptions[0]?.id ?? '')
-    setClassStatusInput('OPEN')
+  const resetForm = () => {
+    const firstDepartment = data.departments[0]
+    setEditing(null); setDepartmentId(firstDepartment?.id ?? '')
+    setSubjectId(data.subjects.find(({ departmentId: id }) => id === firstDepartment?.id)?.id ?? '')
+    setSemesterId(data.semesters.find(({ isCurrent }) => isCurrent)?.id ?? data.semesters[0]?.id ?? '')
+    setClassCode(''); setCapacity('60'); setTeacherId(data.teachers[0]?.id ?? ''); setClassStatus('OPEN')
   }
-
-  const openCreateModal = () => {
-    resetClassForm()
-    setModalOpen(true)
+  const openCreate = () => { resetForm(); setModalOpen(true) }
+  const openEdit = (item: CourseOfferingAdmin) => {
+    const subject = data.subjects.find(({ id }) => id === item.subjectId)
+    setEditing(item); setDepartmentId(subject?.departmentId ?? ''); setSubjectId(item.subjectId ?? '')
+    setSemesterId(item.semesterId ?? ''); setClassCode(item.code); setCapacity(String(item.capacity))
+    setTeacherId(item.teacherId ?? ''); setClassStatus(item.status); setModalOpen(true)
   }
-
-  const openEditModal = (item: CourseOfferingAdmin) => {
-    const selectedSubject = ADMIN_SUBJECTS.find((subjectItem) => subjectItem.code === item.subjectCode)
-    const selectedTeacher = teacherOptions.find((teacher) => teacher.fullName === item.teacherName)
-    setEditingClassId(item.id)
-    setDepartmentInput(selectedSubject?.departmentId ?? ADMIN_DEPARTMENTS[0]?.id ?? '')
-    setSubjectCodeInput(item.subjectCode)
-    setSemesterCodeInput(item.semesterCode)
-    setClassCodeInput(item.code)
-    setCapacityInput(String(item.capacity))
-    setTeacherIdInput(selectedTeacher?.id ?? teacherOptions[0]?.id ?? '')
-    setClassStatusInput(item.status)
-    setModalOpen(true)
+  const changeDepartment = (id: string) => {
+    setDepartmentId(id); setSubjectId(data.subjects.find((item) => item.departmentId === id)?.id ?? '')
   }
-
-  const openEnrollmentModal = (item: CourseOfferingAdmin) => {
-    setEnrollmentClass(item)
-    setSelectedStudentIds([])
-    setStudentSearch('')
-  }
-
-  const handleDepartmentChange = (departmentId: string) => {
-    const firstSubject = ADMIN_SUBJECTS.find((item) => item.departmentId === departmentId)
-    setDepartmentInput(departmentId)
-    setSubjectCodeInput(firstSubject?.code ?? '')
-  }
-
-  const handleSaveClass = () => {
-    const selectedSubject = ADMIN_SUBJECTS.find((item) => item.code === subjectCodeInput)
-    const selectedTeacher = teacherOptions.find((teacher) => teacher.id === teacherIdInput)
-    const classCode = classCodeInput.trim().toUpperCase()
-    const capacity = Math.max(1, Number(capacityInput) || 60)
-
-    if (!selectedSubject || !selectedTeacher || !classCode) {
-      toast.error('Vui lòng nhập đầy đủ thông tin lớp học phần.')
-      return
+  const save = async () => {
+    if (!classCode.trim() || !subjectId || !semesterId || !teacherId) {
+      return toast.error('Vui lòng nhập đầy đủ thông tin lớp học phần.')
     }
-
-    const isDuplicate = items.some(
-      (item) => item.id !== editingClassId && item.code.toLowerCase() === classCode.toLowerCase(),
-    )
-    if (isDuplicate) {
-      toast.error('Mã lớp học phần đã tồn tại.')
-      return
-    }
-
-    if (editingClassId) {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === editingClassId
-            ? {
-                ...item,
-                code: classCode,
-                subjectCode: selectedSubject.code,
-                subjectName: selectedSubject.name,
-                semesterCode: semesterCodeInput,
-                teacherName: selectedTeacher.fullName,
-                capacity,
-                status: classStatusInput,
-              }
-            : item,
-        ),
-      )
-      setModalOpen(false)
-      toast.success(`Đã cập nhật lớp ${classCode}.`)
-      return
-    }
-
-    setItems((prev) => [
-      ...prev,
-      {
-        id: createEntityId('co', classCode),
-        code: classCode,
-        subjectCode: selectedSubject.code,
-        subjectName: selectedSubject.name,
-        semesterCode: semesterCodeInput,
-        teacherName: selectedTeacher.fullName,
-        enrolled: 0,
-        capacity,
-        status: classStatusInput,
-      },
-    ])
-    setModalOpen(false)
-    toast.success(`Đã tạo lớp ${classCode}.`)
+    try {
+      await data.save(editing?.id ?? null, {
+        code: classCode.trim().toUpperCase(), subjectId, semesterId, teacherId,
+        maxCapacity: Math.max(1, Number(capacity) || 50), status: classStatus === 'OPEN' ? 'ACTIVE' : 'CLOSED',
+      })
+      setModalOpen(false); toast.success(editing ? 'Đã cập nhật lớp học phần.' : 'Đã tạo lớp học phần.')
+    } catch { toast.error('Không thể lưu lớp học phần. Vui lòng kiểm tra mã lớp.') }
   }
-
-  const handleToggleClassStatus = (item: CourseOfferingAdmin) => {
-    const nextStatus: CourseOfferingAdmin['status'] = item.status === 'OPEN' ? 'CLOSED' : 'OPEN'
-    setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, status: nextStatus } : row)))
-    toast.success(nextStatus === 'OPEN' ? `Đã mở lại lớp ${item.code}.` : `Đã đóng lớp ${item.code}.`)
-  }
-
-  const handleToggleStudent = (studentId: string) => {
-    if (!enrollmentClass) return
-    setSelectedStudentIds((prev) => {
-      if (prev.includes(studentId)) {
-        return prev.filter((id) => id !== studentId)
-      }
-      if (prev.length >= enrollmentClass.capacity) {
-        toast.error('Số sinh viên đã đạt sức chứa tối đa.')
-        return prev
-      }
-      return [...prev, studentId]
-    })
-  }
-
-  const handleSaveEnrollment = () => {
-    if (!enrollmentClass) return
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === enrollmentClass.id ? { ...item, enrolled: selectedStudentIds.length } : item,
-      ),
-    )
-    toast.success(
-      `Đã lưu danh sách ${selectedStudentIds.length} sinh viên cho ${enrollmentClass.code}.`,
-    )
-    setEnrollmentClass(null)
+  const toggleStatus = async (item: CourseOfferingAdmin) => {
+    if (!item.subjectId || !item.semesterId || !item.teacherId) return
+    try {
+      await data.save(item.id, {
+        code: item.code, subjectId: item.subjectId, semesterId: item.semesterId, teacherId: item.teacherId,
+        maxCapacity: item.capacity, status: item.status === 'OPEN' ? 'CLOSED' : 'ACTIVE',
+      })
+      toast.success(item.status === 'OPEN' ? 'Đã đóng lớp.' : 'Đã mở lại lớp.')
+    } catch { toast.error('Không thể đổi trạng thái lớp.') }
   }
 
   return (
     <AdminLayout>
-      <AdminPageHeader
-        icon={<Users size={20} />}
-        title="Lớp học phần và Xếp lớp"
+      <AdminPageHeader icon={<Users size={20} />} title="Lớp học phần và Xếp lớp"
         description="Quản lý lớp học phần theo học kỳ, giảng viên phụ trách và ghi danh sinh viên vào lớp."
-        action={
-          <div className="flex gap-2">
-            <AdminButton
-              tone="secondary"
-              icon={<Upload size={17} />}
-              onClick={() => items[0] && openEnrollmentModal(items[0])}
-            >
-              Nhập sinh viên
-            </AdminButton>
-            <AdminButton icon={<Plus size={17} />} onClick={openCreateModal}>
-              Thêm lớp học phần
-            </AdminButton>
-          </div>
-        }
-      />
-
+        action={<div className="flex gap-2">
+          <AdminButton tone="secondary" icon={<Upload size={17} />} onClick={() => data.items[0] && setEnrollmentClass(data.items[0])}>Nhập sinh viên</AdminButton>
+          <AdminButton icon={<Plus size={17} />} onClick={openCreate}>Thêm lớp học phần</AdminButton>
+        </div>} />
       <AdminTablePanel>
-        <AdminToolbar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Tìm mã lớp hoặc môn học..."
-          onReset={() => {
-            setSearch('')
-            setSubject('ALL')
-            setStatus('ALL')
-          }}
-          filters={
-            <>
-              <AdminSelect
-                value="HK1_2026"
-                onChange={() => undefined}
-                className="w-52"
-                options={[{ value: 'HK1_2026', label: 'HK1_2026' }]}
-              />
-              <AdminSelect
-                value={subject}
-                onChange={setSubject}
-                className="w-56"
-                options={[
-                  { value: 'ALL', label: 'Môn học' },
-                  ...ADMIN_SUBJECTS.map((item) => ({ value: item.code, label: `${item.code} - ${item.name}` })),
-                ]}
-              />
-              <AdminSelect
-                value={status}
-                onChange={setStatus}
-                className="w-44"
-                options={[
-                  { value: 'ALL', label: 'Trạng thái' },
-                  { value: 'OPEN', label: 'Đang mở' },
-                  { value: 'CLOSED', label: 'Đã đóng' },
-                ]}
-              />
-            </>
-          }
-        />
-        <ClassSectionsTable
-          items={filteredItems}
-          onOpenEnrollment={openEnrollmentModal}
-          onOpenEdit={openEditModal}
-          onToggleStatus={handleToggleClassStatus}
-        />
+        <AdminToolbar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm mã lớp, môn học hoặc giảng viên..."
+          onReset={() => { setSearch(''); setSubjectFilter('ALL'); setStatusFilter('ALL') }} filters={<>
+            <AdminSelect value={subjectFilter} onChange={setSubjectFilter} className="w-64" options={[
+              { value: 'ALL', label: 'Môn học' }, ...data.subjects.map(({ id, code, name }) => ({ value: id, label: `${code} - ${name}` })),
+            ]} />
+            <AdminSelect value={statusFilter} onChange={setStatusFilter} className="w-44" options={[
+              { value: 'ALL', label: 'Trạng thái' }, { value: 'OPEN', label: 'Đang mở' }, { value: 'CLOSED', label: 'Đã đóng' },
+            ]} />
+          </>} />
+        {data.loading && <p className="py-8 text-center text-sm text-slate-500">Đang tải lớp học phần...</p>}
+        {data.error && <p className="py-8 text-center text-sm text-red-500">{data.error} <button className="ml-2 underline" onClick={data.retry}>Thử lại</button></p>}
+        {!data.loading && !data.error && <ClassSectionsTable items={filteredItems}
+          onOpenEnrollment={(item) => { setEnrollmentClass(item); setSelectedStudentIds([]); setStudentSearch('') }}
+          onOpenEdit={openEdit} onToggleStatus={(item) => void toggleStatus(item)} />}
       </AdminTablePanel>
-
-      <ClassSectionFormModal
-        open={modalOpen}
-        editingClassId={editingClassId}
-        departmentInput={departmentInput}
-        onDepartmentChange={handleDepartmentChange}
-        subjectCodeInput={subjectCodeInput}
-        onSubjectCodeChange={setSubjectCodeInput}
-        selectedDepartmentSubjects={selectedDepartmentSubjects}
-        semesterCodeInput={semesterCodeInput}
-        onSemesterCodeChange={setSemesterCodeInput}
-        classCodeInput={classCodeInput}
-        onClassCodeChange={setClassCodeInput}
-        capacityInput={capacityInput}
-        onCapacityChange={setCapacityInput}
-        teacherIdInput={teacherIdInput}
-        onTeacherIdChange={setTeacherIdInput}
-        teacherOptions={teacherOptions}
-        classStatusInput={classStatusInput}
-        onClassStatusChange={setClassStatusInput}
-        onClose={() => {
-          setModalOpen(false)
-          setEditingClassId(null)
-        }}
-        onConfirm={handleSaveClass}
-      />
-
-      <ClassEnrollmentModal
-        course={enrollmentClass}
-        students={filteredStudents}
-        search={studentSearch}
-        selectedStudentIds={selectedStudentIds}
-        onSearchChange={setStudentSearch}
-        onToggleStudent={handleToggleStudent}
-        onClose={() => setEnrollmentClass(null)}
-        onConfirm={handleSaveEnrollment}
-      />
+      <ClassSectionFormModal open={modalOpen} editingClassId={editing?.id ?? null} departmentInput={departmentId}
+        onDepartmentChange={changeDepartment} subjectCodeInput={subjectId} onSubjectCodeChange={setSubjectId}
+        selectedDepartmentSubjects={departmentSubjects} semesterCodeInput={semesterId} onSemesterCodeChange={setSemesterId}
+        classCodeInput={classCode} onClassCodeChange={setClassCode} capacityInput={capacity} onCapacityChange={setCapacity}
+        teacherIdInput={teacherId} onTeacherIdChange={setTeacherId} teacherOptions={data.teachers}
+        departments={data.departments} semesters={data.semesters} classStatusInput={classStatus}
+        onClassStatusChange={setClassStatus} onClose={() => setModalOpen(false)} onConfirm={() => void save()} />
+      <ClassEnrollmentModal course={enrollmentClass} students={filteredStudents} search={studentSearch}
+        selectedStudentIds={selectedStudentIds} onSearchChange={setStudentSearch}
+        onToggleStudent={(id) => setSelectedStudentIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}
+        onClose={() => setEnrollmentClass(null)} onConfirm={() => {
+          if (!enrollmentClass || selectedStudentIds.length === 0) return toast.error('Vui lòng chọn ít nhất một sinh viên.')
+          void data.enroll(enrollmentClass.id, selectedStudentIds)
+            .then(() => { toast.success('Đã ghi danh sinh viên.'); setEnrollmentClass(null) })
+            .catch(() => toast.error('Không thể ghi danh. Lớp có thể đã đủ sức chứa.'))
+        }} />
     </AdminLayout>
   )
-}
-
-function createEntityId(prefix: string, value: string) {
-  return `${prefix}-${value
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')}`
 }

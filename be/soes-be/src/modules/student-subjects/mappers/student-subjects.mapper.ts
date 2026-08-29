@@ -5,7 +5,8 @@ interface EnrollmentRow {
     id: string
     subject: { id: string; code: string; name: string }
     teacher: { user: { fullName: string } }
-    _count: { materials: number; exams: number }
+    _count: { materials: number }
+    scheduleCourses: Array<{ id: string }>
   }
 }
 
@@ -18,6 +19,6 @@ export function toSubjectCardDto(row: EnrollmentRow): SubjectCardDto {
     subjectName:      co.subject.name,
     teacherName:      co.teacher.user.fullName,
     materialCount:    co._count.materials,
-    examCount:        co._count.exams,
+    examCount:        co.scheduleCourses.length,
   }
 }

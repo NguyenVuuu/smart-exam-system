@@ -5,57 +5,57 @@ import * as takeExamController from '../controllers/student-take-exam.controller
 
 const router = Router()
 
-// POST /api/student/exams/:examId/start
+// POST /api/student/exam-schedules/:scheduleId/start
 router.post(
-  '/exams/:examId/start',
+  '/exam-schedules/:scheduleId/start',
   authenticate,
   requireStudent(),
   takeExamController.startExam,
 )
 
-// GET /api/student/exams/:examId/attempts/:attemptId
+// GET /api/student/exam-schedules/:scheduleId/attempts/:attemptId
 router.get(
-  '/exams/:examId/attempts/:attemptId',
+  '/exam-schedules/:scheduleId/attempts/:attemptId',
   authenticate,
   requireStudent(),
   takeExamController.getExamContent,
 )
 
-// PUT /api/student/exams/:examId/attempts/:attemptId/answers
+// PUT /api/student/exam-schedules/:scheduleId/attempts/:attemptId/answers
 router.put(
-  '/exams/:examId/attempts/:attemptId/answers',
+  '/exam-schedules/:scheduleId/attempts/:attemptId/answers',
   authenticate,
   requireStudent(),
   takeExamController.saveAnswer,
 )
 
-// POST /api/student/exams/:examId/attempts/:attemptId/submit
+// POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/submit
 router.post(
-  '/exams/:examId/attempts/:attemptId/submit',
+  '/exam-schedules/:scheduleId/attempts/:attemptId/submit',
   authenticate,
   requireStudent(),
   takeExamController.submitExam,
 )
 
-// GET /api/student/exams/:examId/attempts/:attemptId/status
+// GET /api/student/exam-schedules/:scheduleId/attempts/:attemptId/status
 router.get(
-  '/exams/:examId/attempts/:attemptId/status',
+  '/exam-schedules/:scheduleId/attempts/:attemptId/status',
   authenticate,
   requireStudent(),
   takeExamController.getAttemptStatus,
 )
 
-// POST /api/student/exams/:examId/attempts/:attemptId/heartbeat
+// POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/heartbeat
 router.post(
-  '/exams/:examId/attempts/:attemptId/heartbeat',
+  '/exam-schedules/:scheduleId/attempts/:attemptId/heartbeat',
   authenticate,
   requireStudent(),
   takeExamController.sendHeartbeat,
 )
 
-// POST /api/student/exams/:examId/attempts/:attemptId/questions/:questionId/run
+// POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run
 router.post(
-  '/exams/:examId/attempts/:attemptId/questions/:questionId/run',
+  '/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run',
   authenticate,
   requireStudent(),
   takeExamController.runCode,

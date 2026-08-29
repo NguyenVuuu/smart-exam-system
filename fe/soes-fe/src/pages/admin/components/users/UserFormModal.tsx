@@ -1,5 +1,4 @@
-﻿import { ADMIN_DEPARTMENTS } from '../../mock/admin.mock'
-import type { AdminUser } from '../../types/admin.types'
+import type { AdminUser, Department } from '../../types/admin.types'
 import { AdminField, AdminInput } from '../AdminFormFields'
 import AdminModal from '../AdminModal'
 import AdminSelect from '../AdminSelect'
@@ -21,6 +20,7 @@ export default function UserFormModal({
   onDepartmentChange,
   statusInput,
   onStatusChange,
+  departments,
   onClose,
   onConfirm,
 }: {
@@ -40,6 +40,7 @@ export default function UserFormModal({
   onDepartmentChange: (val: string) => void
   statusInput: AdminUser['status']
   onStatusChange: (val: AdminUser['status']) => void
+  departments: Department[]
   onClose: () => void
   onConfirm: () => void
 }) {
@@ -107,7 +108,7 @@ export default function UserFormModal({
               disabled={roleInput === 'ADMIN'}
               options={[
                 { value: 'NONE', label: 'Không áp dụng' },
-                ...ADMIN_DEPARTMENTS.map((item) => ({ value: item.name, label: item.name })),
+                ...departments.map((item) => ({ value: item.id, label: item.name })),
               ]}
             />
           </AdminField>

@@ -49,10 +49,10 @@ export async function getPostDetail(
 
 export async function getExamDetail(
   courseOfferingId: string,
-  examId: string,
+  scheduleId: string,
 ): Promise<ExamDetail> {
   const { data } = await apiClient.get<ApiResponse<ExamDetail>>(
-    `/student/course-offerings/${courseOfferingId}/exams/${examId}`,
+    `/student/course-offerings/${courseOfferingId}/exam-schedules/${scheduleId}`,
   )
   return data.data
 }

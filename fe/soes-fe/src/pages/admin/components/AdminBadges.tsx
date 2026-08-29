@@ -21,13 +21,15 @@ export function AdminStatusBadge({ status }: { status: AdminStatus | CourseOffer
     SCHEDULED: 'Đã lên lịch',
     CANCELLED: 'Đã hủy',
   }
-  const tone: BadgeTone = status === 'ACTIVE' || status === 'OPEN' || status === 'SCHEDULED'
+  const tone: BadgeTone = status === 'ACTIVE' || status === 'OPEN'
     ? 'emerald'
-    : status === 'INACTIVE' || status === 'DRAFT'
-      ? 'amber'
-      : status === 'LOCKED' || status === 'CANCELLED'
-        ? 'rose'
-        : 'gray'
+    : status === 'SCHEDULED'
+      ? 'blue'
+      : status === 'INACTIVE' || status === 'DRAFT'
+        ? 'amber'
+        : status === 'LOCKED' || status === 'CANCELLED'
+          ? 'rose'
+          : 'gray'
 
   return <AppBadge tone={tone}>{label[status] ?? status}</AppBadge>
 }

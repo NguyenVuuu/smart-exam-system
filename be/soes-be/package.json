@@ -9,7 +9,7 @@
     "build": "tsc",
     "prisma:generate": "prisma generate",
     "postinstall": "prisma generate",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run build && node --test \"dist/**/*.test.js\""
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

@@ -12,27 +12,36 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { ADMIN_EXAM_SCHEDULES, ADMIN_EXAMS } from './mock/admin.mock'
 import type { AdminExamSchedule } from './types/admin.types'
 import { AdminStatusBadge, ExamStatusBadge } from './components/AdminBadges'
 import AdminButton from './components/AdminButton'
 import AdminLayout from './components/AdminLayout'
 import AdminPageHeader from './components/AdminPageHeader'
+import AdminPagination from './components/AdminPagination'
+import AdminSelect from './components/AdminSelect'
+import AdminToolbar from './components/AdminToolbar'
 import FinalExamScheduleModal from './components/exam-schedules/FinalExamScheduleModal'
+import CancelExamScheduleDialog from './components/exam-schedules/CancelExamScheduleDialog'
+import { useAdminExamSchedules } from './hooks/useAdminExamSchedules'
 
 const editableScheduleStatuses: AdminExamSchedule['status'][] = ['DRAFT', 'SCHEDULED']
 
 export default function AdminExamSchedulesPage() {
-  const [items, setItems] = useState<AdminExamSchedule[]>(ADMIN_EXAM_SCHEDULES)
+  const [page, setPage] = useState(1)
+  const [keyword, setKeyword] = useState('')
+  const [departmentId, setDepartmentId] = useState('')
+  const [subjectId, setSubjectId] = useState('')
+  const [status, setStatus] = useState('')
+  const {
+    schedules: items, exams: readyFinalExams, departments, subjects, courses, teachers,
+    pagination, loading, error, save, cancel, retry,
+  } = useAdminExamSchedules({
+    page, pageSize: 5, keyword: keyword || undefined, departmentId: departmentId || undefined,
+    subjectId: subjectId || undefined, status: status || undefined,
+  })
   const [modalOpen, setModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<AdminExamSchedule | null>(null)
-
-  const readyFinalExams = ADMIN_EXAMS.filter((exam) => exam.category === 'FINAL' && exam.status === 'APPROVED')
-
-  const handleCancelSchedule = (item: AdminExamSchedule) => {
-    setItems((prev) => prev.map((row) => row.id === item.id ? { ...row, status: 'CANCELLED' } : row))
-    toast.success(`Đã hủy ${item.examTitle}.`)
-  }
+  const [cancellingSchedule, setCancellingSchedule] = useState<AdminExamSchedule | null>(null)
 
   const openCreateModal = () => {
     setEditingSchedule(null)
@@ -44,19 +53,20 @@ export default function AdminExamSchedulesPage() {
     setModalOpen(true)
   }
 
-  const handleSubmitSchedule = (schedule: AdminExamSchedule) => {
-    setItems((current) => {
-      const exists = current.some((item) => item.id === schedule.id)
-      return exists
-        ? current.map((item) => item.id === schedule.id ? schedule : item)
-        : [schedule, ...current]
-    })
-  }
-
   const closeScheduleModal = () => {
     setModalOpen(false)
     setEditingSchedule(null)
   }
+
+  const resetFilters = () => {
+    setPage(1)
+    setKeyword('')
+    setDepartmentId('')
+    setSubjectId('')
+    setStatus('')
+  }
+
+  const filteredSubjects = subjects.filter((subject) => !departmentId || subject.departmentId === departmentId)
 
   return (
     <AdminLayout>
@@ -76,20 +86,72 @@ export default function AdminExamSchedulesPage() {
             </p>
           </div>
 
+          <AdminToolbar
+            stacked
+            searchValue={keyword}
+            onSearchChange={(value) => { setKeyword(value); setPage(1) }}
+            searchPlaceholder="Tìm theo đề thi hoặc ca thi..."
+            onReset={resetFilters}
+            filters={(
+              <>
+                <AdminSelect
+                  value={departmentId}
+                  className="w-full"
+                  onChange={(value) => { setDepartmentId(String(value)); setSubjectId(''); setPage(1) }}
+                  placeholder="Bộ môn"
+                  options={[{ value: '', label: 'Tất cả bộ môn' }, ...departments.map((item) => ({ value: item.id, label: item.name }))]}
+                />
+                <AdminSelect
+                  value={subjectId}
+                  className="w-full"
+                  onChange={(value) => { setSubjectId(String(value)); setPage(1) }}
+                  placeholder="Môn học"
+                  options={[{ value: '', label: 'Tất cả môn học' }, ...filteredSubjects.map((item) => ({ value: item.id, label: item.name }))]}
+                />
+                <AdminSelect
+                  value={status}
+                  className="w-full"
+                  onChange={(value) => { setStatus(String(value)); setPage(1) }}
+                  placeholder="Trạng thái"
+                  options={[
+                    { value: '', label: 'Tất cả trạng thái' }, { value: 'SCHEDULED', label: 'Đã lên lịch' },
+                    { value: 'OPEN', label: 'Đang mở' }, { value: 'CLOSED', label: 'Đã đóng' },
+                    { value: 'CANCELLED', label: 'Đã hủy' },
+                  ]}
+                />
+              </>
+            )}
+          />
+
           <div>
-            {items.length > 0 ? (
+            {loading ? (
+              <div className="px-6 py-10 text-center text-sm text-slate-500">Đang tải lịch thi...</div>
+            ) : error ? (
+              <div className="px-6 py-10 text-center text-sm text-rose-600">
+                <p>{error}</p>
+                <button type="button" className="mt-3 text-emerald-700 underline" onClick={retry}>Thử lại</button>
+              </div>
+            ) : items.length > 0 ? (
               items.map((item) => (
                 <ScheduleListItem
                   key={item.id}
                   item={item}
                   onEdit={() => openEditModal(item)}
-                  onCancel={() => handleCancelSchedule(item)}
+                  onCancel={() => setCancellingSchedule(item)}
                 />
               ))
             ) : (
               <div className="px-6 py-10 text-center text-sm text-slate-500">Chưa có lịch thi tập trung.</div>
             )}
           </div>
+          {!loading && !error && (
+            <AdminPagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              onChange={setPage}
+            />
+          )}
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -118,9 +180,28 @@ export default function AdminExamSchedulesPage() {
         open={modalOpen}
         exams={readyFinalExams}
         schedules={items}
+        departments={departments}
+        subjects={subjects}
+        courses={courses}
+        users={teachers}
         editingSchedule={editingSchedule}
         onClose={closeScheduleModal}
-        onSubmit={handleSubmitSchedule}
+        onSubmit={save}
+      />
+      <CancelExamScheduleDialog
+        key={cancellingSchedule?.id ?? 'closed-cancel-dialog'}
+        schedule={cancellingSchedule}
+        onClose={() => setCancellingSchedule(null)}
+        onConfirm={async (reason) => {
+          if (!cancellingSchedule) return
+          try {
+            await cancel(cancellingSchedule.id, reason)
+            toast.success(`Đã hủy ${cancellingSchedule.examTitle}.`)
+            setCancellingSchedule(null)
+          } catch {
+            toast.error('Không thể hủy ca thi ở trạng thái hiện tại.')
+          }
+        }}
       />
     </AdminLayout>
   )
@@ -150,7 +231,7 @@ function ScheduleListItem({
             <ScheduleMeta icon={<CalendarDays size={17} />} text={`${item.date} • ${item.time}`} />
             <ScheduleMeta icon={<Users size={17} />} text={item.courseCodes.join(', ')} />
             <ScheduleMeta icon={<MonitorCheck size={17} />} text={item.location} />
-            <ScheduleMeta icon={<KeyRound size={17} />} text={item.password ? 'Có mật khẩu' : 'Không mật khẩu'} />
+            <ScheduleMeta icon={<KeyRound size={17} />} text={item.hasPassword || item.password ? 'Có mật khẩu' : 'Không mật khẩu'} />
             <ScheduleMeta
               icon={<ShieldCheck size={17} />}
               text={formatProctorAssignments(item)}

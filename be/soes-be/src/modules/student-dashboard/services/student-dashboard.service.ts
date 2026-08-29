@@ -19,8 +19,8 @@ export async function getStudentDashboard(
   if (!student) throw new NotFoundError('Student not found')
 
   const [enrollments, submittedAttempts, notifications] = await Promise.all([
-    repo.findEnrollmentsWithExams(studentId),
-    repo.findSubmittedAttempts(studentId),
+    repo.findEnrollmentsWithSchedules(studentId),
+    repo.findReleasedAttempts(studentId),
     repo.findNotifications(userId, NOTIFICATION_LIMIT),
   ])
 
@@ -34,7 +34,9 @@ export async function getStudentDashboard(
 
   // ── Total exam count ───────────────────────────────────
   const examCount = new Set(
-    enrollments.flatMap((e) => e.courseOffering.exams.map((ex) => ex.id)),
+    enrollments.flatMap((e) =>
+      e.courseOffering.scheduleCourses.map((item) => item.examSchedule.id),
+    ),
   ).size
 
   // ── Upcoming exams ─────────────────────────────────────
@@ -47,9 +49,10 @@ export async function getStudentDashboard(
 
   for (const enrollment of enrollments) {
     const co = enrollment.courseOffering
-    for (const exam of co.exams) {
-      if (exam.status === 'PUBLISHED' && exam.startTime > now) {
-        upcomingRaw.push({ ...exam, courseOffering: { subject: { name: co.subject.name } } })
+    for (const item of co.scheduleCourses) {
+      const schedule = item.examSchedule
+      if (schedule.status === 'SCHEDULED' && schedule.publishedAt && schedule.startTime > now) {
+        upcomingRaw.push({ ...schedule, courseOffering: { subject: { name: co.subject.name } } })
       }
     }
   }
@@ -64,7 +67,7 @@ export async function getStudentDashboard(
   // ── GPA ────────────────────────────────────────────────
   const normalisedScores: number[] = []
   for (const attempt of submittedAttempts) {
-    const totalPoints = attempt.exam.examQuestions.reduce((s, eq) => s + Number(eq.points), 0)
+    const totalPoints = attempt.examSchedule.exam.examQuestions.reduce((s, eq) => s + Number(eq.points), 0)
     if (totalPoints === 0) continue
     normalisedScores.push((Number(attempt.totalScore) / totalPoints) * 10)
   }
@@ -83,19 +86,19 @@ export async function getStudentDashboard(
     semesterId: string
     semesterName: string
     examType: ExamTypeValue
-    examIds: string[]         // all exam ids in this group (for class avg)
+    scheduleIds: string[]
     myScores: number[]        // my normalised scores
   }
 
   const groupMap = new Map<string, GroupInfo>()
 
   for (const attempt of submittedAttempts) {
-    const totalPoints = attempt.exam.examQuestions.reduce((s, eq) => s + Number(eq.points), 0)
+    const totalPoints = attempt.examSchedule.exam.examQuestions.reduce((s, eq) => s + Number(eq.points), 0)
     if (totalPoints === 0) continue
 
     const normalised = (Number(attempt.totalScore) / totalPoints) * 10
-    const co = attempt.exam.courseOffering
-    const examType = attempt.exam.type as ExamTypeValue
+    const co = attempt.courseOffering
+    const examType = attempt.examSchedule.exam.type as ExamTypeValue
     const key = groupKey(co.subject.id, co.semester.id, examType)
 
     if (!groupMap.has(key)) {
@@ -105,26 +108,26 @@ export async function getStudentDashboard(
         semesterId: co.semester.id,
         semesterName: co.semester.name,
         examType,
-        examIds: [],
+        scheduleIds: [],
         myScores: [],
       })
     }
 
     const group = groupMap.get(key)!
     group.myScores.push(normalised)
-    group.examIds.push(attempt.exam.id)
+    group.scheduleIds.push(attempt.examScheduleId)
   }
 
   // Fetch class averages for all relevant exam ids
-  const allExamIds = Array.from(groupMap.values()).flatMap((g) => g.examIds)
-  const classAvgByExam = await repo.findClassAveragesByExam(allExamIds)
+  const allScheduleIds = Array.from(groupMap.values()).flatMap((g) => g.scheduleIds)
+  const classAvgBySchedule = await repo.findClassAveragesBySchedule(allScheduleIds)
 
   const analytics = Array.from(groupMap.values()).map((group) => {
     const myScore = group.myScores.reduce((s, v) => s + v, 0) / group.myScores.length
 
     // Class average: average of per-exam class averages in this group
-    const groupClassAvgs = group.examIds
-      .map((id) => classAvgByExam.get(id))
+    const groupClassAvgs = group.scheduleIds
+      .map((id) => classAvgBySchedule.get(id))
       .filter((v): v is number => v !== undefined)
 
     const classAverage =

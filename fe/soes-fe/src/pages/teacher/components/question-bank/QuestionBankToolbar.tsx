@@ -1,4 +1,4 @@
-﻿import AppSelect from '../../../../components/common/AppSelect'
+import AppSelect from '../../../../components/common/AppSelect'
 import TeacherToolbar from '../TeacherToolbar'
 
 export default function QuestionBankToolbar({
@@ -13,6 +13,7 @@ export default function QuestionBankToolbar({
   selectedStatus,
   onStatusChange,
   onReset,
+  subjects,
 }: {
   searchQuery: string
   onSearchChange: (val: string) => void
@@ -25,6 +26,7 @@ export default function QuestionBankToolbar({
   selectedStatus: string
   onStatusChange: (val: string) => void
   onReset: () => void
+  subjects?: Array<{ id: string; name: string }>
 }) {
   return (
     <TeacherToolbar
@@ -40,10 +42,14 @@ export default function QuestionBankToolbar({
             className="w-52"
             options={[
               { value: 'ALL', label: 'Tất cả môn học' },
-              { value: 'sub-01', label: 'Lập trình Java căn bản' },
-              { value: 'sub-02', label: 'Cấu trúc dữ liệu & GT' },
-              { value: 'sub-03', label: 'Lập trình C++' },
-              { value: 'sub-04', label: 'Cơ sở dữ liệu' },
+              ...(subjects && subjects.length > 0
+                ? subjects.map((s) => ({ value: s.id, label: s.name }))
+                : [
+                    { value: 'sub-01', label: 'Lập trình Java căn bản' },
+                    { value: 'sub-02', label: 'Cấu trúc dữ liệu & GT' },
+                    { value: 'sub-03', label: 'Lập trình C++' },
+                    { value: 'sub-04', label: 'Cơ sở dữ liệu' },
+                  ]),
             ]}
           />
           <AppSelect

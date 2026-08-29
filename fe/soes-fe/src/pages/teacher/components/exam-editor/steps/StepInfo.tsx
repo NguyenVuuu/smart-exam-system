@@ -1,7 +1,6 @@
 ﻿import { BookOpen } from 'lucide-react'
 import AppSelect from '../../../../../components/common/AppSelect'
 import { examTypeDescription, examTypeLabel } from '../../../constants/ExamEditorConfig'
-import { MOCK_TEACHER_COURSES } from '../../../mock/teacher-course.mock'
 import type { ExamCategory, ExamType } from '../../../types/teacher-exam.types'
 import { Field, StepCard } from '../ExamEditorPrimitives'
 
@@ -16,16 +15,8 @@ export function StepInfo(props: {
   updateExamType: (value: ExamType) => void
   subjectId: string
   setSubjectId: (value: string) => void
+  subjectOptions: Array<{ value: string; label: string }>
 }) {
-  const subjectOptions = Array.from(
-    new Map(
-      MOCK_TEACHER_COURSES.map((course) => [
-        course.subjectName,
-        { value: course.subjectName, label: course.subjectName },
-      ]),
-    ).values(),
-  )
-
   return (
     <StepCard
       title="Thông tin đề thi"
@@ -81,7 +72,7 @@ export function StepInfo(props: {
             value={props.subjectId}
             onChange={props.setSubjectId}
             buttonClassName="bg-gray-50"
-            options={subjectOptions}
+            options={props.subjectOptions}
           />
         </Field>
 

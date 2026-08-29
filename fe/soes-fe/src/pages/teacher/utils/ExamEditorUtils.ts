@@ -1,11 +1,14 @@
 import type { ExamQuestionItem, ExamSection, ExamType } from '../types/teacher-exam.types'
 import type { Question, QuestionType } from '../types/teacher-question-bank.types'
 
+export const createExamSectionId = (type: ExamSection['type']) =>
+  `sec-${type.toLowerCase()}-${crypto.randomUUID()}`
+
 export function buildInitialSections(examType: ExamType): ExamSection[] {
   if (examType === 'PROGRAMMING') {
     return [
       {
-        id: 'sec-code',
+        id: createExamSectionId('PROGRAMMING'),
         title: 'Phần 1: Lập trình',
         type: 'PROGRAMMING',
         description: 'Sinh viên viết code và hệ thống chấm bằng test case.',
@@ -18,7 +21,7 @@ export function buildInitialSections(examType: ExamType): ExamSection[] {
   if (examType === 'MIXED') {
     return [
       {
-        id: 'sec-objective',
+        id: createExamSectionId('OBJECTIVE'),
         title: 'Phần 1: Trắc nghiệm',
         type: 'OBJECTIVE',
         description: 'Câu trắc nghiệm, có thể chấm tự động.',
@@ -26,7 +29,7 @@ export function buildInitialSections(examType: ExamType): ExamSection[] {
         order: 1,
       },
       {
-        id: 'sec-code',
+        id: createExamSectionId('PROGRAMMING'),
         title: 'Phần 2: Lập trình',
         type: 'PROGRAMMING',
         description: 'Sinh viên viết code và hệ thống chấm bằng test case.',
@@ -38,7 +41,7 @@ export function buildInitialSections(examType: ExamType): ExamSection[] {
 
   return [
     {
-      id: 'sec-objective',
+      id: createExamSectionId('OBJECTIVE'),
       title: 'Phần 1: Trắc nghiệm',
       type: 'OBJECTIVE',
       description: 'Gồm 1 đáp án, nhiều đáp án và đúng/sai.',

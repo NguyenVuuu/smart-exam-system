@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
+import { Prisma } from '@prisma/client'
 import { ZodError, ZodIssue } from 'zod'
 import { AppError } from '../errors/AppError'
 import { logger } from '../lib/logger'
@@ -27,6 +28,17 @@ export function errorHandler(
       message: err.message,
     })
     return
+  }
+
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    const status = err.code === 'P2025' ? 404 : ['P2002', 'P2003'].includes(err.code) ? 409 : null
+    if (status) {
+      res.status(status).json({
+        success: false,
+        message: status === 404 ? 'Resource not found' : 'Data conflicts with an existing record',
+      })
+      return
+    }
   }
 
   logger.error('Unexpected error', { error: String(err) })

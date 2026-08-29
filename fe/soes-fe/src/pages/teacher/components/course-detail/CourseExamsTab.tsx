@@ -1,7 +1,13 @@
 ﻿import { Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import type { CourseExamSchedule } from '../../types/teacher-course.types'
+import TeacherPagination from '../TeacherPagination'
 
-export default function CourseExamsTab() {
+export default function CourseExamsTab({ exams, pagination, onPageChange }: {
+  exams: CourseExamSchedule[]
+  pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
+  onPageChange: (page: number) => void
+}) {
   const navigate = useNavigate()
 
   return (
@@ -21,18 +27,27 @@ export default function CourseExamsTab() {
         </button>
       </div>
 
-      <div className="p-5 border border-gray-100 rounded-2xl flex items-center justify-between hover:bg-gray-50 transition-colors">
-        <div>
-          <h4 className="text-base font-semibold text-gray-900">Bài Thi Giữa Kỳ Java</h4>
-          <p className="text-sm text-gray-500 mt-1">60 phút • 3 câu hỏi (10 điểm)</p>
+      {exams.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+          Lớp học phần chưa được gán ca thi nào.
+        </p>
+      ) : exams.map((exam) => (
+        <div key={exam.scheduleId} className="p-5 border border-gray-100 rounded-2xl flex items-center justify-between hover:bg-gray-50 transition-colors">
+          <div>
+            <h4 className="text-base font-semibold text-gray-900">{exam.title}</h4>
+            <p className="text-sm text-gray-500 mt-1">
+              {new Date(exam.startTime).toLocaleString('vi-VN')} • {exam.totalPoints} điểm
+            </p>
+          </div>
+          <button
+            onClick={() => navigate(`/teacher/exams/${exam.examId}`)}
+            className="px-5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-sm rounded-xl transition-colors"
+          >
+            Xem đề thi
+          </button>
         </div>
-        <button
-          onClick={() => navigate('/teacher/exams/exam-01')}
-          className="px-5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-sm rounded-xl transition-colors"
-        >
-          Xem bài nộp
-        </button>
-      </div>
+      ))}
+      <TeacherPagination {...pagination} onChange={onPageChange} />
     </div>
   )
 }

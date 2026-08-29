@@ -29,6 +29,11 @@ export interface DataTableProps<T> {
   onSelectChange?: (selectedKeys: string[]) => void
   onRowClick?: (item: T) => void
   embedded?: boolean
+  page?: number
+  totalItems?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
+  hidePagination?: boolean
 }
 
 export default function DataTable<T>({
@@ -44,12 +49,22 @@ export default function DataTable<T>({
   onSelectChange,
   onRowClick,
   embedded = false,
+  page,
+  totalItems,
+  totalPages,
+  onPageChange,
+  hidePagination = false,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [expandedKeys, setExpandedKeys] = useState<string[]>([])
 
-  const totalPages = Math.ceil(data.length / pageSize) || 1
-  const paginatedData = data.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const isServerPaged = Boolean(onPageChange)
+  const activePage = isServerPaged ? (page ?? 1) : currentPage
+  const activeTotalItems = totalItems ?? data.length
+  const activeTotalPages = totalPages ?? (Math.ceil(activeTotalItems / pageSize) || 1)
+  const paginatedData = isServerPaged
+    ? data
+    : data.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const toggleExpand = (key: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -224,33 +239,44 @@ export default function DataTable<T>({
       </div>
 
       {/* Pagination Footer */}
-      {!isLoading && data.length > 0 && (
+      {!isLoading && activeTotalItems > 0 && !hidePagination && (
         <div className="px-6 py-4 bg-white border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
           <div>
-            Hiển thị <span className="font-bold text-gray-800">{(currentPage - 1) * pageSize + 1}</span> -{' '}
+            Hiển thị{' '}
+            <span className="font-bold text-gray-800">{(activePage - 1) * pageSize + 1}</span> -{' '}
             <span className="font-bold text-gray-800">
-              {Math.min(currentPage * pageSize, data.length)}
+              {Math.min(activePage * pageSize, activeTotalItems)}
             </span>{' '}
-            trên tổng số <span className="font-bold text-gray-800">{data.length}</span> bản ghi
+            trên tổng số <span className="font-bold text-gray-800">{activeTotalItems}</span> bản ghi
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-xl border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              type="button"
+              onClick={() => {
+                const prev = Math.max(1, activePage - 1)
+                if (onPageChange) onPageChange(prev)
+                else setCurrentPage(prev)
+              }}
+              disabled={activePage <= 1}
+              className="p-2 rounded-xl border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <ChevronLeft size={16} />
             </button>
 
             <span className="px-3 font-bold text-gray-700">
-              {currentPage} / {totalPages}
+              {activePage} / {activeTotalPages}
             </span>
 
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-xl border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              type="button"
+              onClick={() => {
+                const next = Math.min(activeTotalPages, activePage + 1)
+                if (onPageChange) onPageChange(next)
+                else setCurrentPage(next)
+              }}
+              disabled={activePage >= activeTotalPages}
+              className="p-2 rounded-xl border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <ChevronRight size={16} />
             </button>

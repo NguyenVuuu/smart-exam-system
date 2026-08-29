@@ -1,8 +1,9 @@
-﻿import { Camera, RefreshCw } from 'lucide-react'
+import { Camera, RefreshCw } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import AppSelect from '../../../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { ExamSchedule, ViolationRecord } from '../../types/teacher-exam.types'
+import { formatSessionRange } from '../../../../utils/date.utils'
 
 const violationSeverityTone = {
   LOW: 'blue',
@@ -110,10 +111,7 @@ export function ExamProctoringTab({
           <h2 className="text-base font-semibold text-gray-900">Nhật ký giám sát chống gian lận</h2>
           <p className="text-sm text-gray-500 mt-0.5">
             {selectedSession
-              ? `${selectedSession.courseCode} • ${selectedSession.startTime.replace(
-                  'T',
-                  ' ',
-                )} - ${selectedSession.endTime.replace('T', ' ')}`
+              ? `${selectedSession.courseCode} • ${formatSessionRange(selectedSession.startTime, selectedSession.endTime)}`
               : 'Chưa có ca thi để giám sát'}
           </p>
         </div>
@@ -126,7 +124,7 @@ export function ExamProctoringTab({
             buttonClassName="bg-gray-50 rounded-xl py-2.5 text-sm"
             options={sessions.map((session) => ({
               value: session.id,
-              label: `${session.courseCode} • ${session.startTime.replace('T', ' ')}`,
+              label: `${session.courseCode} • ${formatSessionRange(session.startTime, session.endTime)}`,
             }))}
           />
           <button

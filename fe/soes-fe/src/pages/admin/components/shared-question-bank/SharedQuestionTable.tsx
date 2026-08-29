@@ -1,4 +1,4 @@
-﻿import { Archive, ArchiveRestore, Eye } from 'lucide-react'
+import { Archive, ArchiveRestore, Eye } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { AdminSubject, SharedQuestionAdmin } from '../../types/admin.types'
@@ -29,12 +29,22 @@ export default function SharedQuestionTable({
   onView,
   onRemove,
   onRestore,
+  page,
+  pageSize = 10,
+  totalItems,
+  totalPages,
+  onPageChange,
 }: {
   items: SharedQuestionAdmin[]
   subjectsByCode: Map<string, AdminSubject>
   onView: (item: SharedQuestionAdmin) => void
   onRemove: (item: SharedQuestionAdmin) => void
   onRestore: (item: SharedQuestionAdmin) => void
+  page?: number
+  pageSize?: number
+  totalItems?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
 }) {
   const columns: ColumnDef<SharedQuestionAdmin>[] = [
     {
@@ -106,6 +116,11 @@ export default function SharedQuestionTable({
       data={items}
       keyExtractor={(item) => item.id}
       emptyText="Chưa có câu hỏi phù hợp."
+      page={page}
+      pageSize={pageSize}
+      totalItems={totalItems}
+      totalPages={totalPages}
+      onPageChange={onPageChange}
     />
   )
 }

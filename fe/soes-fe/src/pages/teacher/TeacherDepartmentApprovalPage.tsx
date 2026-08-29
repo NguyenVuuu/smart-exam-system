@@ -14,9 +14,10 @@ import { useAuthStore } from '../../store/authStore'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
-import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
+import { useTeacherApprovals } from './hooks/useTeacherApprovals'
 import type { Exam } from './types/teacher-exam.types'
 import type { Question } from './types/teacher-question-bank.types'
+import { formatDateTime } from '../../utils/date.utils'
 
 type ApprovalKind = 'QUESTION' | 'EXAM'
 
@@ -63,24 +64,20 @@ const examCategoryLabel = {
 
 export default function TeacherDepartmentApprovalPage() {
   const user = useAuthStore((state) => state.user)
-  const questions = useTeacherWorkspaceStore((state) => state.questions)
-  const exams = useTeacherWorkspaceStore((state) => state.exams)
-  const reviewQuestion = useTeacherWorkspaceStore((state) => state.reviewQuestion)
-  const reviewExam = useTeacherWorkspaceStore((state) => state.reviewExam)
   const canApprove = user?.permissions?.some((permission) =>
     permission === 'APPROVE_FINAL_EXAM' || permission === 'APPROVE_SHARED_QUESTION',
   )
+  const approvals = useTeacherApprovals(Boolean(canApprove))
 
   const [activeKind, setActiveKind] = useState<ApprovalKind>('QUESTION')
   const [reviewing, setReviewing] = useState<ApprovalItem | null>(null)
   const [rejecting, setRejecting] = useState<ApprovalItem | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
 
-  const questionItems: ApprovalItem[] = questions
-    .filter((question) => question.reviewStatus === 'PENDING_REVIEW')
-    .map((question) => ({
+  const questionItems: ApprovalItem[] = approvals.questions
+    .map(({ itemId, question }) => ({
       kind: 'QUESTION',
-      id: question.id,
+      id: itemId,
       title: question.content,
       subjectName: question.subjectName,
       authorId: question.teacherId,
@@ -89,8 +86,7 @@ export default function TeacherDepartmentApprovalPage() {
       source: question,
     }))
 
-  const examItems: ApprovalItem[] = exams
-    .filter((exam) => exam.status === 'PENDING_APPROVAL')
+  const examItems: ApprovalItem[] = approvals.exams
     .map((exam) => ({
       kind: 'EXAM',
       id: exam.id,
@@ -130,7 +126,7 @@ export default function TeacherDepartmentApprovalPage() {
     {
       header: 'Ngày gửi',
       width: '14%',
-      render: (item) => <span className="text-sm font-normal text-gray-600">{item.createdAt}</span>,
+      render: (item) => <span className="text-sm font-normal text-gray-600">{formatDateTime(item.createdAt)}</span>,
     },
     {
       header: 'Thao tác',
@@ -167,24 +163,28 @@ export default function TeacherDepartmentApprovalPage() {
     },
   ]
 
-  const approve = (item: ApprovalItem) => {
+  const approve = async (item: ApprovalItem) => {
     if (item.authorId === user?.profileId) {
       toast.error('Không thể tự duyệt nội dung do chính mình tạo.')
       return
     }
-    if (item.kind === 'EXAM') reviewExam(item.id, true)
-    else reviewQuestion(item.id, true)
-    setReviewing(null)
-    toast.success(item.kind === 'EXAM' ? 'Đã duyệt đề thi cuối kỳ.' : 'Đã đưa câu hỏi vào ngân hàng chung.')
+    try {
+      if (item.kind === 'EXAM') await approvals.approveExam(item.id)
+      else await approvals.approveQuestion(item.id)
+      setReviewing(null)
+      toast.success(item.kind === 'EXAM' ? 'Đã duyệt đề thi cuối kỳ.' : 'Đã đưa câu hỏi vào ngân hàng chung.')
+    } catch { toast.error('Nội dung đã thay đổi trạng thái hoặc bạn không có quyền duyệt.') }
   }
 
-  const reject = () => {
+  const reject = async () => {
     if (!rejecting || rejectionReason.trim().length < 5) return
-    if (rejecting.kind === 'EXAM') reviewExam(rejecting.id, false, rejectionReason.trim())
-    else reviewQuestion(rejecting.id, false, rejectionReason.trim())
-    setRejecting(null)
-    setRejectionReason('')
-    toast.success('Đã từ chối và gửi lý do cho tác giả.')
+    try {
+      if (rejecting.kind === 'EXAM') await approvals.rejectExam(rejecting.id, rejectionReason.trim())
+      else await approvals.rejectQuestion(rejecting.id, rejectionReason.trim())
+      setRejecting(null)
+      setRejectionReason('')
+      toast.success('Đã từ chối và gửi lý do cho tác giả.')
+    } catch { toast.error('Không thể từ chối nội dung ở trạng thái hiện tại.') }
   }
 
   if (!canApprove) {
@@ -221,10 +221,16 @@ export default function TeacherDepartmentApprovalPage() {
 
       <DataTable
         columns={columns}
-        data={activeItems}
+        data={approvals.loading ? [] : activeItems}
         keyExtractor={(item) => item.id}
         emptyText="Không có nội dung đang chờ duyệt."
       />
+      {approvals.error && (
+        <div className="flex items-center justify-center gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <span>{approvals.error}</span>
+          <button type="button" onClick={() => void approvals.retry()} className="font-semibold underline">Thử lại</button>
+        </div>
+      )}
 
       {reviewing && (
         <ReviewModal

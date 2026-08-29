@@ -1,9 +1,8 @@
 ﻿import { Layers, Plus, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { ExamQuestionItem, ExamSection, ExamType } from '../../../types/teacher-exam.types'
-import { balanceQuestionPointsBySection } from '../../../utils/ExamEditorUtils'
+import { balanceQuestionPointsBySection, createExamSectionId } from '../../../utils/ExamEditorUtils'
 import { StepCard } from '../ExamEditorPrimitives'
-
-let sectionIdSequence = 0
 
 export function StepSections({
   examType,
@@ -43,7 +42,7 @@ export function StepSections({
     }[type]
 
     const newSection: ExamSection = {
-      id: `sec-${type.toLowerCase()}-${++sectionIdSequence}`,
+      id: createExamSectionId(type),
       type,
       order: nextOrder,
       ...sectionConfig,
@@ -55,7 +54,7 @@ export function StepSections({
 
   const removeSection = (sectionId: string) => {
     if (sections.length <= 1) {
-      alert('Đề thi phải có ít nhất một phần thi.')
+      toast.error('Đề thi phải có ít nhất một phần thi.')
       return
     }
 
@@ -73,6 +72,14 @@ export function StepSections({
     setSections(nextSections)
     setActiveSectionId(fallbackSection.id)
     setQuestions(balanceQuestionPointsBySection(nextQuestions, nextSections))
+  }
+
+  const updateSectionPoints = (sectionId: string, targetPoints: number) => {
+    const nextSections = sections.map((section) =>
+      section.id === sectionId ? { ...section, targetPoints: Math.max(0, targetPoints) } : section,
+    )
+    setSections(nextSections)
+    setQuestions(balanceQuestionPointsBySection(questions, nextSections))
   }
 
   return (
@@ -119,8 +126,8 @@ export function StepSections({
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-1">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-gray-900">{section.title}</span>
                       <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700">
@@ -130,7 +137,19 @@ export function StepSections({
                     <p className="text-xs text-gray-500">{section.description}</p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
+                    <label className="flex items-center gap-2 text-xs text-gray-500" onClick={(event) => event.stopPropagation()}>
+                      <span>Điểm phần</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.25}
+                        value={section.targetPoints ?? 0}
+                        onChange={(event) => updateSectionPoints(section.id, Number(event.target.value))}
+                        className="h-8 w-20 rounded-lg border border-gray-200 bg-white px-2 text-right text-sm font-normal text-gray-800 outline-none focus:border-blue-500"
+                        aria-label={`Điểm mục tiêu ${section.title}`}
+                      />
+                    </label>
                     <span className="text-xs text-gray-500 font-medium">{count} câu hỏi</span>
                     {sections.length > 1 && (
                       <button

@@ -8,12 +8,13 @@ export interface AcademicYear {
   term: 1 | 2 | 3
   startDate: string
   endDate: string
-  status: 'ACTIVE' | 'CLOSED' | 'ARCHIVED'
+  status: 'UPCOMING' | 'ACTIVE' | 'CLOSED'
   isCurrent?: boolean
 }
 
 export interface Department {
   id: string
+  code?: string
   name: string
   headUserId?: string
   headName?: string
@@ -33,6 +34,9 @@ export interface AdminSubject {
 
 export interface CourseOfferingAdmin {
   id: string
+  subjectId?: string
+  semesterId?: string
+  teacherId?: string
   code: string
   subjectCode: string
   subjectName: string
@@ -45,12 +49,14 @@ export interface CourseOfferingAdmin {
 
 export interface AdminUser {
   id: string
+  profileId?: string
   code: string
   fullName: string
   email: string
   phone?: string
   role: 'ADMIN' | 'TEACHER' | 'STUDENT'
   departmentName?: string
+  departmentId?: string
   position?: 'LECTURER' | 'DEPARTMENT_HEAD'
   status: 'ACTIVE' | 'LOCKED'
 }
@@ -58,15 +64,22 @@ export interface AdminUser {
 export interface SharedQuestionAdmin {
   id: string
   content: string
+  explanation?: string
+  subjectId?: string
+  departmentId?: string
   subjectCode: string
   type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'PROGRAMMING'
   difficulty: 'EASY' | 'MEDIUM' | 'HARD'
   contributorName: string
-  reviewedBy: string
+  reviewedBy?: string
+  reviewedAt?: string
   status: 'APPROVED' | 'REMOVED'
   removedBy?: string
   removedAt?: string
   removalReason?: string
+  options?: Array<{ id: string; content: string; isCorrect: boolean }>
+  programmingConfig?: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number }
+  testCases?: Array<{ id: string; input: string; expectedOutput: string; weight: number; isHidden: boolean }>
 }
 
 export interface AdminExam {
@@ -96,6 +109,7 @@ export interface AdminExamSchedule {
   location: string
   ipPolicy: string
   password?: string
+  hasPassword?: boolean
   distributionMode: string
   releaseMode: string
   resultReleaseAt?: string

@@ -6,7 +6,7 @@ export async function seedViolations(prisma: PrismaClient): Promise<Violation[]>
   // Get all exam attempts that are SUBMITTED or EXPIRED
   const examAttempts = await prisma.examAttempt.findMany({
     where: {
-      status: { in: ['SUBMITTED', 'EXPIRED'] }
+      status: { in: ['SUBMITTED', 'AUTO_SUBMITTED'] }
     },
     take: 20, // Seed violations for first 20 attempts
   })

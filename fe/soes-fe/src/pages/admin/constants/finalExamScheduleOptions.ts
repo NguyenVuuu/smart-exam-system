@@ -5,7 +5,7 @@ export const examModeOptions = [
 
 export const distributionOptions = [
   { value: 'FIXED_ORDER', label: 'Giữ nguyên thứ tự câu hỏi' },
-  { value: 'SHUFFLE_ORDER', label: 'Xáo thứ tự câu hỏi' },
+  { value: 'SHUFFLE_QUESTIONS', label: 'Xáo thứ tự câu hỏi' },
   { value: 'SHUFFLE_QUESTIONS_AND_OPTIONS', label: 'Xáo câu hỏi và phương án' },
   { value: 'RANDOM_SUBSET', label: 'Chọn tập câu hỏi ngẫu nhiên theo phần' },
 ]

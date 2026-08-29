@@ -33,6 +33,7 @@ export interface Question {
   removedByName?: string
   removedAt?: string
   removalReason?: string
+  sharedBankItemId?: string
   type: QuestionType
   difficulty: DifficultyLevel
   content: string

@@ -27,6 +27,7 @@ import TeacherExamDetailPage from '../pages/teacher/TeacherExamDetailPage'
 import TeacherExamEditorPage from '../pages/teacher/TeacherExamEditorPage'
 import TeacherExamsPage from '../pages/teacher/TeacherExamsPage'
 import TeacherGradeExportPage from '../pages/teacher/TeacherGradeExportPage'
+import TeacherInvigilationSchedulePage from '../pages/teacher/TeacherInvigilationSchedulePage'
 import TeacherLiveProctorPage from '../pages/teacher/TeacherLiveProctorPage'
 import TeacherQuestionAuditPage from '../pages/teacher/TeacherQuestionAuditPage'
 import TeacherQuestionBankPage from '../pages/teacher/TeacherQuestionBankPage'
@@ -247,6 +248,14 @@ export default function AppRouter() {
 
         {/* Proctoring & Reports Hub */}
         <Route
+          path="/teacher/invigilation-schedule"
+          element={
+            <RoleRoute allowedRoles={['TEACHER']}>
+              <TeacherInvigilationSchedulePage />
+            </RoleRoute>
+          }
+        />
+        <Route
           path="/teacher/department-approvals"
           element={
             <RoleRoute allowedRoles={['TEACHER']}>
@@ -313,7 +322,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/student/course-offerings/:courseOfferingId/exams/:examId"
+          path="/student/course-offerings/:courseOfferingId/exam-schedules/:scheduleId"
           element={
             <RoleRoute allowedRoles={['STUDENT']}>
               <StudentExamDetailPage />

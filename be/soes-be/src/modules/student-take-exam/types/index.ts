@@ -44,7 +44,7 @@ export interface ExamContentProgrammingQuestion extends ExamContentQuestionBase 
 // ─── API 3: Save Answer ───────────────────────────────────────────────────────
 
 export interface SaveAnswerInput {
-  examId:     string
+  scheduleId: string
   attemptId:  string
   studentId:  string
   questionId: string

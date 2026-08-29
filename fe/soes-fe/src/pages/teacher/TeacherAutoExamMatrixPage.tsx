@@ -20,6 +20,7 @@ import type { Exam, ExamCategory } from './types/teacher-exam.types'
 import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 import { useAuthStore } from '../../store/authStore'
 import { MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
+import { useTeacherCourses } from './hooks/useTeacherCourses'
 
 const DEFAULT_SESSION_CONFIG = {
   maxAttempts: 1,
@@ -42,6 +43,7 @@ export default function TeacherAutoExamMatrixPage() {
   const replaceExamSchedules = useTeacherWorkspaceStore((state) => state.replaceExamSchedules)
   const exams = useTeacherWorkspaceStore((state) => state.exams)
   const currentUser = useAuthStore((state) => state.user)
+  const { courses } = useTeacherCourses()
   const [selectedSubject, setSelectedSubject] = useState('sub-01')
   const [examTitle, setExamTitle] = useState('Đề thi Giữa Kỳ 1 • 2026')
   const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
@@ -291,6 +293,7 @@ export default function TeacherAutoExamMatrixPage() {
         isOpen={isAssignModalOpen}
         examId={generatedExams[0]?.id ?? 'generated-exam-draft'}
         subjectName={eligibleQuestions[0]?.subjectName ?? ''}
+        courses={courses.filter(({ subjectId }) => subjectId === selectedSubject)}
         onClose={() => setIsAssignModalOpen(false)}
         examTitle={examTitle}
         defaultConfig={{

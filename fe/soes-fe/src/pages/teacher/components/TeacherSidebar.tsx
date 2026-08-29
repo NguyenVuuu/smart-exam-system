@@ -1,6 +1,7 @@
 ﻿import {
   AlertCircle,
   BookOpen,
+  CalendarClock,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -60,6 +61,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'reports',
     title: 'KHẢO THÍ & BÁO CÁO',
     items: [
+      { label: 'Lịch coi thi', icon: <CalendarClock size={19} />, path: '/teacher/invigilation-schedule' },
       { label: 'Giám sát ca thi', icon: <ShieldAlert size={19} />, path: '/teacher/proctoring' },
       { label: 'Thống kê phổ điểm', icon: <FileSpreadsheet size={19} />, path: '/teacher/grading-reports' },
     ],

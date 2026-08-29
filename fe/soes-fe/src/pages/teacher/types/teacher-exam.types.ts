@@ -1,4 +1,5 @@
 import type { Question } from './teacher-question-bank.types'
+import type { TeacherExamCapabilities } from './teacher-exam-api.types'
 
 export type ExamStatus =
   | 'DRAFT'
@@ -17,6 +18,7 @@ export type ExamIpMode = 'HOME' | 'CAMPUS'
 export type ExamDistributionMode =
   | 'FIXED_ORDER'
   | 'SHUFFLE_ORDER'
+  | 'SHUFFLE_OPTIONS'
   | 'SHUFFLE_QUESTIONS_AND_OPTIONS'
   | 'RANDOM_SUBSET'
 
@@ -81,6 +83,9 @@ export interface Exam {
   sections?: ExamSection[]
   schedules?: ExamSchedule[]
   questions: ExamQuestionItem[]
+  questionCount?: number
+  scheduleCount?: number
+  capabilities?: TeacherExamCapabilities
   totalPoints: number
   createdAt: string
   rejectionReason?: string
