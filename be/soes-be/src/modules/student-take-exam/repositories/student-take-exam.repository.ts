@@ -15,6 +15,7 @@ export async function findExamById(examId: string) {
       maxAttempts:      true,
       courseOfferingId: true,
       shuffleQuestions: true,
+      enableWebcam:     true,
       password:         true,   // needed for password-protected exams
       examQuestions: {
         select: { id: true, points: true },
@@ -69,6 +70,7 @@ export async function findAttemptWithContent(
           title:           true,
           durationMinutes: true,
           endTime:         true,
+          enableWebcam:    true,
           blockCopyPaste:  true,
           blockRightClick: true,
         },

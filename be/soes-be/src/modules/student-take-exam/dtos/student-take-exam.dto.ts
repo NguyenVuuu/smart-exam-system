@@ -49,6 +49,7 @@ export interface GetExamContentResponseDto {
 }
 
 export interface ExamIntegritySettingsDto {
+  enableWebcam: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
 }

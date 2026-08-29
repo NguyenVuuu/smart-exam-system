@@ -48,6 +48,7 @@ export async function startExam(
   ipAddress: string,
   deviceInfo: string,
   password?: string,
+  webcamConfirmed = false,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
   const exam = await repo.findExamById(examId);
@@ -103,6 +104,10 @@ export async function startExam(
     if (!password || password !== exam.password) {
       throw new ForbiddenError("Invalid exam password");
     }
+  }
+
+  if (exam.enableWebcam && !webcamConfirmed) {
+    throw new ForbiddenError("Webcam access is required to start this exam");
   }
   //
   // Use a single timestamp for all calculations so there are no clock skew
@@ -244,6 +249,7 @@ export async function getExamContent(
     remainingSeconds,
     attemptEndAt: attempt.attemptEndAt,
     integritySettings: {
+      enableWebcam: attempt.exam.enableWebcam,
       blockCopyPaste: attempt.exam.blockCopyPaste,
       blockRightClick: attempt.exam.blockRightClick,
     },

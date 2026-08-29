@@ -9,7 +9,8 @@ export type ExamParams = z.infer<typeof examParamsSchema>
 // ─── API 1: Start Exam ────────────────────────────────────────────────────────
 
 export const startExamBodySchema = z.object({
-  password: z.string().optional().nullable()
+  password: z.string().optional().nullable(),
+  webcamConfirmed: z.boolean().optional().default(false),
 })
 
 export type StartExamBody = z.infer<typeof startExamBodySchema>
