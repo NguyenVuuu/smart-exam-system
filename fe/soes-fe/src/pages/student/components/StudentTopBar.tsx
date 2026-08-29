@@ -8,7 +8,9 @@ export default function StudentTopBar() {
   const user = useAuthStore((s) => s.user)
   const { logout } = useLogout()
   const [open, setOpen] = useState(false)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => persistentStudentIsCollapsed)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(
+    () => persistentStudentIsCollapsed || window.matchMedia('(max-width: 767px)').matches,
+  )
 
   useEffect(() => {
     const handleToggle = () => {

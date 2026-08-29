@@ -30,7 +30,9 @@ export let persistentStudentIsCollapsed: boolean = false
 export default function StudentSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => persistentStudentIsCollapsed)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(
+    () => persistentStudentIsCollapsed || window.matchMedia('(max-width: 767px)').matches,
+  )
 
   // Listen to global toggle-sidebar custom event
   useEffect(() => {
@@ -75,7 +77,10 @@ export default function StudentSidebar() {
       {/* Nav */}
       <nav className="flex-1 py-4 px-2.5 space-y-1 overflow-y-auto overflow-x-hidden">
         {NAV_ITEMS.map((item) => {
-          const isActive = location.pathname === item.path
+          const isExamRoute = location.pathname.startsWith('/student/course-offerings/') && location.pathname.includes('/exams')
+          const isActive = item.label === 'Bài thi'
+            ? location.pathname === item.path || isExamRoute
+            : location.pathname === item.path
 
           return (
             <button
