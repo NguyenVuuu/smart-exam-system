@@ -11,10 +11,12 @@ export const apiClient = axios.create({
   withCredentials: true,
 })
 
-// Attach access token from memory to every request
+// Attach access token from memory to every request, except auth endpoints
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = tokenStorage.getAccessToken()
-  if (token) {
+  const isAuthEndpoint = config.url?.includes('/auth/login') || config.url?.includes('/auth/refresh-token')
+  
+  if (token && !isAuthEndpoint) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -44,10 +46,11 @@ apiClient.interceptors.response.use(
 
     const is401 = error.response?.status === 401
     const alreadyRetried = originalRequest._retry
-    // Never attempt to refresh if the failing request IS the refresh endpoint
+    // Never attempt to refresh if the failing request IS the refresh endpoint or login endpoint
     const isRefreshEndpoint = originalRequest.url?.includes('/auth/refresh-token')
+    const isLoginEndpoint = originalRequest.url?.includes('/auth/login')
 
-    if (!is401 || alreadyRetried || isRefreshEndpoint) {
+    if (!is401 || alreadyRetried || isRefreshEndpoint || isLoginEndpoint) {
       return Promise.reject(error)
     }
 
