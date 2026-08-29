@@ -1,0 +1,240 @@
+@layer components {
+  .take-exam-page {
+    background: var(--soes-canvas);
+    color: var(--soes-ink);
+  }
+
+  .take-exam-ambient {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: min(720px, 72vw);
+    height: 420px;
+    object-fit: cover;
+    object-position: top right;
+    opacity: 0.16;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .take-exam-hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--soes-surface-tint) 60%, transparent) 0%,
+      var(--soes-surface) 82%
+    );
+    box-shadow: var(--soes-shadow-card);
+  }
+
+  .take-exam-hero::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--soes-surface) 36%, transparent));
+    content: '';
+    pointer-events: none;
+  }
+
+  .take-exam-hero > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .take-exam-timer {
+    border-color: color-mix(in srgb, var(--soes-blue) 18%, var(--soes-border-strong));
+    background: color-mix(in srgb, var(--soes-surface) 82%, var(--soes-surface-tint));
+    color: var(--soes-ink);
+  }
+
+  .take-exam-timer svg {
+    color: var(--soes-blue);
+  }
+
+  .take-exam-timer--urgent {
+    border-color: var(--soes-warning-border);
+    background: var(--soes-warning-soft);
+    color: var(--soes-warning-dark);
+  }
+
+  .take-exam-timer--urgent svg {
+    color: var(--soes-warning);
+  }
+
+  .take-exam-choice {
+    border-color: var(--soes-border-strong);
+    background: var(--soes-surface);
+  }
+
+  .take-exam-choice:hover {
+    border-color: color-mix(in srgb, var(--soes-blue) 34%, var(--soes-border-strong));
+    background: color-mix(in srgb, var(--soes-surface-tint) 34%, var(--soes-surface));
+  }
+
+  .take-exam-choice--selected {
+    border-color: color-mix(in srgb, var(--soes-blue) 55%, var(--soes-border-strong));
+    background: color-mix(in srgb, var(--soes-surface-tint) 70%, var(--soes-surface));
+  }
+
+  .take-exam-choice--selected > span:nth-of-type(1) {
+    background: var(--soes-blue);
+    color: var(--soes-white);
+  }
+
+  .take-exam-code {
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--soes-ink-dark) 14%, transparent);
+  }
+
+  .take-exam-code__monaco {
+    height: clamp(22rem, 48vh, 34rem);
+    min-height: 22rem;
+  }
+
+  .take-exam-question-button {
+    position: relative;
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--soes-border-strong);
+    border-radius: var(--soes-radius-md);
+    background: var(--soes-surface);
+    color: var(--soes-ink-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    transition: border-color var(--soes-motion-fast), background-color var(--soes-motion-fast), color var(--soes-motion-fast), transform var(--soes-motion-fast);
+  }
+
+  .take-exam-question-button:hover {
+    border-color: color-mix(in srgb, var(--soes-blue) 45%, var(--soes-border-strong));
+    color: var(--soes-blue);
+    transform: translateY(-1px);
+  }
+
+  .take-exam-question-button:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--soes-blue) 45%, transparent);
+    outline-offset: 2px;
+  }
+
+  .take-exam-question-button--current {
+    border-color: var(--soes-blue);
+    background: var(--soes-blue);
+    color: var(--soes-white);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--soes-blue) 22%, transparent);
+  }
+
+  .take-exam-question-button--current:hover {
+    border-color: var(--soes-blue);
+    background: var(--soes-blue);
+    color: var(--soes-white);
+  }
+
+  .take-exam-question-button--answered {
+    border-color: color-mix(in srgb, var(--soes-blue) 24%, var(--soes-border-strong));
+    background: var(--soes-surface-tint);
+    color: var(--soes-blue);
+  }
+
+  .take-exam-question-button--flagged::after {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--soes-warning);
+    content: '';
+  }
+
+  .take-exam-question-button--flagged i {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--soes-warning);
+  }
+
+  .take-exam-legend-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border: 1px solid var(--soes-border-strong);
+    border-radius: 999px;
+    background: var(--soes-surface);
+  }
+
+  .take-exam-legend-dot--current {
+    border-color: var(--soes-blue);
+    background: var(--soes-blue);
+  }
+
+  .take-exam-legend-dot--answered {
+    border-color: color-mix(in srgb, var(--soes-blue) 24%, var(--soes-border-strong));
+    background: var(--soes-surface-tint);
+  }
+
+  .take-exam-legend-dot--flagged {
+    border-color: var(--soes-warning);
+    background: var(--soes-warning);
+  }
+
+  .take-exam-dialog-backdrop {
+    background: color-mix(in srgb, var(--soes-ink-dark) 62%, transparent);
+    backdrop-filter: blur(4px);
+    animation: take-exam-fade-in var(--soes-motion-fast) ease-out both;
+  }
+
+  .take-exam-dialog {
+    animation: take-exam-dialog-in var(--soes-motion-normal) var(--soes-motion-ease) both;
+  }
+
+  @keyframes take-exam-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes take-exam-dialog-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @media (min-width: 1024px) {
+    .take-exam-navigator {
+      position: sticky;
+      top: 1.25rem;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .take-exam-ambient {
+      width: 100vw;
+      height: 260px;
+      opacity: 0.11;
+    }
+
+    .take-exam-hero > div:first-child {
+      display: block;
+    }
+
+    .take-exam-hero > div:first-child > div:first-child {
+      width: 100%;
+    }
+
+    .take-exam-timer {
+      width: 100%;
+      min-width: 0;
+      margin-top: 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .take-exam-question-button,
+    .take-exam-dialog-backdrop,
+    .take-exam-dialog {
+      animation: none;
+      transition: none;
+    }
+  }
+}

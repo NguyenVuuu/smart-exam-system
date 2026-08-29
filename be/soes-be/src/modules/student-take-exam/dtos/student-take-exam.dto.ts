@@ -44,7 +44,13 @@ export interface GetExamContentResponseDto {
   durationMinutes:  number
   remainingSeconds: number
   attemptEndAt:     string
+  integritySettings: ExamIntegritySettingsDto
   questions:        ExamContentQuestionDto[]
+}
+
+export interface ExamIntegritySettingsDto {
+  blockCopyPaste: boolean
+  blockRightClick: boolean
 }
 
 // ─── API 3: Save Answer ───────────────────────────────────────────────────────

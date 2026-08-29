@@ -117,6 +117,7 @@ export async function seedQuestions(
       // Check by content + subjectId to avoid duplicates
       const existing = await prisma.question.findFirst({
         where: { content: qData.content, subjectId: subject.id },
+        include: { options: true },
       })
       if (existing) { allQuestions.push(existing); continue }
 
@@ -148,6 +149,7 @@ export async function seedQuestions(
             create: qData.options,
           },
         },
+        include: { options: true },
       })
       allQuestions.push(question)
     }

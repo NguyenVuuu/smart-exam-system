@@ -1,10 +1,27 @@
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../../../errors/AppError";
 import prisma from "../../../lib/prisma";
 import { examConfig } from "../../../config";
-import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult } from "../types";
-import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
-import { judge0Service, Judge0Service } from '../../../lib/judge0'
-import type { Judge0Submission, Judge0SubmissionResult } from '../../../lib/judge0'
+import type {
+  StartExamResult,
+  ExamContentResult,
+  SubmitExamResult,
+  AttemptStatusResult,
+} from "../types";
+import type {
+  SendHeartbeatResult,
+  RunCodeResult,
+  RunCodeTestCase,
+} from "../types";
+import { judge0Service, Judge0Service } from "../../../lib/judge0";
+import type {
+  Judge0Submission,
+  Judge0SubmissionResult,
+} from "../../../lib/judge0";
 import * as repo from "../repositories/student-take-exam.repository";
 
 /**
@@ -16,20 +33,20 @@ async function runInBatches<T, R>(
   batchSize: number,
   fn: (item: T) => Promise<R>,
 ): Promise<R[]> {
-  const results: R[] = []
+  const results: R[] = [];
   for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize)
-    const batchResults = await Promise.all(batch.map(fn))
-    results.push(...batchResults)
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
   }
-  return results
+  return results;
 }
 
 export async function startExam(
   examId: string,
   studentId: string,
-  ipAddress: string,      
-  deviceInfo: string,  
+  ipAddress: string,
+  deviceInfo: string,
   password?: string,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
@@ -118,7 +135,7 @@ export async function startExam(
       remainingSeconds,
       shuffleQuestions: exam.shuffleQuestions,
       ipAddress,
-      deviceInfo,  
+      deviceInfo,
     });
   } catch (err) {
     if (err instanceof Error && err.name === "DUPLICATE_ATTEMPT") {
@@ -163,7 +180,7 @@ export async function getExamContent(
 
   // ── 2. Check expiry using attemptEndAt from DB ─────────────────────────────
   const now = new Date();
-  if (attempt.status !== 'IN_PROGRESS' || now >= attempt.attemptEndAt) {
+  if (attempt.status !== "IN_PROGRESS" || now >= attempt.attemptEndAt) {
     throw new ConflictError("Exam attempt has ended");
   }
 
@@ -177,46 +194,59 @@ export async function getExamContent(
   // Source of truth: ExamAttemptQuestion ordered by displayOrder ASC.
   // Choice questions carry options + answer (selectedOptionIds for state restore).
   // Programming questions carry draftSourceCode (for state restore); no options field.
-  const questions: ExamContentResult["questions"] = attempt.attemptQuestions.map((aq) => {
-    const q       = aq.examQuestion
-    const qId     = q.id
-    const points  = pointsMap.get(qId) ?? 0
-    const savedAnswer = answerMap.get(qId)
+  const questions: ExamContentResult["questions"] =
+    attempt.attemptQuestions.map((aq) => {
+      const q = aq.examQuestion;
+      const qId = q.id;
+      const points = pointsMap.get(qId) ?? 0;
+      const savedAnswer = answerMap.get(qId);
 
-    if (q.type === 'PROGRAMMING') {
-      return {
-        id:              qId,
-        orderIndex:      aq.displayOrder,
-        content:         q.content,
-        type:            'PROGRAMMING' as const,
-        points,
-        draftSourceCode: savedAnswer?.draftSourceCode ?? null,
-        language: q.language ?? 'UNKNOWN',   // ← fallback nếu null
+      if (q.type === "PROGRAMMING") {
+        return {
+          id: qId,
+          orderIndex: aq.displayOrder,
+          content: q.content,
+          type: "PROGRAMMING" as const,
+          points,
+          draftSourceCode: savedAnswer?.draftSourceCode ?? null,
+          language: q.language ?? "UNKNOWN", // ← fallback nếu null
+        };
       }
-    }
 
-    // Order options according to shuffledOptionIds (API 2 requirement)
-    const orderedOptions = aq.shuffledOptionIds?.length > 0
-      ? aq.shuffledOptionIds.map(id => q.options.find(o => o.id === id)).filter((o): o is { id: string; content: string } => o !== undefined)
-      : q.options;
+      // Order options according to shuffledOptionIds (API 2 requirement)
+      const orderedOptions =
+        aq.shuffledOptionIds?.length > 0
+          ? aq.shuffledOptionIds
+              .map((id) => q.options.find((o) => o.id === id))
+              .filter(
+                (o): o is { id: string; content: string } => o !== undefined,
+              )
+          : q.options;
 
-    return {
-      id:         qId,
-      orderIndex: aq.displayOrder,
-      content:    q.content,
-      type:       q.type as 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE',
-      points,
-      options:    orderedOptions.map(opt => ({ id: opt.id, content: opt.content })),
-      answer:     savedAnswer?.selectedOptionIds ?? [],
-    }
-  })
+      return {
+        id: qId,
+        orderIndex: aq.displayOrder,
+        content: q.content,
+        type: q.type as "SINGLE_CHOICE" | "MULTIPLE_CHOICE",
+        points,
+        options: orderedOptions.map((opt) => ({
+          id: opt.id,
+          content: opt.content,
+        })),
+        answer: savedAnswer?.selectedOptionIds ?? [],
+      };
+    });
 
   return {
-    attemptId:       attempt.id,
-    title:           attempt.exam.title,
+    attemptId: attempt.id,
+    title: attempt.exam.title,
     durationMinutes: attempt.exam.durationMinutes,
     remainingSeconds,
-    attemptEndAt:    attempt.attemptEndAt,
+    attemptEndAt: attempt.attemptEndAt,
+    integritySettings: {
+      blockCopyPaste: attempt.exam.blockCopyPaste,
+      blockRightClick: attempt.exam.blockRightClick,
+    },
     questions,
   };
 }
@@ -304,7 +334,9 @@ export async function saveAnswer(
         throw new ValidationError("Answer cannot be empty");
       }
       // Validate option belongs to this exam question
-      const optionExists = question.options.some((o: { id: string }) => o.id === answer);
+      const optionExists = question.options.some(
+        (o: { id: string }) => o.id === answer,
+      );
       if (!optionExists) {
         throw new ValidationError("Option not found in question");
       }
@@ -409,16 +441,16 @@ export async function submitExam(
 
   const updated = await prisma.examAttempt.updateMany({
     where: {
-      id:          attemptId,
-      examId:      examId,
-      studentId:   studentId,
-      status:      'IN_PROGRESS',
-      attemptEndAt: { gt: now },        // attemptEndAt > now  ← deadline guard
+      id: attemptId,
+      examId: examId,
+      studentId: studentId,
+      status: "IN_PROGRESS",
+      attemptEndAt: { gt: now }, // attemptEndAt > now  ← deadline guard
     },
     data: {
-      status:      'SUBMITTED',
+      status: "SUBMITTED",
       submittedAt: now,
-      endedBy:     'STUDENT',
+      endedBy: "STUDENT",
       // attemptEndAt, remainingSeconds, and StudentAnswers are intentionally
       // NOT touched here, per contract.
     },
@@ -438,79 +470,84 @@ export async function submitExam(
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
     select: {
-      id:           true,
-      examId:       true,
-      studentId:    true,
-      status:       true,
+      id: true,
+      examId: true,
+      studentId: true,
+      status: true,
       attemptEndAt: true,
     },
   });
 
   // 404 conditions: attempt missing, belongs to another exam, or another student
   if (!attempt) {
-    throw new NotFoundError('Attempt not found');
+    throw new NotFoundError("Attempt not found");
   }
   if (attempt.examId !== examId) {
-    throw new NotFoundError('Attempt not found');
+    throw new NotFoundError("Attempt not found");
   }
   if (attempt.studentId !== studentId) {
-    throw new NotFoundError('Attempt not found');
+    throw new NotFoundError("Attempt not found");
   }
 
   // 409 conditions
-  if (attempt.status === 'SUBMITTED') {
-    throw new ConflictError('Exam attempt has already been submitted');
+  if (attempt.status === "SUBMITTED") {
+    throw new ConflictError("Exam attempt has already been submitted");
   }
 
   // EXPIRED, or still IN_PROGRESS but deadline has passed
-  if (attempt.status === 'EXPIRED') {
-    throw new ConflictError('Exam attempt has ended');
+  if (attempt.status === "EXPIRED") {
+    throw new ConflictError("Exam attempt has ended");
   }
 
   // Catch-all: IN_PROGRESS but now >= attemptEndAt, or any other terminal state
-  throw new ConflictError('Exam attempt has ended');
+  throw new ConflictError("Exam attempt has ended");
 }
 
 // ─── API 5: Get Attempt Status ────────────────────────────────────────────────
 
 export async function getAttemptStatus(
-  examId:    string,
+  examId: string,
   attemptId: string,
   studentId: string,
 ): Promise<AttemptStatusResult> {
   // ── 1. Load attempt with session + counts (ownership validated in repo) ───
-  const data = await repo.findAttemptStatus(attemptId, examId, studentId)
+  const data = await repo.findAttemptStatus(attemptId, examId, studentId);
   if (!data) {
-    throw new NotFoundError('Attempt not found')
+    throw new NotFoundError("Attempt not found");
   }
 
   // ── 2. Compute remainingSeconds realtime from attemptEndAt ────────────────
   // Contract: IN_PROGRESS → realtime calc; SUBMITTED / EXPIRED → 0
-  const now = new Date()
+  const now = new Date();
 
   const remainingSeconds =
-    data.status === 'IN_PROGRESS'
-      ? Math.max(0, Math.floor((data.attemptEndAt.getTime() - now.getTime()) / 1000))
-      : 0
+    data.status === "IN_PROGRESS"
+      ? Math.max(
+          0,
+          Math.floor((data.attemptEndAt.getTime() - now.getTime()) / 1000),
+        )
+      : 0;
 
   // ── 3. Compute isOnline from lastHeartbeat (NOT from ExamSession.isOnline) ─
   // ExamSession.isOnline is intentionally ignored per contract section 9.
-  const isOnline: boolean = data.examSession !== null
-    && (now.getTime() - data.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+  const isOnline: boolean =
+    data.examSession !== null &&
+    now.getTime() - data.examSession.lastHeartbeat.getTime() <=
+      examConfig.heartbeatTimeoutMs;
 
   return {
-    attemptId:          data.id,
-    status:             data.status,
-    startedAt:          data.startedAt,
-    attemptEndAt:       data.attemptEndAt,
-    submittedAt:        data.submittedAt,
-    endedBy:            data.endedBy,
+    attemptId: data.id,
+    status: data.status,
+    startedAt: data.startedAt,
+    attemptEndAt: data.attemptEndAt,
+    submittedAt: data.submittedAt,
+    endedBy: data.endedBy,
     remainingSeconds,
-    lastSavedAt:        data.lastSavedAt,
+    lastSavedAt: data.lastSavedAt,
     isOnline,
-    answeredCount:      data._count.studentAnswers,
+    answeredCount: data._count.studentAnswers,
     totalQuestionCount: data._count.attemptQuestions,
-  }
+  };
 }
 
 // ─── API 6: Send Heartbeat ───────────────────────────────────────────────────
@@ -520,45 +557,48 @@ export async function sendHeartbeat(
   attemptId: string,
   studentId: string,
 ): Promise<SendHeartbeatResult> {
-  const now = new Date()
+  const now = new Date();
 
   // ── 1. Load attempt and validate ownership ─────────────────────────────────
-  const attemptData = await repo.findAttemptForHeartbeat(attemptId, examId, studentId)
+  const attemptData = await repo.findAttemptForHeartbeat(
+    attemptId,
+    examId,
+    studentId,
+  );
   if (!attemptData) {
-    throw new NotFoundError("Attempt not found")
+    throw new NotFoundError("Attempt not found");
   }
 
   // ── 2. Check attempt status ────────────────────────────────────────────────
   if (attemptData.status !== "IN_PROGRESS") {
     if (attemptData.status === "SUBMITTED") {
-      throw new ConflictError("Exam attempt has already been submitted")
+      throw new ConflictError("Exam attempt has already been submitted");
     }
-    throw new ConflictError("Exam attempt has ended") // EXPIRED or other terminal state
+    throw new ConflictError("Exam attempt has ended"); // EXPIRED or other terminal state
   }
 
   // ── 3. Check deadline (attemptEndAt) ───────────────────────────────────────
   if (now >= attemptData.attemptEndAt) {
-    throw new ConflictError("Exam attempt has ended")
+    throw new ConflictError("Exam attempt has ended");
   }
 
   // ── 4. Update ExamSession.lastHeartbeat atomically ─────────────────────────
-  await repo.upsertExamSessionHeartbeat(attemptId, now)
+  await repo.upsertExamSessionHeartbeat(attemptId, now);
 
   // ── 5. Compute remainingSeconds realtime ───────────────────────────────────
   const remainingSeconds = Math.max(
     0,
     Math.floor((attemptData.attemptEndAt.getTime() - now.getTime()) / 1000),
-  )
+  );
 
   // ── 6. Return result with isOnline = true (student just sent heartbeat) ─────
   return {
     remainingSeconds,
     isOnline: true,
-  }
+  };
 }
 
 // ─── API 7: Run Code ─────────────────────────────────────────────────────────
-
 
 export async function runCode(
   examId: string,
@@ -567,7 +607,7 @@ export async function runCode(
   studentId: string,
   sourceCode: string,
 ): Promise<RunCodeResult> {
-  const now = new Date()
+  const now = new Date();
 
   // ── 1. Load attempt and question data (with test cases) ───────────────────
   const data = await repo.findProgrammingQuestionWithTestCases(
@@ -575,60 +615,66 @@ export async function runCode(
     attemptId,
     examId,
     studentId,
-  )
+  );
   if (!data) {
-    throw new NotFoundError("Attempt not found")
+    throw new NotFoundError("Attempt not found");
   }
 
-  const { attempt, question } = data
+  const { attempt, question } = data;
 
   if (!question) {
-    throw new NotFoundError("Question not found in this attempt")
+    throw new NotFoundError("Question not found in this attempt");
   }
 
   // ── 2. Validate attempt status and deadline ────────────────────────────────
   if (attempt.status !== "IN_PROGRESS") {
     if (attempt.status === "SUBMITTED") {
-      throw new ConflictError("Exam attempt has already been submitted")
+      throw new ConflictError("Exam attempt has already been submitted");
     }
-    throw new ConflictError("Exam attempt has ended")
+    throw new ConflictError("Exam attempt has ended");
   }
 
   if (now >= attempt.attemptEndAt) {
-    throw new ConflictError("Exam attempt has ended")
+    throw new ConflictError("Exam attempt has ended");
   }
 
   // ── 3. Validate question type ──────────────────────────────────────────────
   if (question.type !== "PROGRAMMING") {
-    throw new ValidationError("Question is not a programming question")
+    throw new ValidationError("Question is not a programming question");
   }
 
   // ── 4. Validate source code size ───────────────────────────────────────────
-  const maxCodeSizeKb = question.programmingQuestionConfig?.maxCodeSizeKb ?? 64 // default 64KB
-  const maxCodeSizeBytes = maxCodeSizeKb * 1024
+  const maxCodeSizeKb = question.programmingQuestionConfig?.maxCodeSizeKb ?? 64; // default 64KB
+  const maxCodeSizeBytes = maxCodeSizeKb * 1024;
   // Calculate UTF-8 byte length without Buffer
-  const encoder = new TextEncoder()
-  const byteLength = encoder.encode(sourceCode).length
+  const encoder = new TextEncoder();
+  const byteLength = encoder.encode(sourceCode).length;
   if (byteLength > maxCodeSizeBytes) {
-    throw new ValidationError("Source code exceeds maximum allowed size")
+    throw new ValidationError("Source code exceeds maximum allowed size");
   }
 
   // ── 5. Save draftSourceCode to StudentAnswer (atomic upsert) ───────────────
-  await repo.upsertStudentAnswerForProgramming(attemptId, questionId, sourceCode)
+  await repo.upsertStudentAnswerForProgramming(
+    attemptId,
+    questionId,
+    sourceCode,
+  );
 
   // ── 6. Update ExamAttempt.lastSavedAt ──────────────────────────────────────
-  await repo.updateAttemptLastSavedAt(attemptId, now)
+  await repo.updateAttemptLastSavedAt(attemptId, now);
 
   // ── 7. Prepare test cases ──────────────────────────────────────────────────
-  const testCases = question.programmingTestCases
+  const testCases = question.programmingTestCases;
   if (testCases.length === 0) {
     // If no test cases, return empty results
     const remainingSeconds = Math.max(
       0,
       Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
-    )
-    const isOnline = attempt.examSession !== null &&
-      (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+    );
+    const isOnline =
+      attempt.examSession !== null &&
+      now.getTime() - attempt.examSession.lastHeartbeat.getTime() <=
+        examConfig.heartbeatTimeoutMs;
 
     return {
       questionId,
@@ -644,35 +690,43 @@ export async function runCode(
         message: "Không có test case nào để kiểm tra",
       },
       testCases: [],
-    }
+    };
   }
 
   // ── 8. Prepare Judge0 submissions ──────────────────────────────────────────
-  const timeLimitMs = question.programmingQuestionConfig?.timeLimitMs ?? 2000 // default 2s
-  const memoryLimitKb = question.programmingQuestionConfig?.memoryLimitKb ?? 256 * 1024 // default 256MB
+  const timeLimitMs = question.programmingQuestionConfig?.timeLimitMs ?? 2000; // default 2s
+  const memoryLimitKb =
+    question.programmingQuestionConfig?.memoryLimitKb ?? 256 * 1024; // default 256MB
 
   // Pass expected_output for ALL test cases (sample + hidden) to avoid false passes on hidden
-  const submissions: Judge0Submission[] = testCases.map(testCase => ({
+  const submissions: Judge0Submission[] = testCases.map((testCase) => ({
     source_code: sourceCode,
     language_id: question.language, // "JAVA", "C", "CPP"
     stdin: testCase.input,
     expected_output: testCase.expectedOutput, // Always pass expected_output
     cpu_time_limit: timeLimitMs / 1000, // Convert ms to seconds
     memory_limit: memoryLimitKb,
-  }))
+  }));
 
-    // ── 9. Execute submissions via Judge0 ──────────────────────────────────────
-  // Chạy theo lô 5 test case song song để tránh quá tải Judge0.
-  // Nếu 1 test case lỗi hạ tầng, trả placeholder SYSTEM_ERROR để lô còn lại vẫn chạy.
-  const BATCH_SIZE = 5
+  // ── 9. Execute submissions via Judge0 ──────────────────────────────────────
+  // Dùng submitAndPoll (wait=false + poll) thay vì submitSingle (wait=true)
+  // để tránh treo connection trên Docker Desktop Windows.
 
-  const judge0Results = await runInBatches(
-    submissions,
-    BATCH_SIZE,
-    async (submission) => {
+  console.log("DEBUG: Sending to Judge0 (async + poll):", {
+    language: question.language,
+    judge0LanguageId: (judge0Service as any).getJudge0LanguageId(
+      question.language || "",
+    ),
+    testCasesCount: testCases.length,
+  });
+
+  // Gửi đồng thời tất cả test case (submit nhanh, ~100ms mỗi cái)
+  const judge0Results = await Promise.all(
+    submissions.map(async (submission) => {
       try {
-        return await judge0Service.submitSingle(submission)
+        return await judge0Service.submitAndPoll(submission, 60000);
       } catch (error) {
+        console.error("Judge0 submission error:", error);
         return {
           stdout: null,
           stderr: null,
@@ -681,45 +735,54 @@ export async function runCode(
           status: { id: 13, description: "System Error" },
           time: null,
           memory: null,
-        }
+        };
       }
-    },
-  )
+    }),
+  );
 
   // ── 10. Process Judge0 results ────────────────────────────────────────────
-  let compilationStatus: 'COMPILED' | 'COMPILE_ERROR' = 'COMPILED'
-  let compilerOutput: string | null = null
-  let runtimeError: string | null = null
-  let passedCount = 0
+  let compilationStatus: "COMPILED" | "COMPILE_ERROR" = "COMPILED";
+  let compilerOutput: string | null = null;
+  let runtimeError: string | null = null;
+  let passedCount = 0;
 
-  const processedTestCases: RunCodeTestCase[] = []
+  const processedTestCases: RunCodeTestCase[] = [];
 
   for (let i = 0; i < testCases.length; i++) {
-    const testCase = testCases[i]
-    const judge0Result = judge0Results[i]
-    
+    const testCase = testCases[i];
+    const judge0Result = judge0Results[i];
+
     // Check for compilation error (if any test case fails compilation, all fail)
-    if (judge0Result.status.id === 6) { // Compilation Error
-      compilationStatus = "COMPILE_ERROR"
-      compilerOutput = judge0Result.compile_output || judge0Result.stderr || "Compilation failed"
+    if (judge0Result.status.id === 6) {
+      // Compilation Error
+      compilationStatus = "COMPILE_ERROR";
+      compilerOutput =
+        judge0Result.compile_output ||
+        judge0Result.stderr ||
+        "Compilation failed";
       // Stop processing test cases
-      break
+      break;
     }
 
     // Map Judge0 status to our internal status
-    const status = Judge0Service.mapStatusToInternal(judge0Result.status.id)
+    const status = Judge0Service.mapStatusToInternal(judge0Result.status.id);
 
     // Check if passed (only for COMPILED submissions)
-    const isPassed = status === 'PASSED'
+    const isPassed = status === "PASSED";
     if (isPassed) {
-      passedCount++
+      passedCount++;
     }
 
     // Track first runtime error in sample test cases
-    if (testCase.isSample && 
-        (status === 'RUNTIME_ERROR' || status === 'TIME_LIMIT_EXCEEDED' || status === 'MEMORY_LIMIT_EXCEEDED') &&
-        runtimeError === null) {
-      runtimeError = judge0Result.stderr || judge0Result.message || "Runtime error occurred"
+    if (
+      testCase.isSample &&
+      (status === "RUNTIME_ERROR" ||
+        status === "TIME_LIMIT_EXCEEDED" ||
+        status === "MEMORY_LIMIT_EXCEEDED") &&
+      runtimeError === null
+    ) {
+      runtimeError =
+        judge0Result.stderr || judge0Result.message || "Runtime error occurred";
     }
 
     // Build test case result
@@ -731,43 +794,45 @@ export async function runCode(
         input: testCase.input,
         expectedOutput: testCase.expectedOutput,
         actualOutput: judge0Result.stdout,
-        executionTimeMs: parseFloat(judge0Result.time || '0') * 1000, // Convert seconds to ms
+        executionTimeMs: parseFloat(judge0Result.time || "0") * 1000, // Convert seconds to ms
         memoryUsedKb: judge0Result.memory || 0,
-      })
+      });
     } else {
       processedTestCases.push({
         testCaseId: testCase.id,
         isSample: false,
         status,
-      })
+      });
     }
   }
   // ← THÊM DÒNG NÀY sau vòng lặp for
   // hasSystemError = true nếu có ít nhất 1 test case bị lỗi hạ tầng (status.id === 13)
   // và KHÔNG phải do lỗi biên dịch (compile error là lỗi code, không phải hạ tầng)
   const hasSystemError =
-    compilationStatus !== 'COMPILE_ERROR' &&
-    judge0Results.some((r) => r.status.id === 13)
+    compilationStatus !== "COMPILE_ERROR" &&
+    judge0Results.some((r) => r.status.id === 13);
 
   // ── 11. Compute remainingSeconds and isOnline ──────────────────────────────
   const remainingSeconds = Math.max(
     0,
     Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
-  )
-  
-  const isOnline = attempt.examSession !== null &&
-    (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+  );
+
+  const isOnline =
+    attempt.examSession !== null &&
+    now.getTime() - attempt.examSession.lastHeartbeat.getTime() <=
+      examConfig.heartbeatTimeoutMs;
 
   // ── 12. Build summary message ──────────────────────────────────────────────
-  const totalCount = testCases.length
-  let message: string
-  
+  const totalCount = testCases.length;
+  let message: string;
+
   if (compilationStatus === "COMPILE_ERROR") {
-    message = "Biên dịch thất bại"
+    message = "Biên dịch thất bại";
   } else if (totalCount === 0) {
-    message = "Không có test case nào để kiểm tra"
+    message = "Không có test case nào để kiểm tra";
   } else {
-    message = `Bạn đã pass ${passedCount}/${totalCount} test cases`
+    message = `Bạn đã pass ${passedCount}/${totalCount} test cases`;
   }
 
   // ── 13. Return result ─────────────────────────────────────────────────────
@@ -778,12 +843,12 @@ export async function runCode(
     compilationStatus,
     compilerOutput,
     runtimeError,
-    hasSystemError, 
+    hasSystemError,
     summary: {
       passedCount: compilationStatus === "COMPILE_ERROR" ? 0 : passedCount,
       totalCount: compilationStatus === "COMPILE_ERROR" ? 0 : totalCount,
       message,
     },
     testCases: processedTestCases,
-  }
+  };
 }
