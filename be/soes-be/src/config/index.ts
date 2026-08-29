@@ -38,7 +38,7 @@ export const examConfig = {
 
 export const judge0Config = {
   get baseUrl(): string {
-    return process.env.JUDGE0_BASE_URL ?? 'http://localhost:2358'
+    return process.env.JUDGE0_BASE_URL ?? 'http://127.0.0.1:2358'
   },
   
   get apiKey(): string | null {
