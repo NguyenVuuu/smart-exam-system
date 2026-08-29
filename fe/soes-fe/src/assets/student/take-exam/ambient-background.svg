@@ -1,0 +1,24 @@
+<svg viewBox="0 0 1366 525" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0" y="0"><defs><filter id="filter0_f_3003_2884" x="828.28" y="-90" width="627.72" height="615.64" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="45" result="effect1_foregroundBlur_3003_2884"/>
+</filter><clipPath id="clip1_3003_2884">
+<rect width="1366" height="525" fill="white" transform="translate(0, 0)"/>
+</clipPath><clipPath id="clip2_3003_2884">
+<rect width="447.72" height="435.64" fill="white" transform="translate(918.28, 0)"/>
+</clipPath><clipPath id="clip3_3003_2884">
+<rect width="447.72" height="435.64" fill="white" transform="translate(918.28, 0)"/>
+</clipPath></defs><g id="Container_2" clip-path="url(#clip1_3003_2884)">
+<g id="SVG" filter="url(#filter0_f_3003_2884)">
+<g clip-path="url(#clip2_3003_2884)">
+<g id="SVG_2" clip-path="url(#clip3_3003_2884)">
+<g id="Group">
+<path id="Vector" d="M1192.54,127.723c0.09,-101.3966 -163.03,-108.5186 -153.56,3.965c-0.64,68.827 58.02,119.665 118.62,140.856c65.26,8.454 65.06,99.034 126.27,104.108c52.03,6.959 86.1,-30.8 60.51,-72.988l-1.93,-5.814c-2.81,-50.145 -38.81,-69.258 -74.93,-88.438c-34.36,-18.246 -68.83,-36.553 -74.98,-81.689z" fill="#8000FF" fill-opacity="0.8"/>
+<path id="Vector_2" d="M1200.29,135.327c29.77,-89.9612 -112.58,-144.1601 -137.12,-41.555c-20.73,60.894 16.32,123.229 63.77,159.821c55.31,26.656 28.61,106.985 81.32,129.454c44.03,21.446 85.26,-2.062 74.94,-47.015v-5.725c12.19,-45.328 -14.08,-72.854 -40.44,-100.479c-25.08,-26.276 -50.24,-52.641 -42.47,-94.501z" fill="#009DFF" fill-opacity="0.7"/>
+<path id="Vector_3" d="M1039.65,139.415c25.26,-76.167 -95.538,-122.0554 -116.371,-35.183c-17.586,51.558 13.858,104.333 54.126,135.316c46.935,22.569 24.275,90.58 69.015,109.604c37.36,18.158 72.34,-1.746 63.59,-39.806v-4.848c10.35,-38.377 -11.95,-61.682 -34.32,-85.071c-21.28,-22.248 -42.64,-44.571 -36.04,-80.012z" fill="#00DDFF" fill-opacity="0.5"/>
+</g>
+</g>
+</g>
+</g>
+<rect id="Overlay" y="0" width="1366" height="525" fill="#FAFAFA" fill-opacity="0.8" x="0"/>
+</g></svg>
