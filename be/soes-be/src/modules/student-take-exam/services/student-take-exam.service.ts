@@ -31,6 +31,7 @@ export async function startExam(
   ipAddress: string,      
   deviceInfo: string,
   password?: string,
+  webcamConfirmed = false,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
   const schedule = await repo.findScheduleById(scheduleId);
@@ -59,6 +60,10 @@ export async function startExam(
 
   if (now < schedule.startTime) {
     throw new ConflictError("Exam has not started yet");
+  }
+
+  if (schedule.enableWebcam && !webcamConfirmed) {
+    throw new ForbiddenError("Webcam access is required to start this exam");
   }
 
   // Allow student to resume if active attempt is valid (e.g. granted extra time beyond schedule.endTime)
@@ -90,7 +95,7 @@ export async function startExam(
       throw new ForbiddenError("Invalid exam password");
     }
   }
-  //
+
   // Use a single timestamp for all calculations so there are no clock skew
   // issues between startedAt, attemptEndAt, and remainingSeconds.
   const startedAt = now;
@@ -224,6 +229,11 @@ export async function getExamContent(
     durationMinutes: attempt.examSchedule.durationMinutes,
     remainingSeconds,
     attemptEndAt:    attempt.deadlineAt,
+    integritySettings: {
+      enableWebcam: attempt.examSchedule.enableWebcam,
+      blockCopyPaste: attempt.examSchedule.blockCopyPaste,
+      blockRightClick: attempt.examSchedule.blockRightClick,
+    },
     questions,
   };
 }

@@ -12,6 +12,12 @@ node_modules/
 !.env.example
 
 # =========================
+# Local Secrets / Config
+# =========================
+judge0*.conf
+!judge0.conf.example
+
+# =========================
 # Build Output
 # =========================
 dist/

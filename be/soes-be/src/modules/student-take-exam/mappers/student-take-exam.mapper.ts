@@ -43,6 +43,7 @@ export function toGetExamContentResponseDto(result: ExamContentResult): GetExamC
     durationMinutes:  result.durationMinutes,
     remainingSeconds: result.remainingSeconds,
     attemptEndAt:     result.attemptEndAt.toISOString(),
+    integritySettings: result.integritySettings,
     questions:        result.questions.map(toExamContentQuestionDto),
   }
 }

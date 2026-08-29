@@ -21,6 +21,46 @@ services:
     volumes:
       - redis_data:/data
 
+  # Judge0 code execution sandbox — used by be/soes-be for running submissions
+  judge0-db:
+    image: postgres:16-alpine
+    container_name: soes-judge0-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: judge0
+      POSTGRES_PASSWORD: judge0pass
+      POSTGRES_DB: judge0
+    volumes:
+      - judge0_db_data:/var/lib/postgresql/data
+
+  judge0-server:
+    image: mrkushalsm/judge0:cgv2
+    container_name: soes-judge0-server
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "2358:2358"
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    command: ["./scripts/server"]
+    depends_on:
+      - judge0-db
+      - redis
+
+  judge0-workers:
+    image: mrkushalsm/judge0:cgv2
+    container_name: soes-judge0-workers
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    command: ["./scripts/workers"]
+    depends_on:
+      - judge0-server
+
 volumes:
   postgres_data:
   redis_data:
+  judge0_db_data:

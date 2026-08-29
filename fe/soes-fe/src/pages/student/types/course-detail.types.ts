@@ -90,6 +90,8 @@ export interface ExamDetail {
   attemptId: string | null
   canResume: boolean
   canStart: boolean
+  requiresPassword: boolean
+  enableWebcam: boolean
   status: StudentExamStatus
   remainingSeconds: number | null
 }

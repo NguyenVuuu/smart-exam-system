@@ -1,6 +1,40 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    color-scheme: light;
+    --soes-canvas: #fafafa;
+    --soes-surface: #ffffff;
+    --soes-surface-muted: #f5f5f5;
+    --soes-surface-soft: #f3f4f6;
+    --soes-surface-tint: #eff6ff;
+    --soes-ink: #1e293b;
+    --soes-ink-dark: #090a14;
+    --soes-ink-secondary: #475569;
+    --soes-ink-muted: #64748b;
+    --soes-ink-tertiary: #94a3b8;
+    --soes-blue: #2563eb;
+    --soes-purple: #7057ff;
+    --soes-success: #10b981;
+    --soes-success-dark: #047857;
+    --soes-warning: #f59e0b;
+    --soes-warning-soft: #fffbeb;
+    --soes-warning-border: #fde68a;
+    --soes-warning-dark: #92400e;
+    --soes-white: #ffffff;
+    --soes-border: #f3f4f6;
+    --soes-border-strong: #e2e8f0;
+    --soes-radius-sm: 6px;
+    --soes-radius-md: 8px;
+    --soes-radius-lg: 10px;
+    --soes-radius-xl: 11px;
+    --soes-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --soes-shadow-panel: 0 8px 12px rgba(9, 10, 20, 0.06);
+    --soes-motion-fast: 150ms;
+    --soes-motion-normal: 240ms;
+    --soes-motion-ease: cubic-bezier(.2, 0, 0, 1);
+  }
+
   html {
     font-size: 15.5px;
     /* Phóng to tỷ lệ chữ & khung hình lên ~110% */

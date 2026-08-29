@@ -12,6 +12,7 @@ export async function findScheduleById(scheduleId: string) {
       durationMinutes: true,
       maxAttempts: true,
       passwordHash: true,
+      enableWebcam: true,
       distributionMode: true,
       randomQuestionCount: true,
       exam: { select: { id: true, status: true } },

@@ -897,6 +897,9 @@ enum ViolationType {
   NO_FACE
   MULTIPLE_FACES
   INACTIVITY
+  LOOKING_AWAY
+  COPY_PASTE
+  CAMERA_BLOCKED
 }
 
 enum SeverityLevel {

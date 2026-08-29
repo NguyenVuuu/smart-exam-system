@@ -11,6 +11,8 @@ export interface ExamDetailResponseDto {
   attemptUsed: number
   remainingAttempts: number
   canStart: boolean
+  requiresPassword: boolean
+  enableWebcam: boolean
   status: ExamAvailabilityStatus
   remainingSeconds?: number | null
   canResume?: boolean

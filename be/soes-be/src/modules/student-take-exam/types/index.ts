@@ -15,7 +15,14 @@ export interface ExamContentResult {
   durationMinutes:  number
   remainingSeconds: number
   attemptEndAt:     Date
+  integritySettings: ExamIntegritySettings
   questions: Array<ExamContentQuestion>
+}
+
+export interface ExamIntegritySettings {
+  enableWebcam: boolean
+  blockCopyPaste: boolean
+  blockRightClick: boolean
 }
 
 export type ExamContentQuestion =
