@@ -1,6 +1,7 @@
-import { ClipboardList, Copy, Edit, Eye, Plus, Trash2, UserCheck, UserX } from 'lucide-react'
+import { ClipboardList, Copy, Edit, Eye, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
 import AppSelect from '../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
@@ -10,71 +11,53 @@ import TeacherTablePanel from './components/TeacherTablePanel'
 import TeacherToolbar from './components/TeacherToolbar'
 import TeacherTopBar from './components/TeacherTopBar'
 import CreateExamTypeModal from './components/exam-detail/CreateExamTypeModal'
+import DeleteExamDialog from './components/exam-detail/DeleteExamDialog'
+import { useTeacherExams } from './hooks/useTeacherExams'
 import type { Exam } from './types/teacher-exam.types'
-import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
-import { getExamCapabilities } from './utils/ExamCapabilities'
-
-const examStatusTone = {
-  DRAFT: 'amber',
-  PENDING_APPROVAL: 'blue',
-  REJECTED: 'rose',
-  PUBLISHED: 'emerald',
-  LOCKED: 'gray',
-  ARCHIVED: 'gray',
-} as const
-
-const examStatusLabel = {
-  DRAFT: 'Bản nháp',
-  PENDING_APPROVAL: 'Chờ duyệt',
-  REJECTED: 'Bị từ chối',
-  PUBLISHED: 'Đã công bố',
-  LOCKED: 'Đã khóa',
-  ARCHIVED: 'Đã lưu trữ',
-} as const
+import { examStatusLabel, examStatusTone } from './constants/examStatus'
+import { useTeacherCourses } from './hooks/useTeacherCourses'
 
 export default function TeacherExamsPage() {
   const navigate = useNavigate()
-  const exams = useTeacherWorkspaceStore((state) => state.exams)
-  const removeDraftExam = useTeacherWorkspaceStore((state) => state.removeDraftExam)
-  const setExamVisibility = useTeacherWorkspaceStore((state) => state.setExamVisibility)
+  const examApi = useTeacherExams()
+  const { exams } = examApi
+  const { semesterOptions, currentSemesterId } = useTeacherCourses()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('ALL')
+  const [selectedSemester, setSelectedSemester] = useState<string | null>(null)
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false)
+  const [deletingExam, setDeletingExam] = useState<Exam | null>(null)
+
+  const effectiveSemester = selectedSemester ?? currentSemesterId ?? 'ALL'
 
   const handleResetFilters = () => {
     setSearchQuery('')
     setSelectedStatus('ALL')
+    setSelectedSemester(currentSemesterId ?? 'ALL')
   }
 
   const filteredExams = exams.filter((e) => {
     const matchesStatus = selectedStatus === 'ALL' || e.status === selectedStatus
+    const matchesSemester = effectiveSemester === 'ALL' || e.semesterId === effectiveSemester
     const matchesSearch =
       e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.subjectName.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesStatus && matchesSearch
+    return matchesStatus && matchesSemester && matchesSearch
   })
 
   const handleDeleteExam = (exam: Exam, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (exam.status !== 'DRAFT') {
-      alert('Chỉ có thể xóa đề thi ở trạng thái Nháp. Đề đã công bố hoặc đã đóng nên chuyển trạng thái/lưu trữ để bảo toàn dữ liệu bài làm.')
-      return
-    }
-
-    if (confirm('Bạn có chắc chắn muốn xóa đề thi này không?')) {
-      removeDraftExam(exam.id)
-    }
+    setDeletingExam(exam)
   }
 
-  const handleCopyExam = (exam: Exam, e: React.MouseEvent) => {
+  const handleCopyExam = async (exam: Exam, e: React.MouseEvent) => {
     e.stopPropagation()
-    navigate(`/teacher/exams/create?copyFrom=${exam.id}`)
-  }
-
-  const handleToggleStudentVisibility = (exam: Exam, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setExamVisibility(exam.id, exam.studentVisibility === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN')
+    try {
+      const copied = await examApi.copy(exam.id)
+      toast.success('Đã sao chép đề thành bản nháp mới.')
+      navigate(`/teacher/exams/${copied.id}/edit`)
+    } catch { toast.error('Không thể sao chép đề thi.') }
   }
 
   // Columns definition
@@ -91,14 +74,9 @@ export default function TeacherExamsPage() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-gray-900 text-sm">{e.title}</p>
-            {e.status !== 'DRAFT' && e.studentVisibility === 'HIDDEN' && (
-              <AppBadge className="font-medium whitespace-nowrap">
-                <UserX size={11} /> Đã ẩn khỏi SV
-              </AppBadge>
-            )}
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            Môn học: {e.subjectName}
+            {e.subjectName} · {e.semesterName}
           </p>
         </div>
       ),
@@ -121,7 +99,7 @@ export default function TeacherExamsPage() {
       width: '110px',
       align: 'center',
       render: (e) => (
-        <span className="text-gray-700 text-sm">{e.questions?.length || 0} câu</span>
+        <span className="text-gray-700 text-sm">{e.questionCount ?? e.questions?.length ?? 0} câu</span>
       ),
     },
     {
@@ -129,7 +107,7 @@ export default function TeacherExamsPage() {
       width: '150px',
       render: (e) => (
         <span className="whitespace-nowrap text-sm text-gray-800">
-          {e.defaultDurationMinutes} phút - {e.schedules?.length ?? 0} ca thi
+          {e.defaultDurationMinutes} phút - {e.scheduleCount ?? e.schedules?.length ?? 0} ca thi
         </span>
       ),
     },
@@ -155,7 +133,7 @@ export default function TeacherExamsPage() {
           >
             <Eye size={16} />
           </button>
-          {getExamCapabilities(e).canEdit && (
+          {e.capabilities?.canEdit && (
             <button
               onClick={(ev) => {
                 ev.stopPropagation()
@@ -167,27 +145,14 @@ export default function TeacherExamsPage() {
               <Edit size={16} />
             </button>
           )}
-          <button
-            onClick={(ev) => handleCopyExam(e, ev)}
+          {e.capabilities?.canCopy && <button
+            onClick={(ev) => void handleCopyExam(e, ev)}
             className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             title="Sao chép đề thành bản nháp mới"
           >
             <Copy size={16} />
-          </button>
-          {getExamCapabilities(e).canToggleStudentVisibility && (
-            <button
-              onClick={(ev) => handleToggleStudentVisibility(e, ev)}
-              className={`p-1.5 rounded-lg transition-colors ${
-                e.studentVisibility === 'HIDDEN'
-                  ? 'text-gray-500 hover:text-emerald-600 hover:bg-emerald-50'
-                  : 'text-gray-500 hover:text-amber-600 hover:bg-amber-50'
-              }`}
-              title={e.studentVisibility === 'HIDDEN' ? 'Hiện lại đề cho sinh viên' : 'Ẩn đề khỏi trang sinh viên'}
-            >
-              {e.studentVisibility === 'HIDDEN' ? <UserCheck size={16} /> : <UserX size={16} />}
-            </button>
-          )}
-          {getExamCapabilities(e).canDelete && (
+          </button>}
+          {e.capabilities?.canDelete && (
             <button
               onClick={(ev) => handleDeleteExam(e, ev)}
               className="p-1.5 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
@@ -225,7 +190,13 @@ export default function TeacherExamsPage() {
 
           <TeacherTablePanel>
             <TeacherToolbar
-              filters={
+              filters={<>
+                <AppSelect
+                  value={effectiveSemester}
+                  onChange={setSelectedSemester}
+                  className="w-72"
+                  options={[{ value: 'ALL', label: 'Tất cả học kỳ' }, ...semesterOptions]}
+                />
                 <AppSelect
                   value={selectedStatus}
                   onChange={setSelectedStatus}
@@ -235,12 +206,12 @@ export default function TeacherExamsPage() {
                     { value: 'DRAFT', label: 'Bản nháp (DRAFT)' },
                     { value: 'PENDING_APPROVAL', label: 'Chờ duyệt chuyên môn' },
                     { value: 'REJECTED', label: 'Bị từ chối' },
-                    { value: 'PUBLISHED', label: 'Công bố (PUBLISHED)' },
+                    { value: 'PUBLISHED', label: 'Đã công bố' },
                     { value: 'LOCKED', label: 'Đã khóa' },
                     { value: 'ARCHIVED', label: 'Đã lưu trữ' },
                   ]}
                 />
-              }
+              </>}
               searchValue={searchQuery}
               onSearchChange={setSearchQuery}
               searchPlaceholder="Tìm tên đề thi, môn học..."
@@ -249,13 +220,19 @@ export default function TeacherExamsPage() {
             <DataTable
               embedded
               columns={columns}
-              data={filteredExams}
+              data={examApi.loading ? [] : filteredExams}
               keyExtractor={(e) => e.id}
               emptyText="Chưa có đề thi nào được khởi tạo"
               pageSize={10}
               onRowClick={(e) => navigate(`/teacher/exams/${e.id}`)}
             />
           </TeacherTablePanel>
+          {examApi.error && (
+            <div className="flex items-center justify-center gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <span>{examApi.error}</span>
+              <button type="button" onClick={() => void examApi.retry()} className="font-semibold underline">Thử lại</button>
+            </div>
+          )}
         </main>
       </div>
 
@@ -265,6 +242,18 @@ export default function TeacherExamsPage() {
         onClose={() => setIsTypeModalOpen(false)}
         onSelectType={(selectedType) => {
           navigate(`/teacher/exams/create?type=${selectedType}`)
+        }}
+      />
+      <DeleteExamDialog
+        exam={deletingExam}
+        onClose={() => setDeletingExam(null)}
+        onConfirm={async () => {
+          if (!deletingExam) return
+          try {
+            await examApi.remove(deletingExam.id)
+            setDeletingExam(null)
+            toast.success('Đã xóa đề thi nháp.')
+          } catch { toast.error('Không thể xóa đề thi ở trạng thái hiện tại.') }
         }}
       />
     </div>

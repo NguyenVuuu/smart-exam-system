@@ -1,4 +1,4 @@
-﻿import { CalendarPlus, Eye } from 'lucide-react'
+import { CalendarPlus, Eye } from 'lucide-react'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { AdminExam } from '../../types/admin.types'
 import { ExamCategoryBadge, ExamStatusBadge } from '../AdminBadges'
@@ -15,10 +15,20 @@ export default function ExamTrackingTable({
   exams,
   onViewExam,
   onCreateSchedule,
+  page,
+  pageSize = 10,
+  totalItems,
+  totalPages,
+  onPageChange,
 }: {
   exams: AdminExam[]
   onViewExam: (exam: AdminExam) => void
   onCreateSchedule: (exam: AdminExam) => void
+  page?: number
+  pageSize?: number
+  totalItems?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
 }) {
   const columns: ColumnDef<AdminExam>[] = [
     {
@@ -59,7 +69,7 @@ export default function ExamTrackingTable({
     {
       header: 'TRẠNG THÁI',
       width: '160px',
-      render: (item) => <ExamStatusBadge status={item.status} />,
+      render: (item) => <ExamStatusBadge status={item.status} category={item.category} />,
     },
     {
       header: 'THAO TÁC',
@@ -94,6 +104,11 @@ export default function ExamTrackingTable({
       data={exams}
       keyExtractor={(item) => item.id}
       emptyText="Chưa có đề thi phù hợp."
+      page={page}
+      pageSize={pageSize}
+      totalItems={totalItems}
+      totalPages={totalPages}
+      onPageChange={onPageChange}
     />
   )
 }

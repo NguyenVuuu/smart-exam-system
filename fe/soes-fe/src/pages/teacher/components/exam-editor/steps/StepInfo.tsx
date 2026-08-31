@@ -1,7 +1,6 @@
 ﻿import { BookOpen } from 'lucide-react'
 import AppSelect from '../../../../../components/common/AppSelect'
 import { examTypeDescription, examTypeLabel } from '../../../constants/ExamEditorConfig'
-import { MOCK_TEACHER_COURSES } from '../../../mock/teacher-course.mock'
 import type { ExamCategory, ExamType } from '../../../types/teacher-exam.types'
 import { Field, StepCard } from '../ExamEditorPrimitives'
 
@@ -16,16 +15,11 @@ export function StepInfo(props: {
   updateExamType: (value: ExamType) => void
   subjectId: string
   setSubjectId: (value: string) => void
+  subjectOptions: Array<{ value: string; label: string }>
+  semesterId: string
+  setSemesterId: (value: string) => void
+  semesterOptions: Array<{ value: string; label: string }>
 }) {
-  const subjectOptions = Array.from(
-    new Map(
-      MOCK_TEACHER_COURSES.map((course) => [
-        course.subjectName,
-        { value: course.subjectName, label: course.subjectName },
-      ]),
-    ).values(),
-  )
-
   return (
     <StepCard
       title="Thông tin đề thi"
@@ -33,7 +27,8 @@ export function StepInfo(props: {
       icon={<BookOpen size={18} className="text-blue-600" />}
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Field label="Loại đề thi">
+        <div className="lg:col-span-2">
+          <Field label="Loại đề thi">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {(['MULTIPLE_CHOICE', 'PROGRAMMING', 'MIXED'] as ExamType[]).map((type) => (
               <button
@@ -53,18 +48,15 @@ export function StepInfo(props: {
               </button>
             ))}
           </div>
-        </Field>
+          </Field>
+        </div>
 
-        <Field label="Loại bài thi">
+        <Field label="Học kỳ">
           <AppSelect
-            value={props.examCategory}
-            onChange={props.setExamCategory}
+            value={props.semesterId}
+            onChange={props.setSemesterId}
             buttonClassName="bg-gray-50"
-            options={[
-              { value: 'QUIZ', label: 'Quiz / kiểm tra thường kỳ' },
-              { value: 'MIDTERM', label: 'Giữa kỳ' },
-              { value: 'FINAL', label: 'Cuối kỳ' },
-            ]}
+            options={props.semesterOptions}
           />
         </Field>
 
@@ -81,7 +73,20 @@ export function StepInfo(props: {
             value={props.subjectId}
             onChange={props.setSubjectId}
             buttonClassName="bg-gray-50"
-            options={subjectOptions}
+            options={props.subjectOptions}
+          />
+        </Field>
+
+        <Field label="Loại bài thi">
+          <AppSelect
+            value={props.examCategory}
+            onChange={props.setExamCategory}
+            buttonClassName="bg-gray-50"
+            options={[
+              { value: 'QUIZ', label: 'Quiz / kiểm tra thường kỳ' },
+              { value: 'MIDTERM', label: 'Giữa kỳ' },
+              { value: 'FINAL', label: 'Cuối kỳ' },
+            ]}
           />
         </Field>
 

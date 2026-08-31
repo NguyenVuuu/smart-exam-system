@@ -1,4 +1,4 @@
-﻿import { Archive, ArchiveRestore, Eye } from 'lucide-react'
+import { Archive, ArchiveRestore, Eye } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { AdminSubject, SharedQuestionAdmin } from '../../types/admin.types'
@@ -10,6 +10,13 @@ const typeLabel: Record<SharedQuestionAdmin['type'], string> = {
   TRUE_FALSE: 'Đúng / Sai',
   PROGRAMMING: 'Lập trình',
 }
+
+const typeTone = {
+  SINGLE_CHOICE: 'blue',
+  MULTIPLE_CHOICE: 'blue',
+  TRUE_FALSE: 'amber',
+  PROGRAMMING: 'emerald',
+} as const
 
 const difficultyTone = {
   EASY: 'emerald',
@@ -29,19 +36,29 @@ export default function SharedQuestionTable({
   onView,
   onRemove,
   onRestore,
+  page,
+  pageSize = 10,
+  totalItems,
+  totalPages,
+  onPageChange,
 }: {
   items: SharedQuestionAdmin[]
   subjectsByCode: Map<string, AdminSubject>
   onView: (item: SharedQuestionAdmin) => void
   onRemove: (item: SharedQuestionAdmin) => void
   onRestore: (item: SharedQuestionAdmin) => void
+  page?: number
+  pageSize?: number
+  totalItems?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
 }) {
   const columns: ColumnDef<SharedQuestionAdmin>[] = [
     {
       header: 'CÂU HỎI',
       render: (item) => (
         <div className="space-y-1">
-          <p className="line-clamp-2 text-sm font-semibold text-slate-950">{item.content}</p>
+          <p className="line-clamp-1 text-sm font-semibold text-slate-950">{item.title}</p>
           <p className="text-xs text-slate-400">
             {subjectsByCode.get(item.subjectCode)?.name ?? item.subjectCode} • Đóng góp bởi: {item.contributorName}
           </p>
@@ -51,7 +68,7 @@ export default function SharedQuestionTable({
     {
       header: 'DẠNG CÂU',
       width: '160px',
-      render: (item) => <span className="text-sm text-slate-700">{typeLabel[item.type]}</span>,
+      render: (item) => <AppBadge tone={typeTone[item.type]}>{typeLabel[item.type]}</AppBadge>,
     },
     {
       header: 'ĐỘ KHÓ',
@@ -106,6 +123,11 @@ export default function SharedQuestionTable({
       data={items}
       keyExtractor={(item) => item.id}
       emptyText="Chưa có câu hỏi phù hợp."
+      page={page}
+      pageSize={pageSize}
+      totalItems={totalItems}
+      totalPages={totalPages}
+      onPageChange={onPageChange}
     />
   )
 }

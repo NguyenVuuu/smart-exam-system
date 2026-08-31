@@ -1,7 +1,14 @@
-﻿import { Plus } from 'lucide-react'
+import { FileCheck, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import type { CourseExamSchedule } from '../../types/teacher-course.types'
+import TeacherPagination from '../TeacherPagination'
 
-export default function CourseExamsTab() {
+export default function CourseExamsTab({ courseOfferingId, exams, pagination, onPageChange }: {
+  courseOfferingId: string
+  exams: CourseExamSchedule[]
+  pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
+  onPageChange: (page: number) => void
+}) {
   const navigate = useNavigate()
 
   return (
@@ -21,18 +28,50 @@ export default function CourseExamsTab() {
         </button>
       </div>
 
-      <div className="p-5 border border-gray-100 rounded-2xl flex items-center justify-between hover:bg-gray-50 transition-colors">
-        <div>
-          <h4 className="text-base font-semibold text-gray-900">Bài Thi Giữa Kỳ Java</h4>
-          <p className="text-sm text-gray-500 mt-1">60 phút • 3 câu hỏi (10 điểm)</p>
-        </div>
-        <button
-          onClick={() => navigate('/teacher/exams/exam-01')}
-          className="px-5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-sm rounded-xl transition-colors"
-        >
-          Xem bài nộp
-        </button>
-      </div>
+      {exams.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+          Lớp học phần chưa được gán ca thi nào.
+        </p>
+      ) : exams.map((exam) => {
+        const canReview = canReviewSubmissions(exam)
+        return (
+          <div
+            key={exam.scheduleId}
+            className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 p-4 transition-colors hover:bg-gray-50"
+          >
+            <div className="min-w-0">
+              <h4 className="max-w-[560px] truncate text-sm font-semibold leading-5 text-gray-900" title={exam.title}>
+                {exam.title}
+              </h4>
+              <p className="mt-1 text-xs text-gray-500">
+                {new Date(exam.startTime).toLocaleString('vi-VN')} • {exam.totalPoints} điểm
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => navigate(`/teacher/exams/${exam.examId}`)}
+                className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-lg transition-colors"
+              >
+                Xem đề thi
+              </button>
+              <button
+                disabled={!canReview}
+                onClick={() => navigate(`/teacher/courses/${courseOfferingId}/exams/${exam.examId}/submissions?scheduleId=${encodeURIComponent(exam.scheduleId)}`)}
+                title={canReview ? 'Xem bài nộp và xử lý phúc khảo' : 'Chỉ mở sau khi ca thi kết thúc'}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                <FileCheck size={14} /> Bài nộp / Phúc khảo
+              </button>
+            </div>
+          </div>
+        )
+      })}
+      <TeacherPagination {...pagination} onChange={onPageChange} />
     </div>
   )
+}
+
+function canReviewSubmissions(exam: CourseExamSchedule) {
+  return exam.status === 'CLOSED'
+    || (!['DRAFT', 'CANCELLED'].includes(exam.status) && new Date(exam.endTime).getTime() <= Date.now())
 }

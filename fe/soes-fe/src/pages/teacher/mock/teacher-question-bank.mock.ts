@@ -15,6 +15,7 @@ export const MOCK_QUESTION_BANK: Question[] = [
     reviewStatus: 'PRIVATE',
     type: 'SINGLE_CHOICE',
     difficulty: 'EASY',
+    title: 'Các tính chất cơ bản của OOP',
     content: 'Tính chất nào sau đây KHÔNG thuộc 4 tính chất cơ bản của lập trình hướng đối tượng (OOP)?',
     explanation: '4 tính chất của OOP là: Đóng gói, Kế thừa, Đa hình và Trừu tượng. Tính tuần tự không thuộc về OOP.',
     options: [
@@ -35,6 +36,7 @@ export const MOCK_QUESTION_BANK: Question[] = [
     reviewStatus: 'APPROVED',
     type: 'MULTIPLE_CHOICE',
     difficulty: 'MEDIUM',
+    title: 'Cấu trúc dữ liệu LIFO',
     content: 'Những cấu trúc dữ liệu nào sau đây áp dụng nguyên lý LIFO (Last In First Out)?',
     explanation: 'Stack (Ngăn xếp) hoạt động theo cơ chế LIFO.',
     options: [
@@ -55,15 +57,16 @@ export const MOCK_QUESTION_BANK: Question[] = [
     reviewStatus: 'PRIVATE',
     type: 'PROGRAMMING',
     difficulty: 'HARD',
+    title: 'Tổng các số nguyên tố',
     content: 'Viết chương trình Console C++ nhận vào số nguyên N và in ra tổng các số nguyên tố từ 1 đến N.',
     explanation: 'Dùng thuật toán sàng Sieve of Eratosthenes hoặc duyệt kiểm tra số nguyên tố.',
     programmingLanguage: 'CPP',
     timeLimitMs: 2000,
     memoryLimitMb: 256,
     testCases: [
-      { id: 'tc-01', input: '10', expectedOutput: '17', weight: 30, isHidden: false },
-      { id: 'tc-02', input: '20', expectedOutput: '77', weight: 30, isHidden: false },
-      { id: 'tc-03', input: '100', expectedOutput: '1060', weight: 40, isHidden: true },
+      { id: 'tc-01', input: '10', expectedOutput: '17', isHidden: false },
+      { id: 'tc-02', input: '20', expectedOutput: '77', isHidden: false },
+      { id: 'tc-03', input: '100', expectedOutput: '1060', isHidden: true },
     ],
     createdAt: '2026-08-12 16:45',
   },
@@ -77,6 +80,7 @@ export const MOCK_QUESTION_BANK: Question[] = [
     reviewStatus: 'APPROVED',
     type: 'TRUE_FALSE',
     difficulty: 'EASY',
+    title: 'Đa kế thừa trong Java',
     content: 'Trong Java, một class có thể kế thừa trực tiếp nhiều class khác nhau.',
     explanation: 'Java không hỗ trợ đa kế thừa class, nhưng có thể implements nhiều interface.',
     options: [
@@ -98,6 +102,7 @@ export const MOCK_AI_DRAFT_QUESTIONS: AIDraftQuestion[] = [
     reviewStatus: 'PENDING_REVIEW',
     type: 'SINGLE_CHOICE',
     difficulty: 'MEDIUM',
+    title: 'Ngăn lớp Java bị kế thừa',
     content: 'Trong Java, từ khóa nào được dùng để ngăn chặn một lớp (class) bị kế thừa?',
     explanation: 'Từ khóa final đặt trước khai báo class ngăn không cho lớp khác extend.',
     options: [

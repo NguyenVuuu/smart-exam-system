@@ -18,6 +18,7 @@ export interface Pagination {
 export interface SemesterOption {
   id: string
   name: string
+  isCurrent: boolean
 }
 
 export interface StudentSubjectsResponse {

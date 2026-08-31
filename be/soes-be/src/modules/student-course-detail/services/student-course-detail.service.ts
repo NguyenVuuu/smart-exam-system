@@ -89,9 +89,9 @@ export class StudentCourseDetailService {
   async getExamDetail(
     studentId: string,
     courseOfferingId: string,
-    examId: string,
+    scheduleId: string,
   ): Promise<ExamDetailResponseDto | null> {
-    const row = await repo.findExamDetail(courseOfferingId, examId, studentId);
+    const row = await repo.findExamDetail(courseOfferingId, scheduleId, studentId);
     if (!row) return null;
     return mapper.toExamDetailResponse(row);
   }

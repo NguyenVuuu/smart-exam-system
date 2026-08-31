@@ -1,36 +1,26 @@
-﻿import {
-  ArrowLeft,
+import {
   Copy,
   Edit,
   Eye,
+  LockKeyhole,
   Send,
+  UnlockKeyhole,
   UserCheck,
   UserX,
 } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import type { Exam } from '../../types/teacher-exam.types'
 import { getExamCapabilities } from '../../utils/ExamCapabilities'
+import { examStatusLabel, examStatusTone } from '../../constants/examStatus'
 
-const examStatusTone = {
-  DRAFT: 'amber',
-  PENDING_APPROVAL: 'blue',
-  REJECTED: 'rose',
-  PUBLISHED: 'emerald',
-  LOCKED: 'gray',
-  ARCHIVED: 'gray',
-} as const
-
-export function ExamDetailBackButton({ onBack }: { onBack: () => void }) {
-  return (
-    <button
-      onClick={onBack}
-      className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors"
-    >
-      <ArrowLeft size={18} />
-      <span>Quay lại quản lý đề thi</span>
-    </button>
-  )
-}
+const actionButtonClassName =
+  'inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors'
+const neutralButtonClassName = `${actionButtonClassName} bg-gray-100 text-gray-700 hover:bg-gray-200`
+const primaryButtonClassName = `${actionButtonClassName} bg-blue-600 text-white shadow-xs hover:bg-blue-700`
+const amberButtonClassName = `${actionButtonClassName} bg-amber-50 text-amber-700 hover:bg-amber-100`
+const blueSoftButtonClassName = `${actionButtonClassName} bg-blue-50 text-blue-700 hover:bg-blue-100`
+const emeraldButtonClassName = `${actionButtonClassName} bg-emerald-50 text-emerald-700 hover:bg-emerald-100`
+const actionIconSize = 14
 
 export function ExamDetailHeader({
   exam,
@@ -39,6 +29,9 @@ export function ExamDetailHeader({
   onPreview,
   onCopy,
   onToggleStudentVisibility,
+  onLockDistribution,
+  onUnlockDistribution,
+  contentOnly = false,
 }: {
   exam: Exam
   onEdit: () => void
@@ -46,6 +39,9 @@ export function ExamDetailHeader({
   onPreview: () => void
   onCopy: () => void
   onToggleStudentVisibility: () => void
+  onLockDistribution: () => void
+  onUnlockDistribution: () => void
+  contentOnly?: boolean
 }) {
   const capabilities = getExamCapabilities(exam)
   return (
@@ -56,7 +52,10 @@ export function ExamDetailHeader({
             Môn học: {exam.subjectName}
           </AppBadge>
           <AppBadge tone={examStatusTone[exam.status]} className="text-xs font-semibold px-2.5 py-1">
-            {exam.status}
+            {examStatusLabel[exam.status]}
+          </AppBadge>
+          <AppBadge className="text-xs font-semibold px-2.5 py-1">
+            {exam.semesterCode}
           </AppBadge>
           {exam.status !== 'DRAFT' && exam.studentVisibility === 'HIDDEN' && (
             <AppBadge className="text-xs font-semibold px-2.5 py-1">
@@ -64,62 +63,74 @@ export function ExamDetailHeader({
             </AppBadge>
           )}
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight mt-2">{exam.title}</h1>
+        <h1 className="mt-2 text-xl font-bold text-gray-900">{exam.title}</h1>
         <p className="text-sm text-gray-500 mt-1">{exam.description}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={onPreview}
-          className="px-4.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm rounded-xl transition-colors flex items-center gap-1.5"
+          className={neutralButtonClassName}
         >
-          <Eye size={16} /> Xem đề
+          <Eye size={actionIconSize} /> Xem đề
         </button>
         <button
           onClick={onCopy}
-          className="px-4.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm rounded-xl transition-colors flex items-center gap-1.5"
+          className={neutralButtonClassName}
         >
-          <Copy size={16} /> Sao chép đề
+          <Copy size={actionIconSize} /> Sao chép đề
         </button>
-        {capabilities.canToggleStudentVisibility && (
+        {!contentOnly && capabilities.canToggleStudentVisibility && (
           <button
             onClick={onToggleStudentVisibility}
-            className={`px-4.5 py-2.5 font-semibold text-sm rounded-xl transition-colors flex items-center gap-1.5 ${
+            className={
               exam.studentVisibility === 'HIDDEN'
-                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                : 'bg-amber-50 hover:bg-amber-100 text-amber-700'
-            }`}
+                ? emeraldButtonClassName
+                : amberButtonClassName
+            }
           >
             {exam.studentVisibility === 'HIDDEN' ? (
               <>
-                <UserCheck size={16} /> Hiện cho SV
+                <UserCheck size={actionIconSize} /> Hiện cho SV
               </>
             ) : (
               <>
-                <UserX size={16} /> Ẩn khỏi SV
+                <UserX size={actionIconSize} /> Ẩn khỏi SV
               </>
             )}
           </button>
         )}
-        {capabilities.canSchedule && (
+        {!contentOnly && capabilities.canSchedule && (
           <button
             onClick={onPublish}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+            className={primaryButtonClassName}
           >
-            <Send size={16} /> Tạo ca thi
+            <Send size={actionIconSize} /> Tạo ca thi
           </button>
         )}
-        {capabilities.canEdit ? (
+        {!contentOnly && capabilities.canEdit && (
           <button
             onClick={onEdit}
-            className="px-4.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm rounded-xl transition-colors flex items-center gap-1.5"
+            className={neutralButtonClassName}
           >
-            <Edit size={16} /> Sửa cấu hình đề thi
+            <Edit size={actionIconSize} /> Sửa cấu hình đề thi
           </button>
-        ) : (
-          <span className="px-4 py-2.5 bg-gray-50 border border-gray-100 text-gray-500 font-semibold text-sm rounded-xl">
-            {exam.status === 'PENDING_APPROVAL' ? 'ĐANG CHỜ DUYỆT' : 'ĐÃ KHÓA'}
-          </span>
+        )}
+        {!contentOnly && capabilities.canLock && (
+          <button
+            onClick={onLockDistribution}
+            className={amberButtonClassName}
+          >
+            <LockKeyhole size={actionIconSize} /> Chốt lịch thi
+          </button>
+        )}
+        {!contentOnly && capabilities.canUnlock && (
+          <button
+            onClick={onUnlockDistribution}
+            className={blueSoftButtonClassName}
+          >
+            <UnlockKeyhole size={actionIconSize} /> Mở lại lịch thi
+          </button>
         )}
       </div>
     </div>

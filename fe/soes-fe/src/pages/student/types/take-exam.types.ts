@@ -1,5 +1,5 @@
 export type TakeExamQuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'CODING'
-export type TakeExamLanguage = 'C' | 'CPP' | 'JAVA' | 'PYTHON'
+export type TakeExamLanguage = 'C' | 'CPP' | 'JAVA'
 export type TakeExamPhase = 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED'
 export type DraftSaveState = 'IDLE' | 'SAVING' | 'SAVED'
 export type QuestionAnswer = string | string[]
@@ -18,6 +18,11 @@ export interface TakeExamQuestion {
   options?: TakeExamChoiceOption[]
   language?: TakeExamLanguage
   starterCode?: string
+  programmingConfig?: {
+    timeLimitMs: number
+    memoryLimitMb: number
+    maxCodeSizeKb: number
+  }
   answer?: QuestionAnswer
 }
 

@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 export interface AppSelectOption<T extends string | number = string> {
@@ -52,20 +52,28 @@ export default function AppSelect<T extends string | number = string>({
     },
   }[accent]
 
-  const updateMenuPosition = () => {
+  const updateMenuPosition = useCallback(() => {
     const rect = rootRef.current?.getBoundingClientRect()
     if (!rect) return
+    const desiredMaxHeight = Math.min(240, options.length * 40 + 8)
+    const viewportPadding = 8
+    const gap = 4
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding
+    const spaceAbove = rect.top - viewportPadding
+    const openAbove = spaceBelow < Math.min(180, desiredMaxHeight) && spaceAbove > spaceBelow
+    const maxHeight = Math.max(48, Math.min(desiredMaxHeight, openAbove ? spaceAbove : spaceBelow))
 
     setMenuStyle({
       left: rect.left,
-      top: rect.bottom + 4,
-      width: rect.width,
+      top: openAbove ? Math.max(viewportPadding, rect.top - maxHeight - gap) : rect.bottom + gap,
+      width: Math.max(rect.width, 200),
+      maxHeight,
     })
-  }
+  }, [options.length])
 
   useLayoutEffect(() => {
     if (isOpen) updateMenuPosition()
-  }, [isOpen])
+  }, [isOpen, updateMenuPosition])
 
   useEffect(() => {
     if (!isOpen) return
@@ -85,7 +93,7 @@ export default function AppSelect<T extends string | number = string>({
       window.removeEventListener('scroll', updateMenuPosition, true)
       document.removeEventListener('mousedown', handlePointerDown)
     }
-  }, [isOpen])
+  }, [isOpen, updateMenuPosition])
 
   return (
     <div
@@ -97,7 +105,7 @@ export default function AppSelect<T extends string | number = string>({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 shadow-xs transition-colors focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 ${accentClassName.button} ${buttonClassName}`}
+        className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 shadow-xs transition-colors focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 ${accentClassName.button} ${buttonClassName}`}
       >
         <span className="truncate">{selectedOption?.label ?? placeholder}</span>
         <ChevronDown
@@ -110,7 +118,7 @@ export default function AppSelect<T extends string | number = string>({
         <div
           ref={menuRef}
           style={menuStyle}
-          className={`fixed max-h-64 overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-lg p-1 z-50 ${menuClassName}`}
+          className={`fixed rounded-xl border border-gray-100 bg-white shadow-lg p-1 z-50 flex flex-col max-h-60 overflow-y-auto ${menuClassName}`}
         >
           {options.map((option) => (
             <button
@@ -123,7 +131,7 @@ export default function AppSelect<T extends string | number = string>({
                 onChange(option.value)
                 setIsOpen(false)
               }}
-              className={`w-full rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 ${
+              className={`w-full shrink-0 rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 ${
                 option.value === value && !option.disabled
                   ? accentClassName.selected
                   : option.disabled

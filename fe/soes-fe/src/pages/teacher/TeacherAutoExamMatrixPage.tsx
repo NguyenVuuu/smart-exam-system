@@ -19,7 +19,7 @@ import { splitPointsPrecisely } from './utils/ExamEditorUtils'
 import type { Exam, ExamCategory } from './types/teacher-exam.types'
 import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 import { useAuthStore } from '../../store/authStore'
-import { MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
+import { useTeacherCourses } from './hooks/useTeacherCourses'
 
 const DEFAULT_SESSION_CONFIG = {
   maxAttempts: 1,
@@ -42,6 +42,7 @@ export default function TeacherAutoExamMatrixPage() {
   const replaceExamSchedules = useTeacherWorkspaceStore((state) => state.replaceExamSchedules)
   const exams = useTeacherWorkspaceStore((state) => state.exams)
   const currentUser = useAuthStore((state) => state.user)
+  const { courses } = useTeacherCourses()
   const [selectedSubject, setSelectedSubject] = useState('sub-01')
   const [examTitle, setExamTitle] = useState('Đề thi Giữa Kỳ 1 • 2026')
   const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
@@ -170,7 +171,7 @@ export default function TeacherAutoExamMatrixPage() {
       .filter((question): question is NonNullable<typeof question> => Boolean(question))
     const subject = selectedQuestions[0] ?? questions.find((question) => question.subjectId === selectedSubject)
     if (!subject) return
-    const subjectCourse = MOCK_TEACHER_COURSES.find((course) => course.subjectId === subject.subjectId)
+    const subjectCourse = courses.find((course) => course.subjectId === subject.subjectId)
 
     const exam: Exam = {
       id: generated.id,
@@ -179,6 +180,9 @@ export default function TeacherAutoExamMatrixPage() {
       subjectId: subject.subjectId,
       subjectCode: subjectCourse?.subjectCode ?? subject.subjectId.toUpperCase(),
       subjectName: subject.subjectName,
+      semesterId: subjectCourse?.semesterId ?? '',
+      semesterCode: subjectCourse?.semesterCode ?? '',
+      semesterName: subjectCourse?.semesterName ?? 'Chưa xác định học kỳ',
       title: examTitle.trim(),
       description: 'Đề trắc nghiệm được sinh tự động từ ngân hàng câu hỏi và đã được giảng viên xem lại.',
       category: examCategory,
@@ -291,6 +295,7 @@ export default function TeacherAutoExamMatrixPage() {
         isOpen={isAssignModalOpen}
         examId={generatedExams[0]?.id ?? 'generated-exam-draft'}
         subjectName={eligibleQuestions[0]?.subjectName ?? ''}
+        courses={courses.filter(({ subjectId }) => subjectId === selectedSubject)}
         onClose={() => setIsAssignModalOpen(false)}
         examTitle={examTitle}
         defaultConfig={{

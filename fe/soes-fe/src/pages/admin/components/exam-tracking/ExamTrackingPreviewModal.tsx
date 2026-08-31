@@ -62,7 +62,8 @@ const getOperationNote = (exam: AdminExam) => {
   if (exam.status === 'APPROVED') return 'Sẵn sàng để Admin tạo lịch thi tập trung'
   if (exam.status === 'PENDING_APPROVAL') return 'Chờ Trưởng bộ môn duyệt chuyên môn'
   if (exam.status === 'REJECTED') return 'Đã bị từ chối, chờ giảng viên chỉnh sửa'
-  if (exam.status === 'LOCKED') return 'Đã khóa do đã có ca thi hoặc bài làm'
+  if (exam.status === 'LOCKED') return 'Đã chốt lịch thi, không chỉnh cấu hình đề'
+  if (exam.status === 'ARCHIVED') return 'Đề đã được lưu trữ'
   return 'Chưa đủ điều kiện tổ chức thi cuối kỳ'
 }
 
@@ -87,7 +88,7 @@ export default function ExamTrackingPreviewModal({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-base font-semibold text-slate-950">{exam.title}</h2>
               <ExamCategoryBadge category={exam.category} />
-              <ExamStatusBadge status={exam.status} />
+              <ExamStatusBadge status={exam.status} category={exam.category} />
             </div>
             <p className="mt-1 text-[13px] leading-[19px] text-slate-500">
               {exam.subjectName} ({exam.subjectCode}) • Học kỳ: {exam.semesterCode} • Giảng viên: {exam.authorName}

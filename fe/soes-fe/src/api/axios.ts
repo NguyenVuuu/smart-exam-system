@@ -15,7 +15,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = tokenStorage.getAccessToken()
   const isAuthEndpoint = config.url?.includes('/auth/login') || config.url?.includes('/auth/refresh-token')
-  
+
   if (token && !isAuthEndpoint) {
     config.headers.Authorization = `Bearer ${token}`
   }

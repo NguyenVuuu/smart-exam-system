@@ -46,12 +46,17 @@ export interface ExamContentProgrammingQuestion extends ExamContentQuestionBase 
   type:            'PROGRAMMING'
   draftSourceCode: string | null   // null if not yet answered
   language:        string
+  programmingConfig: {
+    timeLimitMs: number
+    memoryLimitMb: number
+    maxCodeSizeKb: number
+  }
 }
 
 // ─── API 3: Save Answer ───────────────────────────────────────────────────────
 
 export interface SaveAnswerInput {
-  examId:     string
+  scheduleId: string
   attemptId:  string
   studentId:  string
   questionId: string
@@ -86,6 +91,16 @@ export interface AttemptStatusResult {
   totalQuestionCount: number
 }
 
+export interface AttemptResult {
+  available: boolean
+  releaseMode: string
+  releaseAt: Date | null
+  score: number | null
+  maxScore: number | null
+  reviewPolicy: string | null
+  reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
+}
+
 
 // ─── API 6: Send Heartbeat ─────────────────────────────────────────────────────
 
@@ -112,23 +127,13 @@ export interface RunCodeResult {
   testCases: RunCodeTestCase[]
 }
 
-export type RunCodeTestCase = RunCodeSampleTestCase | RunCodeHiddenTestCase
-
-export interface RunCodeTestCaseBase {
+export interface RunCodeTestCase {
   testCaseId: string
-  isSample: boolean
-  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
-}
-
-export interface RunCodeSampleTestCase extends RunCodeTestCaseBase {
   isSample: true
+  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
   input: string
   expectedOutput: string
   actualOutput: string | null
   executionTimeMs: number
   memoryUsedKb: number
-}
-
-export interface RunCodeHiddenTestCase extends RunCodeTestCaseBase {
-  isSample: false
 }

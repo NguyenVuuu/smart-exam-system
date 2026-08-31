@@ -41,7 +41,7 @@ export const ADMIN_ACADEMIC_YEARS: AcademicYear[] = [
     term: 2,
     startDate: '01/01/2025',
     endDate: '30/04/2025',
-    status: 'ARCHIVED',
+    status: 'CLOSED',
   },
 ]
 
@@ -75,9 +75,9 @@ export const ADMIN_USERS: AdminUser[] = [
 ]
 
 export const ADMIN_SHARED_QUESTIONS: SharedQuestionAdmin[] = [
-  { id: 'sq-1', content: 'Những cách nào sau đây là cách khởi tạo một đối tượng trong Java?', subjectCode: 'CS101', type: 'MULTIPLE_CHOICE', difficulty: 'MEDIUM', contributorName: 'Nguyễn Văn An', reviewedBy: 'Nguyễn Văn An', status: 'APPROVED' },
-  { id: 'sq-2', content: 'Viết hàm Java kiểm tra một số nguyên n có phải số nguyên tố hay không.', subjectCode: 'CS101', type: 'PROGRAMMING', difficulty: 'HARD', contributorName: 'Nguyễn Văn An', reviewedBy: 'Nguyễn Văn An', status: 'APPROVED' },
-  { id: 'sq-3', content: 'Trong Java, kiểu int có kích thước 32 bit.', subjectCode: 'CS101', type: 'TRUE_FALSE', difficulty: 'EASY', contributorName: 'Lê Hoàng', reviewedBy: 'Nguyễn Văn An', status: 'REMOVED', removedBy: 'Trần Quang Huy', removedAt: '20/12/2025 14:30', removalReason: 'Admin tạm gỡ để xử lý phản ánh trùng nội dung trong ngân hàng chung.' },
+  { id: 'sq-1', title: 'Khởi tạo đối tượng trong Java', content: 'Những cách nào sau đây là cách khởi tạo một đối tượng trong Java?', subjectCode: 'CS101', type: 'MULTIPLE_CHOICE', difficulty: 'MEDIUM', contributorName: 'Nguyễn Văn An', reviewedBy: 'Nguyễn Văn An', status: 'APPROVED' },
+  { id: 'sq-2', title: 'Kiểm tra số nguyên tố', content: 'Viết hàm Java kiểm tra một số nguyên n có phải số nguyên tố hay không.', subjectCode: 'CS101', type: 'PROGRAMMING', difficulty: 'HARD', contributorName: 'Nguyễn Văn An', reviewedBy: 'Nguyễn Văn An', status: 'APPROVED' },
+  { id: 'sq-3', title: 'Kích thước kiểu int trong Java', content: 'Trong Java, kiểu int có kích thước 32 bit.', subjectCode: 'CS101', type: 'TRUE_FALSE', difficulty: 'EASY', contributorName: 'Lê Hoàng', reviewedBy: 'Nguyễn Văn An', status: 'REMOVED', removedBy: 'Trần Quang Huy', removedAt: '20/12/2025 14:30', removalReason: 'Admin tạm gỡ để xử lý phản ánh trùng nội dung trong ngân hàng chung.' },
 ]
 
 export const ADMIN_EXAMS: AdminExam[] = [

@@ -2,6 +2,7 @@ import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
 import { Braces, WandSparkles } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type { TakeExamLanguage } from '../../../types/take-exam.types'
+import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../../constants/programmingLanguages'
 
 interface ProgrammingCodeEditorProps {
   id: string
@@ -14,24 +15,19 @@ interface ProgrammingCodeEditorProps {
 }
 
 const LANGUAGE_LABELS: Record<TakeExamLanguage, string> = {
-  C: 'C',
-  CPP: 'C++',
-  JAVA: 'Java',
-  PYTHON: 'Python',
+  ...PROGRAMMING_LANGUAGE_LABELS,
 }
 
 const MONACO_LANGUAGES: Record<TakeExamLanguage, string> = {
   C: 'c',
   CPP: 'cpp',
   JAVA: 'java',
-  PYTHON: 'python',
 }
 
 const FILE_EXTENSIONS: Record<TakeExamLanguage, string> = {
   C: 'c',
   CPP: 'cpp',
   JAVA: 'java',
-  PYTHON: 'py',
 }
 
 const EDITOR_HEIGHT = 'clamp(420px, 58vh, 620px)'

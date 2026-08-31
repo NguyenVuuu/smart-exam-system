@@ -12,16 +12,16 @@ import StudentTopBar from './components/StudentTopBar'
 import { useExamDetail } from './hooks/exam-detail/useExamDetail'
 
 export default function StudentExamDetailPage() {
-  const { courseOfferingId, examId } = useParams<{
+  const { courseOfferingId, scheduleId } = useParams<{
     courseOfferingId: string
-    examId: string
+    scheduleId: string
   }>()
 
   const navigate = useNavigate()
 
   const { data, isLoading, error, refetch } = useExamDetail(
     courseOfferingId ?? '',
-    examId ?? '',
+    scheduleId ?? '',
   )
 
   function handleBack() {

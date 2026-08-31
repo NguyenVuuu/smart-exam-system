@@ -29,10 +29,10 @@ export function StepPreview({
     >
       <div className="space-y-4">
         <div className="border-b border-gray-100 pb-4 flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-semibold text-blue-600 uppercase">{examTypeLabel[examType]}</p>
-            <h2 className="text-xs font-semibold text-gray-900 mt-1">{title}</h2>
-            <p className="text-xs text-gray-500 mt-1">{description}</p>
+            <h2 className="mt-1 truncate text-xs font-semibold text-gray-900" title={title}>{title}</h2>
+            <p className="mt-1 truncate text-xs text-gray-500" title={description}>{description}</p>
           </div>
           <span className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium shrink-0">
             Xem thử đề cá nhân
@@ -55,7 +55,7 @@ export function StepPreview({
                 <div key={item.questionId} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-xs font-semibold text-gray-900 leading-relaxed">
-                      Câu {idx + 1}. {item.question.content}
+                      Câu {idx + 1}. {item.question.title || item.question.content}
                     </p>
                     <span className="text-xs font-bold text-gray-700 shrink-0">{item.points} điểm</span>
                   </div>

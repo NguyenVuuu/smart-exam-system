@@ -11,6 +11,8 @@ interface AdminModalProps {
   onClose: () => void
   onConfirm: () => void
   size?: 'md' | 'lg' | 'xl'
+  confirmTone?: 'primary' | 'danger'
+  confirmDisabled?: boolean
 }
 
 export default function AdminModal({
@@ -22,6 +24,8 @@ export default function AdminModal({
   onClose,
   onConfirm,
   size = 'lg',
+  confirmTone = 'primary',
+  confirmDisabled = false,
 }: AdminModalProps) {
   if (!open) return null
 
@@ -57,7 +61,7 @@ export default function AdminModal({
 
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4">
           <AdminButton tone="secondary" onClick={onClose}>Hủy</AdminButton>
-          <AdminButton onClick={onConfirm}>{confirmText}</AdminButton>
+          <AdminButton tone={confirmTone} disabled={confirmDisabled} onClick={onConfirm}>{confirmText}</AdminButton>
         </div>
       </div>
     </div>

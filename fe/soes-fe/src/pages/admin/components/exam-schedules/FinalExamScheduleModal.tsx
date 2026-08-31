@@ -1,20 +1,29 @@
 ﻿import type { AdminExam, AdminExamSchedule } from '../../types/admin.types'
 import AdminModal from '../AdminModal'
 import FinalExamScheduleForm from './FinalExamScheduleForm'
+import type { AdminSubject, AdminUser, CourseOfferingAdmin, Department } from '../../types/admin.types'
 
 interface FinalExamScheduleModalProps {
   open: boolean
   exams: AdminExam[]
   schedules: AdminExamSchedule[]
+  departments: Department[]
+  subjects: AdminSubject[]
+  courses: CourseOfferingAdmin[]
+  users: AdminUser[]
   editingSchedule?: AdminExamSchedule | null
   onClose: () => void
-  onSubmit: (schedule: AdminExamSchedule) => void
+  onSubmit: (schedule: AdminExamSchedule) => void | Promise<void>
 }
 
 export default function FinalExamScheduleModal({
   open,
   exams,
   schedules,
+  departments,
+  subjects,
+  courses,
+  users,
   editingSchedule = null,
   onClose,
   onSubmit,
@@ -38,6 +47,10 @@ export default function FinalExamScheduleModal({
         key={editingSchedule?.id ?? 'new-schedule'}
         exams={exams}
         schedules={schedules}
+        departments={departments}
+        subjects={subjects}
+        courses={courses}
+        users={users}
         editingSchedule={editingSchedule}
         onClose={onClose}
         onSubmit={onSubmit}

@@ -13,11 +13,12 @@ interface ExamActionProps {
 }
 
 export default function ExamAction({ data }: ExamActionProps) {
-  const { courseOfferingId, examId } = useParams<{ courseOfferingId: string; examId: string }>()
+  const { courseOfferingId, scheduleId } = useParams<{ courseOfferingId: string; scheduleId: string }>()
   const navigate = useNavigate()
   const { canStart, canResume, status, attemptId: existingAttemptId } = data
   const [isStarting, setIsStarting] = useState(false)
   const [isWebcamDialogOpen, setIsWebcamDialogOpen] = useState(false)
+  const [password, setPassword] = useState('')
   const webcam = useExamWebcam(data.enableWebcam)
 
   if (status === 'SUBMITTED') {
@@ -44,14 +45,14 @@ export default function ExamAction({ data }: ExamActionProps) {
     )
   }
 
-  const navigateToExam = (targetExamId: string, attemptId: string) => {
-    navigate(`/student/course-offerings/${courseOfferingId ?? ''}/exams/${targetExamId}/take`, {
+  const navigateToExam = (targetScheduleId: string, attemptId: string) => {
+    navigate(`/student/course-offerings/${courseOfferingId ?? ''}/exam-schedules/${targetScheduleId}/take`, {
       state: { attemptId },
     })
   }
 
   const startOrResumeExam = async () => {
-    const targetExamId = examId ?? data.id
+    const targetScheduleId = scheduleId ?? data.id
 
     if (data.enableWebcam && !hasActiveExamWebcam()) {
       toast.error('Camera chưa sẵn sàng', {
@@ -61,16 +62,17 @@ export default function ExamAction({ data }: ExamActionProps) {
     }
 
     if (canResume && existingAttemptId) {
-      navigateToExam(targetExamId, existingAttemptId)
+      navigateToExam(targetScheduleId, existingAttemptId)
       return
     }
 
     try {
       setIsStarting(true)
-      const result = await takeExamApi.startExam(targetExamId, {
+      const result = await takeExamApi.startExam(targetScheduleId, {
+        password: password || undefined,
         webcamConfirmed: data.enableWebcam ? hasActiveExamWebcam() : undefined,
       })
-      navigateToExam(targetExamId, result.attemptId)
+      navigateToExam(targetScheduleId, result.attemptId)
     } catch (error: unknown) {
       const message = error instanceof AxiosError
         ? error.response?.data?.message
@@ -82,7 +84,7 @@ export default function ExamAction({ data }: ExamActionProps) {
   }
 
   const handleStartExam = () => {
-    if (data.enableWebcam) {
+    if (data.enableWebcam || (!canResume && data.requiresPassword)) {
       setIsWebcamDialogOpen(true)
       return
     }
@@ -92,6 +94,7 @@ export default function ExamAction({ data }: ExamActionProps) {
   const handleCloseWebcamDialog = () => {
     if (isStarting) return
     webcam.stop()
+    setPassword('')
     setIsWebcamDialogOpen(false)
   }
 
@@ -118,6 +121,10 @@ export default function ExamAction({ data }: ExamActionProps) {
         status={webcam.status}
         errorMessage={webcam.errorMessage}
         isStartingExam={isStarting}
+        requiresWebcam={data.enableWebcam}
+        requiresPassword={!canResume && data.requiresPassword}
+        password={password}
+        onPasswordChange={setPassword}
         onEnableCamera={handleEnableCamera}
         onClose={handleCloseWebcamDialog}
         onContinue={() => void startOrResumeExam()}

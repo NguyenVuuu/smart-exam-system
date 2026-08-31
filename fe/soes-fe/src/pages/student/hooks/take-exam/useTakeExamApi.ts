@@ -7,22 +7,23 @@ import { takeExamApi } from '../../api/student-take-exam.api'
 
 export const takeExamQueryKeys = {
   all: ['student-take-exam'] as const,
-  attempt: (examId: string, attemptId: string) => [...takeExamQueryKeys.all, examId, attemptId] as const,
-  status: (examId: string, attemptId: string) => [...takeExamQueryKeys.all, examId, attemptId, 'status'] as const,
+  attempt: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId] as const,
+  status: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId, 'status'] as const,
+  result: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId, 'result'] as const,
 }
 
 export function useStartExamMutation() {
   return useMutation({
-    mutationFn: ({ examId, data }: { examId: string; data?: StartExamRequest }) =>
-      takeExamApi.startExam(examId, data),
+    mutationFn: ({ scheduleId, data }: { scheduleId: string; data?: StartExamRequest }) =>
+      takeExamApi.startExam(scheduleId, data),
   })
 }
 
-export function useGetExamAttempt(examId: string, attemptId: string, enabled: boolean = true) {
+export function useGetExamAttempt(scheduleId: string, attemptId: string, enabled: boolean = true) {
   return useQuery({
-    queryKey: takeExamQueryKeys.attempt(examId, attemptId),
-    queryFn: () => takeExamApi.getExamAttempt(examId, attemptId),
-    enabled: enabled && !!examId && !!attemptId,
+    queryKey: takeExamQueryKeys.attempt(scheduleId, attemptId),
+    queryFn: () => takeExamApi.getExamAttempt(scheduleId, attemptId),
+    enabled: enabled && !!scheduleId && !!attemptId,
     refetchOnWindowFocus: false,
     staleTime: Infinity, // The attempt data should rarely change from the backend unless refetched
   })
@@ -31,47 +32,56 @@ export function useGetExamAttempt(examId: string, attemptId: string, enabled: bo
 export function useSaveAnswerMutation() {
   return useMutation({
     mutationFn: ({
-      examId,
+      scheduleId,
       attemptId,
       data,
     }: {
-      examId: string
+      scheduleId: string
       attemptId: string
       data: SaveAnswerPayload[]
-    }) => takeExamApi.saveAnswers(examId, attemptId, data),
+    }) => takeExamApi.saveAnswers(scheduleId, attemptId, data),
   })
 }
 
 export function useSubmitExamMutation() {
   return useMutation({
-    mutationFn: ({ examId, attemptId }: { examId: string; attemptId: string }) =>
-      takeExamApi.submitExam(examId, attemptId),
+    mutationFn: ({ scheduleId, attemptId }: { scheduleId: string; attemptId: string }) =>
+      takeExamApi.submitExam(scheduleId, attemptId),
   })
 }
 
 export function useSendHeartbeatMutation() {
   return useMutation({
-    mutationFn: ({ examId, attemptId }: { examId: string; attemptId: string }) =>
-      takeExamApi.sendHeartbeat(examId, attemptId),
+    mutationFn: ({ scheduleId, attemptId }: { scheduleId: string; attemptId: string }) =>
+      takeExamApi.sendHeartbeat(scheduleId, attemptId),
   })
 }
 
-export function useGetExamAttemptStatus(examId: string, attemptId: string, enabled: boolean = true) {
+export function useGetExamAttemptStatus(scheduleId: string, attemptId: string, enabled: boolean = true) {
   return useQuery({
-    queryKey: takeExamQueryKeys.status(examId, attemptId),
-    queryFn: () => takeExamApi.getAttemptStatus(examId, attemptId),
-    enabled: enabled && !!examId && !!attemptId,
+    queryKey: takeExamQueryKeys.status(scheduleId, attemptId),
+    queryFn: () => takeExamApi.getAttemptStatus(scheduleId, attemptId),
+    enabled: enabled && !!scheduleId && !!attemptId,
     refetchOnWindowFocus: false,
+  })
+}
+
+export function useGetExamAttemptResult(scheduleId: string, attemptId: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: takeExamQueryKeys.result(scheduleId, attemptId),
+    queryFn: () => takeExamApi.getAttemptResult(scheduleId, attemptId),
+    enabled: enabled && !!scheduleId && !!attemptId,
+    refetchOnWindowFocus: true,
   })
 }
 
 export function useRunCodeMutation() {
   return useMutation({
-    mutationFn: ({ examId, attemptId, questionId, sourceCode }: {
-      examId: string
+    mutationFn: ({ scheduleId, attemptId, questionId, sourceCode }: {
+      scheduleId: string
       attemptId: string
       questionId: string
       sourceCode: string
-    }) => takeExamApi.runCode(examId, attemptId, questionId, sourceCode),
+    }) => takeExamApi.runCode(scheduleId, attemptId, questionId, sourceCode),
   })
 }

@@ -8,18 +8,19 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String?
-  phoneNumber   String?
-  fullName      String
-  avatarUrl     String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  admin         Admin?
-  auditLogs     AuditLog[]
-  notifications Notification[]
-  student       Student?
-  teacher       Teacher?
+  id                   String         @id @default(uuid())
+  email                String?
+  phoneNumber          String?
+  fullName             String
+  avatarUrl            String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  admin                Admin?
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  student              Student?
+  teacher              Teacher?
+  createdExamSchedules ExamSchedule[] @relation("ScheduleCreator")
 }
 
 model Student {
@@ -34,36 +35,39 @@ model Student {
 }
 
 model Teacher {
-  id                  String                @id @default(uuid())
-  teacherCode         String                @unique
-  password            String
-  status              AccountStatus         @default(ACTIVE)
-  position            TeacherPosition       @default(LECTURER)
-  departmentId        String?
-  userId              String                @unique
-  courseOfferings     CourseOffering[]      @relation("TeacherCourseOfferings")
-  exams               Exam[]                @relation("CreatorExams")
-  posts               Post[]                @relation("TeacherPosts")
-  materials           Material[]            @relation("UploaderMaterials")
-  questions           Question[]            @relation("OwnerQuestions")
-  aiGenerations       AIGenerationHistory[]
-  questionBankReviews QuestionBankItem[]    @relation("QuestionBankTeacherReviews")
-  examReviews         Exam[]                @relation("TeacherExamReviews")
-  department          Department?           @relation("DepartmentTeachers", fields: [departmentId], references: [id])
-  user                User                  @relation(fields: [userId], references: [id])
+  id                   String                @id @default(uuid())
+  teacherCode          String                @unique
+  password             String
+  status               AccountStatus         @default(ACTIVE)
+  position             TeacherPosition       @default(LECTURER)
+  departmentId         String?
+  userId               String                @unique
+  courseOfferings      CourseOffering[]      @relation("TeacherCourseOfferings")
+  exams                Exam[]                @relation("CreatorExams")
+  posts                Post[]                @relation("TeacherPosts")
+  materials            Material[]            @relation("UploaderMaterials")
+  questions            Question[]            @relation("OwnerQuestions")
+  aiGenerations        AIGenerationHistory[]
+  questionBankReviews  QuestionBankItem[]    @relation("QuestionBankTeacherReviews")
+  questionBankRemovals QuestionBankItem[]    @relation("QuestionBankTeacherRemovals")
+  examReviews          Exam[]                @relation("TeacherExamReviews")
+  proctorAssignments   ExamScheduleProctor[]
+  department           Department?           @relation("DepartmentTeachers", fields: [departmentId], references: [id])
+  user                 User                  @relation(fields: [userId], references: [id])
 
   @@index([departmentId])
   @@index([position])
 }
 
 model Admin {
-  id                  String             @id @default(uuid())
-  adminCode           String             @unique
-  password            String
-  status              AccountStatus      @default(ACTIVE)
-  userId              String             @unique
-  user                User               @relation(fields: [userId], references: [id])
-  questionBankReviews QuestionBankItem[] @relation("QuestionBankReviews")
+  id                   String             @id @default(uuid())
+  adminCode            String             @unique
+  password             String
+  status               AccountStatus      @default(ACTIVE)
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id])
+  questionBankReviews  QuestionBankItem[] @relation("QuestionBankReviews")
+  questionBankRemovals QuestionBankItem[] @relation("QuestionBankAdminRemovals")
 }
 
 model Department {
@@ -92,13 +96,20 @@ model CodeGenerationSetting {
 
 model Semester {
   id              String           @id @default(uuid())
+  code            String           @unique
   name            String
+  academicYear    String
+  term            SemesterTerm
   startDate       DateTime
   endDate         DateTime
   status          SemesterStatus   @default(UPCOMING)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   courseOfferings CourseOffering[]
+  enrollments     Enrollment[]
+  exams           Exam[]
+
+  @@unique([academicYear, term])
 }
 
 model Subject {
@@ -106,35 +117,40 @@ model Subject {
   code            String           @unique
   name            String
   description     String?
+  credits         Int              @default(3)
   status          SubjectStatus    @default(ACTIVE)
-  departmentId    String?
+  departmentId    String
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   courseOfferings CourseOffering[]
+  enrollments     Enrollment[]
   questions       Question[]
   questionBank    QuestionBank?
-  department      Department?      @relation("DepartmentSubjects", fields: [departmentId], references: [id])
+  exams           Exam[]
+  department      Department       @relation("DepartmentSubjects", fields: [departmentId], references: [id])
 
   @@index([departmentId])
 }
 
 model CourseOffering {
-  id            String                @id @default(uuid())
-  code          String                @unique
-  status        CourseOfferingStatus  @default(ACTIVE)
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  semesterId    String
-  subjectId     String
-  teacherId     String
-  semester      Semester              @relation(fields: [semesterId], references: [id])
-  subject       Subject               @relation(fields: [subjectId], references: [id])
-  teacher       Teacher               @relation("TeacherCourseOfferings", fields: [teacherId], references: [id])
-  enrollments   Enrollment[]
-  exams         Exam[]
-  materials     Material[]
-  posts         Post[]
-  aiGenerations AIGenerationHistory[]
+  id              String                @id @default(uuid())
+  code            String                @unique
+  status          CourseOfferingStatus  @default(ACTIVE)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  semesterId      String
+  subjectId       String
+  teacherId       String
+  maxCapacity     Int                   @default(50)
+  semester        Semester              @relation(fields: [semesterId], references: [id])
+  subject         Subject               @relation(fields: [subjectId], references: [id])
+  teacher         Teacher               @relation("TeacherCourseOfferings", fields: [teacherId], references: [id])
+  enrollments     Enrollment[]
+  materials       Material[]
+  posts           Post[]
+  aiGenerations   AIGenerationHistory[]
+  scheduleCourses ExamScheduleCourse[]
+  examAttempts    ExamAttempt[]
 
   @@index([teacherId])
   @@index([semesterId])
@@ -146,11 +162,18 @@ model Enrollment {
   enrolledAt       DateTime       @default(now())
   courseOfferingId String
   studentId        String
+  semesterId       String
+  subjectId        String
   courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id])
   student          Student        @relation("StudentEnrollments", fields: [studentId], references: [id])
+  semester         Semester       @relation(fields: [semesterId], references: [id])
+  subject          Subject        @relation(fields: [subjectId], references: [id])
 
   @@unique([courseOfferingId, studentId])
+  @@unique([studentId, subjectId, semesterId])
   @@index([studentId])
+  @@index([semesterId])
+  @@index([subjectId])
 }
 
 model Post {
@@ -158,6 +181,7 @@ model Post {
   title            String
   content          String
   status           PostStatus       @default(DRAFT)
+  isPinned         Boolean          @default(false)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   publishedAt      DateTime?
@@ -230,40 +254,52 @@ model QuestionBankItem {
   rejectionReason     String?
   addedAt             DateTime               @default(now())
   removedAt           DateTime? // Soft-delete khỏi bank, Question vẫn tồn tại
+  removedByTeacherId  String?
+  removedByAdminId    String?
+  removalReason       String?
   reviewedBy          Admin?                 @relation("QuestionBankReviews", fields: [reviewedById], references: [id])
   reviewedByTeacher   Teacher?               @relation("QuestionBankTeacherReviews", fields: [reviewedByTeacherId], references: [id])
+  removedByTeacher    Teacher?               @relation("QuestionBankTeacherRemovals", fields: [removedByTeacherId], references: [id])
+  removedByAdmin      Admin?                 @relation("QuestionBankAdminRemovals", fields: [removedByAdminId], references: [id])
   questionBank        QuestionBank           @relation(fields: [questionBankId], references: [id])
   question            Question               @relation(fields: [questionId], references: [id])
 
   @@index([questionBankId, status, removedAt])
   @@index([reviewedByTeacherId])
+  @@index([removedByTeacherId])
+  @@index([removedByAdminId])
 }
 
 model Question {
-  id               String               @id @default(uuid())
-  content          String
-  explanation      String?
-  type             QuestionType
-  difficulty       QuestionDifficulty
-  source           QuestionSource
-  language         ProgrammingLanguage?
-  aiReviewStatus   AIReviewStatus? // BR-12A: Giảng viên review câu AI
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  ownerId          String
-  subjectId        String
-  aiGenerationId   String?
-  owner            Teacher              @relation("OwnerQuestions", fields: [ownerId], references: [id])
-  subject          Subject              @relation(fields: [subjectId], references: [id])
-  aiGeneration     AIGenerationHistory? @relation(fields: [aiGenerationId], references: [id])
-  examQuestions    ExamQuestion[]       @relation("ExamQuestionSource")
-  questionBankItem QuestionBankItem?
-  options          QuestionOption[]
+  id                String                        @id @default(uuid())
+  title             String
+  content           String
+  explanation       String?
+  type              QuestionType
+  difficulty        QuestionDifficulty
+  source            QuestionSource
+  language          ProgrammingLanguage?
+  aiReviewStatus    AIReviewStatus? // BR-12A: Giảng viên review câu AI
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+  archivedAt        DateTime?
+  ownerId           String
+  subjectId         String
+  aiGenerationId    String?
+  owner             Teacher                       @relation("OwnerQuestions", fields: [ownerId], references: [id])
+  subject           Subject                       @relation(fields: [subjectId], references: [id])
+  aiGeneration      AIGenerationHistory?          @relation(fields: [aiGenerationId], references: [id])
+  examQuestions     ExamQuestion[]                @relation("ExamQuestionSource")
+  questionBankItem  QuestionBankItem?
+  options           QuestionOption[]
+  programmingConfig QuestionProgrammingConfig?
+  programmingTests  QuestionProgrammingTestCase[]
 
   @@index([ownerId])
   @@index([subjectId])
   @@index([type])
   @@index([aiGenerationId])
+  @@index([archivedAt])
 }
 
 model QuestionOption {
@@ -273,6 +309,29 @@ model QuestionOption {
   questionId String
   question   Question @relation(fields: [questionId], references: [id])
 
+  @@index([questionId])
+}
+
+model QuestionProgrammingConfig {
+  id            String   @id @default(uuid())
+  timeLimitMs   Int      @default(2000)
+  memoryLimitKb Int      @default(262144)
+  maxCodeSizeKb Int      @default(256)
+  questionId    String   @unique
+  question      Question @relation(fields: [questionId], references: [id])
+}
+
+model QuestionProgrammingTestCase {
+  id             String   @id @default(uuid())
+  input          String
+  expectedOutput String
+  isSample       Boolean  @default(false)
+  isHidden       Boolean  @default(false)
+  orderIndex     Int
+  questionId     String
+  question       Question @relation(fields: [questionId], references: [id])
+
+  @@unique([questionId, orderIndex])
   @@index([questionId])
 }
 
@@ -308,47 +367,121 @@ model AIGenerationMaterial {
 }
 
 model Exam {
-  id                      String             @id @default(uuid())
-  title                   String
-  description             String?
-  password                String?
-  startTime               DateTime
-  endTime                 DateTime
-  durationMinutes         Int
-  maxAttempts             Int                @default(1)
-  shuffleQuestions        Boolean            @default(false)
-  shuffleOptions          Boolean            @default(false)
-  showResultImmediately   Boolean            @default(false)
-  allowReviewBeforeSubmit Boolean            @default(false)
-  resultPublished         Boolean            @default(false)
-  resultPublishedAt       DateTime?
-  status                  ExamStatus         @default(DRAFT)
-  approvalStatus          ExamApprovalStatus @default(NOT_REQUIRED)
-  reviewedAt              DateTime?
-  reviewedById            String?
-  rejectionReason         String?
-  creationMethod          ExamCreationMethod @default(MANUAL)
-  type                    ExamType           @default(QUIZ)
-  requireFullscreen       Boolean            @default(false)
-  enableWebcam            Boolean            @default(false)
-  blockCopyPaste          Boolean            @default(true)
-  blockRightClick         Boolean            @default(true)
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
-  publishedAt             DateTime?
-  courseOfferingId        String
-  createdById             String
-  courseOffering          CourseOffering     @relation(fields: [courseOfferingId], references: [id])
-  createdBy               Teacher            @relation("CreatorExams", fields: [createdById], references: [id])
-  reviewedBy              Teacher?           @relation("TeacherExamReviews", fields: [reviewedById], references: [id])
-  examAttempts            ExamAttempt[]
-  examQuestions           ExamQuestion[]
+  id                     String             @id @default(uuid())
+  title                  String
+  description            String?
+  subjectId              String
+  semesterId             String
+  defaultDurationMinutes Int
+  totalPoints            Decimal            @default(10) @db.Decimal(5, 2)
+  format                 ExamFormat
+  status                 ExamStatus         @default(DRAFT)
+  approvalStatus         ExamApprovalStatus @default(NOT_REQUIRED)
+  reviewedAt             DateTime?
+  reviewedById           String?
+  rejectionReason        String?
+  creationMethod         ExamCreationMethod @default(MANUAL)
+  type                   ExamType           @default(QUIZ)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  createdById            String
+  subject                Subject            @relation(fields: [subjectId], references: [id])
+  semester               Semester           @relation(fields: [semesterId], references: [id])
+  createdBy              Teacher            @relation("CreatorExams", fields: [createdById], references: [id])
+  reviewedBy             Teacher?           @relation("TeacherExamReviews", fields: [reviewedById], references: [id])
+  examQuestions          ExamQuestion[]
+  sections               ExamSection[]
+  schedules              ExamSchedule[]
 
-  @@index([courseOfferingId])
+  @@index([subjectId])
+  @@index([semesterId])
   @@index([createdById])
   @@index([reviewedById])
   @@index([status])
   @@index([approvalStatus])
+}
+
+model ExamSection {
+  id           String          @id @default(uuid())
+  title        String
+  description  String?
+  type         ExamSectionType
+  targetPoints Decimal         @db.Decimal(5, 2)
+  orderIndex   Int
+  examId       String
+  exam         Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions    ExamQuestion[]
+
+  @@unique([examId, orderIndex])
+  @@index([examId])
+}
+
+model ExamSchedule {
+  id                  String               @id @default(uuid())
+  title               String
+  examId              String
+  startTime           DateTime
+  endTime             DateTime
+  durationMinutes     Int
+  maxAttempts         Int                  @default(1)
+  passwordHash        String?
+  enableTabLock       Boolean              @default(true)
+  maxTabSwitches      Int?
+  requireFullscreen   Boolean              @default(false)
+  enableWebcam        Boolean              @default(false)
+  blockCopyPaste      Boolean              @default(true)
+  blockRightClick     Boolean              @default(true)
+  locationMode        ExamLocationMode     @default(ONLINE)
+  allowedIpRanges     String[]             @default([])
+  distributionMode    ExamDistributionMode @default(FIXED_ORDER)
+  randomQuestionCount Int?
+  resultReleaseMode   ResultReleaseMode    @default(MANUAL)
+  resultReleaseAt     DateTime?
+  resultsPublishedAt  DateTime?
+  reviewPolicy        ReviewPolicy         @default(NONE)
+  reviewStartAt       DateTime?
+  reviewEndAt         DateTime?
+  status              ExamScheduleStatus   @default(DRAFT)
+  publishedAt         DateTime?
+  cancelledAt         DateTime?
+  cancellationReason  String?
+  createdById         String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  exam                Exam                 @relation(fields: [examId], references: [id])
+  createdBy           User                 @relation("ScheduleCreator", fields: [createdById], references: [id])
+  scheduleCourses     ExamScheduleCourse[]
+  attempts            ExamAttempt[]
+
+  @@index([examId])
+  @@index([createdById])
+  @@index([startTime, endTime])
+  @@index([status])
+}
+
+model ExamScheduleCourse {
+  id               String                @id @default(uuid())
+  examScheduleId   String
+  courseOfferingId String
+  createdAt        DateTime              @default(now())
+  examSchedule     ExamSchedule          @relation(fields: [examScheduleId], references: [id])
+  courseOffering   CourseOffering        @relation(fields: [courseOfferingId], references: [id])
+  proctors         ExamScheduleProctor[]
+
+  @@unique([examScheduleId, courseOfferingId])
+  @@index([courseOfferingId])
+}
+
+model ExamScheduleProctor {
+  id                   String             @id @default(uuid())
+  examScheduleCourseId String
+  teacherId            String
+  createdAt            DateTime           @default(now())
+  examScheduleCourse   ExamScheduleCourse @relation(fields: [examScheduleCourseId], references: [id])
+  teacher              Teacher            @relation(fields: [teacherId], references: [id])
+
+  @@unique([examScheduleCourseId, teacherId])
+  @@index([teacherId])
 }
 
 model ExamQuestion {
@@ -357,6 +490,7 @@ model ExamQuestion {
   points     Decimal @db.Decimal(5, 2)
 
   // Snapshot của Question tại thời điểm thêm vào Exam
+  title                  String
   content                String
   explanation            String?
   type                   QuestionType
@@ -364,7 +498,9 @@ model ExamQuestion {
   language               ProgrammingLanguage?
   sourceQuestionId       String?
   examId                 String
+  sectionId              String?
   exam                   Exam                       @relation(fields: [examId], references: [id])
+  section                ExamSection?               @relation(fields: [sectionId], references: [id])
   sourceQuestion         Question?                  @relation("ExamQuestionSource", fields: [sourceQuestionId], references: [id])
   options                ExamQuestionOption[]
   attemptQuestions       ExamAttemptQuestion[]
@@ -376,6 +512,7 @@ model ExamQuestion {
   @@unique([examId, orderIndex])
   @@index([examId])
   @@index([sourceQuestionId])
+  @@index([sectionId])
 }
 
 model ExamQuestionOption {
@@ -394,20 +531,22 @@ model ExamAttempt {
   id                     String                  @id @default(uuid())
   attemptNo              Int
   startedAt              DateTime                @default(now())
-  attemptEndAt           DateTime
+  deadlineAt             DateTime
   submittedAt            DateTime?
-  remainingSeconds       Int
   lastSavedAt            DateTime?
   endedBy                AttemptEndedBy?
   status                 AttemptStatus           @default(IN_PROGRESS)
   totalScore             Decimal?                @db.Decimal(5, 2)
   autoScore              Decimal?                @db.Decimal(5, 2)
   manualScore            Decimal?                @db.Decimal(5, 2)
+  version                Int                     @default(1)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
-  examId                 String
+  examScheduleId         String
+  courseOfferingId       String
   studentId              String
-  exam                   Exam                    @relation(fields: [examId], references: [id])
+  examSchedule           ExamSchedule            @relation(fields: [examScheduleId], references: [id])
+  courseOffering         CourseOffering          @relation(fields: [courseOfferingId], references: [id])
   student                Student                 @relation("StudentExamAttempts", fields: [studentId], references: [id])
   attemptQuestions       ExamAttemptQuestion[]
   examSession            ExamSession?
@@ -415,9 +554,10 @@ model ExamAttempt {
   programmingSubmissions ProgrammingSubmission[]
   violations             Violation[]
 
-  @@unique([examId, studentId, attemptNo])
+  @@unique([examScheduleId, studentId, attemptNo])
   @@index([studentId])
-  @@index([examId])
+  @@index([examScheduleId])
+  @@index([courseOfferingId])
 }
 
 model ExamAttemptQuestion {
@@ -512,7 +652,6 @@ model ProgrammingTestCase {
   id                String                            @id @default(uuid())
   input             String
   expectedOutput    String
-  weight            Decimal                           @db.Decimal(5, 2)
   isSample          Boolean                           @default(false)
   isHidden          Boolean                           @default(false)
   examQuestionId    String
@@ -612,6 +751,12 @@ enum SemesterStatus {
   CLOSED
 }
 
+enum SemesterTerm {
+  TERM_1
+  TERM_2
+  TERM_3
+}
+
 enum SubjectStatus {
   ACTIVE
   INACTIVE
@@ -626,6 +771,7 @@ enum QuestionBankItemStatus {
 enum QuestionType {
   SINGLE_CHOICE
   MULTIPLE_CHOICE
+  TRUE_FALSE
   PROGRAMMING
 }
 
@@ -684,8 +830,20 @@ enum ProgrammingTestResultStatus {
 
 enum ExamStatus {
   DRAFT
-  PUBLISHED
-  CLOSED
+  READY
+  LOCKED
+  ARCHIVED
+}
+
+enum ExamFormat {
+  OBJECTIVE
+  PROGRAMMING
+  MIXED
+}
+
+enum ExamSectionType {
+  OBJECTIVE
+  PROGRAMMING
 }
 
 enum ExamApprovalStatus {
@@ -698,13 +856,52 @@ enum ExamApprovalStatus {
 enum AttemptStatus {
   IN_PROGRESS
   SUBMITTED
-  EXPIRED
+  AUTO_SUBMITTED
+  GRADING
+  GRADED
+  PUBLISHED
+  INVALIDATED
 }
 
 enum AttemptEndedBy {
   STUDENT
   TIMEOUT
   SYSTEM
+}
+
+enum ExamDistributionMode {
+  FIXED_ORDER
+  SHUFFLE_QUESTIONS
+  SHUFFLE_OPTIONS
+  SHUFFLE_QUESTIONS_AND_OPTIONS
+  RANDOM_SUBSET
+}
+
+enum ResultReleaseMode {
+  IMMEDIATE
+  MANUAL
+  SCHEDULED
+  NEVER
+}
+
+enum ReviewPolicy {
+  NONE
+  SCORE_ONLY
+  ANSWERS_NO_KEY
+  FULL_AFTER_RELEASE
+}
+
+enum ExamLocationMode {
+  ONLINE
+  CAMPUS
+}
+
+enum ExamScheduleStatus {
+  DRAFT
+  SCHEDULED
+  OPEN
+  CLOSED
+  CANCELLED
 }
 
 enum ViolationType {

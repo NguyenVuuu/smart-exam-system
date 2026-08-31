@@ -2,7 +2,7 @@ import { Clock, Eye, Globe, Lock, ShieldCheck, Shuffle, Users } from 'lucide-rea
 import type { ReactNode } from 'react'
 import AppNumberInput from '../../../../../components/common/AppNumberInput'
 import AppSelect from '../../../../../components/common/AppSelect'
-import { MOCK_TEACHER_COURSES } from '../../../mock/teacher-course.mock'
+import type { CourseOffering } from '../../../types/teacher-course.types'
 import type {
   ExamIpMode,
   ExamDistributionMode,
@@ -38,14 +38,14 @@ export interface ExamSessionDraft {
 
 export function ExamSessionForm({
   draft,
-  subjectName,
+  courses,
   onChange,
   onAdd,
   submitLabel = 'Thêm ca',
   showSubmit = true,
 }: {
   draft: ExamSessionDraft
-  subjectName: string
+  courses: CourseOffering[]
   onChange: (draft: ExamSessionDraft) => void
   onAdd: () => void
   submitLabel?: string
@@ -65,7 +65,7 @@ export function ExamSessionForm({
             onChange={(value) => update('courseOfferingId', value)}
             buttonClassName={selectButtonClassName}
             menuClassName="z-50"
-            options={MOCK_TEACHER_COURSES.filter((course) => course.subjectName === subjectName).map((course) => ({
+            options={courses.map((course) => ({
               value: course.id,
               label: `${course.courseCode} - ${course.subjectName} (${course.totalStudents} SV)`,
             }))}

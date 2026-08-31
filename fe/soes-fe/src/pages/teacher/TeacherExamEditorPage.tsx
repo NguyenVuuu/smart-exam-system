@@ -6,7 +6,7 @@ import {
   ChevronRight,
   Save,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import TeacherSidebar from './components/TeacherSidebar'
@@ -30,67 +30,58 @@ import {
   inferSectionId,
   isQuestionAllowedForExam,
   splitPointsPrecisely,
+  orderQuestionsBySection,
 } from './utils/ExamEditorUtils'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
-import { MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
-import { MOCK_QUESTION_BANK } from './mock/teacher-question-bank.mock'
 import type {
-  Exam,
   ExamCategory,
   ExamQuestionItem,
   ExamSection,
   ExamType,
 } from './types/teacher-exam.types'
 import type { Question } from './types/teacher-question-bank.types'
-import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
+import { useTeacherCourses } from './hooks/useTeacherCourses'
+import { useTeacherExamDetail } from './hooks/useTeacherExamDetail'
+import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import { useAuthStore } from '../../store/authStore'
+import * as examApi from './api/teacher-exams.api'
 
 export default function TeacherExamEditorPage() {
+  const user = useAuthStore((state) => state.user)
+  const isDepartmentHead =
+    user?.position === 'DEPARTMENT_HEAD' ||
+    Boolean(user?.permissions?.includes('APPROVE_FINAL_EXAM'))
+
   const navigate = useNavigate()
   const { examId } = useParams<{ examId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const exams = useTeacherWorkspaceStore((state) => state.exams)
-  const upsertExam = useTeacherWorkspaceStore((state) => state.upsertExam)
-  const currentUser = useAuthStore((state) => state.user)
+  const { courses, semesterOptions, currentSemesterId } = useTeacherCourses()
+  const { questions: bankQuestions, subjects } = useTeacherQuestions()
   const copyFromId = searchParams.get('copyFrom')
   const isCopy = Boolean(copyFromId)
-  const sourceExam = exams.find((item) => item.id === (copyFromId || examId))
-  const initialTypeFromUrl = sourceExam?.type || (searchParams.get('type') as ExamType) || 'MULTIPLE_CHOICE'
-  const initialSections = sourceExam?.sections?.map((section) => ({ ...section })) || buildInitialSections(initialTypeFromUrl)
+  const sourceId = copyFromId || examId
+  const { exam: sourceExam, loading: sourceLoading, error: sourceError } = useTeacherExamDetail(sourceId)
+  const initializedSourceId = useRef<string | null>(null)
+  const initialTypeFromUrl = (searchParams.get('type') as ExamType) || 'MULTIPLE_CHOICE'
+  const initialSections = buildInitialSections(initialTypeFromUrl)
 
   const [activeStep, setActiveStep] = useState<WizardStepId>('INFO')
   const [title, setTitle] = useState(
-    sourceExam ? `${isCopy ? 'Bản sao - ' : ''}${sourceExam.title}` : getDefaultTitle(initialTypeFromUrl),
+    getDefaultTitle(initialTypeFromUrl),
   )
   const [description, setDescription] = useState(
-    sourceExam?.description || 'Kiểm tra kiến thức theo nội dung lớp học phần.',
+    'Kiểm tra kiến thức theo nội dung lớp học phần.',
   )
-  const [examCategory, setExamCategory] = useState<ExamCategory>(sourceExam?.category || 'QUIZ')
+  const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
   const [examType, setExamType] = useState<ExamType>(initialTypeFromUrl)
-  const [subjectId, setSubjectId] = useState(sourceExam?.subjectName || MOCK_TEACHER_COURSES[0].subjectName)
+  const [subjectId, setSubjectId] = useState('')
+  const [semesterId, setSemesterId] = useState('')
   const [sections, setSections] = useState<ExamSection[]>(initialSections)
   const [activeSectionId, setActiveSectionId] = useState(initialSections[0].id)
-  const [durationMinutes, setDurationMinutes] = useState(sourceExam?.defaultDurationMinutes || 60)
-  const [targetTotalPoints, setTargetTotalPoints] = useState(sourceExam?.totalPoints || 10)
+  const [durationMinutes, setDurationMinutes] = useState(60)
+  const [targetTotalPoints, setTargetTotalPoints] = useState(10)
 
-  const [questions, setQuestions] = useState<ExamQuestionItem[]>(() => {
-    if (sourceExam) {
-      return sourceExam.questions.map((item) => ({
-        ...item,
-        question: { ...item.question },
-      }))
-    }
-
-    const initialQuestions = MOCK_QUESTION_BANK.filter((q) => isQuestionAllowedForExam(q, initialTypeFromUrl)).map((q, i) => ({
-      questionId: q.id,
-      question: q,
-      points: 0,
-      order: i + 1,
-      sectionId: inferSectionId(q, initialSections),
-    }))
-
-    return balanceQuestionPointsBySection(initialQuestions, initialSections)
-  })
+  const [questions, setQuestions] = useState<ExamQuestionItem[]>([])
   const [collapsedQuestionIds, setCollapsedQuestionIds] = useState<string[]>([])
 
   const [isBankPickerOpen, setIsBankPickerOpen] = useState(false)
@@ -98,12 +89,45 @@ export default function TeacherExamEditorPage() {
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
 
-  const selectedCourse =
-    MOCK_TEACHER_COURSES.find((course) => course.subjectName === subjectId) || MOCK_TEACHER_COURSES[0]
+  useEffect(() => {
+    if (!sourceExam || initializedSourceId.current === sourceExam.id) return
+    const nextSections = sourceExam.sections?.map((section) => ({ ...section }))
+      ?? buildInitialSections(sourceExam.type)
+    initializedSourceId.current = sourceExam.id
+    setTitle(`${isCopy ? 'Bản sao - ' : ''}${sourceExam.title}`)
+    setDescription(sourceExam.description)
+    setExamCategory(sourceExam.category ?? 'QUIZ')
+    setExamType(sourceExam.type)
+    setSubjectId(sourceExam.subjectId)
+    setSemesterId(sourceExam.semesterId)
+    setSections(nextSections)
+    setActiveSectionId(nextSections[0].id)
+    setDurationMinutes(sourceExam.defaultDurationMinutes)
+    setTargetTotalPoints(sourceExam.totalPoints)
+    setQuestions(sourceExam.questions.map((item) => ({
+      ...item, question: { ...item.question },
+    })))
+  }, [isCopy, sourceExam])
+
+  useEffect(() => {
+    if (!sourceId || sourceLoading || !sourceError) return
+    toast.error(sourceError)
+    navigate('/teacher/exams', { replace: true })
+  }, [navigate, sourceError, sourceId, sourceLoading])
+
+  const selectedSemesterId = semesterId || currentSemesterId || ''
+  const semesterCourses = courses.filter((course) => course.semesterId === selectedSemesterId)
+  const selectedSubjectId = semesterCourses.some((course) => course.subjectId === subjectId)
+    ? subjectId
+    : semesterCourses[0]?.subjectId ?? ''
+  const selectedCourse = semesterCourses.find((course) => course.subjectId === selectedSubjectId)
   const selectedSubject = {
-    subjectCode: selectedCourse.subjectCode,
-    subjectName: selectedCourse.subjectName,
+    subjectCode: selectedCourse?.subjectCode ?? '',
+    subjectName: selectedCourse?.subjectName ?? 'Chưa chọn môn học',
   }
+  const subjectOptions = Array.from(new Map(semesterCourses.map((course) => [course.subjectId, {
+    value: course.subjectId, label: `${course.subjectCode} - ${course.subjectName}`,
+  }])).values())
   const totalPoints = questions.reduce((sum, item) => sum + item.points, 0)
   const stepIndex = WIZARD_STEPS.findIndex((step) => step.id === activeStep)
   const visibleQuestions = questions.filter((item) => item.sectionId === activeSectionId)
@@ -209,6 +233,7 @@ export default function TeacherExamEditorPage() {
       reviewStatus: 'PRIVATE',
       type: savedQ.type || (examType === 'PROGRAMMING' ? 'PROGRAMMING' : 'SINGLE_CHOICE'),
       difficulty: savedQ.difficulty || 'EASY',
+      title: savedQ.title || '',
       content: savedQ.content || '',
       explanation: savedQ.explanation,
       options: savedQ.options,
@@ -228,63 +253,73 @@ export default function TeacherExamEditorPage() {
 
   const validateExam = () => {
     if (!title.trim()) {
-      alert('Vui lòng nhập tên bài thi.')
+      toast.error('Vui lòng nhập tên bài thi.')
+      setActiveStep('INFO')
+      return false
+    }
+    if (!selectedSemesterId) {
+      toast.error('Vui lòng chọn học kỳ của đề thi.')
       setActiveStep('INFO')
       return false
     }
     if (questions.length === 0) {
-      alert('Bài thi cần có ít nhất một câu hỏi.')
+      toast.error('Bài thi cần có ít nhất một câu hỏi.')
       setActiveStep('QUESTIONS')
       return false
     }
+    const sectionTargetTotal = sections.reduce((sum, section) => sum + (section.targetPoints ?? 0), 0)
+    if (Math.abs(sectionTargetTotal - targetTotalPoints) >= 0.01) {
+      toast.error(`Tổng điểm các phần là ${sectionTargetTotal.toFixed(2)}, phải bằng ${targetTotalPoints.toFixed(2)} điểm.`)
+      setActiveStep('SECTIONS')
+      return false
+    }
     if (Math.abs(totalPoints - targetTotalPoints) >= 0.01) {
-      alert(`Tổng điểm hiện tại là ${totalPoints.toFixed(2)}, phải bằng tổng điểm mục tiêu ${targetTotalPoints.toFixed(2)}.`)
+      toast.error(`Tổng điểm hiện tại là ${totalPoints.toFixed(2)}, phải bằng tổng điểm mục tiêu ${targetTotalPoints.toFixed(2)}.`)
       setActiveStep('QUESTIONS')
       return false
     }
     return true
   }
 
-  const buildExam = (status: Exam['status']): Exam => ({
-    id: !isCopy && sourceExam ? sourceExam.id : `exam-${Date.now()}`,
-    authorId: !isCopy && sourceExam ? sourceExam.authorId : currentUser?.profileId ?? 'gv-01',
-    authorName: !isCopy && sourceExam ? sourceExam.authorName : currentUser?.fullName ?? 'Nguyễn Văn An',
-    subjectId: sourceExam?.subjectId ?? MOCK_QUESTION_BANK.find((question) => question.subjectName === selectedSubject.subjectName)?.subjectId ?? selectedSubject.subjectCode,
-    subjectCode: sourceExam?.subjectCode ?? selectedSubject.subjectCode,
-    subjectName: selectedSubject.subjectName,
-    title: title.trim(),
-    description: description.trim(),
-    category: examCategory,
-    type: examType,
-    creationMethod: sourceExam?.creationMethod ?? 'MANUAL',
-    status,
-    studentVisibility: status === 'PUBLISHED' ? sourceExam?.studentVisibility ?? 'VISIBLE' : 'HIDDEN',
-    defaultDurationMinutes: durationMinutes,
-    sections,
-    schedules: !isCopy ? sourceExam?.schedules ?? [] : [],
-    questions,
-    totalPoints: targetTotalPoints,
-    createdAt: sourceExam?.createdAt ?? new Date().toISOString(),
-  })
-
-  const handleSaveDraft = () => {
+  const persistExam = async (submit: boolean) => {
     if (!validateExam()) return
-    upsertExam(buildExam('DRAFT'))
-    toast.success(`Đã lưu nháp ${examTypeLabel[examType]} với ${questions.length} câu hỏi.`)
-    navigate('/teacher/exams')
-  }
-
-  const handlePublishExam = () => {
-    if (!validateExam()) return
-    if (examCategory === 'FINAL') {
-      upsertExam(buildExam('PENDING_APPROVAL'))
-      toast.success('Đã gửi đề thi cuối kỳ cho Trưởng bộ môn duyệt chuyên môn.')
-    } else {
-      upsertExam(buildExam('PUBLISHED'))
-      toast.success('Đã hoàn tất đề thi. Bạn có thể tạo ca thi trong trang chi tiết đề.')
+    if (!selectedSubjectId) { toast.error('Vui lòng chọn môn học.'); return }
+    const payload = {
+      title: title.trim(), description: description.trim() || null,
+      subjectId: selectedSubjectId, semesterId: selectedSemesterId,
+      type: examCategory,
+      format: examType === 'MULTIPLE_CHOICE' ? 'OBJECTIVE' as const : examType,
+      creationMethod: sourceExam?.creationMethod ?? 'MANUAL' as const,
+      defaultDurationMinutes: durationMinutes, totalPoints: targetTotalPoints,
+      sections: sections.map((section) => ({
+        id: section.id, title: section.title, description: section.description,
+        type: section.type, targetPoints: section.targetPoints ?? 0, orderIndex: section.order,
+      })),
     }
-    navigate('/teacher/exams')
+    try {
+      const saved = !isCopy && sourceExam
+        ? await examApi.updateTeacherExam(sourceExam.id, payload)
+        : await examApi.createTeacherExam(payload)
+      const orderedQuestions = orderQuestionsBySection(questions, sections)
+      await examApi.replaceTeacherExamQuestions(saved.id, orderedQuestions.map(
+        ({ questionId, points, sectionId }) => ({ questionId, points, sectionId }),
+      ))
+      if (submit) await examApi.submitTeacherExam(saved.id)
+      toast.success(
+        submit
+          ? examCategory === 'FINAL' && !isDepartmentHead
+            ? 'Đã gửi đề thi cuối kỳ để duyệt.'
+            : 'Đã hoàn tất đề thi.'
+          : `Đã lưu nháp ${examTypeLabel[examType]} với ${questions.length} câu hỏi.`,
+      )
+      navigate('/teacher/exams')
+    } catch {
+      toast.error('Không thể lưu đề thi. Dữ liệu của bạn vẫn được giữ để thử lại.')
+    }
   }
+
+  const handleSaveDraft = () => { void persistExam(false) }
+  const handlePublishExam = () => { void persistExam(true) }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
@@ -315,13 +350,15 @@ export default function TeacherExamEditorPage() {
                 type="button"
                 onClick={handlePublishExam}
                 className={`px-5 py-2 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 ${
-                  examCategory === 'FINAL'
+                  examCategory === 'FINAL' && !isDepartmentHead
                     ? 'bg-amber-600 hover:bg-amber-700'
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
                 <CheckCircle2 size={15} />
-                {examCategory === 'FINAL' ? 'Gửi duyệt đề thi' : 'Tạo & Công bố đề'}
+                {examCategory === 'FINAL' && !isDepartmentHead
+                  ? 'Gửi duyệt đề thi'
+                  : 'Tạo & Công bố đề'}
               </button>
             </div>
           </div>
@@ -365,8 +402,12 @@ export default function TeacherExamEditorPage() {
                   setExamCategory={setExamCategory}
                   examType={examType}
                   updateExamType={updateExamType}
-                  subjectId={subjectId}
+                  subjectId={selectedSubjectId}
                   setSubjectId={setSubjectId}
+                  subjectOptions={subjectOptions}
+                  semesterId={selectedSemesterId}
+                  setSemesterId={setSemesterId}
+                  semesterOptions={semesterOptions}
                 />
               )}
 
@@ -464,6 +505,8 @@ export default function TeacherExamEditorPage() {
         onSelectQuestions={addQuestions}
         existingQuestionIds={questions.map((q) => q.questionId)}
         examType={examType}
+        questions={bankQuestions}
+        targetSubjectId={selectedSubjectId}
       />
 
       <AIPdfGeneratorModal
@@ -482,6 +525,7 @@ export default function TeacherExamEditorPage() {
         onSave={handleSaveQuestion}
         initialQuestion={editingQuestion}
         examType={examType}
+        subjects={subjects}
       />
     </div>
   )

@@ -1,7 +1,8 @@
 import prisma from '../../../lib/prisma'
+import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
 import { MemberRole } from '../types/student-course-detail.types'
 import { NotFoundError } from '../../../errors/AppError'
-import { ExamStatus, PostStatus, AttemptStatus } from '@prisma/client'
+import { PostStatus, AttemptStatus } from '@prisma/client'
 
 export class StudentCourseDetailRepository {
   // ────────────────────────────────────────────────────────────
@@ -107,25 +108,24 @@ export class StudentCourseDetailRepository {
       },
     })
 
-    const exams = await prisma.exam.findMany({
+    const schedules = await prisma.examSchedule.findMany({
       where: {
-        courseOfferingId,
-        status: ExamStatus.PUBLISHED,
+        scheduleCourses: { some: { courseOfferingId } },
+        status: { in: ['SCHEDULED', 'OPEN', 'CLOSED'] },
         publishedAt: { not: null },
       },
       select: {
         id: true,
-        courseOfferingId: true,
         title: true,
         publishedAt: true,
         startTime: true,
         endTime: true,
         durationMinutes: true,
-        createdBy: {
+        exam: {
           select: {
-            user: {
+            createdBy: {
               select: {
-                fullName: true,
+                user: { select: { fullName: true } },
               },
             },
           },
@@ -138,9 +138,13 @@ export class StudentCourseDetailRepository {
 
     return {
       posts,
-      exams,
+      exams: schedules.map((schedule) => ({
+        ...schedule,
+        courseOfferingId,
+        createdBy: schedule.exam.createdBy,
+      })),
       totalPosts: posts.length,
-      totalExams: exams.length,
+      totalExams: schedules.length,
     }
   }
 
@@ -210,64 +214,66 @@ export class StudentCourseDetailRepository {
   // ────────────────────────────────────────────────────────────
   async findExamDetail(
     courseOfferingId: string,
-    examId: string,
+    scheduleId: string,
     studentId: string,
   ): Promise<ExamDetailRow | null> {
     // First verify student has access to this course offering
     await this.findCourseHeader(courseOfferingId, studentId)
 
-    const exam = await prisma.exam.findFirst({
+    const schedule = await prisma.examSchedule.findFirst({
       where: {
-        id: examId,
-        courseOfferingId,
-        status: ExamStatus.PUBLISHED,
+        id: scheduleId,
+        scheduleCourses: { some: { courseOfferingId } },
+        status: { in: ['SCHEDULED', 'OPEN', 'CLOSED'] },
         publishedAt: { not: null },
       },
       select: {
         id: true,
         title: true,
-        description: true,
         startTime: true,
         endTime: true,
         durationMinutes: true,
         maxAttempts: true,
+        passwordHash: true,
         enableWebcam: true,
         status: true,
         publishedAt: true,
-        examAttempts: {
-          where: { studentId },
+        exam: { select: { description: true } },
+        attempts: {
+          where: { studentId, courseOfferingId },
+          orderBy: { attemptNo: 'desc' },
         },
       },
     })
 
-    if (!exam) {
+    if (!schedule) {
       return null
     }
 
     const now = new Date()
 
     // Find the student's attempt (if any)
-    const studentAttempt = exam.examAttempts[0]
+    const studentAttempt = schedule.attempts[0]
 
     // Determine status based on priority
     let status: string
     let canStart = false
     let attemptUsed = 0
-    let remainingAttempts = exam.maxAttempts
+    let remainingAttempts = schedule.maxAttempts
 
-    if (studentAttempt && studentAttempt.status === AttemptStatus.SUBMITTED) {
+    if (studentAttempt && studentAttempt.status !== AttemptStatus.IN_PROGRESS) {
       // Student has submitted
       status = 'SUBMITTED'
       attemptUsed = 1
-      remainingAttempts = exam.maxAttempts - attemptUsed
+      remainingAttempts = schedule.maxAttempts - attemptUsed
       canStart = false
-    } else if (now < exam.startTime) {
+    } else if (now < schedule.startTime) {
       // Before start time
       status = 'NOT_STARTED'
       attemptUsed = 0
-      remainingAttempts = exam.maxAttempts
+      remainingAttempts = schedule.maxAttempts
       canStart = false
-    } else if (now >= exam.endTime) {
+    } else if (now >= schedule.endTime) {
       // After end time
       if (studentAttempt) {
         // Student started but not submitted
@@ -278,7 +284,7 @@ export class StudentCourseDetailRepository {
         // Student never started
         status = 'EXPIRED'
         attemptUsed = 0
-        remainingAttempts = exam.maxAttempts
+        remainingAttempts = schedule.maxAttempts
       }
       canStart = false
     } else {
@@ -287,13 +293,13 @@ export class StudentCourseDetailRepository {
         // Student is currently working on the exam
         status = 'AVAILABLE'
         attemptUsed = 1
-        remainingAttempts = exam.maxAttempts - attemptUsed
+        remainingAttempts = schedule.maxAttempts - attemptUsed
         canStart = true
       } else {
         // Student hasn't started yet
         status = 'AVAILABLE'
         attemptUsed = 0
-        remainingAttempts = exam.maxAttempts
+        remainingAttempts = schedule.maxAttempts
         canStart = true
       }
     }
@@ -303,30 +309,29 @@ export class StudentCourseDetailRepository {
     if (status === 'AVAILABLE' && studentAttempt && studentAttempt.status === AttemptStatus.IN_PROGRESS) {
       // Calculate remaining time based on deadline
       // deadline = startedAt + durationMinutes
-      const startedAt = studentAttempt.startedAt
-      const deadline = new Date(startedAt.getTime() + exam.durationMinutes * 60 * 1000)
-      remainingSeconds = Math.floor((deadline.getTime() - now.getTime()) / 1000)
+      remainingSeconds = Math.floor((studentAttempt.deadlineAt.getTime() - now.getTime()) / 1000)
       if (remainingSeconds < 0) remainingSeconds = 0
     } else if (status === 'AVAILABLE' && !studentAttempt) {
       // Student hasn't started yet - full time available
-      remainingSeconds = exam.durationMinutes * 60
+      remainingSeconds = schedule.durationMinutes * 60
     }
 
     // Calculate canResume
     const canResume = status === 'AVAILABLE' && studentAttempt && studentAttempt.status === AttemptStatus.IN_PROGRESS
 
     return {
-      id: exam.id,
-      title: exam.title,
-      description: exam.description || '',
-      startTime: exam.startTime,
-      endTime: exam.endTime,
-      durationMinutes: exam.durationMinutes,
-      maxAttempts: exam.maxAttempts,
+      id: schedule.id,
+      title: schedule.title,
+      description: schedule.exam.description || '',
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      durationMinutes: schedule.durationMinutes,
+      maxAttempts: schedule.maxAttempts,
       attemptUsed,
       remainingAttempts,
       canStart,
-      enableWebcam: exam.enableWebcam,
+      requiresPassword: schedule.passwordHash !== null,
+      enableWebcam: schedule.enableWebcam,
       status,
       remainingSeconds,
       canResume,
@@ -421,49 +426,46 @@ export class StudentCourseDetailRepository {
     // First verify student has access to this course offering
     await this.findCourseHeader(courseOfferingId, studentId)
 
-    const exams = await prisma.exam.findMany({
+    const attempts = await prisma.examAttempt.findMany({
       where: {
         courseOfferingId,
-        status: ExamStatus.PUBLISHED,
-        publishedAt: { not: null },
-        resultPublished: true,
+        studentId,
+        totalScore: { not: null },
+        status: { in: ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+        examSchedule: releasedResultScheduleWhere(),
       },
       select: {
-        id: true,
-        title: true,
-        type: true,
-        createdAt: true,
-        publishedAt: true,
-        examAttempts: {
-          where: { studentId },
+        totalScore: true,
+        examSchedule: {
           select: {
-            totalScore: true,
-            updatedAt: true,
+            id: true,
+            title: true,
+            resultsPublishedAt: true,
+            publishedAt: true,
+            exam: { select: { type: true } },
           },
-          orderBy: {
-            attemptNo: 'desc',
-          },
-          take: 1,
         },
       },
+      orderBy: { updatedAt: 'desc' },
     })
 
-    const rawScores = exams
-      .map((exam) => {
-        const latestAttempt = exam.examAttempts[0]
-        // Only include exams where the student's score has been published
-        if (!latestAttempt || latestAttempt.totalScore === null) {
-          return null
-        }
+    const seenSchedules = new Set<string>()
+    const rawScores = attempts
+      .filter((attempt) => {
+        if (seenSchedules.has(attempt.examSchedule.id)) return false
+        seenSchedules.add(attempt.examSchedule.id)
+        return true
+      })
+      .map((attempt): ScoreRow => {
+        const schedule = attempt.examSchedule
         return {
-          examId: exam.id,
-          title: exam.title,
-          type: exam.type as string,
-          score: latestAttempt.totalScore.toNumber(),
-          publishedAt: exam.publishedAt!,
+          examId: schedule.id,
+          title: schedule.title,
+          type: schedule.exam.type,
+          score: Number(attempt.totalScore),
+          publishedAt: schedule.resultsPublishedAt ?? schedule.publishedAt!,
         }
       })
-      .filter((item): item is ScoreRow => item !== null)
 
     return rawScores.sort((a, b) => {
       const publishedCompare = a.publishedAt.getTime() - b.publishedAt.getTime()
@@ -553,6 +555,7 @@ export interface ExamDetailRow {
   attemptUsed: number
   remainingAttempts: number
   canStart: boolean
+  requiresPassword: boolean
   enableWebcam: boolean
   status: string
   remainingSeconds?: number | null

@@ -1,53 +1,29 @@
-﻿import type { StudentEnrollment } from '../../types/teacher-course.types'
+import { Search } from 'lucide-react'
+import type { StudentEnrollment } from '../../types/teacher-course.types'
+import TeacherPagination from '../TeacherPagination'
 
-export default function CourseStudentsTab({ students }: { students: StudentEnrollment[] }) {
+interface Props {
+  students: StudentEnrollment[]
+  keyword: string
+  onKeywordChange: (value: string) => void
+  pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
+  onPageChange: (page: number) => void
+}
+
+export default function CourseStudentsTab({ students, keyword, onKeywordChange, pagination, onPageChange }: Props) {
   return (
-    <div className="space-y-5">
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-2">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">Danh Sách Sinh Viên Đã Ghi Danh</h3>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Giảng viên theo dõi danh sách sinh viên thuộc lớp học phần do phòng đào tạo / admin quản lý.
-            </p>
-          </div>
-
-          <span className="px-3.5 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg text-sm font-semibold">
-            {students.length} sinh viên
-          </span>
-        </div>
+    <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="flex flex-col gap-4 border-b border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div><h3 className="text-base font-semibold text-gray-900">Danh sách sinh viên đã ghi danh</h3><p className="mt-1 text-sm text-gray-500">Danh sách thuộc lớp học phần do phòng đào tạo quản lý.</p></div>
+        <label className="flex h-10 w-full max-w-sm items-center gap-2 rounded-xl border border-gray-200 px-3 text-slate-500"><Search size={16} /><input value={keyword} onChange={(event) => onKeywordChange(event.target.value)} placeholder="Tìm theo MSSV, tên hoặc email..." className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
       </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-500 font-semibold uppercase text-xs border-b border-gray-100">
-            <tr>
-              <th className="p-4 sm:px-5 sm:py-4">STT</th>
-              <th className="p-4 sm:px-5 sm:py-4">MSSV</th>
-              <th className="p-4 sm:px-5 sm:py-4">Họ và Tên</th>
-              <th className="p-4 sm:px-5 sm:py-4">Email</th>
-              <th className="p-4 sm:px-5 sm:py-4">Ngày ghi danh</th>
-              <th className="p-4 sm:px-5 sm:py-4">Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {students.map((st, idx) => (
-              <tr key={st.id} className="hover:bg-gray-50 transition-colors">
-                <td className="p-4 sm:px-5 sm:py-4 text-gray-400">{idx + 1}</td>
-                <td className="p-4 sm:px-5 sm:py-4 text-gray-700 font-medium">{st.studentCode}</td>
-                <td className="p-4 sm:px-5 sm:py-4 font-semibold text-gray-900">{st.fullName}</td>
-                <td className="p-4 sm:px-5 sm:py-4 text-gray-500">{st.email}</td>
-                <td className="p-4 sm:px-5 sm:py-4 text-gray-400">{st.enrolledAt}</td>
-                <td className="p-4 sm:px-5 sm:py-4">
-                  <span className="px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
-                    Đang học
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+        <thead className="whitespace-nowrap border-b border-gray-100 bg-gray-50 text-xs font-semibold uppercase text-gray-500"><tr><th className="p-4">STT</th><th className="p-4">MSSV</th><th className="p-4">Họ và tên</th><th className="p-4">Email</th><th className="p-4">Ngày ghi danh</th><th className="p-4">Trạng thái</th></tr></thead>
+        <tbody className="divide-y divide-gray-50">{students.map((student, index) => (
+          <tr key={student.id} className="hover:bg-gray-50"><td className="p-4 text-gray-400">{(pagination.page - 1) * pagination.pageSize + index + 1}</td><td className="p-4 text-gray-700">{student.studentCode}</td><td className="p-4 font-semibold text-gray-900">{student.fullName}</td><td className="p-4 text-gray-500">{student.email}</td><td className="p-4 text-gray-500">{student.enrolledAt}</td><td className="p-4"><span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Đang học</span></td></tr>
+        ))}</tbody>
+      </table></div>
+      <TeacherPagination {...pagination} onChange={onPageChange} />
+    </section>
   )
 }

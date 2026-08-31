@@ -1,5 +1,4 @@
-﻿import { ADMIN_ACADEMIC_YEARS, ADMIN_DEPARTMENTS } from '../../mock/admin.mock'
-import type { AdminSubject, AdminUser, CourseOfferingAdmin } from '../../types/admin.types'
+import type { AcademicYear, AdminSubject, AdminUser, CourseOfferingAdmin, Department } from '../../types/admin.types'
 import { AdminField, AdminInput } from '../AdminFormFields'
 import AdminModal from '../AdminModal'
 import AdminSelect from '../AdminSelect'
@@ -21,6 +20,8 @@ export default function ClassSectionFormModal({
   teacherIdInput,
   onTeacherIdChange,
   teacherOptions,
+  departments,
+  semesters,
   classStatusInput,
   onClassStatusChange,
   onClose,
@@ -42,6 +43,8 @@ export default function ClassSectionFormModal({
   teacherIdInput: string
   onTeacherIdChange: (val: string) => void
   teacherOptions: AdminUser[]
+  departments: Department[]
+  semesters: AcademicYear[]
   classStatusInput: CourseOfferingAdmin['status']
   onClassStatusChange: (val: CourseOfferingAdmin['status']) => void
   onClose: () => void
@@ -61,7 +64,7 @@ export default function ClassSectionFormModal({
           <AdminSelect
             value={departmentInput}
             onChange={onDepartmentChange}
-            options={ADMIN_DEPARTMENTS.map((department) => ({ value: department.id, label: department.name }))}
+            options={departments.map((department) => ({ value: department.id, label: department.name }))}
           />
         </AdminField>
         <AdminField label="Môn học">
@@ -69,7 +72,7 @@ export default function ClassSectionFormModal({
             value={subjectCodeInput}
             onChange={onSubjectCodeChange}
             options={selectedDepartmentSubjects.map((item) => ({
-              value: item.code,
+              value: item.id,
               label: `${item.code} - ${item.name}`,
             }))}
           />
@@ -78,7 +81,7 @@ export default function ClassSectionFormModal({
           <AdminSelect
             value={semesterCodeInput}
             onChange={onSemesterCodeChange}
-            options={ADMIN_ACADEMIC_YEARS.map((item) => ({ value: item.code, label: `${item.code} - ${item.name}` }))}
+            options={semesters.map((item) => ({ value: item.id, label: `${item.code} - ${item.name}` }))}
           />
         </AdminField>
         <AdminField label="Mã lớp học phần">

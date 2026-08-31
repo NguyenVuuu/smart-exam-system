@@ -1,4 +1,5 @@
 import type { Question } from './teacher-question-bank.types'
+import type { TeacherExamCapabilities } from './teacher-exam-api.types'
 
 export type ExamStatus =
   | 'DRAFT'
@@ -17,11 +18,13 @@ export type ExamIpMode = 'HOME' | 'CAMPUS'
 export type ExamDistributionMode =
   | 'FIXED_ORDER'
   | 'SHUFFLE_ORDER'
+  | 'SHUFFLE_OPTIONS'
   | 'SHUFFLE_QUESTIONS_AND_OPTIONS'
   | 'RANDOM_SUBSET'
 
 export interface ExamQuestionItem {
   questionId: string
+  snapshotQuestionId?: string
   question: Question
   points: number
   order: number
@@ -42,11 +45,14 @@ export interface ExamSchedule {
   examId: string
   courseOfferingId: string
   courseCode: string
+  courseOfferings?: Array<{ id: string; code: string }>
   subjectName: string
   startTime: string
   endTime: string
   durationMinutes: number
   maxAttempts?: number
+  participantCount?: number
+  submissionCount?: number
   password?: string
   resultReleaseMode?: ResultReleaseMode
   resultReleaseAt?: string
@@ -70,6 +76,9 @@ export interface Exam {
   subjectId: string
   subjectCode: string
   subjectName: string
+  semesterId: string
+  semesterCode: string
+  semesterName: string
   title: string
   description: string
   category?: ExamCategory
@@ -81,6 +90,9 @@ export interface Exam {
   sections?: ExamSection[]
   schedules?: ExamSchedule[]
   questions: ExamQuestionItem[]
+  questionCount?: number
+  scheduleCount?: number
+  capabilities?: TeacherExamCapabilities
   totalPoints: number
   createdAt: string
   rejectionReason?: string
@@ -124,18 +136,20 @@ export interface ExamSubmission {
   studentCode: string
   studentName: string
   submittedAt: string
-  autoScore: number
-  manualScoreOverride?: number
+  autoScore: number | null
+  manualScoreOverride?: number | null
   overrideReason?: string
   scoreAdjustments?: GradeAdjustment[]
   regradeRequest?: RegradeRequest
-  finalScore: number
-  status: 'SUBMITTED' | 'GRADING' | 'GRADED' | 'INVALIDATED'
+  finalScore: number | null
+  sectionScores?: Array<{ id: string; title: string; score: number; maxScore: number }>
+  status: 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'INVALIDATED'
   codingResults?: StudentCodingSubmissionResult[]
   answers?: Array<{
     questionId: string
     selectedOptionIds?: string[]
     sourceCode?: string
+    score?: number | null
     programmingLanguage?: 'JAVA' | 'C' | 'CPP'
   }>
 }

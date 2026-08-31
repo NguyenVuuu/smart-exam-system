@@ -1,8 +1,9 @@
-﻿import { Edit, Eye } from 'lucide-react'
+import { Edit, Eye } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import AppSelect from '../../../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { ExamSchedule, ExamSubmission, ResultReleaseMode } from '../../types/teacher-exam.types'
+import { formatSessionRange } from '../../../../utils/date.utils'
 
 export function ExamSubmissionsTab({
   submissions,
@@ -18,6 +19,13 @@ export function ExamSubmissionsTab({
   onResultsPublishedChange,
   onViewSubmission,
   onEditSubmission,
+  loading,
+  pagination,
+  onPageChange,
+  canReview = true,
+  showSessionSelector = true,
+  unavailableTitle = 'Ca thi chưa kết thúc',
+  unavailableDescription = 'Bài nộp và phúc khảo chỉ được mở sau khi ca thi kết thúc.',
 }: {
   submissions: ExamSubmission[]
   sessions: ExamSchedule[]
@@ -32,6 +40,13 @@ export function ExamSubmissionsTab({
   onResultsPublishedChange: (value: boolean) => void
   onViewSubmission: (submission: ExamSubmission) => void
   onEditSubmission: (submission: ExamSubmission) => void
+  loading: boolean
+  pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
+  onPageChange: (page: number) => void
+  canReview?: boolean
+  showSessionSelector?: boolean
+  unavailableTitle?: string
+  unavailableDescription?: string
 }) {
   const columns: ColumnDef<ExamSubmission>[] = [
     {
@@ -58,14 +73,14 @@ export function ExamSubmissionsTab({
       header: 'Chấm Tự Động',
       width: '130px',
       align: 'center',
-      render: (s) => <span className="text-gray-700 text-sm font-medium">{s.autoScore}đ</span>,
+      render: (s) => <span className="text-gray-700 text-sm font-medium">{s.autoScore === null ? '-' : `${s.autoScore}đ`}</span>,
     },
     {
-      header: 'Ghi Đè Thủ Công',
+      header: 'Điểm Phúc Khảo',
       width: '150px',
       align: 'center',
       render: (s) =>
-        s.manualScoreOverride !== undefined ? (
+        s.manualScoreOverride != null ? (
           <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-lg text-sm font-bold">
             {s.manualScoreOverride}đ
           </span>
@@ -77,7 +92,7 @@ export function ExamSubmissionsTab({
       header: 'Điểm Chốt',
       width: '120px',
       align: 'center',
-      render: (s) => <span className="font-bold text-gray-900 text-sm">{s.finalScore}đ</span>,
+      render: (s) => <span className="font-bold text-gray-900 text-sm">{s.finalScore === null ? '-' : `${s.finalScore}đ`}</span>,
     },
     {
       header: 'Phúc Khảo',
@@ -121,7 +136,7 @@ export function ExamSubmissionsTab({
           </button>
           <button
             onClick={() => onEditSubmission(s)}
-            title="Sửa điểm phúc khảo"
+            title="Chấm phúc khảo"
             className="w-9 h-9 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors inline-flex items-center justify-center shadow-2xs"
           >
             <Edit size={17} />
@@ -133,25 +148,38 @@ export function ExamSubmissionsTab({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between rounded-2xl border border-gray-100 bg-white p-5 shadow-sm gap-3">
-        <div>
-          <p className="text-base font-semibold text-gray-900">Ca thi đang xem</p>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Bài nộp và chính sách công bố được quản lý riêng theo từng ca.
+      {showSessionSelector && (
+        <div className="flex flex-col justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
+          <div>
+            <p className="text-base font-semibold text-gray-900">Ca thi đang xem</p>
+            <p className="mt-0.5 text-sm text-gray-500">
+              Bài nộp và chính sách công bố được quản lý riêng theo từng ca.
+            </p>
+          </div>
+          <AppSelect
+            value={selectedSessionId}
+            onChange={onSessionChange}
+            className="w-full sm:w-96"
+            buttonClassName="bg-gray-50 rounded-xl py-2.5 text-sm"
+            options={sessions.map((session) => ({
+              value: session.id,
+              label: `${session.courseCode} • ${formatSessionRange(session.startTime, session.endTime)}`,
+            }))}
+          />
+        </div>
+      )}
+
+      {!canReview && (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+          <p className="text-base font-semibold text-gray-900">{unavailableTitle}</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {unavailableDescription}
           </p>
         </div>
-        <AppSelect
-          value={selectedSessionId}
-          onChange={onSessionChange}
-          className="w-full sm:w-96"
-          buttonClassName="bg-gray-50 rounded-xl py-2.5 text-sm"
-          options={sessions.map((session) => ({
-            value: session.id,
-            label: `${session.courseCode} • ${session.startTime.replace('T', ' ')}`,
-          }))}
-        />
-      </div>
+      )}
 
+      {canReview && (
+        <>
       <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-0.5">
           <p className="text-base font-semibold text-gray-900">Cấu hình hiển thị điểm</p>
@@ -202,8 +230,15 @@ export function ExamSubmissionsTab({
           keyExtractor={(s) => s.id}
           emptyText="Chưa có sinh viên nào nộp bài trong ca thi này"
           pageSize={10}
+          isLoading={loading}
+          page={pagination.page}
+          totalItems={pagination.totalItems}
+          totalPages={pagination.totalPages}
+          onPageChange={onPageChange}
         />
       </div>
+        </>
+      )}
     </div>
   )
 }

@@ -1,92 +1,99 @@
 import { AlertCircle, Edit, RefreshCw, ShieldCheck } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
-import AppSelect from '../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
+import QuestionAuditMetrics from './components/question-audit/QuestionAuditMetrics'
+import QuestionAuditToolbar from './components/question-audit/QuestionAuditToolbar'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTablePanel from './components/TeacherTablePanel'
-import TeacherToolbar from './components/TeacherToolbar'
 import TeacherTopBar from './components/TeacherTopBar'
-import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
+import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import type { Question } from './types/teacher-question-bank.types'
-import { validateQuestion } from './utils/QuestionValidation'
+import { auditQuestions, getAuditMetrics, type AuditIssue } from './utils/QuestionAuditRules'
 
-interface AuditIssue {
-  id: string
-  questionId: string
-  subjectName: string
-  content: string
-  severity: 'HIGH' | 'MEDIUM' | 'LOW'
-  description: string
-}
-
-function buildAuditIssues(questions: Question[]): AuditIssue[] {
-  return questions.flatMap((question) => {
-    const errors = validateQuestion(question)
-    const warnings = question.explanation?.trim()
-      ? []
-      : ['Thiếu lời giải hoặc giải thích dùng khi cho phép xem lại bài.']
-
-    return [...errors, ...warnings].map((description, index) => ({
-      id: `${question.id}-${index}`,
-      questionId: question.id,
-      subjectName: question.subjectName,
-      content: question.content,
-      severity: errors.includes(description) ? 'HIGH' : 'LOW',
-      description,
-    }))
-  })
-}
-
-const severityTone = { HIGH: 'rose', MEDIUM: 'amber', LOW: 'blue' } as const
-const severityLabel = { HIGH: 'Cao', MEDIUM: 'Trung bình', LOW: 'Thấp' } as const
+const severityTone = { HIGH: 'rose', LOW: 'amber' } as const
+const severityLabel = { HIGH: 'Lỗi bắt buộc', LOW: 'Cảnh báo' } as const
 
 export default function TeacherQuestionAuditPage() {
-  const questions = useTeacherWorkspaceStore((state) => state.questions)
-  const upsertQuestion = useTeacherWorkspaceStore((state) => state.upsertQuestion)
-  const [selectedSeverity, setSelectedSeverity] = useState<'ALL' | AuditIssue['severity']>('ALL')
+  const questionApi = useTeacherQuestions('AUDIT')
+  const questions: Question[] = questionApi.questions
+  const subjects = questionApi.subjects
+
+  const [selectedSeverity, setSelectedSeverity] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [editingIssue, setEditingIssue] = useState<AuditIssue | null>(null)
 
-  const issues = buildAuditIssues(questions)
-  const visibleIssues = issues.filter((issue) => {
-    const matchesSeverity = selectedSeverity === 'ALL' || issue.severity === selectedSeverity
-    const matchesSearch =
-      issue.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.subjectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.description.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSeverity && matchesSearch
-  })
-  const highSeverityCount = issues.filter((issue) => issue.severity === 'HIGH').length
-  const healthScore = Math.max(0, 100 - highSeverityCount * 15 - (issues.length - highSeverityCount) * 5)
+  // 1. Quét và tính toán số liệu thống kê
+  const allIssues = useMemo(() => auditQuestions(questions), [questions])
+  const metrics = useMemo(() => getAuditMetrics(questions, allIssues), [questions, allIssues])
 
+  // 2. Lọc danh sách vấn đề theo tìm kiếm và mức độ
+  const visibleIssues = useMemo(() => {
+    return allIssues.filter((issue) => {
+      const matchesSeverity = selectedSeverity === 'ALL' || issue.severity === selectedSeverity
+      const q = searchQuery.toLowerCase().trim()
+      const matchesSearch =
+        !q ||
+        issue.title.toLowerCase().includes(q) ||
+        issue.content.toLowerCase().includes(q) ||
+        issue.subjectName.toLowerCase().includes(q) ||
+        issue.description.toLowerCase().includes(q)
+      return matchesSeverity && matchesSearch
+    })
+  }, [allIssues, selectedSeverity, searchQuery])
+
+  // 3. Cấu hình bảng hiển thị
   const columns: ColumnDef<AuditIssue>[] = [
     {
-      header: 'Nội dung câu hỏi',
+      header: 'Tiêu đề câu hỏi',
       render: (issue) => (
-        <div className="max-w-2xl space-y-1 py-1">
-          <p className="text-sm font-semibold text-gray-900 leading-relaxed">{issue.content}</p>
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
-            <AlertCircle size={13} /> {issue.description}
+        <div className="max-w-2xl space-y-1.5 py-1">
+          <p className="line-clamp-2 text-sm font-semibold text-gray-900 leading-relaxed">
+            {issue.title}
+          </p>
+          <p
+            className={`flex items-center gap-1.5 text-xs font-semibold ${
+              issue.severity === 'HIGH' ? 'text-rose-600' : 'text-amber-600'
+            }`}
+          >
+            <AlertCircle size={14} className="shrink-0" />
+            <span>{issue.description}</span>
           </p>
         </div>
       ),
     },
-    { header: 'Môn học', width: '220px', render: (issue) => <span className="text-sm text-gray-700">{issue.subjectName}</span> },
     {
-      header: 'Mức độ', width: '130px', align: 'center',
-      render: (issue) => <AppBadge tone={severityTone[issue.severity]} className="whitespace-nowrap">{severityLabel[issue.severity]}</AppBadge>,
+      header: 'Môn học',
+      width: '220px',
+      render: (issue) => <span className="text-sm text-gray-700">{issue.subjectName}</span>,
     },
     {
-      header: 'Thao tác', width: '100px', align: 'right',
+      header: 'Mức độ',
+      width: '150px',
+      align: 'center',
+      render: (issue) => (
+        <AppBadge
+          tone={severityTone[issue.severity]}
+          shape="rounded"
+          className="whitespace-nowrap font-semibold"
+        >
+          {severityLabel[issue.severity]}
+        </AppBadge>
+      ),
+    },
+    {
+      header: 'Thao tác',
+      width: '100px',
+      align: 'right',
       render: (issue) => (
         <button
           onClick={() => setEditingIssue(issue)}
-          title="Mở câu hỏi để sửa"
-          className="inline-flex rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition-colors"
+          title="Sửa câu hỏi này"
+          className="inline-flex rounded-lg p-2 text-blue-600 transition-colors hover:bg-blue-50"
         >
           <Edit size={16} />
         </button>
@@ -94,14 +101,30 @@ export default function TeacherQuestionAuditPage() {
     },
   ]
 
-  const runScan = () => {
+  const handleRescan = async () => {
     setIsScanning(true)
-    window.setTimeout(() => setIsScanning(false), 500)
+    try {
+      await questionApi.retry()
+      toast.success('Đã hoàn thành rà soát lại ngân hàng câu hỏi!')
+    } finally {
+      setIsScanning(false)
+    }
   }
 
   const editedQuestion = editingIssue
-    ? questions.find((question) => question.id === editingIssue.questionId) ?? null
+    ? questions.find((q) => q.id === editingIssue.questionId) ?? null
     : null
+
+  const handleSaveQuestion = async (updates: Partial<Question>) => {
+    if (!editedQuestion) return
+    try {
+      await questionApi.save(updates, editedQuestion.id)
+      setEditingIssue(null)
+      toast.success('Đã cập nhật câu hỏi thành công!')
+    } catch {
+      toast.error('Không thể lưu câu hỏi. Vui lòng thử lại.')
+    }
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
@@ -111,42 +134,31 @@ export default function TeacherQuestionAuditPage() {
         <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
           <TeacherPageHeader
             title="Rà soát câu hỏi"
-            description="Kiểm tra trực tiếp dữ liệu hiện có trong ngân hàng câu hỏi"
+            description="Kiểm tra kỹ thuật và điều kiện đưa câu hỏi vào đề thi hoặc gửi duyệt"
             icon={<ShieldCheck size={21} />}
             actions={
-              <button onClick={runScan} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white">
-                <RefreshCw size={15} className={isScanning ? 'animate-spin' : ''} /> Rà soát lại
+              <button
+                onClick={handleRescan}
+                disabled={isScanning}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-700 disabled:opacity-50"
+              >
+                <RefreshCw size={15} className={isScanning ? 'animate-spin' : ''} />
+                Rà soát lại
               </button>
             }
           />
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Metric label="Điểm chất lượng" value={`${healthScore}/100`} icon={<ShieldCheck size={18} />} />
-            <Metric label="Lỗi nghiêm trọng" value={highSeverityCount} icon={<AlertCircle size={18} />} tone="rose" />
-            <Metric label="Tổng vấn đề" value={issues.length} icon={<AlertCircle size={18} />} tone="amber" />
-          </div>
+          {/* 3 Thẻ thống kê KPI (Hình 2) */}
+          <QuestionAuditMetrics metrics={metrics} />
 
+          {/* Bảng danh sách các vấn đề phát hiện được */}
           <TeacherTablePanel>
-            <TeacherToolbar
-              filters={
-                <>
-                  <AppSelect
-                    value={selectedSeverity}
-                    onChange={setSelectedSeverity}
-                    className="w-48"
-                    options={[
-                      { value: 'ALL', label: 'Tất cả mức độ' },
-                      { value: 'HIGH', label: 'Cao' },
-                      { value: 'MEDIUM', label: 'Trung bình' },
-                      { value: 'LOW', label: 'Thấp' },
-                    ]}
-                  />
-                  <span className="text-sm text-slate-500">{visibleIssues.length} vấn đề</span>
-                </>
-              }
-              searchValue={searchQuery}
+            <QuestionAuditToolbar
+              selectedSeverity={selectedSeverity}
+              onSeverityChange={setSelectedSeverity}
+              searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              searchPlaceholder="Tìm câu hỏi hoặc lỗi..."
+              issueCount={visibleIssues.length}
               onReset={() => {
                 setSelectedSeverity('ALL')
                 setSearchQuery('')
@@ -155,11 +167,21 @@ export default function TeacherQuestionAuditPage() {
             <DataTable
               embedded
               columns={columns}
-              data={visibleIssues}
+              data={questionApi.loading ? [] : visibleIssues}
               keyExtractor={(issue) => issue.id}
-              emptyText="Ngân hàng câu hỏi hiện đạt yêu cầu."
+              emptyText={questionApi.loading
+                ? 'Đang rà soát câu hỏi...'
+                : 'Ngân hàng câu hỏi cá nhân không có vấn đề kỹ thuật nào.'}
             />
           </TeacherTablePanel>
+          {questionApi.error && (
+            <div className="flex items-center justify-center gap-3 rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <span>{questionApi.error}</span>
+              <button type="button" onClick={() => void questionApi.retry()} className="font-semibold underline">
+                Thử lại
+              </button>
+            </div>
+          )}
         </main>
       </div>
 
@@ -168,18 +190,11 @@ export default function TeacherQuestionAuditPage() {
           key={editedQuestion.id}
           isOpen
           initialQuestion={editedQuestion}
+          subjects={subjects}
           onClose={() => setEditingIssue(null)}
-          onSave={(updates) => {
-            upsertQuestion({ ...editedQuestion, ...updates })
-            setEditingIssue(null)
-          }}
+          onSave={handleSaveQuestion}
         />
       )}
     </div>
   )
-}
-
-function Metric({ label, value, icon, tone = 'blue' }: { label: string; value: string | number; icon: React.ReactNode; tone?: 'blue' | 'rose' | 'amber' }) {
-  const toneClass = { blue: 'bg-blue-50 text-blue-600', rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600' }[tone]
-  return <div className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white p-4 shadow-sm"><div className={`grid h-9 w-9 place-items-center rounded-lg ${toneClass}`}>{icon}</div><div><p className="text-xs text-gray-500">{label}</p><p className="text-lg font-semibold text-gray-900">{value}</p></div></div>
 }

@@ -1,30 +1,29 @@
 ﻿import AppSelect from '../../../../../components/common/AppSelect'
 import type { Question, QuestionType } from '../../../types/teacher-question-bank.types'
 
-export const MOCK_SUBJECTS = [
-  { id: 'sub-01', name: 'Lập trình Java căn bản' },
-  { id: 'sub-02', name: 'Cấu trúc dữ liệu và Giải thuật' },
-  { id: 'sub-03', name: 'Lập trình C++' },
-  { id: 'sub-04', name: 'Cơ sở dữ liệu' },
-]
-
 export function QuestionBasicFields({
+  subjects,
   subjectId,
   onSubjectChange,
   questionType,
   onQuestionTypeChange,
   difficulty,
   onDifficultyChange,
+  title,
+  onTitleChange,
   content,
   onContentChange,
   questionTypeOptions,
 }: {
+  subjects: Array<{ id: string; name: string }>
   subjectId: string
   onSubjectChange: (id: string) => void
   questionType: QuestionType
   onQuestionTypeChange: (type: QuestionType) => void
   difficulty: Question['difficulty']
   onDifficultyChange: (diff: Question['difficulty']) => void
+  title: string
+  onTitleChange: (value: string) => void
   content: string
   onContentChange: (val: string) => void
   questionTypeOptions: Array<{ value: QuestionType; label: string }>
@@ -39,7 +38,7 @@ export function QuestionBasicFields({
             onChange={onSubjectChange}
             buttonClassName="bg-gray-50 text-blue-900"
             menuClassName="z-50"
-            options={MOCK_SUBJECTS.map((subject) => ({
+            options={subjects.map((subject) => ({
               value: subject.id,
               label: subject.name,
             }))}
@@ -74,15 +73,28 @@ export function QuestionBasicFields({
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-gray-700 mb-1">Nội Dung Câu Hỏi *</label>
-        <textarea
-          rows={3}
-          value={content}
-          onChange={(e) => onContentChange(e.target.value)}
-          placeholder="Nhập nội dung đề bài tại đây..."
-          className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-3 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium text-gray-800"
+        <label className="block text-xs font-semibold text-gray-700 mb-1">Tiêu Đề Câu Hỏi *</label>
+        <input
+          value={title}
+          maxLength={200}
+          onChange={(event) => onTitleChange(event.target.value)}
+          placeholder={questionType === 'PROGRAMMING' ? 'Ví dụ: Tính tổng hai số nguyên' : 'Nhập câu hỏi trắc nghiệm'}
+          className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs font-medium text-gray-800 transition-all focus:border-blue-500 focus:bg-white focus:outline-none"
         />
       </div>
+
+      {questionType === 'PROGRAMMING' && (
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Mô Tả Bài Toán *</label>
+          <textarea
+            rows={5}
+            value={content}
+            onChange={(e) => onContentChange(e.target.value)}
+            placeholder="Mô tả yêu cầu, input, output và ràng buộc của bài lập trình..."
+            className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-3 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium text-gray-800"
+          />
+        </div>
+      )}
     </div>
   )
 }

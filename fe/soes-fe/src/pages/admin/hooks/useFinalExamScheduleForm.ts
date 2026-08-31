@@ -5,13 +5,9 @@ import {
   PROCTOR_TURNOVER_MINUTES,
   releaseOptions,
 } from '../constants/finalExamScheduleOptions'
-import {
-  ADMIN_COURSE_OFFERINGS,
-  ADMIN_DEPARTMENTS,
-  ADMIN_SUBJECTS,
-  ADMIN_USERS,
-} from '../mock/admin.mock'
-import type { AdminExam, AdminExamSchedule, AdminUser } from '../types/admin.types'
+import type {
+  AdminExam, AdminExamSchedule, AdminSubject, AdminUser, CourseOfferingAdmin, Department,
+} from '../types/admin.types'
 import {
   findExistingProctorConflict,
   findOptionValue,
@@ -24,15 +20,23 @@ import {
 export function useFinalExamScheduleForm({
   exams,
   schedules,
+  departments,
+  subjects,
+  courses,
+  users,
   editingSchedule,
   onClose,
   onSubmit,
 }: {
   exams: AdminExam[]
   schedules: AdminExamSchedule[]
+  departments: Department[]
+  subjects: AdminSubject[]
+  courses: CourseOfferingAdmin[]
+  users: AdminUser[]
   editingSchedule?: AdminExamSchedule | null
   onClose: () => void
-  onSubmit: (schedule: AdminExamSchedule) => void
+  onSubmit: (schedule: AdminExamSchedule) => void | Promise<void>
 }) {
   const initialExam = useMemo(() => {
     if (!editingSchedule) return null
@@ -46,10 +50,10 @@ export function useFinalExamScheduleForm({
 
   const initialCourses = useMemo(() => {
     if (!editingSchedule) return []
-    return ADMIN_COURSE_OFFERINGS.filter((course) =>
+    return courses.filter((course) =>
       editingSchedule.courseCodes.includes(course.code),
     )
-  }, [editingSchedule])
+  }, [courses, editingSchedule])
 
   const initialAssignments = useMemo(() => {
     if (!editingSchedule?.proctorAssignments) return {}
@@ -114,8 +118,8 @@ export function useFinalExamScheduleForm({
 
   const selectedExam = exams.find((exam) => exam.id === examId)
   const subjectsByDepartment = useMemo(
-    () => ADMIN_SUBJECTS.filter((subject) => !departmentId || subject.departmentId === departmentId),
-    [departmentId],
+    () => subjects.filter((subject) => !departmentId || subject.departmentId === departmentId),
+    [departmentId, subjects],
   )
   const filteredExams = useMemo(
     () =>
@@ -126,7 +130,7 @@ export function useFinalExamScheduleForm({
       ),
     [departmentId, exams, subjectCode],
   )
-  const teachers = ADMIN_USERS.filter((user) => user.role === 'TEACHER' && user.status === 'ACTIVE')
+  const teachers = users.filter((user) => user.role === 'TEACHER' && user.status === 'ACTIVE')
   const conflictSchedules = useMemo(
     () => schedules.filter((schedule) => schedule.id !== editingSchedule?.id),
     [editingSchedule?.id, schedules],
@@ -134,7 +138,7 @@ export function useFinalExamScheduleForm({
 
   const departmentOptions = [
     { value: '', label: 'Chọn bộ môn' },
-    ...ADMIN_DEPARTMENTS.map((dept) => ({ value: dept.id, label: dept.name })),
+    ...departments.map((dept) => ({ value: dept.id, label: dept.name })),
   ]
   const subjectOptions = [
     { value: '', label: departmentId ? 'Chọn môn học' : 'Chọn bộ môn trước' },
@@ -150,14 +154,14 @@ export function useFinalExamScheduleForm({
 
   const eligibleCourses = useMemo(
     () =>
-      ADMIN_COURSE_OFFERINGS.filter(
+      courses.filter(
         (course) =>
           selectedExam &&
           course.subjectCode === selectedExam.subjectCode &&
           course.semesterCode === selectedExam.semesterCode &&
           course.status === 'OPEN',
       ),
-    [selectedExam],
+    [courses, selectedExam],
   )
 
   const changeDepartment = (value: string) => {
@@ -256,7 +260,7 @@ export function useFinalExamScheduleForm({
     return null
   }
 
-  const submitSchedule = () => {
+  const submitSchedule = async () => {
     if (!selectedExam) {
       toast.error('Vui lòng chọn đề cuối kỳ đã được duyệt.')
       return
@@ -301,7 +305,7 @@ export function useFinalExamScheduleForm({
       }),
     )
 
-    onSubmit({
+    const schedule: AdminExamSchedule = {
       id: editingSchedule?.id ?? `schedule-${Date.now()}`,
       examId: selectedExam.id,
       examTitle: `${selectedExam.title} ${startTime}`,
@@ -324,13 +328,14 @@ export function useFinalExamScheduleForm({
       proctors: [...new Set(assignments.map((assignment) => assignment.teacherName))],
       proctorAssignments: assignments,
       status: editingSchedule?.status ?? 'SCHEDULED',
-    })
-    toast.success(
-      editingSchedule
-        ? 'Đã cập nhật lịch thi.'
-        : 'Đã tạo lịch thi và phân công giảng viên cho từng lớp.',
-    )
-    onClose()
+    }
+    try {
+      await onSubmit(schedule)
+      toast.success(editingSchedule ? 'Đã cập nhật lịch thi.' : 'Đã tạo lịch thi và phân công giảng viên cho từng lớp.')
+      onClose()
+    } catch {
+      toast.error('Không thể lưu lịch thi. Vui lòng kiểm tra trùng lịch và thử lại.')
+    }
   }
 
   return {

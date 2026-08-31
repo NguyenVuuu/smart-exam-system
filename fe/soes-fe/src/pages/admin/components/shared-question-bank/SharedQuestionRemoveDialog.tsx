@@ -41,7 +41,7 @@ export default function SharedQuestionRemoveDialog({
         <div className="space-y-4 px-6 py-5">
           <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3.5 text-xs text-amber-800">
             <AlertTriangle size={18} className="shrink-0 text-amber-500" />
-            <p className="line-clamp-2 font-medium">{question.content}</p>
+            <p className="line-clamp-2 font-medium">{question.title}</p>
           </div>
 
           <label className="block space-y-1.5">

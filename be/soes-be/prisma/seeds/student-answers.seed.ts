@@ -18,11 +18,15 @@ export async function seedStudentAnswers(prisma: PrismaClient): Promise<void> {
     where: { status: 'SUBMITTED' },
     include: {
       studentAnswers: { select: { examQuestionId: true } },
-      exam: {
+      examSchedule: {
         include: {
-          examQuestions: {
-            select: { id: true, points: true },
-            orderBy: { orderIndex: 'asc' },
+          exam: {
+            include: {
+              examQuestions: {
+                select: { id: true, points: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
           },
         },
       },
@@ -30,7 +34,9 @@ export async function seedStudentAnswers(prisma: PrismaClient): Promise<void> {
   })
 
   // Pre-fetch all question options for questions in these exams to avoid N+1
-  const examQuestionIds = attempts.flatMap((a) => a.exam.examQuestions.map((eq) => eq.id))
+  const examQuestionIds = attempts.flatMap((attempt) =>
+    attempt.examSchedule.exam.examQuestions.map((question) => question.id),
+  )
 
   const allExamQuestionOptions = await prisma.examQuestionOption.findMany({
     where: { examQuestionId: { in: examQuestionIds } },
@@ -58,7 +64,7 @@ export async function seedStudentAnswers(prisma: PrismaClient): Promise<void> {
       score: string
     }> = []
 
-    for (const eq of attempt.exam.examQuestions) {
+    for (const eq of attempt.examSchedule.exam.examQuestions) {
       if (answeredExamQuestionIds.has(eq.id)) continue
 
       const options = optionsByExamQuestion.get(eq.id) ?? []

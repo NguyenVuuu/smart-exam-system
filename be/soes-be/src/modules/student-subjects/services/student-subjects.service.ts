@@ -22,7 +22,7 @@ export async function getStudentSubjects(
 
   // Semester options and subject data run in parallel
   const [semesterOptions, { totalItems, enrollments }] = await Promise.all([
-    repo.findSemesterOptionsForStudent(studentId),
+    repo.findSemesterOptions(),
     semesterId
       ? repo.findStudentSubjects({ studentId, semesterId, keyword, page, pageSize })
       : Promise.resolve({ totalItems: 0, enrollments: [] }),
@@ -33,7 +33,11 @@ export async function getStudentSubjects(
   return {
     items:             enrollments.map(toSubjectCardDto),
     pagination:        { page, pageSize, totalItems, totalPages },
-    semesterOptions:   semesterOptions.map((s) => ({ id: s.id, name: s.name })),
+    semesterOptions:   semesterOptions.map((s) => ({
+      id: s.id,
+      name: s.name,
+      isCurrent: s.status === 'ACTIVE',
+    })),
     currentSemesterId: semesterId ?? null,
   }
 }

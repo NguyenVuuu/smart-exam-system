@@ -1,10 +1,5 @@
-import http from "http";
-import { URL } from "url";
 import { judge0Config } from "../config";
 
-// ============================================================
-// THAY THẾ toàn bộ hàm httpPostJson cũ (dùng http.request)
-// ============================================================
 async function httpPostJson(
   urlStr: string,
   headers: Record<string, string>,
@@ -20,7 +15,7 @@ async function httpPostJson(
       headers: {
         ...headers,
         "Content-Type": "application/json",
-        Connection: "close", // <-- THÊM DÒNG NÀY: tránh keep-alive treo
+        Connection: "close",
       },
       body: JSON.stringify(bodyObj),
       signal: controller.signal,
@@ -70,16 +65,10 @@ export interface LanguageConfig {
   judge0Id: number;
 }
 
-// Mapping from our internal language string to Judge0 language IDs
 export const LANGUAGE_MAP: Record<string, LanguageConfig> = {
-  C: { id: 1, name: "C", judge0Id: 50 },
-  CPP: { id: 2, name: "C++", judge0Id: 54 },
-  PYTHON: { id: 3, name: "Python", judge0Id: 71 },
-  PYTHON3: { id: 4, name: "Python 3", judge0Id: 71 },
-  JAVA: { id: 5, name: "Java", judge0Id: 62 },
-  JAVASCRIPT: { id: 6, name: "JavaScript", judge0Id: 63 },
-  TYPESCRIPT: { id: 7, name: "TypeScript", judge0Id: 74 },
-  UNKNOWN: { id: 99, name: "Unknown", judge0Id: 71 }, // Default to Python
+  C: { id: 1, name: "C (GCC 9.2.0)", judge0Id: 50 },
+  CPP: { id: 2, name: "C++ (GCC 9.2.0)", judge0Id: 54 },
+  JAVA: { id: 3, name: "Java (OpenJDK 13.0.1)", judge0Id: 62 },
 };
 
 export class Judge0Error extends Error {
@@ -117,9 +106,13 @@ export class Judge0Service {
   private getJudge0LanguageId(language: string): number {
     const config = LANGUAGE_MAP[language.toUpperCase()];
     if (!config) {
-      return LANGUAGE_MAP.UNKNOWN.judge0Id;
+      throw new Judge0Error(`Unsupported programming language: ${language}`);
     }
     return config.judge0Id;
+  }
+
+  private encodeBase64(value: string | null | undefined): string | undefined {
+    return value ? Buffer.from(value).toString("base64") : undefined;
   }
 
   private decodeBase64(value: string | null): string | null {
@@ -131,38 +124,48 @@ export class Judge0Service {
     }
   }
 
-  /**
-   * Submit a single code submission to Judge0
-   */
-  /**
-   * Submit a single code submission to Judge0
-   */
-  async submitSingle(
-    submission: Judge0Submission,
-    timeoutMs?: number, // <-- THÊM THAM SỐ NÀY
-  ): Promise<Judge0SubmissionResult> {
+  private buildSubmissionPayload(submission: Judge0Submission, wait: boolean) {
     const judge0LanguageId = this.getJudge0LanguageId(
       submission.language_id.toString(),
     );
 
-    const payload = {
+    return {
       source_code: Buffer.from(submission.source_code ?? "").toString("base64"),
       language_id: judge0LanguageId,
-      stdin: submission.stdin
-        ? Buffer.from(submission.stdin).toString("base64")
-        : undefined,
-      expected_output: submission.expected_output
-        ? Buffer.from(submission.expected_output).toString("base64")
-        : undefined,
+      stdin: this.encodeBase64(submission.stdin),
+      expected_output: this.encodeBase64(submission.expected_output),
       cpu_time_limit: submission.cpu_time_limit || this.defaultTimeoutMs / 1000,
       memory_limit: submission.memory_limit,
-      wait: true,
+      wait,
     };
+  }
+
+  private parseBase64Result(body: string): Judge0SubmissionResult {
+    const result = JSON.parse(body) as Judge0SubmissionResult;
+    return this.decodeSubmissionResult(result);
+  }
+
+  private decodeSubmissionResult(
+    result: Judge0SubmissionResult,
+  ): Judge0SubmissionResult {
+    return {
+      ...result,
+      stdout: this.decodeBase64(result.stdout),
+      stderr: this.decodeBase64(result.stderr),
+      compile_output: this.decodeBase64(result.compile_output),
+      message: this.decodeBase64(result.message),
+    };
+  }
+
+  async submitSingle(
+    submission: Judge0Submission,
+    timeoutMs?: number,
+  ): Promise<Judge0SubmissionResult> {
+    const payload = this.buildSubmissionPayload(submission, true);
 
     const url = `${this.baseUrl}/submissions?base64_encoded=true&wait=true`;
 
     try {
-      // <-- SỬA DÒNG NÀY: truyền timeoutMs vào
       const response = await httpPostJson(
         url,
         this.getHeaders(),
@@ -178,14 +181,7 @@ export class Judge0Service {
         );
       }
 
-      const rawResult = JSON.parse(response.body) as Judge0SubmissionResult;
-      return {
-        ...rawResult,
-        stdout: this.decodeBase64(rawResult.stdout),
-        stderr: this.decodeBase64(rawResult.stderr),
-        compile_output: this.decodeBase64(rawResult.compile_output),
-        message: this.decodeBase64(rawResult.message),
-      };
+      return this.parseBase64Result(response.body);
     } catch (error) {
       if (error instanceof Judge0Error) {
         throw error;
@@ -196,36 +192,11 @@ export class Judge0Service {
     }
   }
 
-  // ============================================================
-  // THÊM METHOD NÀY vào class Judge0Service (sau submitSingle)
-  // ============================================================
-
-  /**
-   * Submit code with wait=false, then poll for result.
-   * Avoids long-running HTTP connections that hang on Docker Desktop Windows.
-   */
   async submitAndPoll(
     submission: Judge0Submission,
     timeoutMs = 30000,
   ): Promise<Judge0SubmissionResult> {
-    const judge0LanguageId = this.getJudge0LanguageId(
-      submission.language_id.toString(),
-    );
-
-    // ── Step 1: Submit with wait=false (fast, returns token immediately) ──
-    const payload = {
-      source_code: Buffer.from(submission.source_code ?? "").toString("base64"),
-      language_id: judge0LanguageId,
-      stdin: submission.stdin
-        ? Buffer.from(submission.stdin).toString("base64")
-        : undefined,
-      expected_output: submission.expected_output
-        ? Buffer.from(submission.expected_output).toString("base64")
-        : undefined,
-      cpu_time_limit: submission.cpu_time_limit || this.defaultTimeoutMs / 1000,
-      memory_limit: submission.memory_limit,
-      wait: false,
-    };
+    const payload = this.buildSubmissionPayload(submission, false);
 
     const submitUrl = `${this.baseUrl}/submissions?base64_encoded=true&wait=false`;
 
@@ -233,7 +204,7 @@ export class Judge0Service {
       submitUrl,
       this.getHeaders(),
       payload,
-      10000, // Submit should be fast
+      10000,
     );
 
     if (submitResponse.status < 200 || submitResponse.status >= 300) {
@@ -249,7 +220,6 @@ export class Judge0Service {
       throw new Judge0Error("No token returned from Judge0");
     }
 
-    // ── Step 2: Poll for result ──
     const pollUrl = `${this.baseUrl}/submissions/${token}?base64_encoded=true`;
     const pollIntervalMs = 800;
     const maxPollTimeMs = timeoutMs;
@@ -267,19 +237,10 @@ export class Judge0Service {
 
       const result = (await pollResponse.json()) as Judge0SubmissionResult;
 
-      // Status IDs: 1 = In Queue, 2 = Processing
-      // 3+ = Finished (Accepted, Wrong Answer, TLE, etc.)
       if (result.status.id !== 1 && result.status.id !== 2) {
-        return {
-          ...result,
-          stdout: this.decodeBase64(result.stdout),
-          stderr: this.decodeBase64(result.stderr),
-          compile_output: this.decodeBase64(result.compile_output),
-          message: this.decodeBase64(result.message),
-        };
+        return this.decodeSubmissionResult(result);
       }
 
-      // Wait before next poll
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     }
 

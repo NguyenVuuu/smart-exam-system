@@ -1,9 +1,8 @@
-﻿import { AlertTriangle, Archive, CalendarDays, Plus, Star, X } from 'lucide-react'
+﻿import { AlertTriangle, CalendarDays, Plus, Star, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
-import { ADMIN_ACADEMIC_YEARS } from './mock/admin.mock'
 import type { AcademicYear } from './types/admin.types'
 import AdminButton from './components/AdminButton'
 import { AdminField, AdminInput } from './components/AdminFormFields'
@@ -13,6 +12,7 @@ import AdminPageHeader from './components/AdminPageHeader'
 import AdminSelect from './components/AdminSelect'
 import AdminTablePanel from './components/AdminTablePanel'
 import AdminToolbar from './components/AdminToolbar'
+import { useAdminSemesters } from './hooks/useAdminSemesters'
 
 const academicYearOptions = ['2024 - 2025', '2025 - 2026', '2026 - 2027']
 const termOptions: Array<{ value: AcademicYear['term']; label: string }> = [
@@ -22,32 +22,28 @@ const termOptions: Array<{ value: AcademicYear['term']; label: string }> = [
 ]
 
 export default function AdminAcademicPage() {
-  const [items, setItems] = useState<AcademicYear[]>(ADMIN_ACADEMIC_YEARS)
+  const { items, loading, error, create, activate, retry } = useAdminSemesters()
   const [yearFilter, setYearFilter] = useState('ALL')
   const [status, setStatus] = useState<'ALL' | AcademicYear['status']>('ALL')
   const [selectedAcademicYear, setSelectedAcademicYear] = useState('2025 - 2026')
   const [selectedTerm, setSelectedTerm] = useState<AcademicYear['term']>(1)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [modalStatus, setModalStatus] = useState<AcademicYear['status']>('ACTIVE')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [pendingCurrentSemester, setPendingCurrentSemester] = useState<AcademicYear | null>(null)
   const generatedSemesterCode = createSemesterCode(selectedTerm, selectedAcademicYear)
-  const generatedSemesterName = `Học kỳ ${selectedTerm} năm học ${selectedAcademicYear}`
+  const generatedSemesterName = `Học kỳ ${selectedTerm} - ${selectedAcademicYear.replace(' - ', '/')}`
 
-  const handleConfirmSetCurrentSemester = () => {
+  const handleConfirmSetCurrentSemester = async () => {
     if (!pendingCurrentSemester) return
-
-    setItems((prev) =>
-      prev.map((row) => ({
-        ...row,
-        isCurrent: row.id === pendingCurrentSemester.id,
-        status: row.id === pendingCurrentSemester.id ? 'ACTIVE' : row.status,
-      })),
-    )
-    toast.success(`Đã đặt ${pendingCurrentSemester.name} làm học kỳ hiện tại.`)
-    setPendingCurrentSemester(null)
+    try {
+      await activate(pendingCurrentSemester.id)
+      toast.success(`Đã đặt ${pendingCurrentSemester.name} làm học kỳ hiện tại.`)
+      setPendingCurrentSemester(null)
+    } catch {
+      toast.error('Không thể đổi học kỳ hiện tại. Vui lòng thử lại.')
+    }
   }
 
   const filteredItems = items.filter((item) => {
@@ -64,7 +60,7 @@ export default function AdminAcademicPage() {
       header: 'TÊN HỌC KỲ',
       render: (item) => (
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 whitespace-nowrap">
             <p className="text-sm font-semibold text-slate-950">{item.name}</p>
             <span className="inline-flex w-[74px] shrink-0">
               {item.isCurrent ? <AppBadge tone="emerald">Hiện tại</AppBadge> : null}
@@ -108,22 +104,6 @@ export default function AdminAcademicPage() {
           >
             <Star size={17} fill="none" />
           </button>
-          <button
-            className="rounded-lg p-1.5 hover:bg-slate-50 hover:text-slate-700"
-            title="Lưu trữ"
-            onClick={() => {
-              if (item.status === 'ARCHIVED') {
-                toast.info(`${item.name} đã ở trạng thái lưu trữ.`)
-                return
-              }
-              setItems((prev) =>
-                prev.map((row) => (row.id === item.id ? { ...row, status: 'ARCHIVED' } : row)),
-              )
-              toast.success(`Đã lưu trữ ${item.name}.`)
-            }}
-          >
-            <Archive size={17} />
-          </button>
         </div>
       ),
     },
@@ -141,7 +121,6 @@ export default function AdminAcademicPage() {
             onClick={() => {
               setStartDate('')
               setEndDate('')
-              setModalStatus('ACTIVE')
               setModalOpen(true)
             }}
           >
@@ -179,7 +158,7 @@ export default function AdminAcademicPage() {
                   { value: 'ALL', label: 'Trạng thái' },
                   { value: 'ACTIVE', label: 'Đang mở' },
                   { value: 'CLOSED', label: 'Đã đóng' },
-                  { value: 'ARCHIVED', label: 'Đã lưu trữ' },
+                  { value: 'UPCOMING', label: 'Sắp diễn ra' },
                 ]}
               />
             </>
@@ -191,15 +170,22 @@ export default function AdminAcademicPage() {
           keyExtractor={(item) => item.id}
           emptyText="Chưa có học kỳ phù hợp."
         />
+        {loading && <p className="py-6 text-center text-sm text-slate-500">Đang tải học kỳ...</p>}
+        {error && (
+          <div className="py-6 text-center text-sm text-rose-600">
+            <p>{error}</p>
+            <button type="button" onClick={retry} className="mt-2 text-blue-600">Thử lại</button>
+          </div>
+        )}
       </AdminTablePanel>
 
       <AdminModal
         open={modalOpen}
         title="Tạo học kỳ mới"
-        description="Quy tắc mã học kỳ: HK + số học kỳ + 2 số cuối của 2 năm (VD: HK12526)."
+        description="Quy tắc mã học kỳ: HK + số học kỳ + năm bắt đầu + năm kết thúc (VD: HK1_2026_2027)."
         confirmText="Tạo học kỳ"
         onClose={() => setModalOpen(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (!startDate || !endDate) {
             toast.error('Vui lòng chọn thời gian bắt đầu và kết thúc.')
             return
@@ -213,22 +199,18 @@ export default function AdminAcademicPage() {
             return
           }
 
-          setItems((prev) => [
-            ...prev,
-            {
-              id: createEntityId('sem', generatedSemesterCode),
-              name: generatedSemesterName,
-              code: generatedSemesterCode,
-              academicYear: selectedAcademicYear,
-              term: selectedTerm,
+          try {
+            await create({
+              academicYear: selectedAcademicYear.replaceAll(' ', ''),
+              term: `TERM_${selectedTerm}` as 'TERM_1' | 'TERM_2' | 'TERM_3',
               startDate,
               endDate,
-              isCurrent: false,
-              status: modalStatus,
-            },
-          ])
-          setModalOpen(false)
-          toast.success(`Đã tạo ${generatedSemesterName}.`)
+            })
+            setModalOpen(false)
+            toast.success(`Đã tạo ${generatedSemesterName}.`)
+          } catch {
+            toast.error('Không thể tạo học kỳ. Vui lòng kiểm tra dữ liệu hoặc mã học kỳ trùng.')
+          }
         }}
       >
         <div className="space-y-4">
@@ -249,19 +231,9 @@ export default function AdminAcademicPage() {
             </AdminField>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
             <AdminField label="Mã học kỳ (hệ thống tự sinh)">
               <AdminInput value={generatedSemesterCode} disabled />
-            </AdminField>
-            <AdminField label="Trạng thái">
-              <AdminSelect
-                value={modalStatus}
-                onChange={(value) => setModalStatus(value as AcademicYear['status'])}
-                options={[
-                  { value: 'ACTIVE', label: 'Đang mở' },
-                  { value: 'CLOSED', label: 'Đã đóng' },
-                ]}
-              />
             </AdminField>
           </div>
 
@@ -333,29 +305,19 @@ function SetCurrentSemesterConfirm({
 
 function AcademicStatusBadge({ status }: { status: AcademicYear['status'] }) {
   const labelMap: Record<AcademicYear['status'], string> = {
+    UPCOMING: 'Sắp diễn ra',
     ACTIVE: 'Đang mở',
     CLOSED: 'Đã đóng',
-    ARCHIVED: 'Đã lưu trữ',
   }
   const toneMap: Record<AcademicYear['status'], 'emerald' | 'amber' | 'gray'> = {
+    UPCOMING: 'gray',
     ACTIVE: 'emerald',
     CLOSED: 'amber',
-    ARCHIVED: 'gray',
   }
   return <AppBadge tone={toneMap[status]}>{labelMap[status]}</AppBadge>
 }
 
 function createSemesterCode(term: AcademicYear['term'], academicYear: string) {
-  const parts = academicYear.split('-').map((part) => part.trim().slice(-2))
-  return `HK${term}${parts.join('')}`
-}
-
-function createEntityId(prefix: string, value: string) {
-  return `${prefix}-${value
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')}`
+  const normalizedYear = academicYear.split('-').map((part) => part.trim()).join('_')
+  return `HK${term}_${normalizedYear}`
 }

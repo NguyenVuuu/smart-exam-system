@@ -1,5 +1,5 @@
-﻿import { X } from 'lucide-react'
-import { useState } from 'react'
+import { HelpCircle, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import type { ExamType } from '../../types/teacher-exam.types'
 import type {
   Question,
@@ -8,19 +8,17 @@ import type {
   TestCase,
 } from '../../types/teacher-question-bank.types'
 import { validateQuestion } from '../../utils/QuestionValidation'
-import {
-  MOCK_SUBJECTS,
-  QuestionBasicFields,
-} from './editor/QuestionBasicFields'
+import { QuestionBasicFields } from './editor/QuestionBasicFields'
 import { QuestionOptionsEditor } from './editor/QuestionOptionsEditor'
 import { QuestionProgrammingEditor } from './editor/QuestionProgrammingEditor'
 
 interface QuestionEditorModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (question: Partial<Question>) => void
+  onSave: (question: Partial<Question>) => void | Promise<void>
   initialQuestion?: Question | null
   examType?: ExamType
+  subjects?: Array<{ id: string; name: string }>
 }
 
 export default function QuestionEditorModal(props: QuestionEditorModalProps) {
@@ -33,13 +31,28 @@ function QuestionEditorContent({
   onSave,
   initialQuestion,
   examType,
+  subjects = [],
 }: QuestionEditorModalProps) {
-  const [subjectId, setSubjectId] = useState(initialQuestion?.subjectId || 'sub-01')
+  const effectiveSubjects = useMemo(() => {
+    const list = [...subjects]
+    if (initialQuestion?.subjectId && !list.some((s) => s.id === initialQuestion.subjectId)) {
+      list.unshift({
+        id: initialQuestion.subjectId,
+        name: initialQuestion.subjectName || 'Môn học hiện tại',
+      })
+    }
+    return list
+  }, [subjects, initialQuestion])
+
+  const [subjectId, setSubjectId] = useState(
+    initialQuestion?.subjectId || effectiveSubjects[0]?.id || '',
+  )
   const [questionType, setQuestionType] = useState<QuestionType>(() => {
     if (initialQuestion?.type) return initialQuestion.type
     if (examType === 'PROGRAMMING') return 'PROGRAMMING'
     return 'SINGLE_CHOICE'
   })
+  const [title, setTitle] = useState(initialQuestion?.title || '')
   const [content, setContent] = useState(initialQuestion?.content || '')
   const [explanation, setExplanation] = useState(initialQuestion?.explanation || '')
   const [difficulty, setDifficulty] = useState<Question['difficulty']>(initialQuestion?.difficulty || 'EASY')
@@ -58,16 +71,22 @@ function QuestionEditorContent({
   )
   const [timeLimitMs, setTimeLimitMs] = useState(initialQuestion?.timeLimitMs || 2000)
   const [memoryLimitMb, setMemoryLimitMb] = useState(initialQuestion?.memoryLimitMb || 256)
+  const [maxCodeSizeKb, setMaxCodeSizeKb] = useState(initialQuestion?.maxCodeSizeKb || 256)
   const [testCases, setTestCases] = useState<TestCase[]>(
     initialQuestion?.testCases || [
-      { id: 'tc-1', input: '10', expectedOutput: '17', weight: 50, isHidden: false },
-      { id: 'tc-2', input: '20', expectedOutput: '77', weight: 50, isHidden: true },
+      { id: 'tc-1', input: '10', expectedOutput: '17', isHidden: false },
+      { id: 'tc-2', input: '20', expectedOutput: '77', isHidden: true },
     ],
   )
   const [expandedTcIds, setExpandedTcIds] = useState<string[]>(['tc-1'])
   const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
 
-  const selectedSubjectObj = MOCK_SUBJECTS.find((s) => s.id === subjectId) || MOCK_SUBJECTS[0]
+  const selectedSubjectObj =
+    effectiveSubjects.find((subject) => subject.id === subjectId) || {
+      id: subjectId,
+      name: initialQuestion?.subjectName || '',
+    }
   const questionTypeOptions = [
     ...(examType !== 'PROGRAMMING'
       ? [
@@ -89,21 +108,25 @@ function QuestionEditorContent({
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const normalizedTitle = title.trim()
+    const normalizedContent = questionType === 'PROGRAMMING' ? content.trim() : normalizedTitle
     const payload: Partial<Question> = {
       type: questionType,
       difficulty,
-      content,
+      title: normalizedTitle,
+      content: normalizedContent,
       explanation,
-      subjectId: selectedSubjectObj.id,
-      subjectName: selectedSubjectObj.name,
+      subjectId: selectedSubjectObj?.id,
+      subjectName: selectedSubjectObj?.name,
       ...(questionType === 'SINGLE_CHOICE' || questionType === 'MULTIPLE_CHOICE' || questionType === 'TRUE_FALSE'
         ? { options }
         : {
             programmingLanguage,
             timeLimitMs,
             memoryLimitMb,
+            maxCodeSizeKb,
             testCases,
           }),
     }
@@ -114,36 +137,55 @@ function QuestionEditorContent({
       return
     }
 
+    if (!selectedSubjectObj) {
+      setValidationErrors(['Vui lòng chọn môn học.'])
+      return
+    }
     setValidationErrors([])
-    onSave(payload)
-    onClose()
+    setSaving(true)
+    try {
+      await onSave(payload)
+      onClose()
+    } catch {
+      setValidationErrors(['Không thể lưu câu hỏi. Dữ liệu đã nhập vẫn được giữ để bạn kiểm tra lại.'])
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      <div className="bg-white rounded-2xl max-w-3xl w-full flex flex-col max-h-[85vh] shadow-xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5 shrink-0 bg-white">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-              ?
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 font-sans animate-in fade-in duration-200">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+        <div className="shrink-0 px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-4 bg-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <HelpCircle size={21} />
             </div>
-            <div>
-              <h3 className="text-xs font-bold text-gray-900">
-                {initialQuestion ? 'Chỉnh Sửa Câu Hỏi' : 'Tạo Câu Hỏi Mới Thủ Công'}
-              </h3>
-              <p className="text-xs text-gray-500">
-                {examType ? `Đang khóa theo loại đề: ${examType}` : 'Quyền sở hữu thuộc về Giảng viên'}
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-gray-950">
+                {initialQuestion ? 'Chỉnh sửa câu hỏi' : 'Tạo câu hỏi mới'}
+              </h2>
+              <p className="mt-1 truncate text-[13px] leading-[19px] text-slate-500">
+                {examType
+                  ? `Đang áp dụng cấu hình theo loại đề: ${examType}`
+                  : initialQuestion
+                  ? 'Chỉnh sửa nội dung và cấu hình câu hỏi trong ngân hàng'
+                  : 'Soạn thảo nội dung và thiết lập đáp án cho câu hỏi'}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          >
             <X size={18} />
           </button>
         </div>
 
-        <form id="question-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+        <form id="question-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           {validationErrors.length > 0 && (
-            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+            <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-700">
               <p className="font-semibold">Cần kiểm tra lại câu hỏi:</p>
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
                 {validationErrors.map((error) => (
@@ -154,12 +196,15 @@ function QuestionEditorContent({
           )}
 
           <QuestionBasicFields
+            subjects={effectiveSubjects}
             subjectId={subjectId}
             onSubjectChange={setSubjectId}
             questionType={questionType}
             onQuestionTypeChange={setQuestionType}
             difficulty={difficulty}
             onDifficultyChange={setDifficulty}
+            title={title}
+            onTitleChange={setTitle}
             content={content}
             onContentChange={setContent}
             questionTypeOptions={questionTypeOptions}
@@ -179,6 +224,8 @@ function QuestionEditorContent({
               onTimeLimitChange={setTimeLimitMs}
               memoryLimitMb={memoryLimitMb}
               onMemoryLimitChange={setMemoryLimitMb}
+              maxCodeSizeKb={maxCodeSizeKb}
+              onMaxCodeSizeChange={setMaxCodeSizeKb}
               testCases={testCases}
               onTestCasesChange={setTestCases}
               expandedTcIds={expandedTcIds}
@@ -211,9 +258,10 @@ function QuestionEditorContent({
           <button
             type="submit"
             form="question-form"
-            className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors"
+            disabled={saving}
+            className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {initialQuestion ? 'Lưu Thay Đổi' : 'Thêm Câu Hỏi'}
+            {saving ? 'Đang lưu...' : initialQuestion ? 'Lưu Thay Đổi' : 'Thêm Câu Hỏi'}
           </button>
         </div>
       </div>

@@ -8,11 +8,15 @@ export async function seedExamAttemptQuestions(prisma: PrismaClient): Promise<vo
     where: { status: 'SUBMITTED' },
     include: {
       attemptQuestions: { select: { examQuestionId: true } },
-      exam: {
+      examSchedule: {
         include: {
-          examQuestions: {
-            select: { id: true },
-            orderBy: { orderIndex: 'asc' },
+          exam: {
+            include: {
+              examQuestions: {
+                select: { id: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
           },
         },
       },
@@ -22,12 +26,13 @@ export async function seedExamAttemptQuestions(prisma: PrismaClient): Promise<vo
   let total = 0
 
   for (const attempt of attempts) {
-    if (attempt.exam.examQuestions.length === 0) continue
+    const examQuestions = attempt.examSchedule.exam.examQuestions
+    if (examQuestions.length === 0) continue
 
     // Get existing exam question IDs for this attempt
     const existingQuestionIds = new Set(attempt.attemptQuestions.map((aq: any) => aq.examQuestionId))
 
-    const rows = attempt.exam.examQuestions
+    const rows = examQuestions
       .filter((eq) => !existingQuestionIds.has(eq.id))
       .map((eq, index) => ({
         attemptId: attempt.id,

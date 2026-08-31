@@ -4,8 +4,10 @@ export interface CourseOffering {
   subjectCode: string
   subjectName: string
   courseCode: string // Mã lớp học phần duy nhất (BR-05)
+  semesterCode: string
   semesterName: string
   semesterId: string
+  semesterStatus?: 'UPCOMING' | 'ACTIVE' | 'CLOSED'
   teacherName: string
   totalStudents: number
   totalExams: number
@@ -32,6 +34,34 @@ export interface StudentEnrollment {
   email: string
   enrolledAt: string
   status: 'ACTIVE' | 'DROPPED'
+}
+
+export interface CourseAnnouncement {
+  id: string
+  title: string
+  content: string
+  attachedFiles?: Array<{ id: string; name: string; size: string }>
+  createdAt: string
+  teacherName: string
+  pinned?: boolean
+}
+
+export interface CourseExamSchedule {
+  scheduleId: string
+  examId: string
+  title: string
+  totalPoints: number
+  startTime: string
+  endTime: string
+  status: string
+}
+
+export interface TeacherCourseDetail {
+  course: CourseOffering
+  materials: CourseMaterial[]
+  students: StudentEnrollment[]
+  announcements: CourseAnnouncement[]
+  exams: CourseExamSchedule[]
 }
 
 export interface ExcelImportRecord {

@@ -127,6 +127,7 @@ export class StudentCourseDetailMapper {
       attemptUsed: row.attemptUsed,
       remainingAttempts: row.remainingAttempts,
       canStart: row.canStart,
+      requiresPassword: row.requiresPassword,
       enableWebcam: row.enableWebcam,
       status: row.status as ExamAvailabilityStatus,
       remainingSeconds: row.remainingSeconds,

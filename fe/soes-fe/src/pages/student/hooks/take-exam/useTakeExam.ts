@@ -8,7 +8,7 @@ import type {
 import { useSaveAnswerMutation, useSubmitExamMutation } from './useTakeExamApi'
 
 interface UseTakeExamOptions {
-  examId: string
+  scheduleId: string
   attemptId: string
   session: TakeExamSession | null
   answers: TakeExamAnswers
@@ -17,7 +17,7 @@ interface UseTakeExamOptions {
 }
 
 export function useTakeExam({
-  examId,
+  scheduleId,
   attemptId,
   session,
   answers,
@@ -135,27 +135,27 @@ export function useTakeExam({
       })
 
       if (formattedAnswers.length > 0) {
-        await saveAnswersApi({ examId, attemptId, data: formattedAnswers })
+        await saveAnswersApi({ scheduleId, attemptId, data: formattedAnswers })
       }
       setSaveState('SAVED')
     } catch (error) {
       console.error('Failed to save answers', error)
       setSaveState('IDLE')
     }
-  }, [answers, attemptId, examId, saveAnswersApi, session])
+  }, [answers, attemptId, saveAnswersApi, scheduleId, session])
 
   const markSubmitted = useCallback(async () => {
     if (phaseRef.current !== 'IN_PROGRESS') return
     try {
       await saveAnswersToServer()
-      await submitExamApi({ examId, attemptId })
+      await submitExamApi({ scheduleId, attemptId })
       setPhase('SUBMITTED')
       onSubmitted?.()
     } catch (error) {
       console.error('Failed to submit exam', error)
       throw error
     }
-  }, [attemptId, examId, onSubmitted, saveAnswersToServer, submitExamApi])
+  }, [attemptId, onSubmitted, saveAnswersToServer, scheduleId, submitExamApi])
 
   const currentQuestion = session?.questions[currentQuestionIndex] ?? null
 

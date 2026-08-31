@@ -1,8 +1,26 @@
-import { CalendarClock, Eye, EyeOff, Globe, MonitorCheck, Users, X } from 'lucide-react'
+﻿import { CalendarClock, Eye, EyeOff, Globe, MonitorCheck, Users, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { releaseLabel } from '../../../constants/ExamEditorConfig'
 import type { ExamSchedule } from '../../../types/teacher-exam.types'
+import { formatDisplayDate, parseSessionDateTime } from './ExamSessionList'
+
+const statusLabel: Record<ExamSchedule['status'], string> = {
+  DRAFT: 'Bản nháp',
+  SCHEDULED: 'Đã lên lịch',
+  OPEN: 'Đang mở thi',
+  CLOSED: 'Đã kết thúc',
+  CANCELLED: 'Đã hủy',
+}
+
+const distributionModeLabel: Record<string, string> = {
+  FIXED_ORDER: 'Cố định',
+  SHUFFLE_QUESTIONS: 'Xáo trộn câu hỏi',
+  SHUFFLE_OPTIONS: 'Xáo trộn đáp án',
+  SHUFFLE_QUESTIONS_AND_OPTIONS: 'Xáo trộn câu và đáp án',
+  RANDOM_SUBSET: 'Đề sinh ngẫu nhiên',
+  SHUFFLE_ORDER: 'Xáo trộn câu hỏi',
+}
 
 export default function ExamSessionDetailModal({
   session,
@@ -14,6 +32,11 @@ export default function ExamSessionDetailModal({
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
 
   if (!session) return null
+
+  const startParsed = parseSessionDateTime(session.startTime)
+  const endParsed = parseSessionDateTime(session.endTime)
+  const formattedStart = `${formatDisplayDate(startParsed.date)} · ${startParsed.time}`
+  const formattedEnd = `${formatDisplayDate(endParsed.date)} · ${endParsed.time}`
 
   const rules = [
     session.requireFullscreen ? 'Toàn màn hình' : null,
@@ -61,8 +84,8 @@ export default function ExamSessionDetailModal({
               lines={[
                 ['Lớp học phần', session.courseCode],
                 ['Môn học', session.subjectName],
-                ['Giờ mở bài', session.startTime.replace('T', ' ')],
-                ['Giờ đóng bài', session.endTime.replace('T', ' ')],
+                ['Giờ mở bài', formattedStart],
+                ['Giờ đóng bài', formattedEnd],
               ]}
             />
             <InfoPanel
@@ -108,10 +131,10 @@ export default function ExamSessionDetailModal({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <DetailBox
               label="Phân phối đề"
-              value={distributionModeLabel[session.distributionMode ?? 'FIXED_ORDER']}
+              value={distributionModeLabel[session.distributionMode ?? 'FIXED_ORDER'] ?? session.distributionMode}
             />
-            <DetailBox label="Sinh viên đã vào thi" value="0 SV" />
-            <DetailBox label="Bài nộp" value="0 bài" />
+            <DetailBox label="Sinh viên đã vào thi" value={`${session.participantCount ?? 0} SV`} />
+            <DetailBox label="Bài nộp" value={`${session.submissionCount ?? 0} bài`} />
           </div>
         </div>
       </div>
@@ -119,25 +142,10 @@ export default function ExamSessionDetailModal({
   )
 }
 
-const distributionModeLabel = {
-  FIXED_ORDER: 'Giữ nguyên thứ tự câu hỏi',
-  SHUFFLE_ORDER: 'Xáo thứ tự câu hỏi',
-  SHUFFLE_QUESTIONS_AND_OPTIONS: 'Xáo câu hỏi và phương án',
-  RANDOM_SUBSET: 'Chọn tập câu hỏi ngẫu nhiên theo phần',
-} as const
-
-const statusLabel: Record<ExamSchedule['status'], string> = {
-  DRAFT: 'Bản nháp',
-  SCHEDULED: 'Đã lên lịch',
-  OPEN: 'Đang mở thi',
-  CLOSED: 'Đã kết thúc',
-  CANCELLED: 'Đã hủy',
-}
-
 function DetailBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="text-xs text-gray-400">{label}</p>
       <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   )
@@ -158,11 +166,11 @@ function InfoPanel({
         {icon}
         {title}
       </div>
-      <div className="space-y-2">
-        {lines.map(([label, value]) => (
-          <div key={label} className="flex items-start justify-between gap-4 text-sm">
-            <span className="text-slate-500">{label}</span>
-            <span className="min-w-0 text-right font-normal text-slate-900">{value}</span>
+      <div className="space-y-2 text-xs">
+        {lines.map(([label, val], idx) => (
+          <div key={idx} className="flex items-center justify-between gap-2">
+            <span className="text-gray-500">{label}:</span>
+            <span className="font-medium text-slate-800 text-right">{val}</span>
           </div>
         ))}
       </div>
@@ -180,16 +188,14 @@ function PasswordValue({
   onToggle: () => void
 }) {
   return (
-    <span className="inline-flex items-center justify-end gap-2">
-      <span className="font-normal">{visible ? password : '••••••••'}</span>
+    <span className="inline-flex items-center gap-1.5">
+      <span>{visible ? password : '••••••••'}</span>
       <button
         type="button"
         onClick={onToggle}
-        className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-        title={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-        aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+        className="rounded p-0.5 text-gray-400 hover:text-gray-700"
       >
-        {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+        {visible ? <EyeOff size={13} /> : <Eye size={13} />}
       </button>
     </span>
   )

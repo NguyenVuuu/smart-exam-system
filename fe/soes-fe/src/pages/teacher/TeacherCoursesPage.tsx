@@ -1,26 +1,31 @@
 import { BookOpen, ChevronRight, RotateCcw, Search, Users, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppBadge from '../../components/common/AppBadge'
 import AppSelect from '../../components/common/AppSelect'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
-import { MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
+import { useTeacherCourses } from './hooks/useTeacherCourses'
 
 export default function TeacherCoursesPage() {
   const navigate = useNavigate()
+  const { courses, semesterOptions, currentSemesterId, loading, error, retry } = useTeacherCourses()
   const [selectedSemester, setSelectedSemester] = useState<string>('ALL')
   const [selectedSubject, setSelectedSubject] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
+  useEffect(() => {
+    if (currentSemesterId) setSelectedSemester(currentSemesterId)
+  }, [currentSemesterId])
+
   const handleResetFilters = () => {
-    setSelectedSemester('ALL')
+    setSelectedSemester(currentSemesterId ?? 'ALL')
     setSelectedSubject('ALL')
     setSearchQuery('')
   }
 
-  const filteredCourses = MOCK_TEACHER_COURSES.filter((course) => {
+  const filteredCourses = courses.filter((course) => {
     const matchSemester = selectedSemester === 'ALL' || course.semesterId === selectedSemester
     const matchSubject = selectedSubject === 'ALL' || course.subjectId === selectedSubject
     const matchSearch =
@@ -44,19 +49,16 @@ export default function TeacherCoursesPage() {
           />
 
           {/* Filter Bar with Reset */}
-          <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
+          <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between gap-3 overflow-visible">
             <div className="flex items-center gap-3 shrink-0">
               {/* Semester Filter */}
               <AppSelect
                 value={selectedSemester}
                 onChange={setSelectedSemester}
-                className="w-48"
-                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
-                options={[
-                  { value: 'ALL', label: 'Học kỳ' },
-                  { value: 'sem-2026-1', label: 'Học kỳ 1 năm 2026' },
-                  { value: 'sem-2025-2', label: 'Học kỳ 2 năm 2025' },
-                ]}
+                className="w-72"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl whitespace-nowrap"
+                menuClassName="whitespace-nowrap"
+                options={[{ value: 'ALL', label: 'Tất cả học kỳ' }, ...semesterOptions]}
               />
 
               {/* Subject Filter */}
@@ -65,12 +67,7 @@ export default function TeacherCoursesPage() {
                 onChange={setSelectedSubject}
                 className="w-52"
                 buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
-                options={[
-                  { value: 'ALL', label: 'Môn học' },
-                  { value: 'sub-01', label: 'Lập trình Java căn bản' },
-                  { value: 'sub-02', label: 'Cấu trúc dữ liệu' },
-                  { value: 'sub-03', label: 'Lập trình C++' },
-                ]}
+                options={[{ value: 'ALL', label: 'Môn học' }, ...uniqueOptions(courses, 'subjectId', 'subjectName')]}
               />
 
               <button
@@ -101,6 +98,12 @@ export default function TeacherCoursesPage() {
           </div>
 
           {/* Courses Grid */}
+          {loading && <p className="py-12 text-center text-sm text-slate-500">Đang tải lớp học phần...</p>}
+          {error && (
+            <div className="py-12 text-center text-sm text-rose-600">
+              <p>{error}</p><button type="button" className="mt-2 text-blue-600 underline" onClick={retry}>Thử lại</button>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredCourses.map((course) => (
               <div
@@ -149,4 +152,13 @@ export default function TeacherCoursesPage() {
       </div>
     </div>
   )
+}
+
+function uniqueOptions(
+  courses: Array<{ semesterId: string; semesterName: string; subjectId: string; subjectName: string }>,
+  valueKey: 'semesterId' | 'subjectId',
+  labelKey: 'semesterName' | 'subjectName',
+) {
+  return [...new Map(courses.map((course) => [course[valueKey], course[labelKey]])).entries()]
+    .map(([value, label]) => ({ value, label }))
 }

@@ -29,6 +29,7 @@ interface StudentSession {
   violationsCount: number
   lastViolation?: string
   integrityScore: number
+  extraTimeMinutes?: number
 }
 
 const MOCK_SESSIONS: StudentSession[] = [
@@ -123,14 +124,21 @@ export default function TeacherLiveProctorPage() {
   }
 
   const applyAction = () => {
-    if (!actionTarget || actionReason.trim().length < 5) return
+    if (!actionTarget || actionReason.trim().length < 3) return
     if (actionType === 'FORCE_SUBMIT') {
       setSessions((prev) =>
         prev.map((session) => (session.id === actionTarget.id ? { ...session, status: 'SUBMITTED' } : session)),
       )
       toast.success(`Đã buộc nộp bài của ${actionTarget.studentName}.`)
     } else {
-      toast.success(`Đã cộng ${extraMinutes} phút cho ${actionTarget.studentName}.`)
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === actionTarget.id
+            ? { ...session, extraTimeMinutes: (session.extraTimeMinutes ?? 0) + extraMinutes }
+            : session,
+        ),
+      )
+      toast.success(`Đã cộng ${extraMinutes} phút làm bài cho thí sinh ${actionTarget.studentName}.`)
     }
     setActionTarget(null)
   }
@@ -253,7 +261,14 @@ export default function TeacherLiveProctorPage() {
                     <tr key={session.id} className="transition-colors hover:bg-gray-50/60">
                       <td className="px-6 py-4 align-middle">
                         <div className="space-y-0.5">
-                          <p className="font-semibold text-gray-900">{session.studentName}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-gray-900">{session.studentName}</p>
+                            {Boolean(session.extraTimeMinutes) && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+                                +{session.extraTimeMinutes}p
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-blue-600">MSSV: {session.studentCode}</p>
                           <p className="text-xs text-gray-400">IP: {session.ipAddress}</p>
                         </div>
@@ -364,12 +379,85 @@ export default function TeacherLiveProctorPage() {
       {actionTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
-            <div className="border-b border-gray-100 p-5"><h2 className="text-lg font-bold text-gray-900">{actionType === 'ADD_TIME' ? 'Cộng Thêm Thời Gian' : 'Buộc Nộp Bài Ca Thi'}</h2><p className="mt-0.5 text-sm font-medium text-gray-500">{actionTarget.studentName} • {actionTarget.studentCode}</p></div>
-            <div className="space-y-3 p-5 text-xs">
-              {actionType === 'ADD_TIME' && <label className="block font-semibold text-gray-700">Số phút cộng thêm<input type="number" min={1} max={120} value={extraMinutes} onChange={(event) => setExtraMinutes(Number(event.target.value))} className="mt-1 w-full rounded-xl border border-gray-200 p-2.5 font-bold text-blue-600 focus:outline-none focus:border-blue-500" /></label>}
-              <label className="block font-semibold text-gray-700">Lý do điều chỉnh / Ghi chú sự cố<textarea rows={3} value={actionReason} onChange={(event) => setActionReason(event.target.value)} placeholder="Nhập lý do chi tiết..." className="mt-1 w-full rounded-xl border border-gray-200 p-2.5 focus:outline-none focus:border-blue-500" /></label>
+            <div className="border-b border-gray-100 p-5">
+              <h2 className="text-base font-bold text-gray-900">
+                {actionType === 'ADD_TIME' ? 'Cộng thêm thời gian làm bài' : 'Buộc nộp bài ca thi'}
+              </h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {actionTarget.studentName} • MSSV: {actionTarget.studentCode}
+              </p>
             </div>
-            <div className="flex justify-end gap-2 border-t border-gray-100 p-4"><button onClick={() => setActionTarget(null)} className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 transition-colors">Hủy bỏ</button><button disabled={actionReason.trim().length < 5 || (actionType === 'ADD_TIME' && extraMinutes < 1)} onClick={applyAction} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 shadow-xs transition-colors disabled:opacity-50">Xác nhận thực hiện</button></div>
+            <div className="space-y-4 p-5 text-xs">
+              {actionType === 'ADD_TIME' && (
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1.5">Chọn nhanh số phút bù giờ</label>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {[5, 10, 15, 30].map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => setExtraMinutes(mins)}
+                        className={`py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                          extraMinutes === mins
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        +{mins}p
+                      </button>
+                    ))}
+                  </div>
+                  <label className="block font-semibold text-gray-700">
+                    Số phút tùy chỉnh
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={extraMinutes}
+                      onChange={(e) => setExtraMinutes(Math.max(1, Number(e.target.value)))}
+                      className="mt-1 w-full rounded-xl border border-gray-200 p-2.5 font-bold text-blue-600 focus:outline-none focus:border-blue-500"
+                    />
+                  </label>
+                </div>
+              )}
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1.5">Lý do điều chỉnh / Ghi chú sự cố</label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {['Mất kết nối mạng', 'Sập nguồn / Khởi động lại máy', 'Lỗi thiết bị phòng thi'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setActionReason(preset)}
+                      className="px-2 py-1 text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  rows={2}
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                  placeholder="Nhập lý do sự cố..."
+                  className="w-full rounded-xl border border-gray-200 p-2.5 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
+              <button
+                onClick={() => setActionTarget(null)}
+                className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                disabled={actionReason.trim().length < 3 || (actionType === 'ADD_TIME' && extraMinutes < 1)}
+                onClick={applyAction}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 shadow-xs transition-colors disabled:opacity-50"
+              >
+                Xác nhận thực hiện
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,5 +1,8 @@
-import { Check, Code, Edit, X } from 'lucide-react'
+import { Check, Code, Edit, Eye, EyeOff, X } from 'lucide-react'
+import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../constants/programmingLanguages'
 import type { Exam, ExamSubmission } from '../../types/teacher-exam.types'
+import { examStatusLabel } from '../../constants/examStatus'
+import SubmissionAnswerList from './SubmissionAnswerList'
 
 export function ScoreOverrideModal({
   submission,
@@ -31,8 +34,8 @@ export function ScoreOverrideModal({
               <Edit size={16} />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-gray-900">Chấm Lại & Sửa Điểm Phúc Khảo</h3>
-              <p className="text-xs text-gray-500">Ghi đè điểm thi chính thức cho bài nộp của thí sinh</p>
+              <h3 className="text-xs font-bold text-gray-900">Chấm phúc khảo</h3>
+              <p className="text-xs text-gray-500">Điều chỉnh điểm chính thức cho bài nộp của thí sinh sau ca thi</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
@@ -48,14 +51,14 @@ export function ScoreOverrideModal({
               <span className="text-blue-600 block text-xs font-semibold">MSSV: {submission.studentCode}</span>
             </div>
             <div>
-              <span className="text-gray-400 text-xs block">Điểm tự động hiện tại:</span>
-              <span className="text-xs font-bold text-gray-900">{submission.autoScore} / {maxScore}đ</span>
+              <span className="text-gray-400 text-xs block">Điểm tự động:</span>
+              <span className="text-xs font-bold text-gray-900">{submission.autoScore ?? '-'} / {maxScore}đ</span>
               <span className="text-emerald-600 block text-xs font-medium">Nộp lúc {submission.submittedAt}</span>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block font-bold text-gray-700">Điểm chốt mới (Tối đa {maxScore}):</label>
+            <label className="block font-bold text-gray-700">Điểm phúc khảo (Tối đa {maxScore}):</label>
             <input
               type="number"
               step="0.1"
@@ -68,12 +71,12 @@ export function ScoreOverrideModal({
           </div>
 
           <div className="space-y-1.5">
-            <label className="block font-semibold text-gray-700">Lý do điều chỉnh điểm / Ghi chú phúc khảo:</label>
+            <label className="block font-semibold text-gray-700">Lý do phúc khảo / điều chỉnh điểm:</label>
             <textarea
               rows={2}
               value={overrideReason}
               onChange={(event) => onReasonChange(event.target.value)}
-              placeholder="Ví dụ: Chấm lại test case câu 2 do sai sót định dạng input..."
+              placeholder="Ví dụ: Điều chỉnh do sai sót định dạng output ở test case câu 2..."
               className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-2.5 focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -88,7 +91,7 @@ export function ScoreOverrideModal({
             disabled={overrideReason.trim().length < 5 || overrideScoreInput < 0 || overrideScoreInput > maxScore}
             className="px-5 py-2 bg-blue-600 text-white font-semibold text-xs rounded-xl hover:bg-blue-700 shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Lưu & Cập Nhật Điểm Chốt
+            Lưu điểm phúc khảo
           </button>
         </div>
       </div>
@@ -138,7 +141,7 @@ export function ExamPreviewModal({
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Xem trước đề thi</h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              {exam.title} • {exam.status === 'DRAFT' ? 'Bản nháp chưa công bố' : 'Đề đã khóa'}
+              {exam.title} • {examStatusLabel[exam.status]}
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
@@ -148,7 +151,7 @@ export function ExamPreviewModal({
 
         <div className="p-6 space-y-4 overflow-hidden flex flex-col min-h-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <PreviewStat label="Trạng thái" value={exam.status} />
+            <PreviewStat label="Trạng thái" value={examStatusLabel[exam.status]} />
             <PreviewStat label="Tổng câu" value={exam.questions.length} />
             <PreviewStat label="Thời lượng mặc định" value={`${exam.defaultDurationMinutes} phút`} />
             <PreviewStat label="Tổng điểm" value={`${exam.totalPoints} điểm`} />
@@ -162,48 +165,136 @@ export function ExamPreviewModal({
               {exam.questions
                 .slice()
                 .sort((a, b) => a.order - b.order)
-                .map((item) => (
-                  <div key={`${exam.id}-${item.questionId}-${item.order}`} className="p-4 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-blue-600">Câu {item.order}</span>
-                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-xs font-medium">
-                        {item.question.type === 'PROGRAMMING' ? 'Lập trình' : 'Trắc nghiệm'}
-                      </span>
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
-                        {item.points} điểm
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-800 font-medium leading-relaxed">
-                      {item.question.content}
-                    </p>
-                    {item.question.options && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
-                        {item.question.options.map((option) => (
-                          <div
-                            key={option.id}
-                            className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
-                              option.isCorrect
-                                ? 'bg-emerald-50 border-emerald-100 text-emerald-800 font-semibold'
-                                : 'bg-gray-50 border-gray-100 text-gray-600'
-                            }`}
-                          >
-                            {option.isCorrect && <Check size={13} className="shrink-0" />}
-                            <span>{option.content}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {item.question.explanation && (
-                      <p className="text-xs text-gray-500 pt-1">
-                        Giải thích: {item.question.explanation}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                .map((item) => <ExamPreviewQuestion key={`${exam.id}-${item.questionId}-${item.order}`} item={item} />)}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function ExamPreviewQuestion({ item }: { item: Exam['questions'][number] }) {
+  const question = item.question
+  const isProgramming = question.type === 'PROGRAMMING'
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold text-blue-600">Câu {item.order}</span>
+        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-xs font-medium">
+          {isProgramming ? 'Lập trình' : 'Trắc nghiệm'}
+        </span>
+        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
+          {item.points} điểm
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-semibold leading-6 text-gray-950">{question.title}</h4>
+        {isProgramming && (
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase text-gray-400">Mô tả bài toán</p>
+            <p className="whitespace-pre-wrap rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs font-medium leading-6 text-gray-800">
+              {question.content}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {question.options && question.options.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {question.options.map((option) => (
+            <div
+              key={option.id}
+              className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
+                option.isCorrect
+                  ? 'bg-emerald-50 border-emerald-100 text-emerald-800 font-semibold'
+                  : 'bg-gray-50 border-gray-100 text-gray-600'
+              }`}
+            >
+              {option.isCorrect && <Check size={13} className="shrink-0" />}
+              <span>{option.content}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isProgramming && (
+        <div className="rounded-xl border border-gray-100 bg-white p-3 space-y-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+              <Code size={14} /> {question.programmingLanguage ? PROGRAMMING_LANGUAGE_LABELS[question.programmingLanguage] : 'Chưa chọn compiler'}
+            </span>
+            <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+              <PreviewConfigPill label="Thời gian" value={`${question.timeLimitMs ?? 1000}ms`} />
+              <PreviewConfigPill label="Bộ nhớ" value={`${question.memoryLimitMb ?? 128}MB`} />
+              <PreviewConfigPill label="Mã nguồn" value={`${question.maxCodeSizeKb ?? 64}KB`} />
+            </div>
+          </div>
+
+          {question.testCases?.length ? (
+            <div className="space-y-2">
+              {question.testCases.map((testCase, index) => (
+                <div key={testCase.id} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-blue-700">Test case #{index + 1}</span>
+                    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold ${
+                      testCase.isHidden
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    }`}>
+                      {testCase.isHidden ? <EyeOff size={12} /> : <Eye size={12} />}
+                      {testCase.isHidden ? 'Test ẩn' : 'Công khai'}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 font-mono text-xs md:grid-cols-2">
+                    <PreviewCodeBlock label="Input" value={testCase.input} />
+                    <PreviewCodeBlock label="Output kỳ vọng" value={testCase.expectedOutput} tone="success" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-500">
+              Chưa có test case cho câu lập trình này.
+            </div>
+          )}
+        </div>
+      )}
+
+      {question.explanation && (
+        <p className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-6 text-blue-800">
+          <span className="font-semibold">Giải thích:</span> {question.explanation}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function PreviewConfigPill({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 font-medium">
+      {label}: <strong className="text-gray-900">{value}</strong>
+    </span>
+  )
+}
+
+function PreviewCodeBlock({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone?: 'success'
+}) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-white p-2">
+      <span className="block text-[11px] font-sans font-semibold text-gray-400">{label}</span>
+      <pre className={`mt-1 whitespace-pre-wrap break-words ${tone === 'success' ? 'text-emerald-700' : 'text-gray-800'}`}>
+        {value || '-'}
+      </pre>
     </div>
   )
 }
@@ -220,8 +311,6 @@ export function StudentSubmissionReviewModal({
   onEditScore: (submission: ExamSubmission) => void
 }) {
   if (!submission) return null
-
-  const orderedQuestions = exam.questions.slice().sort((a, b) => a.order - b.order)
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -240,11 +329,21 @@ export function StudentSubmissionReviewModal({
 
         <div className="p-6 space-y-4 overflow-hidden flex flex-col min-h-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <PreviewStat label="Chấm tự động" value={`${submission.autoScore}đ`} />
-            <PreviewStat label="Ghi đè thủ công" value={submission.manualScoreOverride !== undefined ? `${submission.manualScoreOverride}đ` : '-'} />
-            <PreviewStat label="Điểm chốt" value={`${submission.finalScore}đ`} />
+            <PreviewStat label="Chấm tự động" value={submission.autoScore === null ? '-' : `${submission.autoScore}đ`} />
+            <PreviewStat label="Điểm phúc khảo" value={submission.manualScoreOverride != null ? `${submission.manualScoreOverride}đ` : '-'} />
+            <PreviewStat label="Điểm chốt" value={submission.finalScore === null ? '-' : `${submission.finalScore}đ`} />
             <PreviewStat label="Trạng thái" value={submission.status} />
           </div>
+
+          {!!submission.sectionScores?.length && (
+            <div className="flex flex-wrap gap-2">
+              {submission.sectionScores.map((section) => (
+                <span key={section.id} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                  {section.title}: <strong>{section.score}/{section.maxScore}đ</strong>
+                </span>
+              ))}
+            </div>
+          )}
 
           {(submission.regradeRequest || submission.scoreAdjustments?.length) && (
             <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-900">
@@ -272,72 +371,11 @@ export function StudentSubmissionReviewModal({
                 onClick={() => onEditScore(submission)}
                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors"
               >
-                <Edit size={14} /> Chấm lại
+                <Edit size={14} /> Chấm phúc khảo
               </button>
             </div>
 
-            <div className="divide-y divide-gray-100 overflow-y-auto flex-1">
-              {orderedQuestions.map((item, index) => {
-                const answer = submission.answers?.find((candidate) => candidate.questionId === item.questionId)
-                const selectedOptionIds = answer?.selectedOptionIds ?? []
-                const codingResults = submission.codingResults?.filter(
-                  (result) => result.questionId === item.questionId,
-                ) ?? []
-                const passedTests = codingResults.filter((result) => result.passed).length
-
-                return (
-                  <div key={`${submission.id}-${item.questionId}-${index}`} className="p-4 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-blue-600">Câu {index + 1}</span>
-                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-xs font-medium">
-                        {item.question.type === 'PROGRAMMING' ? 'Lập trình' : 'Trắc nghiệm'}
-                      </span>
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
-                        {item.points} điểm
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-900 font-medium leading-relaxed">{item.question.content}</p>
-
-                    {item.question.options && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {item.question.options.map((option) => {
-                          const isSelected = selectedOptionIds.includes(option.id)
-                          return (
-                            <div
-                              key={option.id}
-                              className={`rounded-lg border px-2.5 py-1.5 text-xs flex items-center gap-2 ${
-                                option.isCorrect
-                                  ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
-                                  : isSelected
-                                  ? 'bg-rose-50 border-rose-100 text-rose-700'
-                                  : 'bg-gray-50 border-gray-100 text-gray-600'
-                              }`}
-                            >
-                              {isSelected && <Check size={13} className="shrink-0" />}
-                              <span>{option.content}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {item.question.type === 'PROGRAMMING' && (
-                      <div className="rounded-lg bg-gray-50 border border-gray-100 p-3 text-xs space-y-2">
-                        <pre className="overflow-x-auto rounded-lg bg-gray-900 p-3 text-gray-100">{answer?.sourceCode || 'Sinh viên không nộp mã nguồn.'}</pre>
-                        <p className="font-medium text-gray-900 flex items-center gap-1">
-                          <Code size={13} className="text-blue-600" /> Kết quả chạy test
-                        </p>
-                        <p className="text-gray-600">
-                          {codingResults.length
-                            ? `${passedTests}/${codingResults.length} test case đạt`
-                            : 'Chưa có dữ liệu test case mẫu trong mock.'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+            <SubmissionAnswerList exam={exam} submission={submission} />
           </div>
         </div>
       </div>

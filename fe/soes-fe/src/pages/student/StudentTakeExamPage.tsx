@@ -27,17 +27,17 @@ import {
 } from './utils/exam-webcam'
 
 export default function StudentTakeExamPage() {
-  const { courseOfferingId, examId } = useParams<{
+  const { courseOfferingId, scheduleId } = useParams<{
     courseOfferingId: string
-    examId: string
+    scheduleId: string
   }>()
   const navigate = useNavigate()
   const location = useLocation()
-  
+
   const attemptId = location.state?.attemptId
 
-  const resultPath = `/student/course-offerings/${courseOfferingId}/exams/${examId}/result`
-  
+  const resultPath = `/student/course-offerings/${courseOfferingId}/exam-schedules/${scheduleId}/result`
+
   const [isQuestionNavigatorOpen, setIsQuestionNavigatorOpen] = useState(false)
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -45,7 +45,7 @@ export default function StudentTakeExamPage() {
   const [runCodeError, setRunCodeError] = useState<string | null>(null)
   const [runCodeErrorQuestionId, setRunCodeErrorQuestionId] = useState<string | null>(null)
 
-  const { data: session, isLoading, error } = useGetExamAttempt(examId ?? '', attemptId, !!examId && !!attemptId)
+  const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId)
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
   const {
     stream: webcamStream,
@@ -105,7 +105,7 @@ export default function StudentTakeExamPage() {
     saveAnswersToServer,
     markSubmitted,
   } = useTakeExam({
-    examId: examId ?? '',
+    scheduleId: scheduleId ?? '',
     attemptId: attemptId ?? '',
     session: session ?? null,
     answers,
@@ -156,17 +156,17 @@ export default function StudentTakeExamPage() {
 
   const handleRunCode = useCallback(
     (sourceCode: string) => {
-      if (!examId || !attemptId || !currentQuestion || phase !== 'IN_PROGRESS') return
+      if (!scheduleId || !attemptId || !currentQuestion || phase !== 'IN_PROGRESS') return
       setRunCodeError(null)
       setRunCodeErrorQuestionId(currentQuestion.id)
       setRunCodeResult(null)
-      runCodeApi({ examId, attemptId, questionId: currentQuestion.id, sourceCode })
+      runCodeApi({ scheduleId, attemptId, questionId: currentQuestion.id, sourceCode })
         .then(setRunCodeResult)
         .catch(() => {
           setRunCodeError('Không thể chạy mã nguồn. Vui lòng thử lại.')
         })
     },
-    [attemptId, currentQuestion, examId, phase, runCodeApi],
+    [attemptId, currentQuestion, phase, runCodeApi, scheduleId],
   )
 
   const handleSave = useCallback(() => {
@@ -199,7 +199,7 @@ export default function StudentTakeExamPage() {
     [goToQuestion],
   )
 
-  if (!examId || !attemptId) {
+  if (!scheduleId || !attemptId) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 px-6 text-sm text-slate-500">
         Thiếu thông tin bài thi hoặc chưa bắt đầu làm bài.

@@ -21,24 +21,27 @@ export function AdminStatusBadge({ status }: { status: AdminStatus | CourseOffer
     SCHEDULED: 'Đã lên lịch',
     CANCELLED: 'Đã hủy',
   }
-  const tone: BadgeTone = status === 'ACTIVE' || status === 'OPEN' || status === 'SCHEDULED'
+  const tone: BadgeTone = status === 'ACTIVE' || status === 'OPEN'
     ? 'emerald'
-    : status === 'INACTIVE' || status === 'DRAFT'
-      ? 'amber'
-      : status === 'LOCKED' || status === 'CANCELLED'
-        ? 'rose'
-        : 'gray'
+    : status === 'SCHEDULED'
+      ? 'blue'
+      : status === 'INACTIVE' || status === 'DRAFT'
+        ? 'amber'
+        : status === 'LOCKED' || status === 'CANCELLED'
+          ? 'rose'
+          : 'gray'
 
   return <AppBadge tone={tone}>{label[status] ?? status}</AppBadge>
 }
 
-export function ExamStatusBadge({ status }: { status: AdminExam['status'] }) {
+export function ExamStatusBadge({ status, category }: { status: AdminExam['status']; category?: AdminExam['category'] }) {
   const label: Record<AdminExam['status'], string> = {
     DRAFT: 'Nháp',
     PENDING_APPROVAL: 'Chờ Trưởng bộ môn',
-    APPROVED: 'Sẵn sàng',
+    APPROVED: category === 'FINAL' ? 'Đã duyệt' : 'Đã công bố',
     REJECTED: 'Bị từ chối',
-    LOCKED: 'Đã khóa',
+    LOCKED: 'Đã chốt lịch thi',
+    ARCHIVED: 'Đã lưu trữ',
   }
   const tone: BadgeTone = status === 'APPROVED'
     ? 'emerald'
@@ -46,7 +49,9 @@ export function ExamStatusBadge({ status }: { status: AdminExam['status'] }) {
       ? 'amber'
       : status === 'REJECTED'
         ? 'rose'
-        : 'gray'
+        : status === 'LOCKED'
+          ? 'blue'
+          : 'gray'
 
   return <AppBadge tone={tone}>{label[status]}</AppBadge>
 }

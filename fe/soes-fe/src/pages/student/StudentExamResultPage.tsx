@@ -6,23 +6,34 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { useGetExamAttemptStatus } from './hooks/take-exam/useTakeExamApi'
+import { useGetExamAttemptResult, useGetExamAttemptStatus } from './hooks/take-exam/useTakeExamApi'
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
+import ExamScorePanel from './components/exam-result/ExamScorePanel'
+import {
+  getAttemptEndedByLabel,
+  getAttemptStatusLabel,
+  isCompletedAttemptStatus,
+} from './utils/attemptStatus'
 
 export default function StudentExamResultPage() {
-  const { courseOfferingId, examId } = useParams<{
+  const { courseOfferingId, scheduleId } = useParams<{
     courseOfferingId: string
-    examId: string
+    scheduleId: string
   }>()
   const navigate = useNavigate()
   const location = useLocation()
   const attemptId: string | undefined = location.state?.attemptId
 
   const { data: status, isLoading, error } = useGetExamAttemptStatus(
-    examId ?? '',
+    scheduleId ?? '',
     attemptId ?? '',
-    !!examId && !!attemptId,
+    !!scheduleId && !!attemptId,
+  )
+  const { data: result } = useGetExamAttemptResult(
+    scheduleId ?? '',
+    attemptId ?? '',
+    !!scheduleId && !!attemptId,
   )
 
   function handleBack() {
@@ -35,8 +46,11 @@ export default function StudentExamResultPage() {
     }
   }
 
+  const isCompleted = status ? isCompletedAttemptStatus(status.status) : false
   const isSubmitted = status?.status === 'SUBMITTED'
-  const isExpired = status?.status === 'EXPIRED'
+  const isExpired = status?.status === 'EXPIRED' || status?.status === 'AUTO_SUBMITTED'
+  const isGraded = status?.status === 'GRADED' || status?.status === 'PUBLISHED'
+  const isGrading = status?.status === 'GRADING'
 
   function formatDateTime(iso: string | null | undefined) {
     if (!iso) return '—'
@@ -100,6 +114,7 @@ export default function StudentExamResultPage() {
           {/* Result Content */}
           {status && (
             <>
+              {result && <ExamScorePanel result={result} />}
               {/* Banner Header */}
               <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -112,21 +127,32 @@ export default function StudentExamResultPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {isSubmitted && (
+                  {isGraded && (
+                    <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                      <CheckCircle2 size={13} />
+                      {getAttemptStatusLabel(status.status)}
+                    </span>
+                  )}
+                  {!isGraded && isGrading && (
+                    <span className="px-3 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                      {getAttemptStatusLabel(status.status)}
+                    </span>
+                  )}
+                  {!isGraded && !isGrading && isSubmitted && (
                     <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
                       <CheckCircle2 size={13} />
                       Đã nộp bài
                     </span>
                   )}
-                  {isExpired && (
+                  {!isGraded && !isGrading && isExpired && (
                     <span className="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1.5">
                       <Clock size={13} />
-                      Hết thời gian
+                      {getAttemptStatusLabel(status.status)}
                     </span>
                   )}
-                  {!isSubmitted && !isExpired && (
+                  {!isGraded && !isGrading && !isSubmitted && !isExpired && (
                     <span className="px-3 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                      {status.status}
+                      {getAttemptStatusLabel(status.status)}
                     </span>
                   )}
                 </div>
@@ -137,10 +163,10 @@ export default function StudentExamResultPage() {
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-2">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Trạng thái</span>
                   <p className="text-lg font-bold text-gray-900">
-                    {isSubmitted ? 'Đã nộp bài' : isExpired ? 'Hết thời gian' : status.status}
+                    {getAttemptStatusLabel(status.status)}
                   </p>
                   <span className="text-[11px] text-gray-400">
-                    {status.endedBy ? `Kết thúc bởi: ${status.endedBy}` : '—'}
+                    {status.endedBy ? `Kết thúc bởi: ${getAttemptEndedByLabel(status.endedBy)}` : '—'}
                   </span>
                 </div>
 
@@ -192,11 +218,11 @@ export default function StudentExamResultPage() {
                     </div>
                     <div className="flex justify-between border-b border-dashed border-gray-100 pb-2">
                       <span className="text-gray-500">Trạng thái</span>
-                      <span className="font-semibold">{status.status}</span>
+                      <span className="font-semibold">{getAttemptStatusLabel(status.status)}</span>
                     </div>
                     <div className="flex justify-between border-b border-dashed border-gray-100 pb-2">
                       <span className="text-gray-500">Kết thúc bởi</span>
-                      <span className="font-semibold">{status.endedBy ?? '—'}</span>
+                      <span className="font-semibold">{getAttemptEndedByLabel(status.endedBy)}</span>
                     </div>
                   </div>
 
@@ -216,15 +242,17 @@ export default function StudentExamResultPage() {
                   </div>
                 </div>
 
-                {!isSubmitted && !isExpired && (
+                {!isCompleted && !isExpired && (
                   <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
                     Bài thi chưa được nộp hoàn chỉnh. Kết quả điểm số sẽ được công bố sau khi giáo viên chấm bài.
                   </div>
                 )}
 
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800">
-                  Điểm chi tiết từng câu sẽ được hiển thị sau khi giáo viên công bố kết quả.
-                </div>
+                {result?.available && result.reviewPolicy === 'NONE' && (
+                  <div className="mt-3 p-3 bg-gray-50 border border-gray-100 rounded-lg text-xs text-gray-600">
+                    Ca thi chỉ công bố điểm, không cho phép xem lại bài làm.
+                  </div>
+                )}
               </div>
             </>
           )}

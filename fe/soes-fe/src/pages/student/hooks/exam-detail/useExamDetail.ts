@@ -8,7 +8,7 @@ interface ExamDetailState {
   error: string | null
 }
 
-export function useExamDetail(courseOfferingId: string, examId: string) {
+export function useExamDetail(courseOfferingId: string, scheduleId: string) {
   const [state, setState] = useState<ExamDetailState>({
     data: null,
     isLoading: true,
@@ -18,12 +18,12 @@ export function useExamDetail(courseOfferingId: string, examId: string) {
   const fetchRef = useRef(0)
 
   function fetch() {
-    if (!courseOfferingId || !examId) return
+    if (!courseOfferingId || !scheduleId) return
 
     const callId = ++fetchRef.current
     setState({ data: null, isLoading: true, error: null })
 
-    getExamDetail(courseOfferingId, examId)
+    getExamDetail(courseOfferingId, scheduleId)
       .then((data) => {
         if (callId !== fetchRef.current) return
         setState({ data, isLoading: false, error: null })
@@ -37,7 +37,7 @@ export function useExamDetail(courseOfferingId: string, examId: string) {
   useEffect(() => {
     fetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseOfferingId, examId])
+  }, [courseOfferingId, scheduleId])
 
   return { ...state, refetch: fetch }
 }

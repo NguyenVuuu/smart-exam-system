@@ -27,6 +27,8 @@ export default function CourseProctorPicker({
   onToggleCourse,
   onChangeProctors,
 }: CourseProctorPickerProps) {
+  const assignedTeacherIds = new Set(Object.values(proctorsByCourse).flat())
+
   return (
     <div className="mt-6 border-t border-gray-100 pt-5">
       <div className="flex items-start justify-between gap-4">
@@ -53,6 +55,7 @@ export default function CourseProctorPicker({
                 selected={selectedCourseIds.includes(course.id)}
                 proctorIds={proctorsByCourse[course.id] ?? []}
                 teachers={teachers}
+                assignedTeacherIds={assignedTeacherIds}
                 issue={getAssignmentIssue(course.id)}
                 getTeacherUnavailableReason={(teacher) => getTeacherUnavailableReason(course.id, teacher)}
                 onToggle={() => onToggleCourse(course.id)}
@@ -104,6 +107,7 @@ function CourseProctorRow({
   selected,
   proctorIds,
   teachers,
+  assignedTeacherIds,
   issue,
   getTeacherUnavailableReason,
   onToggle,
@@ -113,6 +117,7 @@ function CourseProctorRow({
   selected: boolean
   proctorIds: string[]
   teachers: AdminUser[]
+  assignedTeacherIds: Set<string>
   issue: string | null
   getTeacherUnavailableReason: (teacher: AdminUser) => string | null
   onToggle: () => void
@@ -139,6 +144,7 @@ function CourseProctorRow({
         <ProctorMultiSelect
           selectedIds={proctorIds}
           teachers={teachers}
+          assignedTeacherIds={assignedTeacherIds}
           disabled={!selected}
           getTeacherUnavailableReason={getTeacherUnavailableReason}
           onChange={onChangeProctors}
@@ -157,36 +163,36 @@ function CourseProctorRow({
 function ProctorMultiSelect({
   selectedIds,
   teachers,
+  assignedTeacherIds,
   disabled,
   getTeacherUnavailableReason,
   onChange,
 }: {
   selectedIds: string[]
   teachers: AdminUser[]
+  assignedTeacherIds: Set<string>
   disabled: boolean
   getTeacherUnavailableReason: (teacher: AdminUser) => string | null
   onChange: (teacherIds: string[]) => void
 }) {
-  const availableTeachers = teachers.filter((teacher) => !selectedIds.includes(teacher.id))
+  const availableTeachers = teachers.filter((teacher) => !assignedTeacherIds.has(teacher.id))
+  const emptyOptionLabel = disabled
+    ? 'Chọn lớp trước'
+    : 'Đã phân công hết giảng viên khả dụng'
 
   return (
     <div className="space-y-2">
       <AdminSelect
         value=""
         disabled={disabled || availableTeachers.length === 0}
+        placeholder="Thêm giảng viên coi thi"
         onChange={(teacherId) => {
           if (teacherId) onChange([...selectedIds, teacherId])
         }}
-        options={[
-          {
-            value: '',
-            label: disabled
-              ? 'Chọn lớp trước'
-              : availableTeachers.length === 0
-                ? 'Đã chọn tất cả giảng viên'
-                : 'Thêm giảng viên coi thi',
-          },
-          ...availableTeachers.map((teacher) => {
+        options={
+          availableTeachers.length === 0
+            ? [{ value: '', label: emptyOptionLabel, disabled: true }]
+            : availableTeachers.map((teacher) => {
             const unavailableReason = getTeacherUnavailableReason(teacher)
             return {
               value: teacher.id,
@@ -202,8 +208,8 @@ function ProctorMultiSelect({
                 </span>
               ),
             }
-          }),
-        ]}
+          })
+        }
       />
 
       {selectedIds.length > 0 && (
