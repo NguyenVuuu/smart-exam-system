@@ -43,10 +43,17 @@ export default function CodeQuestion({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <label htmlFor={editorId} className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-          <Code2 size={15} className="text-purple-600" aria-hidden="true" />
-          Mã nguồn trả lời
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor={editorId} className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <Code2 size={15} className="text-purple-600" aria-hidden="true" />
+            Mã nguồn trả lời
+          </label>
+          {question.programmingConfig && (
+            <span className="text-xs text-slate-500">
+              {question.programmingConfig.timeLimitMs} ms · {question.programmingConfig.memoryLimitMb} MB · tối đa {question.programmingConfig.maxCodeSizeKb} KB
+            </span>
+          )}
+        </div>
 
         <button
           type="button"

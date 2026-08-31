@@ -11,6 +11,7 @@ export const questionBankQuerySchema = contentQuerySchema.extend({
   status: z.enum(['APPROVED', 'REMOVED']).optional(),
 })
 export const examTrackingQuerySchema = contentQuerySchema.extend({
+  semesterId: id.optional(),
   type: z.enum(['QUIZ', 'MIDTERM', 'FINAL']).optional(),
   status: z.enum(['DRAFT', 'READY', 'LOCKED', 'ARCHIVED']).optional(),
   approvalStatus: z.enum(['NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED']).optional(),

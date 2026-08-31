@@ -1,12 +1,8 @@
-import type {
-  Prisma,
-  ProgrammingLanguage,
-  QuestionDifficulty,
-  QuestionType,
-} from '@prisma/client'
+import type { Prisma, ProgrammingLanguage, QuestionDifficulty, QuestionType } from '@prisma/client'
 
 export interface SnapshotSource {
   id: string
+  title: string
   content: string
   explanation: string | null
   type: QuestionType
@@ -17,7 +13,6 @@ export interface SnapshotSource {
   programmingTests: Array<{
     input: string
     expectedOutput: string
-    weight: Prisma.Decimal
     isSample: boolean
     isHidden: boolean
   }>
@@ -49,6 +44,7 @@ export function createExamQuestion(tx: Prisma.TransactionClient, examId: string,
       orderIndex: input.orderIndex,
       points: input.points,
       sectionId: input.sectionId,
+      title: source.title,
       content: source.content,
       explanation: source.explanation,
       type: source.type,
@@ -71,10 +67,9 @@ export function createExamQuestion(tx: Prisma.TransactionClient, examId: string,
         },
       }),
       programmingTests: {
-        create: source.programmingTests.map(({ input, expectedOutput, weight, isSample, isHidden }) => ({
+        create: source.programmingTests.map(({ input, expectedOutput, isSample, isHidden }) => ({
           input,
           expectedOutput,
-          weight,
           isSample,
           isHidden,
         })),

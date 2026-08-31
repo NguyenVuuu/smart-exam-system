@@ -35,6 +35,14 @@ export interface CourseOfferingApiDto {
   scheduleCount: number
 }
 
+export interface CourseEnrollmentApiDto {
+  id: string
+  code: string
+  fullName: string
+  email: string | null
+  enrolledAt: string
+}
+
 export interface UserApiDto {
   id: string; profileId: string; code: string; fullName: string; role: 'ADMIN' | 'TEACHER' | 'STUDENT'
   email: string | null; phoneNumber: string | null; status: string; position: string | null
@@ -67,6 +75,7 @@ export interface ReadyFinalExamApiDto {
   id: string; title: string; totalPoints: string | number; defaultDurationMinutes: number; format: string
   createdBy: { user: { fullName: string } }
   subject: { id: string; code: string; name: string; departmentId: string }
+  semester: { id: string; code: string; name: string }
   _count: { examQuestions: number }
 }
 
@@ -94,14 +103,14 @@ export interface SchedulePayload {
 }
 
 export interface AdminQuestionBankApiDto {
-  id: string; content: string; explanation: string | null; type: SharedQuestionType; difficulty: QuestionDifficulty
+  id: string; title: string; content: string; explanation: string | null; type: SharedQuestionType; difficulty: QuestionDifficulty
   subject: { id: string; code: string; name: string; departmentId: string }
   contributor: { id: string; fullName: string }; reviewer: { id: string; fullName: string } | null
   status: 'APPROVED' | 'REMOVED'; reviewedAt: string | null
   removedAt: string | null; removedBy: string | null; removalReason: string | null
   options: Array<{ id: string; content: string; isCorrect: boolean }>
   programmingConfig: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number } | null
-  testCases: Array<{ id: string; input: string; expectedOutput: string; weight: number; isHidden: boolean }>
+  testCases: Array<{ id: string; input: string; expectedOutput: string; isHidden: boolean }>
 }
 
 type SharedQuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'PROGRAMMING'
@@ -112,6 +121,7 @@ export interface AdminExamTrackingApiDto {
   format: 'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'; status: string; approvalStatus: string
   totalPoints: number; durationMinutes: number
   subject: { id: string; code: string; name: string; departmentId: string }
+  semester: { id: string; code: string; name: string; status: 'UPCOMING' | 'ACTIVE' | 'CLOSED' }
   creator: { id: string; fullName: string }; reviewer: { id: string; fullName: string } | null
   questionCount: number; scheduleCount: number; createdAt: string; updatedAt: string
 }

@@ -26,10 +26,10 @@ export function ExamSummary({
   return (
     <aside className="w-full xl:w-[360px] space-y-4 h-fit xl:sticky xl:top-6 font-sans">
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase text-blue-600 tracking-wide">{examTypeLabel[examType]}</p>
-          <h2 className="text-xs font-bold text-gray-900 mt-1 leading-snug">{title}</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <h2 className="mt-1 truncate text-xs font-bold text-gray-900" title={title}>{title}</h2>
+          <p className="mt-0.5 truncate text-xs text-gray-500" title={`${selectedSubject.subjectCode} • ${selectedSubject.subjectName}`}>
             {selectedSubject.subjectCode} • {selectedSubject.subjectName}
           </p>
         </div>

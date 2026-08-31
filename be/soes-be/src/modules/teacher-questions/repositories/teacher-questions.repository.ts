@@ -33,7 +33,10 @@ function questionFilters(query: QuestionsQuery): Prisma.QuestionWhereInput {
     ...(query.subjectId && { subjectId: query.subjectId }),
     ...(query.type && { type: query.type }),
     ...(query.difficulty && { difficulty: query.difficulty }),
-    ...(query.keyword && { content: { contains: query.keyword, mode: 'insensitive' } }),
+    ...(query.keyword && { OR: [
+      { title: { contains: query.keyword, mode: 'insensitive' } },
+      { content: { contains: query.keyword, mode: 'insensitive' } },
+    ] }),
   }
 }
 
@@ -84,7 +87,9 @@ export function createQuestion(ownerId: string, data: QuestionBody) {
         programmingConfig: { create: {
           timeLimitMs, memoryLimitKb: memoryLimitMb && memoryLimitMb * 1024, maxCodeSizeKb,
         } },
-        programmingTests: { create: testCases.map((test, index) => ({ ...test, isSample: !test.isHidden, orderIndex: index + 1 })) },
+        programmingTests: { create: testCases.map((test, index) => ({
+          ...test, isSample: !test.isHidden, orderIndex: index + 1,
+        })) },
       }),
     },
     include: questionInclude,
@@ -109,7 +114,9 @@ export function updateQuestion(id: string, ownerId: string, expectedUpdatedAt: D
           programmingConfig: { create: {
             timeLimitMs, memoryLimitKb: memoryLimitMb && memoryLimitMb * 1024, maxCodeSizeKb,
           } },
-          programmingTests: { create: testCases.map((test, index) => ({ ...test, isSample: !test.isHidden, orderIndex: index + 1 })) },
+          programmingTests: { create: testCases.map((test, index) => ({
+            ...test, isSample: !test.isHidden, orderIndex: index + 1,
+          })) },
         }),
       }, include: questionInclude,
     })
@@ -166,7 +173,10 @@ export function listApprovals(departmentId: string, query: ApprovalQuery) {
     question: {
       subject: { departmentId },
       ...(query.subjectId && { subjectId: query.subjectId }),
-      ...(query.keyword && { content: { contains: query.keyword, mode: 'insensitive' } }),
+      ...(query.keyword && { OR: [
+        { title: { contains: query.keyword, mode: 'insensitive' } },
+        { content: { contains: query.keyword, mode: 'insensitive' } },
+      ] }),
     },
   }
   return Promise.all([

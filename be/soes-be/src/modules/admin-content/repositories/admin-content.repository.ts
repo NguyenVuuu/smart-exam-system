@@ -16,6 +16,7 @@ export const bankInclude = {
 
 export const trackedExamInclude = {
   subject: { select: { id: true, code: true, name: true, departmentId: true } },
+  semester: { select: { id: true, code: true, name: true, status: true } },
   createdBy: { select: { id: true, user: { select: { fullName: true } } } },
   reviewedBy: { select: { id: true, user: { select: { fullName: true } } } },
   _count: { select: { examQuestions: true, schedules: true } },
@@ -34,6 +35,7 @@ export function listBank(query: QuestionBankQuery) {
       ...(query.subjectId && { subjectId: query.subjectId }),
       ...(query.departmentId && { subject: { departmentId: query.departmentId } }),
       ...(query.keyword && { OR: [
+        { title: { contains: query.keyword, mode: 'insensitive' } },
         { content: { contains: query.keyword, mode: 'insensitive' } },
         { owner: { user: { fullName: { contains: query.keyword, mode: 'insensitive' } } } },
         { subject: { name: { contains: query.keyword, mode: 'insensitive' } } },
@@ -58,6 +60,7 @@ export function listExams(query: ExamTrackingQuery) {
     ...(query.type && { type: query.type }), ...(query.status && { status: query.status }),
     ...(query.approvalStatus && { approvalStatus: query.approvalStatus }),
     ...(query.subjectId && { subjectId: query.subjectId }),
+    ...(query.semesterId && { semesterId: query.semesterId }),
     ...(query.departmentId && { subject: { departmentId: query.departmentId } }),
     ...(query.keyword && { OR: [
       { title: { contains: query.keyword, mode: 'insensitive' } },

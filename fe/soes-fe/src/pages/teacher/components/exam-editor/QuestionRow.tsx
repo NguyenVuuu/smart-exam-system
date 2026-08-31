@@ -41,7 +41,7 @@ export function QuestionRow({
             {index + 1}
           </div>
           <p className="min-w-0 flex-1 text-xs font-semibold text-gray-900 truncate">
-            {item.question.content}
+            {item.question.title || item.question.content}
           </p>
           <span className="shrink-0 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-700">
             {item.points} điểm
@@ -81,7 +81,7 @@ export function QuestionRow({
                 </span>
               </div>
               <p className="text-xs font-semibold text-gray-900 leading-relaxed">
-                {item.question.content}
+                {item.question.title || item.question.content}
               </p>
               <QuestionAnswerPreview question={item.question} />
             </div>

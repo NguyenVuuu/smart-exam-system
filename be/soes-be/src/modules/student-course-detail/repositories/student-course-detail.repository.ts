@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma'
+import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
 import { MemberRole } from '../types/student-course-detail.types'
 import { NotFoundError } from '../../../errors/AppError'
 import { PostStatus, AttemptStatus } from '@prisma/client'
@@ -431,10 +432,7 @@ export class StudentCourseDetailRepository {
         studentId,
         totalScore: { not: null },
         status: { in: ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
-        OR: [
-          { examSchedule: { resultReleaseMode: 'IMMEDIATE' } },
-          { examSchedule: { resultsPublishedAt: { not: null } } },
-        ],
+        examSchedule: releasedResultScheduleWhere(),
       },
       select: {
         totalScore: true,

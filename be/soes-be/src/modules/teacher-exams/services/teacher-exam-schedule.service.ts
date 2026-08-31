@@ -18,6 +18,7 @@ async function toWriteInput(
   teacherId: string,
   examId: string,
   title: string,
+  courseCode: string,
   data: TeacherExamScheduleBody,
   preservePassword = false,
 ): Promise<ScheduleWriteInput> {
@@ -27,7 +28,7 @@ async function toWriteInput(
       ? undefined
       : null;
   return {
-    title: `${title} - ${data.courseOfferingId}`,
+    title: `${courseCode} - ${title}`,
     examId,
     startTime: data.startTime,
     endTime: data.endTime,
@@ -72,11 +73,11 @@ async function context(
     );
   if (exam.status !== "READY" || !exam._count.examQuestions)
     throw new ValidationError("Exam must be ready and contain questions");
-  if (!course || course.subjectId !== exam.subjectId)
+  if (!course || course.subjectId !== exam.subjectId || course.semesterId !== exam.semesterId)
     throw new ValidationError(
-      "Course offering is unavailable or belongs to another subject",
+      "Course offering is unavailable or belongs to another subject or semester",
     );
-  return exam;
+  return { exam, course };
 }
 
 async function assertNoConflict(
@@ -101,12 +102,12 @@ async function assertNoConflict(
     );
   if (proctorConflict)
     throw new ConflictError(
-      "You already have an overlapping proctor assignment, including the 15-minute turnover period",
+      "You already have an overlapping proctor assignment, including the 5-minute turnover period",
     );
 }
 
 export async function list(teacherId: string, examId: string) {
-  await repo.findOwnedExam(teacherId, examId).then((exam) => {
+  await repo.findAccessibleExam(teacherId, examId).then((exam) => {
     if (!exam) throw new NotFoundError("Exam not found");
   });
   return (await repo.listExamSchedules(teacherId, examId)).map(
@@ -120,8 +121,8 @@ export async function create(
   examId: string,
   data: TeacherExamScheduleBody,
 ) {
-  const exam = await context(teacherId, examId, data.courseOfferingId);
-  const input = await toWriteInput(teacherId, examId, exam.title, data);
+  const { exam, course } = await context(teacherId, examId, data.courseOfferingId);
+  const input = await toWriteInput(teacherId, examId, exam.title, course.code, data);
   return toExamScheduleDto(
     await runSerializable(async (tx) => {
       await assertNoConflict(tx, teacherId, data.courseOfferingId, input);
@@ -137,8 +138,8 @@ export async function update(
   scheduleId: string,
   data: TeacherExamScheduleBody,
 ) {
-  const exam = await context(teacherId, examId, data.courseOfferingId);
-  const input = await toWriteInput(teacherId, examId, exam.title, data, true);
+  const { exam, course } = await context(teacherId, examId, data.courseOfferingId);
+  const input = await toWriteInput(teacherId, examId, exam.title, course.code, data, true);
   return toExamScheduleDto(
     await runSerializable(async (tx) => {
       const current = await repo.findOwnedSchedule(

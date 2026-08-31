@@ -33,7 +33,7 @@ export default function AdminAcademicPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [pendingCurrentSemester, setPendingCurrentSemester] = useState<AcademicYear | null>(null)
   const generatedSemesterCode = createSemesterCode(selectedTerm, selectedAcademicYear)
-  const generatedSemesterName = `Học kỳ ${selectedTerm} năm học ${selectedAcademicYear}`
+  const generatedSemesterName = `Học kỳ ${selectedTerm} - ${selectedAcademicYear.replace(' - ', '/')}`
 
   const handleConfirmSetCurrentSemester = async () => {
     if (!pendingCurrentSemester) return
@@ -60,7 +60,7 @@ export default function AdminAcademicPage() {
       header: 'TÊN HỌC KỲ',
       render: (item) => (
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 whitespace-nowrap">
             <p className="text-sm font-semibold text-slate-950">{item.name}</p>
             <span className="inline-flex w-[74px] shrink-0">
               {item.isCurrent ? <AppBadge tone="emerald">Hiện tại</AppBadge> : null}
@@ -182,7 +182,7 @@ export default function AdminAcademicPage() {
       <AdminModal
         open={modalOpen}
         title="Tạo học kỳ mới"
-        description="Quy tắc mã học kỳ: HK + số học kỳ + 2 số cuối của 2 năm (VD: HK12526)."
+        description="Quy tắc mã học kỳ: HK + số học kỳ + năm bắt đầu + năm kết thúc (VD: HK1_2026_2027)."
         confirmText="Tạo học kỳ"
         onClose={() => setModalOpen(false)}
         onConfirm={async () => {
@@ -318,6 +318,6 @@ function AcademicStatusBadge({ status }: { status: AcademicYear['status'] }) {
 }
 
 function createSemesterCode(term: AcademicYear['term'], academicYear: string) {
-  const parts = academicYear.split('-').map((part) => part.trim().slice(-2))
-  return `HK${term}${parts.join('')}`
+  const normalizedYear = academicYear.split('-').map((part) => part.trim()).join('_')
+  return `HK${term}_${normalizedYear}`
 }

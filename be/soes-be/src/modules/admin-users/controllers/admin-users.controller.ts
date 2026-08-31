@@ -2,7 +2,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { sendSuccess as send } from '../../../utils/httpResponse'
 import * as service from '../services/admin-users.service'
-import { accountStatusSchema, createUserSchema, enrollmentBodySchema, resetPasswordSchema, updateUserSchema, usersQuerySchema } from '../validators/admin-users.validator'
+import { accountStatusSchema, createUserSchema, enrollmentBodySchema, enrollmentQuerySchema, resetPasswordSchema, updateUserSchema, usersQuerySchema } from '../validators/admin-users.validator'
 
 const profileParams = z.object({ role: z.enum(['ADMIN', 'TEACHER', 'STUDENT']), profileId: z.string().min(1) })
 const enrollmentParams = z.object({ courseOfferingId: z.string().min(1), studentId: z.string().min(1).optional() })
@@ -23,6 +23,10 @@ export const resetPassword = async (req: Request, res: Response) => {
 export const enroll = async (req: Request, res: Response) => {
   const { courseOfferingId } = enrollmentParams.parse(req.params)
   send(res, await service.enroll(courseOfferingId, enrollmentBodySchema.parse(req.body).studentIds), 201)
+}
+export const listEnrollments = async (req: Request, res: Response) => {
+  const { courseOfferingId } = enrollmentParams.parse(req.params)
+  send(res, await service.listEnrollments(courseOfferingId, enrollmentQuerySchema.parse(req.query)))
 }
 export const withdraw = async (req: Request, res: Response) => {
   const { courseOfferingId, studentId } = enrollmentParams.parse(req.params)

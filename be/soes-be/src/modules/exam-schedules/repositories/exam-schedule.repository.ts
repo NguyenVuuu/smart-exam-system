@@ -3,6 +3,8 @@ import prisma from '../../../lib/prisma'
 import type { ScheduleWriteInput } from '../types/exam-schedule.types'
 import type { SchedulesQuery } from '../validators/exam-schedule.validator'
 
+export const PROCTOR_TURNOVER_MINUTES = 5
+
 export const scheduleInclude = {
   exam: { select: { id: true, title: true, type: true, subject: { select: { id: true, code: true, name: true, departmentId: true } } } },
   scheduleCourses: {
@@ -11,6 +13,7 @@ export const scheduleInclude = {
       proctors: { include: { teacher: { select: { id: true, teacherCode: true, user: { select: { fullName: true } } } } } },
     },
   },
+  attempts: { select: { studentId: true, status: true } },
   _count: { select: { attempts: true } },
 }
 
@@ -58,11 +61,11 @@ export function findCreationContext(tx: Prisma.TransactionClient, examId: string
   return Promise.all([
     tx.exam.findUnique({
       where: { id: examId },
-      select: { id: true, subjectId: true, type: true, status: true, approvalStatus: true, examQuestions: { select: { id: true } } },
+      select: { id: true, subjectId: true, semesterId: true, type: true, status: true, approvalStatus: true, examQuestions: { select: { id: true } } },
     }),
     tx.courseOffering.findMany({
       where: { id: { in: courseOfferingIds } },
-      select: { id: true, subjectId: true, status: true },
+      select: { id: true, subjectId: true, semesterId: true, status: true },
     }),
     tx.teacher.findMany({
       where: { id: { in: teacherIds }, status: 'ACTIVE' },
@@ -85,7 +88,7 @@ export function findScheduleConflicts(
     endTime: { gt: rangeStart },
     ...(excludeId && { id: { not: excludeId } }),
   })
-  const turnoverMs = 15 * 60 * 1000
+  const turnoverMs = PROCTOR_TURNOVER_MINUTES * 60 * 1000
   const proctorStart = new Date(startTime.getTime() - turnoverMs)
   const proctorEnd = new Date(endTime.getTime() + turnoverMs)
   return Promise.all([
@@ -112,7 +115,7 @@ function scheduleFields(input: ScheduleWriteInput) {
   return { courses, examId, fields: { ...fields, publishedAt: fields.status === 'SCHEDULED' ? new Date() : null } }
 }
 
-export function createSchedule(tx: Prisma.TransactionClient, input: ScheduleWriteInput, createdById: string) {
+export async function createSchedule(tx: Prisma.TransactionClient, input: ScheduleWriteInput, createdById: string) {
   const { courses, examId, fields } = scheduleFields(input)
   return tx.examSchedule.create({
     data: {
@@ -149,6 +152,7 @@ export function listReadyFinalExams() {
       id: true, title: true, totalPoints: true, defaultDurationMinutes: true, format: true,
       createdBy: { select: { user: { select: { fullName: true } } } },
       subject: { select: { id: true, code: true, name: true, departmentId: true } },
+      semester: { select: { id: true, code: true, name: true } },
       _count: { select: { examQuestions: true } },
     },
     orderBy: { title: 'asc' },

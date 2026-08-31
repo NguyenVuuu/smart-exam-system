@@ -11,6 +11,8 @@ export interface ExamScheduleDto {
   resultReleaseMode: string;
   reviewPolicy: string;
   attemptCount: number;
+  participantCount: number;
+  submissionCount: number;
   hasPassword: boolean;
   enableTabLock: boolean;
   maxTabSwitches: number | null;

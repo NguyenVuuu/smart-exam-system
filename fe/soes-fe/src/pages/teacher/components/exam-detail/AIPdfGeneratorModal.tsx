@@ -48,6 +48,7 @@ export default function AIPdfGeneratorModal({
           teacherName: 'AI Generator',
           type: 'SINGLE_CHOICE',
           difficulty: 'EASY',
+          title: aiMode === 'EXTRACT' ? 'Từ khóa định nghĩa Interface' : 'Khởi chạy Thread trong Java',
           content:
             aiMode === 'EXTRACT'
               ? '[Bóc tách từ PDF] Từ khóa nào trong Java được sử dụng để định nghĩa một Giao diện (Interface)?'
@@ -69,6 +70,7 @@ export default function AIPdfGeneratorModal({
           teacherName: 'AI Generator',
           type: 'MULTIPLE_CHOICE',
           difficulty: 'MEDIUM',
+          title: aiMode === 'EXTRACT' ? 'Java Collections Framework' : 'Access Modifier trong Java',
           content:
             aiMode === 'EXTRACT'
               ? '[Bóc tách từ PDF] Những collection nào sau đây thuộc về Java Collections Framework?'
@@ -96,14 +98,15 @@ export default function AIPdfGeneratorModal({
                 teacherName: 'AI Generator',
                 type: 'PROGRAMMING',
                 difficulty: 'HARD',
+                title: 'Tổng các số chẵn từ 1 đến n',
                 content: '[AI Phân loại từ file] Viết chương trình Java nhập số nguyên n và in tổng các số chẵn từ 1 đến n.',
                 explanation: 'Câu lập trình cần giảng viên rà soát test case trước khi dùng.',
                 programmingLanguage: 'JAVA',
                 timeLimitMs: 2000,
                 memoryLimitMb: 256,
                 testCases: [
-                  { id: 'tc-ai-1', input: '10', expectedOutput: '30', weight: 50, isHidden: false },
-                  { id: 'tc-ai-2', input: '20', expectedOutput: '110', weight: 50, isHidden: true },
+                  { id: 'tc-ai-1', input: '10', expectedOutput: '30', isHidden: false },
+                  { id: 'tc-ai-2', input: '20', expectedOutput: '110', isHidden: true },
                 ],
                 createdAt: 'AI Vừa xử lý',
               },

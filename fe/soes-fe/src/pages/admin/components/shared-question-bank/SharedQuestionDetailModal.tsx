@@ -26,7 +26,13 @@ export default function SharedQuestionDetailModal({ question, subjectsByCode, on
         <div className="flex gap-2"><AppBadge tone="blue">{typeLabel[question.type]}</AppBadge>
           <AppBadge tone={difficultyTone[question.difficulty]}>{difficultyLabel[question.difficulty]}</AppBadge>
           <QuestionStatusBadge status={question.status} /></div>
-        <p className="rounded-xl border border-gray-200 bg-slate-50/60 p-4 text-sm font-medium text-slate-900">{question.content}</p>
+        <h3 className="text-base font-semibold text-slate-950">{question.title}</h3>
+        {question.type === 'PROGRAMMING' && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase text-slate-400">Mô tả bài toán</p>
+            <p className="whitespace-pre-wrap rounded-xl border border-gray-200 bg-slate-50/60 p-4 text-sm font-medium leading-7 text-slate-900">{question.content}</p>
+          </div>
+        )}
         {question.options?.length ? <div className="space-y-2">{question.options.map((option, index) =>
           <div key={option.id} className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm ${option.isCorrect ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-gray-100'}`}>
             <span className="font-medium">{String.fromCharCode(65 + index)}.</span><span>{option.content}</span>

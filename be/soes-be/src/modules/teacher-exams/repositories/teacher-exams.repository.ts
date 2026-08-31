@@ -5,9 +5,16 @@ import { createExamQuestion, deleteExamQuestions, type SnapshotInput } from './e
 
 export const examInclude = {
   subject: { select: { id: true, code: true, name: true, departmentId: true } },
+  semester: { select: { id: true, code: true, name: true, status: true } },
   createdBy: { select: { id: true, user: { select: { fullName: true } } } },
   reviewedBy: { select: { id: true, user: { select: { fullName: true } } } },
   sections: { orderBy: { orderIndex: 'asc' as const }, include: { _count: { select: { questions: true } } } },
+  schedules: {
+    select: {
+      status: true, startTime: true,
+      _count: { select: { attempts: true } },
+    },
+  },
   _count: { select: { examQuestions: true, schedules: true } },
 }
 
@@ -25,7 +32,8 @@ export const examDetailInclude = {
 
 function filters(query: ExamsQuery): Prisma.ExamWhereInput {
   return {
-    ...(query.subjectId && { subjectId: query.subjectId }), ...(query.type && { type: query.type }),
+    ...(query.subjectId && { subjectId: query.subjectId }), ...(query.semesterId && { semesterId: query.semesterId }),
+    ...(query.type && { type: query.type }),
     ...(query.status && { status: query.status }), ...(query.approvalStatus && { approvalStatus: query.approvalStatus }),
     ...(query.keyword && { title: { contains: query.keyword, mode: 'insensitive' } }),
   }
@@ -47,12 +55,26 @@ export const findExam = (id: string) => prisma.exam.findUnique({ where: { id }, 
 export const findExamDetail = (id: string) => prisma.exam.findUnique({
   where: { id }, include: examDetailInclude,
 })
+export const hasClosedCourseExamAccess = (teacherId: string, examId: string) => prisma.examScheduleCourse.count({
+  where: {
+    courseOffering: { teacherId },
+    examSchedule: {
+      examId,
+      status: { notIn: ['DRAFT', 'CANCELLED'] },
+      endTime: { lte: new Date() },
+    },
+  },
+})
 export const countExistingSections = (ids: string[]) => prisma.examSection.count({ where: { id: { in: ids } } })
 export const findTeacherContext = (teacherId: string) => prisma.teacher.findUnique({
   where: { id: teacherId }, select: { departmentId: true, position: true, userId: true },
 })
 export const findSubjectInDepartment = (subjectId: string, departmentId: string) => prisma.subject.findFirst({
   where: { id: subjectId, departmentId }, select: { id: true },
+})
+export const findAvailableSemester = (semesterId: string) => prisma.semester.findFirst({
+  where: { id: semesterId, status: { in: ['UPCOMING', 'ACTIVE'] } },
+  select: { id: true },
 })
 export const findAvailableQuestions = (teacherId: string, subjectId: string, ids: string[]) => prisma.question.findMany({
   where: {
@@ -122,7 +144,8 @@ export function updateExam(
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.exam.updateMany({
       where: {
-        id, createdById: teacherId, status: 'DRAFT',
+        id, createdById: teacherId,
+        status: 'DRAFT',
         approvalStatus: { not: 'PENDING' }, updatedAt: expectedUpdatedAt,
       },
       data: { ...exam, updatedAt: new Date() },
@@ -163,7 +186,8 @@ export function replaceQuestions(
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.exam.updateMany({
       where: {
-        id: examId, createdById: teacherId, status: 'DRAFT',
+        id: examId, createdById: teacherId,
+        status: 'DRAFT',
         approvalStatus: { not: 'PENDING' }, updatedAt: expectedUpdatedAt,
       },
       data: { updatedAt: new Date() },
@@ -179,6 +203,7 @@ export function listApprovals(departmentId: string, query: ExamApprovalQuery) {
   const where: Prisma.ExamWhereInput = {
     type: 'FINAL', approvalStatus: query.status, subject: { departmentId },
     ...(query.subjectId && { subjectId: query.subjectId }),
+    ...(query.semesterId && { semesterId: query.semesterId }),
     ...(query.keyword && { title: { contains: query.keyword, mode: 'insensitive' } }),
   }
   return Promise.all([

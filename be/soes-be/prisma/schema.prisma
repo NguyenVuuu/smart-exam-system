@@ -60,13 +60,13 @@ model Teacher {
 }
 
 model Admin {
-  id                  String             @id @default(uuid())
-  adminCode           String             @unique
-  password            String
-  status              AccountStatus      @default(ACTIVE)
-  userId              String             @unique
-  user                User               @relation(fields: [userId], references: [id])
-  questionBankReviews QuestionBankItem[] @relation("QuestionBankReviews")
+  id                   String             @id @default(uuid())
+  adminCode            String             @unique
+  password             String
+  status               AccountStatus      @default(ACTIVE)
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id])
+  questionBankReviews  QuestionBankItem[] @relation("QuestionBankReviews")
   questionBankRemovals QuestionBankItem[] @relation("QuestionBankAdminRemovals")
 }
 
@@ -106,6 +106,8 @@ model Semester {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   courseOfferings CourseOffering[]
+  enrollments     Enrollment[]
+  exams           Exam[]
 
   @@unique([academicYear, term])
 }
@@ -121,6 +123,7 @@ model Subject {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   courseOfferings CourseOffering[]
+  enrollments     Enrollment[]
   questions       Question[]
   questionBank    QuestionBank?
   exams           Exam[]
@@ -159,11 +162,18 @@ model Enrollment {
   enrolledAt       DateTime       @default(now())
   courseOfferingId String
   studentId        String
+  semesterId       String
+  subjectId        String
   courseOffering   CourseOffering @relation(fields: [courseOfferingId], references: [id])
   student          Student        @relation("StudentEnrollments", fields: [studentId], references: [id])
+  semester         Semester       @relation(fields: [semesterId], references: [id])
+  subject          Subject        @relation(fields: [subjectId], references: [id])
 
   @@unique([courseOfferingId, studentId])
+  @@unique([studentId, subjectId, semesterId])
   @@index([studentId])
+  @@index([semesterId])
+  @@index([subjectId])
 }
 
 model Post {
@@ -262,6 +272,7 @@ model QuestionBankItem {
 
 model Question {
   id                String                        @id @default(uuid())
+  title             String
   content           String
   explanation       String?
   type              QuestionType
@@ -314,7 +325,6 @@ model QuestionProgrammingTestCase {
   id             String   @id @default(uuid())
   input          String
   expectedOutput String
-  weight         Decimal  @db.Decimal(5, 2)
   isSample       Boolean  @default(false)
   isHidden       Boolean  @default(false)
   orderIndex     Int
@@ -361,6 +371,7 @@ model Exam {
   title                  String
   description            String?
   subjectId              String
+  semesterId             String
   defaultDurationMinutes Int
   totalPoints            Decimal            @default(10) @db.Decimal(5, 2)
   format                 ExamFormat
@@ -375,6 +386,7 @@ model Exam {
   updatedAt              DateTime           @updatedAt
   createdById            String
   subject                Subject            @relation(fields: [subjectId], references: [id])
+  semester               Semester           @relation(fields: [semesterId], references: [id])
   createdBy              Teacher            @relation("CreatorExams", fields: [createdById], references: [id])
   reviewedBy             Teacher?           @relation("TeacherExamReviews", fields: [reviewedById], references: [id])
   examQuestions          ExamQuestion[]
@@ -382,6 +394,7 @@ model Exam {
   schedules              ExamSchedule[]
 
   @@index([subjectId])
+  @@index([semesterId])
   @@index([createdById])
   @@index([reviewedById])
   @@index([status])
@@ -477,6 +490,7 @@ model ExamQuestion {
   points     Decimal @db.Decimal(5, 2)
 
   // Snapshot của Question tại thời điểm thêm vào Exam
+  title                  String
   content                String
   explanation            String?
   type                   QuestionType
@@ -638,7 +652,6 @@ model ProgrammingTestCase {
   id                String                            @id @default(uuid())
   input             String
   expectedOutput    String
-  weight            Decimal                           @db.Decimal(5, 2)
   isSample          Boolean                           @default(false)
   isHidden          Boolean                           @default(false)
   examQuestionId    String

@@ -52,6 +52,7 @@ function QuestionEditorContent({
     if (examType === 'PROGRAMMING') return 'PROGRAMMING'
     return 'SINGLE_CHOICE'
   })
+  const [title, setTitle] = useState(initialQuestion?.title || '')
   const [content, setContent] = useState(initialQuestion?.content || '')
   const [explanation, setExplanation] = useState(initialQuestion?.explanation || '')
   const [difficulty, setDifficulty] = useState<Question['difficulty']>(initialQuestion?.difficulty || 'EASY')
@@ -70,10 +71,11 @@ function QuestionEditorContent({
   )
   const [timeLimitMs, setTimeLimitMs] = useState(initialQuestion?.timeLimitMs || 2000)
   const [memoryLimitMb, setMemoryLimitMb] = useState(initialQuestion?.memoryLimitMb || 256)
+  const [maxCodeSizeKb, setMaxCodeSizeKb] = useState(initialQuestion?.maxCodeSizeKb || 256)
   const [testCases, setTestCases] = useState<TestCase[]>(
     initialQuestion?.testCases || [
-      { id: 'tc-1', input: '10', expectedOutput: '17', weight: 50, isHidden: false },
-      { id: 'tc-2', input: '20', expectedOutput: '77', weight: 50, isHidden: true },
+      { id: 'tc-1', input: '10', expectedOutput: '17', isHidden: false },
+      { id: 'tc-2', input: '20', expectedOutput: '77', isHidden: true },
     ],
   )
   const [expandedTcIds, setExpandedTcIds] = useState<string[]>(['tc-1'])
@@ -108,10 +110,13 @@ function QuestionEditorContent({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const normalizedTitle = title.trim()
+    const normalizedContent = questionType === 'PROGRAMMING' ? content.trim() : normalizedTitle
     const payload: Partial<Question> = {
       type: questionType,
       difficulty,
-      content,
+      title: normalizedTitle,
+      content: normalizedContent,
       explanation,
       subjectId: selectedSubjectObj?.id,
       subjectName: selectedSubjectObj?.name,
@@ -121,6 +126,7 @@ function QuestionEditorContent({
             programmingLanguage,
             timeLimitMs,
             memoryLimitMb,
+            maxCodeSizeKb,
             testCases,
           }),
     }
@@ -197,6 +203,8 @@ function QuestionEditorContent({
             onQuestionTypeChange={setQuestionType}
             difficulty={difficulty}
             onDifficultyChange={setDifficulty}
+            title={title}
+            onTitleChange={setTitle}
             content={content}
             onContentChange={setContent}
             questionTypeOptions={questionTypeOptions}
@@ -216,6 +224,8 @@ function QuestionEditorContent({
               onTimeLimitChange={setTimeLimitMs}
               memoryLimitMb={memoryLimitMb}
               onMemoryLimitChange={setMemoryLimitMb}
+              maxCodeSizeKb={maxCodeSizeKb}
+              onMaxCodeSizeChange={setMaxCodeSizeKb}
               testCases={testCases}
               onTestCasesChange={setTestCases}
               expandedTcIds={expandedTcIds}

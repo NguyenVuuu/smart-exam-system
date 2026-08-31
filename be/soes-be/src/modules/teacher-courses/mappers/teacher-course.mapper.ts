@@ -41,14 +41,19 @@ export function toTeacherCourseDetailDto(row: TeacherCourseDetailRow): TeacherCo
   }
 }
 
-export function toProctorAssignmentDto(row: ProctorAssignmentRow, teacherId: string): ProctorAssignmentDto {
+export function toProctorAssignmentDto(
+  row: ProctorAssignmentRow,
+  teacherId: string,
+  teacherUserId: string | null,
+): ProctorAssignmentDto {
   const course = row.courseOffering
   const schedule = row.examSchedule
+  const isCreatedByTeacher = Boolean(teacherUserId && schedule.createdById === teacherUserId)
   return {
     id: row.id, scheduleId: schedule.id, title: schedule.title,
     startTime: schedule.startTime, endTime: schedule.endTime,
     status: computeScheduleStatus(schedule.status, schedule.startTime, schedule.endTime),
-    source: row.proctors.some((item) => item.teacherId === teacherId) ? 'ASSIGNED' : 'CREATED',
+    source: isCreatedByTeacher || !row.proctors.some((item) => item.teacherId === teacherId) ? 'CREATED' : 'ASSIGNED',
     courseOffering: { id: course.id, code: course.code, subjectName: course.subject.name },
   }
 }

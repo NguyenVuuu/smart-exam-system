@@ -69,6 +69,7 @@ export async function findProgrammingQuestionWithTestCases(
                 select: { maxCodeSizeKb: true, timeLimitMs: true, memoryLimitKb: true },
               },
               programmingTests: {
+                where: { isSample: true },
                 select: { id: true, isSample: true, input: true, expectedOutput: true },
               },
             },

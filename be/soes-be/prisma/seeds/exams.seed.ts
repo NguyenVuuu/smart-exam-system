@@ -6,6 +6,7 @@ import {
   ExamType,
   PrismaClient,
   Question,
+  Semester,
   Subject,
   Teacher,
 } from '@prisma/client'
@@ -14,6 +15,7 @@ import { FIXED_EXAMS, getQuizCount } from './seed.config'
 interface ExamSeedInput {
   subjects: Subject[]
   teachers: Teacher[]
+  semesters: Semester[]
 }
 
 interface ExamSpec {
@@ -46,6 +48,7 @@ async function createQuestionSnapshots(prisma: PrismaClient, examId: string, que
       data: {
         examId,
         orderIndex: index,
+        title: question.title,
         content: question.content,
         explanation: question.explanation,
         type: question.type,
@@ -94,11 +97,13 @@ function getExamSpecs(subjectCode: string): ExamSpec[] {
 
 export async function seedExams(
   prisma: PrismaClient,
-  { subjects, teachers }: ExamSeedInput,
+  { subjects, teachers, semesters }: ExamSeedInput,
 ): Promise<Exam[]> {
   console.log('Seeding Exams...')
 
   const exams: Exam[] = []
+  const semester = semesters.find(({ status }) => status === 'ACTIVE') ?? semesters[0]
+  if (!semester) throw new Error('At least one semester is required before seeding exams')
   for (const [subjectIndex, subject] of subjects.entries()) {
     const teacher = teachers[subjectIndex % teachers.length]
     const questions = await prisma.question.findMany({
@@ -113,6 +118,7 @@ export async function seedExams(
         title: `${subject.name} - ${spec.titleSuffix}`,
         description: `Bài thi ${spec.titleSuffix} môn ${subject.name}`,
         subjectId: subject.id,
+        semesterId: semester.id,
         defaultDurationMinutes: spec.durationMinutes,
         totalPoints: '10.00',
         format: getFormat(questions),

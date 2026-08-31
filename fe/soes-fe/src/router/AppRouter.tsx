@@ -187,6 +187,14 @@ export default function AppRouter() {
             </RoleRoute>
           }
         />
+        <Route
+          path="/teacher/courses/:courseOfferingId/exams/:examId/submissions"
+          element={
+            <RoleRoute allowedRoles={['TEACHER']}>
+              <TeacherExamDetailPage mode="course-submissions" />
+            </RoleRoute>
+          }
+        />
 
         {/* Question Hub */}
         <Route

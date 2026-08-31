@@ -54,7 +54,7 @@ export default function SubjectsToolbar({
         >
           {semesterOptions.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name}
+              {s.name}{s.isCurrent ? ' (Hiện tại)' : ''}
             </option>
           ))}
         </select>

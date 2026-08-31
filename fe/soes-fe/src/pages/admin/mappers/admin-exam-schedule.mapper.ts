@@ -2,7 +2,7 @@ import { distributionOptions, releaseOptions } from '../constants/finalExamSched
 import type { AdminExam, AdminExamSchedule, AdminSubject, AdminUser, CourseOfferingAdmin, Department } from '../types/admin.types'
 import type {
   CourseOfferingApiDto, DepartmentApiDto, ExamScheduleApiDto, ReadyFinalExamApiDto,
-  SchedulePayload, SemesterApiDto, SubjectApiDto, UserApiDto,
+  SchedulePayload, SubjectApiDto, UserApiDto,
 } from '../types/admin-api.types'
 
 const dateFormatter = new Intl.DateTimeFormat('vi-VN')
@@ -43,9 +43,9 @@ export const toAdminSchedule = (row: ExamScheduleApiDto): AdminExamSchedule => (
   status: computeScheduleStatus(row.status, row.startTime, row.endTime),
 })
 
-export function toAdminExam(row: ReadyFinalExamApiDto, semesterCode: string): AdminExam {
+export function toAdminExam(row: ReadyFinalExamApiDto): AdminExam {
   return {
-    id: row.id, title: row.title, semesterCode, departmentId: row.subject.departmentId,
+    id: row.id, title: row.title, semesterCode: row.semester.code, departmentId: row.subject.departmentId,
     subjectCode: row.subject.code, subjectName: row.subject.name, authorName: row.createdBy.user.fullName,
     category: 'FINAL', structure: row.format as AdminExam['structure'], totalPoints: Number(row.totalPoints),
     questionCount: row._count.examQuestions, durationMinutes: row.defaultDurationMinutes, status: 'APPROVED',
@@ -59,7 +59,8 @@ export const toSubject = (row: SubjectApiDto): AdminSubject => ({
 })
 export const toCourse = (row: CourseOfferingApiDto): CourseOfferingAdmin => ({
   id: row.id, code: row.code, subjectCode: row.subject.code, subjectName: row.subject.name,
-  semesterCode: row.semester.code, teacherName: '', enrolled: row.enrollmentCount,
+  semesterCode: row.semester.code, teacherId: row.teacher.id, teacherName: row.teacher.fullName,
+  enrolled: row.enrollmentCount,
   capacity: row.maxCapacity, status: row.status === 'ACTIVE' ? 'OPEN' : 'CLOSED',
 })
 export const toTeacher = (row: UserApiDto): AdminUser => ({
@@ -100,6 +101,3 @@ export function toSchedulePayload(schedule: AdminExamSchedule, existing: boolean
     courses: [...grouped].map(([courseOfferingId, teacherIds]) => ({ courseOfferingId, teacherIds })),
   }
 }
-
-export const currentSemesterCode = (semesters: SemesterApiDto[]) =>
-  semesters.find(({ status }) => status === 'ACTIVE')?.code ?? semesters[0]?.code ?? ''

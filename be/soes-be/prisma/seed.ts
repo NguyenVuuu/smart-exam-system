@@ -49,7 +49,7 @@ async function main() {
 
   const questions = await seedQuestions(prisma, { subjects, teachers })
 
-  const exams = await seedExams(prisma, { subjects, teachers })
+  const exams = await seedExams(prisma, { subjects, teachers, semesters })
   await seedExamSchedules(prisma, { exams, courseOfferings, teachers })
 
   // Transaction data — must run after exams

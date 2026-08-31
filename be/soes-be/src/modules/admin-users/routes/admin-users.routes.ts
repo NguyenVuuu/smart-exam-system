@@ -12,5 +12,6 @@ router.put('/users/:role/:profileId', asyncHandler(controller.updateUser))
 router.patch('/users/:role/:profileId/status', asyncHandler(controller.setStatus))
 router.post('/users/:role/:profileId/reset-password', asyncHandler(controller.resetPassword))
 router.post('/course-offerings/:courseOfferingId/enrollments', asyncHandler(controller.enroll))
+router.get('/course-offerings/:courseOfferingId/enrollments', asyncHandler(controller.listEnrollments))
 router.delete('/course-offerings/:courseOfferingId/enrollments/:studentId', asyncHandler(controller.withdraw))
 export default router

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createCoursePost, deleteCoursePost, getTeacherCourseDetail, pinCoursePost, updateCoursePost } from '../api/teacher-courses.api'
+import { createCoursePost, deleteCoursePost, downloadCoursePostAttachment, getTeacherCourseDetail, pinCoursePost, updateCoursePost } from '../api/teacher-courses.api'
 import { toTeacherCourseDetail } from '../mappers/teacher-course.mapper'
 import type { TeacherCourseDetail } from '../types/teacher-course.types'
 
@@ -21,9 +21,11 @@ export function useTeacherCourseDetail(id?: string) {
   const mutatePost = async (operation: () => Promise<unknown>) => { await operation(); await load() }
   return {
     data, loading, error, retry: load,
-    createPost: (payload: { title: string; content: string }) => mutatePost(() => createCoursePost(id!, payload)),
-    updatePost: (postId: string, payload: { title: string; content: string }) => mutatePost(() => updateCoursePost(id!, postId, payload)),
+    createPost: (payload: { title: string; content: string; attachments?: File[] }) => mutatePost(() => createCoursePost(id!, payload)),
+    updatePost: (postId: string, payload: { title: string; content: string; attachments?: File[] }) => mutatePost(() => updateCoursePost(id!, postId, payload)),
     pinPost: (postId: string, pinned: boolean) => mutatePost(() => pinCoursePost(id!, postId, pinned)),
     deletePost: (postId: string) => mutatePost(() => deleteCoursePost(id!, postId)),
+    downloadAttachment: (postId: string, attachmentId: string, fileName: string) =>
+      downloadCoursePostAttachment(id!, postId, attachmentId, fileName),
   }
 }

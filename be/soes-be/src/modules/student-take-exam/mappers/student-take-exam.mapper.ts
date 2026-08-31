@@ -1,5 +1,5 @@
-import type { StartExamResult, ExamContentResult, ExamContentQuestion, SubmitExamResult, AttemptStatusResult, SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
-import type { StartExamResponseDto, GetExamContentResponseDto, ExamContentQuestionDto, SaveAnswerResponseDto, SubmitExamResponseDto, GetAttemptStatusResponseDto, SendHeartbeatResponseDto, RunCodeResponseDto, RunCodeTestCaseDto} from '../dtos/student-take-exam.dto'
+import type { StartExamResult, ExamContentResult, ExamContentQuestion, SubmitExamResult, AttemptStatusResult, AttemptResult, SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
+import type { StartExamResponseDto, GetExamContentResponseDto, ExamContentQuestionDto, SaveAnswerResponseDto, SubmitExamResponseDto, GetAttemptStatusResponseDto, GetAttemptResultResponseDto, SendHeartbeatResponseDto, RunCodeResponseDto, RunCodeTestCaseDto} from '../dtos/student-take-exam.dto'
 
 export function toStartExamResponseDto(result: StartExamResult): StartExamResponseDto {
   return {
@@ -22,6 +22,7 @@ function toExamContentQuestionDto(q: ExamContentQuestion): ExamContentQuestionDt
       points:          q.points,
       draftSourceCode: q.draftSourceCode,
       language:        q.language,
+      programmingConfig: q.programmingConfig,
 
     }
   }
@@ -87,6 +88,13 @@ export function toGetAttemptStatusResponseDto(result: AttemptStatusResult): GetA
   }
 }
 
+export function toGetAttemptResultResponseDto(result: AttemptResult): GetAttemptResultResponseDto {
+  return {
+    ...result,
+    releaseAt: result.releaseAt?.toISOString() ?? null,
+  }
+}
+
 // ─── API 6: Send Heartbeat ───────────────────────────────────────────────────
 
 export function toSendHeartbeatResponseDto(result: SendHeartbeatResult): SendHeartbeatResponseDto {
@@ -99,22 +107,15 @@ export function toSendHeartbeatResponseDto(result: SendHeartbeatResult): SendHea
 // ─── API 7: Run Code ─────────────────────────────────────────────────────────
 
 function toRunCodeTestCaseDto(tc: RunCodeTestCase): RunCodeTestCaseDto {
-  if (tc.isSample) {
-    return {
-      testCaseId: tc.testCaseId,
-      isSample: true,
-      status: tc.status,
-      input: tc.input,
-      expectedOutput: tc.expectedOutput,
-      actualOutput: tc.actualOutput,
-      executionTimeMs: tc.executionTimeMs,
-      memoryUsedKb: tc.memoryUsedKb,
-    }
-  }
   return {
     testCaseId: tc.testCaseId,
-    isSample: false,
+    isSample: true,
     status: tc.status,
+    input: tc.input,
+    expectedOutput: tc.expectedOutput,
+    actualOutput: tc.actualOutput,
+    executionTimeMs: tc.executionTimeMs,
+    memoryUsedKb: tc.memoryUsedKb,
   }
 }
 

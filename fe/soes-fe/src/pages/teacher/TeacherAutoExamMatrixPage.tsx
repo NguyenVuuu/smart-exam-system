@@ -19,7 +19,6 @@ import { splitPointsPrecisely } from './utils/ExamEditorUtils'
 import type { Exam, ExamCategory } from './types/teacher-exam.types'
 import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 import { useAuthStore } from '../../store/authStore'
-import { MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
 import { useTeacherCourses } from './hooks/useTeacherCourses'
 
 const DEFAULT_SESSION_CONFIG = {
@@ -172,7 +171,7 @@ export default function TeacherAutoExamMatrixPage() {
       .filter((question): question is NonNullable<typeof question> => Boolean(question))
     const subject = selectedQuestions[0] ?? questions.find((question) => question.subjectId === selectedSubject)
     if (!subject) return
-    const subjectCourse = MOCK_TEACHER_COURSES.find((course) => course.subjectId === subject.subjectId)
+    const subjectCourse = courses.find((course) => course.subjectId === subject.subjectId)
 
     const exam: Exam = {
       id: generated.id,
@@ -181,6 +180,9 @@ export default function TeacherAutoExamMatrixPage() {
       subjectId: subject.subjectId,
       subjectCode: subjectCourse?.subjectCode ?? subject.subjectId.toUpperCase(),
       subjectName: subject.subjectName,
+      semesterId: subjectCourse?.semesterId ?? '',
+      semesterCode: subjectCourse?.semesterCode ?? '',
+      semesterName: subjectCourse?.semesterName ?? 'Chưa xác định học kỳ',
       title: examTitle.trim(),
       description: 'Đề trắc nghiệm được sinh tự động từ ngân hàng câu hỏi và đã được giảng viên xem lại.',
       category: examCategory,

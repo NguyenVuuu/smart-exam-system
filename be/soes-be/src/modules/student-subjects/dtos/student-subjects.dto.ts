@@ -18,6 +18,7 @@ export interface PaginationDto {
 export interface SemesterOptionDto {
   id: string
   name: string
+  isCurrent: boolean
 }
 
 export interface StudentSubjectsDto {

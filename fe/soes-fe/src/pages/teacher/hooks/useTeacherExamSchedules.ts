@@ -15,20 +15,25 @@ export function useTeacherExamSchedules(examId: string, subjectId: string) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [scheduleRows, courseRows] = await Promise.all([
+    const [scheduleRows, courseData] = await Promise.all([
       getTeacherExamSchedules(examId), getTeacherCourses(),
     ])
     setSchedules(scheduleRows.map(toExamSchedule))
-    setCourses(courseRows.filter(({ subject, status }) => subject.id === subjectId && status === 'ACTIVE').map((row) => ({
+    setCourses(courseData.items.filter(({ subject, status }) => subject.id === subjectId && status === 'ACTIVE').map((row) => ({
       id: row.id, courseCode: row.code, status: row.status,
-      semesterId: row.semester.id, semesterName: row.semester.name,
+      semesterId: row.semester.id, semesterCode: row.semester.code, semesterName: row.semester.name,
+      semesterStatus: row.semester.status,
       subjectId: row.subject.id, subjectCode: row.subject.code, subjectName: row.subject.name,
       teacherName: '', totalStudents: row.enrollmentCount, totalExams: row.scheduleCount,
     })))
     setLoading(false)
   }, [examId, subjectId])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    // Synchronize schedule data after the exam or subject selection changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load()
+  }, [load])
 
   const save = async (schedule: ExamSchedule, scheduleId?: string) => {
     const payload = toTeacherSchedulePayload(schedule)

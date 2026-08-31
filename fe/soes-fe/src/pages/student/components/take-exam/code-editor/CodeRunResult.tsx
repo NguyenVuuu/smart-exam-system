@@ -67,19 +67,15 @@ export default function CodeRunResult({ result }: CodeRunResultProps) {
                     <XCircle size={14} className="shrink-0 text-red-500" aria-hidden="true" />
                   )}
                   <span className="font-semibold text-slate-700">
-                    Test {index + 1}
-                    {testCase.isSample ? ' (mẫu)' : ' (ẩn)'}
+                    Test công khai {index + 1}
                   </span>
                   <span className={passed ? 'text-emerald-600' : 'text-red-500'}>
                     {STATUS_LABELS[testCase.status] ?? testCase.status}
                   </span>
-                  {testCase.isSample && (
-                    <ChevronDown size={14} className="ml-auto shrink-0 text-slate-400" aria-hidden="true" />
-                  )}
+                  <ChevronDown size={14} className="ml-auto shrink-0 text-slate-400" aria-hidden="true" />
                 </div>
 
-                {testCase.isSample && (
-                  <div className="grid gap-2 border-t border-slate-100 px-3 py-3 font-mono text-[11px] leading-5 text-slate-600 sm:grid-cols-3">
+                <div className="grid gap-2 border-t border-slate-100 px-3 py-3 font-mono text-[11px] leading-5 text-slate-600 sm:grid-cols-3">
                     <div className="rounded-lg bg-slate-50 p-2">
                       <p className="font-sans font-semibold text-slate-400">Input</p>
                       <pre className="whitespace-pre-wrap">{testCase.input}</pre>
@@ -94,8 +90,7 @@ export default function CodeRunResult({ result }: CodeRunResultProps) {
                         {testCase.actualOutput ?? '—'}
                       </pre>
                     </div>
-                  </div>
-                )}
+                </div>
               </li>
             )
           })}

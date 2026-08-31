@@ -2,7 +2,7 @@ export interface TeacherCourseDto {
   id: string;
   code: string;
   status: string;
-  semester: { id: string; code: string; name: string };
+  semester: { id: string; code: string; name: string; status: string };
   subject: { id: string; code: string; name: string };
   enrollmentCount: number;
   materialCount: number;
@@ -40,4 +40,14 @@ export interface ProctorAssignmentDto {
   status: string;
   source: 'ASSIGNED' | 'CREATED';
   courseOffering: { id: string; code: string; subjectName: string };
+}
+
+export interface CourseGradebookDto {
+  assessments: Array<{
+    scheduleId: string; title: string; type: string; totalPoints: number; resultsPublished: boolean
+  }>
+  students: Array<{
+    studentId: string; studentCode: string; fullName: string
+    scores: Record<string, number | null>; averageScore: number | null
+  }>
 }

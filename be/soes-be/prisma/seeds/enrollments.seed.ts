@@ -25,7 +25,12 @@ export async function seedEnrollments(
       if (existing) continue
 
       await prisma.enrollment.create({
-        data: { courseOfferingId: offering.id, studentId: student.id },
+        data: {
+          courseOfferingId: offering.id,
+          studentId: student.id,
+          subjectId: offering.subjectId,
+          semesterId: offering.semesterId,
+        },
       })
       total++
     }

@@ -3,11 +3,63 @@ import prisma from '../../../lib/prisma'
 import { createExamQuestion, deleteExamQuestions } from './exam-question-snapshot.repository'
 import { examInclude } from './teacher-exams.repository'
 
+const copySuffix = ' - Bản sao'
+const toCopyTitle = (title: string) => `${title.replace(/( - Bản sao)+$/u, '')}${copySuffix}`
+
 export const transitionExam = (
   id: string,
   expected: Prisma.ExamWhereInput,
   data: Prisma.ExamUpdateManyMutationInput,
 ) => prisma.exam.updateMany({ where: { id, ...expected }, data })
+
+export function setDistributionLock(
+  examId: string,
+  teacherId: string,
+  userId: string,
+  locked: boolean,
+) {
+  return prisma.$transaction(async (tx) => {
+    const from = locked ? 'READY' : 'LOCKED'
+    const to = locked ? 'LOCKED' : 'READY'
+    const now = new Date()
+    const exam = await tx.exam.findFirst({
+      where: { id: examId, createdById: teacherId, type: { not: 'FINAL' }, status: from },
+      select: {
+        id: true,
+        schedules: {
+          select: { status: true, startTime: true, _count: { select: { attempts: true } } },
+        },
+      },
+    })
+    if (!exam) return { changed: false, blocked: false }
+    if (locked && exam.schedules.every((schedule) => schedule.status === 'CANCELLED')) {
+      return { changed: false, blocked: true }
+    }
+
+    const blocked = !locked && exam.schedules.some((schedule) =>
+      schedule._count.attempts > 0
+      || (schedule.status !== 'DRAFT' && schedule.status !== 'CANCELLED' && schedule.startTime <= now),
+    )
+    if (blocked) return { changed: false, blocked: true }
+
+    const changed = await tx.exam.updateMany({
+      where: { id: examId, createdById: teacherId, status: from },
+      data: { status: to },
+    })
+    if (!changed.count) return { changed: false, blocked: false }
+
+    await tx.auditLog.create({
+      data: {
+        userId,
+        action: locked ? 'LOCK_EXAM_DISTRIBUTION' : 'UNLOCK_EXAM_DISTRIBUTION',
+        entityType: 'Exam',
+        entityId: examId,
+        metadata: { from, to },
+      },
+    })
+    return { changed: true, blocked: false }
+  })
+}
 
 export function reviewExam(id: string, reviewerId: string, approved: boolean, reason?: string) {
   return prisma.$transaction(async (tx) => {
@@ -36,11 +88,17 @@ export function copyExam(sourceId: string, teacherId: string) {
         examQuestions: { include: { options: true, programmingConfig: true, programmingTests: true } },
       },
     })
+    const activeSemester = await tx.semester.findFirst({
+      where: { status: 'ACTIVE' },
+      orderBy: { startDate: 'desc' },
+      select: { id: true },
+    })
     const copy = await tx.exam.create({
       data: {
-        title: `${source.title} - Bản sao`,
+        title: toCopyTitle(source.title),
         description: source.description,
         subjectId: source.subjectId,
+        semesterId: activeSemester?.id ?? source.semesterId,
         defaultDurationMinutes: source.defaultDurationMinutes,
         totalPoints: source.totalPoints,
         format: source.format,

@@ -8,7 +8,7 @@ type ApprovalRow = Prisma.QuestionBankItemGetPayload<{ include: typeof approvalI
 export function toTeacherQuestionDto(row: QuestionRow): TeacherQuestionDto {
   const bank = row.questionBankItem
   return {
-    id: row.id, content: row.content, explanation: row.explanation,
+    id: row.id, title: row.title, content: row.content, explanation: row.explanation,
     type: row.type, difficulty: row.difficulty, source: row.source, language: row.language,
     subject: { id: row.subject.id, code: row.subject.code, name: row.subject.name },
     owner: { id: row.owner.id, fullName: row.owner.user.fullName },
@@ -20,7 +20,7 @@ export function toTeacherQuestionDto(row: QuestionRow): TeacherQuestionDto {
     } : null,
     testCases: row.programmingTests.map((test) => ({
       id: test.id, input: test.input, expectedOutput: test.expectedOutput,
-      weight: Number(test.weight), isHidden: test.isHidden,
+      isHidden: test.isHidden,
     })),
     sharedBank: bank ? {
       itemId: bank.id, status: bank.status, rejectionReason: bank.rejectionReason,

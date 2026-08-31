@@ -2,13 +2,13 @@ import prisma from '../../../lib/prisma'
 import type { CourseCollectionQuery, TeacherCoursesQuery } from '../validators/teacher-courses.validator'
 
 export const teacherCourseInclude = {
-  semester: { select: { id: true, code: true, name: true } },
+  semester: { select: { id: true, code: true, name: true, status: true } },
   subject: { select: { id: true, code: true, name: true } },
   _count: { select: { enrollments: true, materials: true, posts: true, scheduleCourses: true } },
 }
 
 export const teacherCourseDetailInclude = {
-  semester: { select: { id: true, code: true, name: true } },
+  semester: { select: { id: true, code: true, name: true, status: true } },
   subject: { select: { id: true, code: true, name: true } },
   teacher: { select: { id: true, user: { select: { fullName: true } } } },
   _count: { select: { enrollments: true, materials: true, posts: true, scheduleCourses: true } },
@@ -51,6 +51,13 @@ export function listTeacherCourses(teacherId: string, query: TeacherCoursesQuery
   ])
 }
 
+export function listSemesterOptions() {
+  return prisma.semester.findMany({
+    select: { id: true, code: true, name: true, status: true },
+    orderBy: { startDate: 'desc' },
+  })
+}
+
 export function findTeacherCourseDetail(teacherId: string, courseOfferingId: string) {
   return prisma.courseOffering.findFirst({
     where: { id: courseOfferingId, teacherId },
@@ -60,8 +67,8 @@ export function findTeacherCourseDetail(teacherId: string, courseOfferingId: str
 
 export async function listProctorAssignments(teacherId: string) {
   const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, select: { userId: true } })
-  if (!teacher) return []
-  return prisma.examScheduleCourse.findMany({
+  if (!teacher) return { rows: [], teacherUserId: null }
+  const rows = await prisma.examScheduleCourse.findMany({
     where: {
       examSchedule: { status: { notIn: ['DRAFT', 'CANCELLED'] }, endTime: { gt: new Date() } },
       OR: [{ proctors: { some: { teacherId } } }, { examSchedule: { createdById: teacher.userId } }],
@@ -69,6 +76,7 @@ export async function listProctorAssignments(teacherId: string) {
     select: proctorAssignmentSelect,
     orderBy: { examSchedule: { startTime: 'asc' } },
   })
+  return { rows, teacherUserId: teacher.userId }
 }
 
 export function listCourseStudents(teacherId: string, courseOfferingId: string, query: CourseCollectionQuery) {
@@ -104,4 +112,49 @@ export function listCourseExams(teacherId: string, courseOfferingId: string, que
       orderBy: { examSchedule: { startTime: 'desc' } },
     }),
   ])
+}
+
+export async function getCourseGradebook(
+  teacherId: string,
+  courseOfferingId: string,
+  query: CourseCollectionQuery,
+) {
+  const course = await prisma.courseOffering.findFirst({
+    where: { id: courseOfferingId, teacherId }, select: { id: true },
+  })
+  if (!course) return null
+  const enrollmentWhere = {
+    courseOfferingId,
+    ...(query.keyword && { student: { OR: [
+      { studentCode: { contains: query.keyword, mode: 'insensitive' as const } },
+      { user: { fullName: { contains: query.keyword, mode: 'insensitive' as const } } },
+    ] } }),
+  }
+  const [total, enrollments, schedules] = await Promise.all([
+    prisma.enrollment.count({ where: enrollmentWhere }),
+    prisma.enrollment.findMany({
+      where: enrollmentWhere,
+      include: { student: { include: { user: { select: { fullName: true } } } } },
+      skip: (query.page - 1) * query.pageSize, take: query.pageSize,
+      orderBy: { student: { studentCode: 'asc' } },
+    }),
+    prisma.examSchedule.findMany({
+      where: { scheduleCourses: { some: { courseOfferingId } }, status: { not: 'CANCELLED' } },
+      select: {
+        id: true, title: true, resultsPublishedAt: true,
+        exam: { select: { type: true, totalPoints: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    }),
+  ])
+  const studentIds = enrollments.map(({ studentId }) => studentId)
+  const attempts = studentIds.length ? await prisma.examAttempt.findMany({
+    where: {
+      courseOfferingId, studentId: { in: studentIds },
+      status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+    },
+    select: { studentId: true, examScheduleId: true, totalScore: true, attemptNo: true },
+    orderBy: { attemptNo: 'desc' },
+  }) : []
+  return { total, enrollments, schedules, attempts }
 }

@@ -1,5 +1,5 @@
-import type { CourseOfferingApiDto, DepartmentApiDto, SubjectApiDto, UserApiDto } from '../types/admin-api.types'
-import type { AdminSubject, AdminUser, CourseOfferingAdmin, Department } from '../types/admin.types'
+import type { CourseEnrollmentApiDto, CourseOfferingApiDto, DepartmentApiDto, SubjectApiDto, UserApiDto } from '../types/admin-api.types'
+import type { AdminSubject, AdminUser, CourseEnrollmentAdmin, CourseOfferingAdmin, Department } from '../types/admin.types'
 
 export const toDepartment = (dto: DepartmentApiDto): Department => ({
   id: dto.id, code: dto.code, name: dto.name, subjectCount: dto.subjectCount,
@@ -18,6 +18,14 @@ export const toCourseOffering = (dto: CourseOfferingApiDto): CourseOfferingAdmin
   semesterCode: dto.semester.code, teacherName: dto.teacher.fullName,
   enrolled: dto.enrollmentCount, capacity: dto.maxCapacity,
   status: dto.status === 'ACTIVE' ? 'OPEN' : 'CLOSED',
+})
+
+export const toCourseEnrollment = (dto: CourseEnrollmentApiDto): CourseEnrollmentAdmin => ({
+  id: dto.id,
+  code: dto.code,
+  fullName: dto.fullName,
+  email: dto.email ?? '',
+  enrolledAt: new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' }).format(new Date(dto.enrolledAt)),
 })
 
 export const toAdminUser = (dto: UserApiDto): AdminUser => ({

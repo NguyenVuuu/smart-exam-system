@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma'
+import { randomInt } from 'crypto'
 
 export async function countAttemptsForSchedule(scheduleId: string, studentId: string) {
   return prisma.examAttempt.count({ where: { examScheduleId: scheduleId, studentId } })
@@ -50,6 +51,7 @@ export async function findAttemptWithContent(
               type: true,
               language: true,
               points: true,
+              programmingConfig: true,
               options: {
                 orderBy: { orderIndex: 'asc' },
                 select: { id: true, content: true },
@@ -90,12 +92,13 @@ export interface CreateAttemptInput {
   randomQuestionCount: number | null
   ipAddress: string
   deviceInfo: string
+  actorUserId: string
 }
 
 function shuffled<T>(items: T[]): T[] {
   const result = [...items]
   for (let index = result.length - 1; index > 0; index--) {
-    const target = Math.floor(Math.random() * (index + 1))
+    const target = randomInt(index + 1)
     ;[result[index], result[target]] = [result[target], result[index]]
   }
   return result
@@ -123,6 +126,21 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       },
       select: { id: true, startedAt: true, deadlineAt: true },
     })
+    const locked = await transaction.exam.updateMany({
+      where: { id: input.examId, status: 'READY' },
+      data: { status: 'LOCKED' },
+    })
+    if (locked.count) {
+      await transaction.auditLog.create({
+        data: {
+          userId: input.actorUserId,
+          action: 'AUTO_LOCK_EXAM_DISTRIBUTION',
+          entityType: 'Exam',
+          entityId: input.examId,
+          metadata: { scheduleId: input.scheduleId, attemptId: attempt.id },
+        },
+      })
+    }
     await transaction.examSession.create({
       data: {
         attemptId: attempt.id,
@@ -187,6 +205,28 @@ export async function findAttemptStatus(attemptId: string, scheduleId: string, s
       lastSavedAt: true,
       examSession: { select: { lastHeartbeat: true } },
       _count: { select: { studentAnswers: true, attemptQuestions: true } },
+    },
+  })
+}
+
+export async function findAttemptResult(attemptId: string, scheduleId: string, studentId: string) {
+  return prisma.examAttempt.findFirst({
+    where: { id: attemptId, examScheduleId: scheduleId, studentId },
+    select: {
+      id: true,
+      status: true,
+      totalScore: true,
+      attemptQuestions: {
+        select: { examQuestion: { select: { points: true } } },
+      },
+      examSchedule: {
+        select: {
+          resultReleaseMode: true,
+          resultReleaseAt: true,
+          resultsPublishedAt: true,
+          reviewPolicy: true,
+        },
+      },
     },
   })
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { cancelExamSchedule, createExamSchedule, getScheduleWorkspace, updateExamSchedule, type ScheduleListParams } from '../api/admin-exam-schedules.api'
 import type { ApiPagination } from '../types/admin-api.types'
 import {
-  currentSemesterCode, toAdminExam, toAdminSchedule, toCourse, toDepartment,
+  toAdminExam, toAdminSchedule, toCourse, toDepartment,
   toSchedulePayload, toSubject, toTeacher,
 } from '../mappers/admin-exam-schedule.mapper'
 import type { AdminExam, AdminExamSchedule, AdminSubject, AdminUser, CourseOfferingAdmin, Department } from '../types/admin.types'
@@ -21,17 +21,17 @@ const initialState: State = {
 }
 
 export function useAdminExamSchedules(params: ScheduleListParams) {
+  const { page, pageSize, keyword, semesterId, departmentId, subjectId, status } = params
   const [state, setState] = useState(initialState)
   const [version, setVersion] = useState(0)
 
   useEffect(() => {
     let active = true
-    getScheduleWorkspace(params).then((data) => {
+    getScheduleWorkspace({ page, pageSize, keyword, semesterId, departmentId, subjectId, status }).then((data) => {
       if (!active) return
-      const semesterCode = currentSemesterCode(data.semesters)
       setState({
         schedules: data.schedules.map(toAdminSchedule),
-        exams: data.exams.map((exam) => toAdminExam(exam, semesterCode)),
+        exams: data.exams.map(toAdminExam),
         departments: data.departments.map(toDepartment), subjects: data.subjects.map(toSubject),
         courses: data.courses.map(toCourse), teachers: data.teachers.map(toTeacher),
         pagination: data.pagination,
@@ -41,7 +41,7 @@ export function useAdminExamSchedules(params: ScheduleListParams) {
       ...current, loading: false, error: 'Không thể tải dữ liệu lịch thi.',
     })))
     return () => { active = false }
-  }, [params.page, params.pageSize, params.keyword, params.semesterId, params.departmentId, params.subjectId, params.status, version])
+  }, [page, pageSize, keyword, semesterId, departmentId, subjectId, status, version])
 
   const save = useCallback(async (schedule: AdminExamSchedule) => {
     const existing = state.schedules.some(({ id }) => id === schedule.id)

@@ -133,8 +133,8 @@ export default function ExamSessionDetailModal({
               label="Phân phối đề"
               value={distributionModeLabel[session.distributionMode ?? 'FIXED_ORDER'] ?? session.distributionMode}
             />
-            <DetailBox label="Sinh viên đã vào thi" value="0 SV" />
-            <DetailBox label="Bài nộp" value="0 bài" />
+            <DetailBox label="Sinh viên đã vào thi" value={`${session.participantCount ?? 0} SV`} />
+            <DetailBox label="Bài nộp" value={`${session.submissionCount ?? 0} bài`} />
           </div>
         </div>
       </div>

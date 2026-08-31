@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema, sendHeartbeatParamsSchema, runCodeParamsSchema, runCodeBodySchema } from '../validators/student-take-exam.validator'
-import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto, toSendHeartbeatResponseDto, toRunCodeResponseDto } from '../mappers/student-take-exam.mapper'
+import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto, toGetAttemptResultResponseDto, toSendHeartbeatResponseDto, toRunCodeResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -22,6 +22,7 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
     const result = await takeExamService.startExam(
       scheduleId,
       studentId,
+      req.user!.id,
       ipAddress,
       deviceInfo,
       passwordParam,
@@ -116,6 +117,20 @@ export async function getAttemptStatus(req: Request, res: Response, next: NextFu
       success: true,
       message: 'Attempt status loaded successfully',
       data:    toGetAttemptStatusResponseDto(result),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getAttemptResult(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
+    const result = await takeExamService.getAttemptResult(scheduleId, attemptId, req.user!.profileId)
+    res.status(200).json({
+      success: true,
+      message: 'Attempt result loaded successfully',
+      data: toGetAttemptResultResponseDto(result),
     })
   } catch (err) {
     next(err)

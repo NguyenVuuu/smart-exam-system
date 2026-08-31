@@ -113,3 +113,18 @@ export function balanceQuestionPointsBySection(
 
   return nextQuestions
 }
+
+export function orderQuestionsBySection(
+  questions: ExamQuestionItem[],
+  sections: ExamSection[],
+) {
+  const sectionOrder = new Map(sections.map((section, index) => [section.id, index]))
+  return questions
+    .map((question, index) => ({ question, index }))
+    .sort((left, right) => {
+      const sectionDiff = (sectionOrder.get(left.question.sectionId ?? '') ?? sections.length)
+        - (sectionOrder.get(right.question.sectionId ?? '') ?? sections.length)
+      return sectionDiff || left.index - right.index
+    })
+    .map(({ question }, index) => ({ ...question, order: index + 1 }))
+}

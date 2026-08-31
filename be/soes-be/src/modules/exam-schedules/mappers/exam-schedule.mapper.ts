@@ -19,13 +19,17 @@ export function computeScheduleStatus(
 }
 
 export function toExamScheduleDto(row: ScheduleRow): ExamScheduleDto {
+  const submittedStatuses = new Set(['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'])
   return {
     id: row.id, title: row.title, startTime: row.startTime, endTime: row.endTime,
     durationMinutes: row.durationMinutes, maxAttempts: row.maxAttempts,
     status: computeScheduleStatus(row.status, row.startTime, row.endTime),
     locationMode: row.locationMode, distributionMode: row.distributionMode,
     resultReleaseMode: row.resultReleaseMode, reviewPolicy: row.reviewPolicy,
-    attemptCount: row._count.attempts, hasPassword: Boolean(row.passwordHash), exam: row.exam,
+    attemptCount: row._count.attempts,
+    participantCount: new Set(row.attempts.map(({ studentId }) => studentId)).size,
+    submissionCount: row.attempts.filter(({ status }) => submittedStatuses.has(status)).length,
+    hasPassword: Boolean(row.passwordHash), exam: row.exam,
     enableTabLock: row.enableTabLock, maxTabSwitches: row.maxTabSwitches,
     requireFullscreen: row.requireFullscreen, enableWebcam: row.enableWebcam,
     blockCopyPaste: row.blockCopyPaste, blockRightClick: row.blockRightClick,

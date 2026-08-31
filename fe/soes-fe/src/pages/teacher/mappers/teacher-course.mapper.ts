@@ -20,7 +20,8 @@ export function toTeacherCourseDetail(dto: TeacherCourseDetailApiDto): TeacherCo
   return {
     course: {
       id: dto.id, courseCode: dto.code, status: dto.status,
-      semesterId: dto.semester.id, semesterName: dto.semester.name,
+      semesterId: dto.semester.id, semesterCode: dto.semester.code, semesterName: dto.semester.name,
+      semesterStatus: dto.semester.status,
       subjectId: dto.subject.id, subjectCode: dto.subject.code, subjectName: dto.subject.name,
       teacherName: dto.teacher.fullName, totalStudents: dto.enrollmentCount,
       totalExams: dto.scheduleCount,
@@ -37,7 +38,7 @@ export function toTeacherCourseDetail(dto: TeacherCourseDetailApiDto): TeacherCo
       id: post.id, title: post.title, content: post.content,
       createdAt: dateTime(post.publishedAt ?? post.createdAt), teacherName: post.teacherName,
       pinned: post.isPinned,
-      attachedFiles: post.attachments.map((file) => ({ name: file.fileName, size: fileSize(file.fileSize) })),
+      attachedFiles: post.attachments.map((file) => ({ id: file.id, name: file.fileName, size: fileSize(file.fileSize) })),
     })),
     exams: dto.exams,
   }

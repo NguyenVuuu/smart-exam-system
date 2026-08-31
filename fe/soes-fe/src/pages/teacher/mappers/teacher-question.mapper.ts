@@ -22,12 +22,14 @@ export const toQuestion = (dto: TeacherQuestionDto): Question => ({
   sharedBankItemId: dto.sharedBank?.itemId,
   type: dto.type,
   difficulty: dto.difficulty,
+  title: dto.title,
   content: dto.content,
   explanation: dto.explanation ?? undefined,
   options: dto.options,
   programmingLanguage: dto.language ?? undefined,
   timeLimitMs: dto.programmingConfig?.timeLimitMs,
   memoryLimitMb: dto.programmingConfig?.memoryLimitMb,
+  maxCodeSizeKb: dto.programmingConfig?.maxCodeSizeKb,
   testCases: dto.testCases,
   createdAt: dto.createdAt,
   archivedAt: dto.archivedAt ?? undefined,
@@ -35,7 +37,8 @@ export const toQuestion = (dto: TeacherQuestionDto): Question => ({
 
 export const toQuestionPayload = (question: Partial<Question>): QuestionPayload => ({
   subjectId: question.subjectId!,
-  content: question.content!,
+  title: question.title!,
+  content: question.type === 'PROGRAMMING' ? question.content! : question.title!,
   explanation: question.explanation || null,
   type: question.type!,
   difficulty: question.difficulty!,
@@ -45,9 +48,10 @@ export const toQuestionPayload = (question: Partial<Question>): QuestionPayload 
     : (question.options ?? []).map(({ content, isCorrect }) => ({ content, isCorrect })),
   timeLimitMs: question.type === 'PROGRAMMING' ? question.timeLimitMs : undefined,
   memoryLimitMb: question.type === 'PROGRAMMING' ? question.memoryLimitMb : undefined,
+  maxCodeSizeKb: question.type === 'PROGRAMMING' ? question.maxCodeSizeKb : undefined,
   testCases: question.type === 'PROGRAMMING'
-    ? (question.testCases ?? []).map(({ input, expectedOutput, weight, isHidden }) => ({
-        input, expectedOutput, weight, isHidden,
+    ? (question.testCases ?? []).map(({ input, expectedOutput, isHidden }) => ({
+        input, expectedOutput, isHidden,
       }))
     : [],
 })

@@ -5,7 +5,7 @@ export interface ContentListParams {
   page: number; pageSize: number; keyword?: string; departmentId?: string; subjectId?: string; status?: string
 }
 export interface ExamTrackingParams extends ContentListParams {
-  type?: string; approvalStatus?: string
+  type?: string; approvalStatus?: string; semesterId?: string
 }
 
 const unwrap = <T>({ data }: { data: ApiResponse<T> }) => data.data

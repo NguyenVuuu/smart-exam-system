@@ -9,6 +9,7 @@ export const takeExamQueryKeys = {
   all: ['student-take-exam'] as const,
   attempt: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId] as const,
   status: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId, 'status'] as const,
+  result: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId, 'result'] as const,
 }
 
 export function useStartExamMutation() {
@@ -62,6 +63,15 @@ export function useGetExamAttemptStatus(scheduleId: string, attemptId: string, e
     queryFn: () => takeExamApi.getAttemptStatus(scheduleId, attemptId),
     enabled: enabled && !!scheduleId && !!attemptId,
     refetchOnWindowFocus: false,
+  })
+}
+
+export function useGetExamAttemptResult(scheduleId: string, attemptId: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: takeExamQueryKeys.result(scheduleId, attemptId),
+    queryFn: () => takeExamApi.getAttemptResult(scheduleId, attemptId),
+    enabled: enabled && !!scheduleId && !!attemptId,
+    refetchOnWindowFocus: true,
   })
 }
 

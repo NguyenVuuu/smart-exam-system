@@ -3,7 +3,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../../../errors/A
 import { toPagination } from '../../../utils/pagination'
 import { runSerializable } from '../../../utils/transaction'
 import * as repo from '../repositories/admin-users.repository'
-import type { CreateUserBody, UpdateUserBody, UsersQuery } from '../validators/admin-users.validator'
+import type { CreateUserBody, EnrollmentQuery, UpdateUserBody, UsersQuery } from '../validators/admin-users.validator'
 import { toAdminUserDto } from '../mappers/admin-user.mapper'
 
 const saltRounds = 12
@@ -60,16 +60,41 @@ export async function resetPassword(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profi
 export async function enroll(courseOfferingId: string, studentIds: string[]) {
   return runSerializable(async (tx) => {
     const uniqueIds = [...new Set(studentIds)]
-    const { course, validStudents, existing } = await repo.enrollmentContext(tx, courseOfferingId, uniqueIds)
+    const { course, validStudents, existing, conflicting } = await repo.enrollmentContext(tx, courseOfferingId, uniqueIds)
     if (!course) throw new NotFoundError('Course offering not found')
+    if (course.status !== 'ACTIVE' || course.semester.status !== 'ACTIVE') {
+      throw new ConflictError('Enrollment is only allowed for an active course in the current semester')
+    }
     if (validStudents !== uniqueIds.length) throw new ValidationError('One or more students are invalid or inactive')
+    if (conflicting) {
+      throw new ConflictError(
+        `Student ${conflicting.student.studentCode} is already enrolled in ${conflicting.courseOffering.code} for this subject and semester`,
+      )
+    }
     if (course._count.enrollments + uniqueIds.length - existing > course.maxCapacity) throw new ConflictError('Course offering capacity exceeded')
-    const result = await repo.createEnrollments(tx, courseOfferingId, uniqueIds)
+    const result = await repo.createEnrollments(tx, course, uniqueIds)
     return { created: result.count }
   })
 }
 
+export async function listEnrollments(courseOfferingId: string, query: EnrollmentQuery) {
+  const [total, rows] = await repo.listCourseEnrollments(courseOfferingId, query)
+  return {
+    items: rows.map(({ student, enrolledAt }) => ({
+      id: student.id,
+      code: student.studentCode,
+      fullName: student.user.fullName,
+      email: student.user.email,
+      enrolledAt,
+    })),
+    pagination: toPagination(query.page, query.pageSize, total),
+  }
+}
+
 export async function withdraw(courseOfferingId: string, studentId: string) {
+  if (await repo.countStudentAttemptsInCourse(courseOfferingId, studentId)) {
+    throw new ConflictError('Student cannot be removed after starting an exam in this course')
+  }
   if (!(await repo.withdrawEnrollment(courseOfferingId, studentId)).count) throw new NotFoundError('Enrollment not found')
   return { removed: true }
 }

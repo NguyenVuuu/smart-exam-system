@@ -1,11 +1,14 @@
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import bcrypt from 'bcrypt'
 import { examConfig } from "../../../config";
-import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult } from "../types";
+import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
 import { judge0Service, Judge0Service } from '../../../lib/judge0'
 import type { Judge0Submission, Judge0SubmissionResult } from '../../../lib/judge0'
 import * as repo from "../repositories/student-take-exam.repository";
+import { gradeObjectiveAnswers } from '../repositories/attempt-grading.repository'
+import { gradeProgrammingAnswers } from './programming-grading.service'
+import { isResultReleased } from '../../exam-schedules/utils/result-release'
 
 /**
  * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
@@ -25,9 +28,163 @@ async function runInBatches<T, R>(
   return results
 }
 
+const JUDGE0_RUN_BATCH_SIZE = 5
+
+type RunCodeAttempt = {
+  attemptEndAt: Date
+  examSession: { lastHeartbeat: Date } | null
+}
+
+type RunCodeTest = {
+  id: string
+  input: string
+  expectedOutput: string
+  isSample: boolean
+}
+
+function remainingSecondsUntil(endAt: Date, now: Date) {
+  return Math.max(0, Math.floor((endAt.getTime() - now.getTime()) / 1000))
+}
+
+function isAttemptOnline(attempt: RunCodeAttempt, now: Date) {
+  return attempt.examSession !== null &&
+    (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+}
+
+function systemErrorResult(error: unknown): Judge0SubmissionResult {
+  return {
+    stdout: null,
+    stderr: null,
+    compile_output: 'System error during code execution',
+    message: error instanceof Error ? error.message : 'Unknown error',
+    status: { id: 13, description: 'System Error' },
+    time: null,
+    memory: null,
+  }
+}
+
+function buildRunCodeSubmissions(
+  sourceCode: string,
+  language: string,
+  tests: RunCodeTest[],
+  config: { timeLimitMs?: number; memoryLimitKb?: number } | null,
+): Judge0Submission[] {
+  const timeLimitMs = config?.timeLimitMs ?? 2000
+  const memoryLimitKb = config?.memoryLimitKb ?? 256 * 1024
+
+  return tests.map((test) => ({
+    source_code: sourceCode,
+    language_id: language,
+    stdin: test.input,
+    expected_output: test.expectedOutput,
+    cpu_time_limit: timeLimitMs / 1000,
+    memory_limit: memoryLimitKb,
+  }))
+}
+
+async function runJudge0Submissions(submissions: Judge0Submission[]) {
+  return runInBatches(
+    submissions,
+    JUDGE0_RUN_BATCH_SIZE,
+    async (submission) => {
+      try {
+        return await judge0Service.submitAndPoll(submission)
+      } catch (error) {
+        return systemErrorResult(error)
+      }
+    },
+  )
+}
+
+function buildEmptyRunCodeResult(
+  questionId: string,
+  attempt: RunCodeAttempt,
+  now: Date,
+): RunCodeResult {
+  return {
+    questionId,
+    remainingSeconds: remainingSecondsUntil(attempt.attemptEndAt, now),
+    isOnline: isAttemptOnline(attempt, now),
+    compilationStatus: 'COMPILED',
+    compilerOutput: null,
+    runtimeError: null,
+    hasSystemError: false,
+    summary: {
+      passedCount: 0,
+      totalCount: 0,
+      message: 'Không có test case nào để kiểm tra',
+    },
+    testCases: [],
+  }
+}
+
+function buildRunCodeResult(
+  questionId: string,
+  attempt: RunCodeAttempt,
+  tests: RunCodeTest[],
+  judge0Results: Judge0SubmissionResult[],
+  now: Date,
+): RunCodeResult {
+  let compilationStatus: RunCodeResult['compilationStatus'] = 'COMPILED'
+  let compilerOutput: string | null = null
+  let runtimeError: string | null = null
+  let passedCount = 0
+  const testCases: RunCodeTestCase[] = []
+
+  for (const [index, test] of tests.entries()) {
+    const result = judge0Results[index]
+    if (result.status.id === 6) {
+      compilationStatus = 'COMPILE_ERROR'
+      compilerOutput = result.compile_output || result.stderr || 'Compilation failed'
+      break
+    }
+
+    const status = Judge0Service.mapStatusToInternal(result.status.id)
+    if (status === 'PASSED') passedCount++
+    if (!runtimeError && test.isSample && ['RUNTIME_ERROR', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED'].includes(status)) {
+      runtimeError = result.stderr || result.message || 'Runtime error occurred'
+    }
+
+    testCases.push({
+      testCaseId: test.id,
+      isSample: true,
+      status,
+      input: test.input,
+      expectedOutput: test.expectedOutput,
+      actualOutput: result.stdout,
+      executionTimeMs: parseFloat(result.time || '0') * 1000,
+      memoryUsedKb: result.memory || 0,
+    })
+  }
+
+  const hasSystemError =
+    compilationStatus !== 'COMPILE_ERROR' &&
+    judge0Results.some((result) => result.status.id === 13)
+  const totalCount = compilationStatus === 'COMPILE_ERROR' ? 0 : tests.length
+
+  return {
+    questionId,
+    remainingSeconds: remainingSecondsUntil(attempt.attemptEndAt, now),
+    isOnline: isAttemptOnline(attempt, now),
+    compilationStatus,
+    compilerOutput,
+    runtimeError,
+    hasSystemError,
+    summary: {
+      passedCount: compilationStatus === 'COMPILE_ERROR' ? 0 : passedCount,
+      totalCount,
+      message: compilationStatus === 'COMPILE_ERROR'
+        ? 'Biên dịch thất bại'
+        : `Bạn đã pass ${passedCount}/${tests.length} test cases`,
+    },
+    testCases,
+  }
+}
+
 export async function startExam(
   scheduleId: string,
   studentId: string,
+  actorUserId: string,
   ipAddress: string,      
   deviceInfo: string,
   password?: string,
@@ -131,6 +288,7 @@ export async function startExam(
       randomQuestionCount: schedule.randomQuestionCount,
       ipAddress,
       deviceInfo,  
+      actorUserId,
     });
   } catch (err) {
     if (err instanceof Error && err.name === "DUPLICATE_ATTEMPT") {
@@ -203,7 +361,12 @@ export async function getExamContent(
         type:            'PROGRAMMING' as const,
         points,
         draftSourceCode: savedAnswer?.draftSourceCode ?? null,
-        language: q.language ?? 'UNKNOWN',   // ← fallback nếu null
+        language: q.language ?? 'JAVA',
+        programmingConfig: {
+          timeLimitMs: q.programmingConfig?.timeLimitMs ?? 2000,
+          memoryLimitMb: Math.round((q.programmingConfig?.memoryLimitKb ?? 262144) / 1024),
+          maxCodeSizeKb: q.programmingConfig?.maxCodeSizeKb ?? 256,
+        },
       }
     }
 
@@ -366,9 +529,8 @@ export async function submitExam(
 
   // ── Update succeeded → return success ─────────────────────────────────────
   if (updated.count > 0) {
-    // Trigger background grading (do not await — fire-and-forget)
-    // TODO: Implement gradingService.gradeExamAttempt(attemptId)
-    // For now, this ensures the contract is followed.
+    await gradeProgrammingAnswers(attemptId)
+    await gradeObjectiveAnswers(attemptId)
     return { attemptId, submittedAt: now };
   }
 
@@ -444,6 +606,42 @@ export async function getAttemptStatus(
   }
 }
 
+export async function getAttemptResult(
+  scheduleId: string,
+  attemptId: string,
+  studentId: string,
+): Promise<AttemptResult> {
+  const attempt = await repo.findAttemptResult(attemptId, scheduleId, studentId)
+  if (!attempt) throw new NotFoundError('Attempt not found')
+
+  const schedule = attempt.examSchedule
+  const released = isResultReleased(schedule)
+  const graded = attempt.totalScore !== null
+  const available = released && graded
+  const maxScore = attempt.attemptQuestions.reduce(
+    (total, question) => total + Number(question.examQuestion.points),
+    0,
+  )
+
+  const reason = schedule.resultReleaseMode === 'NEVER'
+    ? 'NEVER'
+    : !released
+      ? 'PENDING_RELEASE'
+      : !graded
+        ? 'GRADING'
+        : 'AVAILABLE'
+
+  return {
+    available,
+    releaseMode: schedule.resultReleaseMode,
+    releaseAt: schedule.resultReleaseAt,
+    score: available ? Number(attempt.totalScore) : null,
+    maxScore: available ? maxScore : null,
+    reviewPolicy: available ? schedule.reviewPolicy : null,
+    reason,
+  }
+}
+
 // ─── API 6: Send Heartbeat ───────────────────────────────────────────────────
 
 export async function sendHeartbeat(
@@ -500,7 +698,6 @@ export async function runCode(
 ): Promise<RunCodeResult> {
   const now = new Date()
 
-  // ── 1. Load attempt and question data (with test cases) ───────────────────
   const data = await repo.findProgrammingQuestionWithTestCases(
     questionId,
     attemptId,
@@ -513,11 +710,8 @@ export async function runCode(
 
   const { attempt, question } = data
 
-  if (!question) {
-    throw new NotFoundError("Question not found in this attempt")
-  }
+  if (!question) throw new NotFoundError("Question not found in this attempt")
 
-  // ── 2. Validate attempt status and deadline ────────────────────────────────
   if (attempt.status !== "IN_PROGRESS") {
     if (attempt.status === "SUBMITTED") {
       throw new ConflictError("Exam attempt has already been submitted")
@@ -529,192 +723,32 @@ export async function runCode(
     throw new ConflictError("Exam attempt has ended")
   }
 
-  // ── 3. Validate question type ──────────────────────────────────────────────
   if (question.type !== "PROGRAMMING") {
     throw new ValidationError("Question is not a programming question")
   }
+  if (!['JAVA', 'C', 'CPP'].includes(question.language)) {
+    throw new ValidationError("Unsupported programming language")
+  }
 
-  // ── 4. Validate source code size ───────────────────────────────────────────
-  const maxCodeSizeKb = question.programmingQuestionConfig?.maxCodeSizeKb ?? 64 // default 64KB
-  const maxCodeSizeBytes = maxCodeSizeKb * 1024
-  // Calculate UTF-8 byte length without Buffer
-  const encoder = new TextEncoder()
-  const byteLength = encoder.encode(sourceCode).length
-  if (byteLength > maxCodeSizeBytes) {
+  const maxCodeSizeKb = question.programmingQuestionConfig?.maxCodeSizeKb ?? 64
+  if (Buffer.byteLength(sourceCode, 'utf8') > maxCodeSizeKb * 1024) {
     throw new ValidationError("Source code exceeds maximum allowed size")
   }
 
-  // ── 5. Save draftSourceCode to StudentAnswer (atomic upsert) ───────────────
   await repo.upsertStudentAnswerForProgramming(attemptId, questionId, sourceCode)
-
-  // ── 6. Update ExamAttempt.lastSavedAt ──────────────────────────────────────
   await repo.updateAttemptLastSavedAt(attemptId, now)
 
-  // ── 7. Prepare test cases ──────────────────────────────────────────────────
   const testCases = question.programmingTestCases
   if (testCases.length === 0) {
-    // If no test cases, return empty results
-    const remainingSeconds = Math.max(
-      0,
-      Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
-    )
-    const isOnline = attempt.examSession !== null &&
-      (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
-
-    return {
-      questionId,
-      remainingSeconds,
-      isOnline,
-      compilationStatus: "COMPILED" as const,
-      compilerOutput: null,
-      runtimeError: null,
-      hasSystemError: false,
-      summary: {
-        passedCount: 0,
-        totalCount: 0,
-        message: "Không có test case nào để kiểm tra",
-      },
-      testCases: [],
-    }
+    return buildEmptyRunCodeResult(questionId, attempt, now)
   }
 
-  // ── 8. Prepare Judge0 submissions ──────────────────────────────────────────
-  const timeLimitMs = question.programmingQuestionConfig?.timeLimitMs ?? 2000 // default 2s
-  const memoryLimitKb = question.programmingQuestionConfig?.memoryLimitKb ?? 256 * 1024 // default 256MB
-
-  // Pass expected_output for ALL test cases (sample + hidden) to avoid false passes on hidden
-  const submissions: Judge0Submission[] = testCases.map(testCase => ({
-    source_code: sourceCode,
-    language_id: question.language, // "JAVA", "C", "CPP"
-    stdin: testCase.input,
-    expected_output: testCase.expectedOutput, // Always pass expected_output
-    cpu_time_limit: timeLimitMs / 1000, // Convert ms to seconds
-    memory_limit: memoryLimitKb,
-  }))
-
-    // ── 9. Execute submissions via Judge0 ──────────────────────────────────────
-  // Chạy theo lô 5 test case song song để tránh quá tải Judge0.
-  // Nếu 1 test case lỗi hạ tầng, trả placeholder SYSTEM_ERROR để lô còn lại vẫn chạy.
-  const BATCH_SIZE = 5
-
-  const judge0Results = await runInBatches(
-    submissions,
-    BATCH_SIZE,
-    async (submission) => {
-      try {
-        return await judge0Service.submitSingle(submission)
-      } catch (error) {
-        return {
-          stdout: null,
-          stderr: null,
-          compile_output: "System error during code execution",
-          message: error instanceof Error ? error.message : "Unknown error",
-          status: { id: 13, description: "System Error" },
-          time: null,
-          memory: null,
-        }
-      }
-    },
+  const submissions = buildRunCodeSubmissions(
+    sourceCode,
+    question.language,
+    testCases,
+    question.programmingQuestionConfig,
   )
-
-  // ── 10. Process Judge0 results ────────────────────────────────────────────
-  let compilationStatus: 'COMPILED' | 'COMPILE_ERROR' = 'COMPILED'
-  let compilerOutput: string | null = null
-  let runtimeError: string | null = null
-  let passedCount = 0
-
-  const processedTestCases: RunCodeTestCase[] = []
-
-  for (let i = 0; i < testCases.length; i++) {
-    const testCase = testCases[i]
-    const judge0Result = judge0Results[i]
-    
-    // Check for compilation error (if any test case fails compilation, all fail)
-    if (judge0Result.status.id === 6) { // Compilation Error
-      compilationStatus = "COMPILE_ERROR"
-      compilerOutput = judge0Result.compile_output || judge0Result.stderr || "Compilation failed"
-      // Stop processing test cases
-      break
-    }
-
-    // Map Judge0 status to our internal status
-    const status = Judge0Service.mapStatusToInternal(judge0Result.status.id)
-
-    // Check if passed (only for COMPILED submissions)
-    const isPassed = status === 'PASSED'
-    if (isPassed) {
-      passedCount++
-    }
-
-    // Track first runtime error in sample test cases
-    if (testCase.isSample && 
-        (status === 'RUNTIME_ERROR' || status === 'TIME_LIMIT_EXCEEDED' || status === 'MEMORY_LIMIT_EXCEEDED') &&
-        runtimeError === null) {
-      runtimeError = judge0Result.stderr || judge0Result.message || "Runtime error occurred"
-    }
-
-    // Build test case result
-    if (testCase.isSample) {
-      processedTestCases.push({
-        testCaseId: testCase.id,
-        isSample: true,
-        status,
-        input: testCase.input,
-        expectedOutput: testCase.expectedOutput,
-        actualOutput: judge0Result.stdout,
-        executionTimeMs: parseFloat(judge0Result.time || '0') * 1000, // Convert seconds to ms
-        memoryUsedKb: judge0Result.memory || 0,
-      })
-    } else {
-      processedTestCases.push({
-        testCaseId: testCase.id,
-        isSample: false,
-        status,
-      })
-    }
-  }
-  // ← THÊM DÒNG NÀY sau vòng lặp for
-  // hasSystemError = true nếu có ít nhất 1 test case bị lỗi hạ tầng (status.id === 13)
-  // và KHÔNG phải do lỗi biên dịch (compile error là lỗi code, không phải hạ tầng)
-  const hasSystemError =
-    compilationStatus !== 'COMPILE_ERROR' &&
-    judge0Results.some((r) => r.status.id === 13)
-
-  // ── 11. Compute remainingSeconds and isOnline ──────────────────────────────
-  const remainingSeconds = Math.max(
-    0,
-    Math.floor((attempt.attemptEndAt.getTime() - now.getTime()) / 1000),
-  )
-  
-  const isOnline = attempt.examSession !== null &&
-    (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
-
-  // ── 12. Build summary message ──────────────────────────────────────────────
-  const totalCount = testCases.length
-  let message: string
-  
-  if (compilationStatus === "COMPILE_ERROR") {
-    message = "Biên dịch thất bại"
-  } else if (totalCount === 0) {
-    message = "Không có test case nào để kiểm tra"
-  } else {
-    message = `Bạn đã pass ${passedCount}/${totalCount} test cases`
-  }
-
-  // ── 13. Return result ─────────────────────────────────────────────────────
-  return {
-    questionId,
-    remainingSeconds,
-    isOnline,
-    compilationStatus,
-    compilerOutput,
-    runtimeError,
-    hasSystemError, 
-    summary: {
-      passedCount: compilationStatus === "COMPILE_ERROR" ? 0 : passedCount,
-      totalCount: compilationStatus === "COMPILE_ERROR" ? 0 : totalCount,
-      message,
-    },
-    testCases: processedTestCases,
-  }
+  const judge0Results = await runJudge0Submissions(submissions)
+  return buildRunCodeResult(questionId, attempt, testCases, judge0Results, now)
 }

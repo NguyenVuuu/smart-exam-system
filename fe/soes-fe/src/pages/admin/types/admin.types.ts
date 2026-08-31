@@ -63,6 +63,7 @@ export interface AdminUser {
 
 export interface SharedQuestionAdmin {
   id: string
+  title: string
   content: string
   explanation?: string
   subjectId?: string
@@ -79,7 +80,15 @@ export interface SharedQuestionAdmin {
   removalReason?: string
   options?: Array<{ id: string; content: string; isCorrect: boolean }>
   programmingConfig?: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number }
-  testCases?: Array<{ id: string; input: string; expectedOutput: string; weight: number; isHidden: boolean }>
+  testCases?: Array<{ id: string; input: string; expectedOutput: string; isHidden: boolean }>
+}
+
+export interface CourseEnrollmentAdmin {
+  id: string
+  code: string
+  fullName: string
+  email: string
+  enrolledAt: string
 }
 
 export interface AdminExam {
@@ -95,7 +104,7 @@ export interface AdminExam {
   totalPoints: number
   questionCount: number
   durationMinutes: number
-  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'LOCKED'
+  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'LOCKED' | 'ARCHIVED'
 }
 
 export interface AdminExamSchedule {

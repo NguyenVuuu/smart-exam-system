@@ -10,7 +10,10 @@ function semesterIdentity(data: SemesterBody) {
   const [startYear, endYear] = data.academicYear.split('-').map(Number)
   if (endYear !== startYear + 1) throw new ValidationError('Academic year must contain consecutive years')
   const term = termNumber[data.term]
-  return { code: `HK${term}_${endYear}`, name: `Học kỳ ${term} năm học ${data.academicYear}` }
+  return {
+    code: `HK${term}_${startYear}_${endYear}`,
+    name: `Học kỳ ${term} - ${data.academicYear.replace('-', '/')}`,
+  }
 }
 
 export async function list(query: SemesterQuery) {
@@ -35,6 +38,5 @@ export async function update(id: string, data: SemesterBody) {
 export async function activate(id: string) {
   const semester = await repo.findSemester(id)
   if (!semester) throw new NotFoundError('Semester not found')
-  if (semester.status === 'CLOSED') throw new ConflictError('Closed semester cannot be activated')
   return toSemesterDto(await repo.activateSemester(id))
 }

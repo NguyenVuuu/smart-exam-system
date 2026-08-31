@@ -12,12 +12,18 @@ import {
   Users,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../../store/authStore'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
-import { MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
+import { useTeacherCourses } from './hooks/useTeacherCourses'
 
 export default function TeacherDashboard() {
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+  const { courses, currentSemesterId, currentSemesterName } = useTeacherCourses()
+  const currentCourses = courses.filter(({ semesterId }) => semesterId === currentSemesterId)
+  const currentStudentCount = currentCourses.reduce((total, course) => total + course.totalStudents, 0)
+  const currentExamCount = currentCourses.reduce((total, course) => total + course.totalExams, 0)
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
@@ -32,10 +38,10 @@ export default function TeacherDashboard() {
             <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
             <div className="relative z-10 max-w-2xl">
               <span className="px-2.5 py-1 bg-white/20 text-white rounded-full text-xs font-medium tracking-wide uppercase">
-                Học kỳ 1 • 2026
+                {currentSemesterName ?? 'Chưa thiết lập học kỳ hiện tại'}
               </span>
               <h1 className="text-2xl font-bold mt-2 tracking-tight">
-                Xin chào, TS. Nguyễn Văn Giảng! 👋
+                Xin chào, {user?.fullName ?? 'Giảng viên'}!
               </h1>
               <p className="text-xs text-blue-100 mt-1 leading-relaxed">
                 Hệ thống SOES ghi nhận 2 bài thi sắp diễn ra, ca thi trực tuyến đang mở và 2 cảnh báo cần rà soát.
@@ -65,9 +71,9 @@ export default function TeacherDashboard() {
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500">Lớp HP Phụ Trách</p>
-                <p className="text-2xl font-bold text-gray-900">3</p>
+                <p className="text-2xl font-bold text-gray-900">{currentCourses.length}</p>
                 <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                  <span>● 2 lớp đang mở</span>
+                  <span>{currentCourses.filter(({ status }) => status === 'ACTIVE').length} lớp đang mở</span>
                 </p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -78,7 +84,7 @@ export default function TeacherDashboard() {
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500">Tổng Sinh Viên</p>
-                <p className="text-2xl font-bold text-gray-900">133</p>
+                <p className="text-2xl font-bold text-gray-900">{currentStudentCount}</p>
                 <p className="text-xs text-gray-400">Đã ghi danh kỳ này</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -100,7 +106,7 @@ export default function TeacherDashboard() {
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500">Kỳ Thi Đã Công Bố</p>
-                <p className="text-2xl font-bold text-emerald-600">2</p>
+                <p className="text-2xl font-bold text-emerald-600">{currentExamCount}</p>
                 <p className="text-xs text-emerald-600 font-medium">Đã mở cho SV làm bài</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -196,7 +202,7 @@ export default function TeacherDashboard() {
               </div>
 
               <div className="space-y-3">
-                {MOCK_TEACHER_COURSES.map((course) => (
+                {currentCourses.map((course) => (
                   <div
                     key={course.id}
                     onClick={() => navigate(`/teacher/courses/${course.id}`)}
@@ -214,7 +220,7 @@ export default function TeacherDashboard() {
                           </span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          Sĩ số: <span className="font-semibold text-gray-700">{course.totalStudents} sinh viên</span> • Học kỳ 1 2026
+                          Sĩ số: <span className="font-semibold text-gray-700">{course.totalStudents} sinh viên</span> • {course.semesterName}
                         </p>
                       </div>
                     </div>
@@ -224,6 +230,11 @@ export default function TeacherDashboard() {
                     </button>
                   </div>
                 ))}
+                {currentCourses.length === 0 && (
+                  <p className="py-6 text-center text-xs text-gray-500">
+                    Chưa có lớp học phần được phân công trong học kỳ hiện tại.
+                  </p>
+                )}
               </div>
             </div>
 

@@ -4,6 +4,7 @@ export interface AuditIssue {
   id: string
   questionId: string
   subjectName: string
+  title: string
   content: string
   severity: 'HIGH' | 'LOW'
   description: string
@@ -23,6 +24,7 @@ export function auditQuestion(question: Question): AuditIssue[] {
   const base = {
     questionId: question.id,
     subjectName: question.subjectName || 'Chưa phân môn',
+    title: question.title || question.content,
     content: question.content,
   }
 
@@ -122,16 +124,6 @@ export function auditQuestion(question: Question): AuditIssue[] {
         id: `${question.id}-missing-output`,
         severity: 'HIGH',
         description: 'Test case chưa có kết quả mong đợi (expected output).',
-      })
-    }
-
-    const totalWeight = testCases.reduce((sum, testCase) => sum + testCase.weight, 0)
-    if (testCases.length > 0 && Math.abs(totalWeight - 100) > 0.001) {
-      issues.push({
-        ...base,
-        id: `${question.id}-test-weight`,
-        severity: 'HIGH',
-        description: 'Tổng trọng số các test case phải bằng 100%.',
       })
     }
 

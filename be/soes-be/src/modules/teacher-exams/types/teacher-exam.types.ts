@@ -3,6 +3,8 @@ export interface ExamCapabilities {
   canDelete: boolean
   canSubmitForApproval: boolean
   canSchedule: boolean
+  canLock: boolean
+  canUnlock: boolean
   canCopy: boolean
   canArchive: boolean
   lockReason?: string

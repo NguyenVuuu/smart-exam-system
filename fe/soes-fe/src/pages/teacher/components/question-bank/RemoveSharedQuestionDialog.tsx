@@ -38,7 +38,7 @@ export default function RemoveSharedQuestionDialog({
 
         <div className="space-y-4 px-6 py-5">
           <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-            Gỡ câu hỏi: <span className="font-semibold text-slate-900">{question.content}</span>
+            Gỡ câu hỏi: <span className="font-semibold text-slate-900">{question.title}</span>
           </div>
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold text-gray-700">Lý do gỡ</span>

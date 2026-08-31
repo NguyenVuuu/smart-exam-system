@@ -78,7 +78,7 @@ export default function TeacherDepartmentApprovalPage() {
     .map(({ itemId, question }) => ({
       kind: 'QUESTION',
       id: itemId,
-      title: question.content,
+      title: question.title,
       subjectName: question.subjectName,
       authorId: question.teacherId,
       authorName: question.teacherName,
@@ -375,6 +375,7 @@ function ExamReviewContent({ exam }: { exam: Exam }) {
                   {item.points} điểm
                 </AppBadge>
               </div>
+              <p className="text-sm font-semibold text-gray-950">{item.question.title}</p>
               <p className="text-sm font-medium leading-7 text-gray-900">{item.question.content}</p>
               <QuestionAnswerBlock question={item.question} />
             </div>
@@ -396,7 +397,8 @@ function QuestionReviewContent({ question }: { question: Question }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-100 p-5">
-        <p className="text-sm font-semibold leading-7 text-gray-900">{question.content}</p>
+        <h4 className="text-base font-semibold text-gray-950">{question.title}</h4>
+        <p className="mt-2 text-sm font-medium leading-7 text-gray-900">{question.content}</p>
         <div className="mt-4">
           <QuestionAnswerBlock question={question} />
         </div>
@@ -431,7 +433,7 @@ function QuestionAnswerBlock({ question }: { question: Question }) {
                 <span className="font-mono text-gray-700">Input: {testCase.input || '(rỗng)'}</span>
                 <span className="font-mono text-gray-700">Output: {testCase.expectedOutput}</span>
                 <AppBadge tone={testCase.isHidden ? 'gray' : 'emerald'} shape="rounded">
-                  {testCase.isHidden ? 'Ẩn' : 'Mẫu'} • {testCase.weight}%
+                  {testCase.isHidden ? 'Ẩn' : 'Mẫu'}
                 </AppBadge>
               </div>
             ))}

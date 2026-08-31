@@ -32,17 +32,27 @@ export interface SubmitExamResponse {
   totalScore?: number
 }
 
+export interface AttemptResult {
+  available: boolean
+  releaseMode: 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED' | 'NEVER'
+  releaseAt: string | null
+  score: number | null
+  maxScore: number | null
+  reviewPolicy: 'NONE' | 'SCORE_ONLY' | 'ANSWERS_NO_KEY' | 'FULL_AFTER_RELEASE' | null
+  reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
+}
+
 // ─── Run code (programming questions) ────────────────────────────────────────
 
 export interface RunCodeTestCase {
   testCaseId: string
-  isSample: boolean
+  isSample: true
   status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
-  input?: string
-  expectedOutput?: string
-  actualOutput?: string | null
-  executionTimeMs?: number
-  memoryUsedKb?: number
+  input: string
+  expectedOutput: string
+  actualOutput: string | null
+  executionTimeMs: number
+  memoryUsedKb: number
 }
 
 export interface RunCodeResponse {
@@ -63,7 +73,7 @@ export interface RunCodeResponse {
 
 export interface AttemptStatus {
   attemptId: string
-  status: 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED'
+  status: 'IN_PROGRESS' | 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'EXPIRED' | 'INVALIDATED'
   startedAt: string
   attemptEndAt: string
   submittedAt: string | null
@@ -94,6 +104,11 @@ interface ApiTakeExamQuestion {
   answer?: string[]
   draftSourceCode?: string | null
   language?: string
+  programmingConfig?: {
+    timeLimitMs: number
+    memoryLimitMb: number
+    maxCodeSizeKb: number
+  }
 }
 
 function toTakeExamQuestion(q: ApiTakeExamQuestion): TakeExamQuestion {
@@ -108,6 +123,7 @@ function toTakeExamQuestion(q: ApiTakeExamQuestion): TakeExamQuestion {
     points: q.points,
     language: isCoding ? (q.language as TakeExamQuestion['language']) : undefined,
     starterCode: isCoding ? (q.draftSourceCode ?? '') : undefined,
+    programmingConfig: isCoding ? q.programmingConfig : undefined,
     options: isCoding ? undefined : q.options,
     answer: isCoding
       ? (q.draftSourceCode ?? undefined)
@@ -165,6 +181,13 @@ export const takeExamApi = {
 
   getAttemptStatus: async (scheduleId: string, attemptId: string): Promise<AttemptStatus> => {
     const response = await axios.get<BaseResponse<AttemptStatus>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/status`)
+    return response.data.data
+  },
+
+  getAttemptResult: async (scheduleId: string, attemptId: string): Promise<AttemptResult> => {
+    const response = await axios.get<BaseResponse<AttemptResult>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/result`,
+    )
     return response.data.data
   },
 

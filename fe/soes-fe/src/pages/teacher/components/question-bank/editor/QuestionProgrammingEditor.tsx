@@ -1,5 +1,6 @@
 ﻿import { ChevronDown, ChevronUp, Code, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import AppSelect from '../../../../../components/common/AppSelect'
+import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../../constants/programmingLanguages'
 import type { TestCase } from '../../../types/teacher-question-bank.types'
 
 export function QuestionProgrammingEditor({
@@ -9,6 +10,8 @@ export function QuestionProgrammingEditor({
   onTimeLimitChange,
   memoryLimitMb,
   onMemoryLimitChange,
+  maxCodeSizeKb,
+  onMaxCodeSizeChange,
   testCases,
   onTestCasesChange,
   expandedTcIds,
@@ -20,6 +23,8 @@ export function QuestionProgrammingEditor({
   onTimeLimitChange: (ms: number) => void
   memoryLimitMb: number
   onMemoryLimitChange: (mb: number) => void
+  maxCodeSizeKb: number
+  onMaxCodeSizeChange: (kb: number) => void
   testCases: TestCase[]
   onTestCasesChange: (cases: TestCase[]) => void
   expandedTcIds: string[]
@@ -29,7 +34,7 @@ export function QuestionProgrammingEditor({
     const newId = `tc-${Date.now()}`
     onTestCasesChange([
       ...testCases,
-      { id: newId, input: '', expectedOutput: '', weight: 10, isHidden: false },
+      { id: newId, input: '', expectedOutput: '', isHidden: false },
     ])
     onToggleExpandTc(newId)
   }
@@ -53,16 +58,16 @@ export function QuestionProgrammingEditor({
           <Code size={16} className="text-purple-600" /> Cấu hình môi trường chấm bài
         </h4>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Ngôn ngữ lập trình</label>
             <AppSelect
               value={programmingLanguage}
               onChange={onLanguageChange}
               options={[
-                { value: 'JAVA', label: 'Java (OpenJDK 17)' },
-                { value: 'CPP', label: 'C++ (GCC 11)' },
-                { value: 'C', label: 'C (GCC 11)' },
+                { value: 'JAVA', label: PROGRAMMING_LANGUAGE_LABELS.JAVA },
+                { value: 'CPP', label: PROGRAMMING_LANGUAGE_LABELS.CPP },
+                { value: 'C', label: PROGRAMMING_LANGUAGE_LABELS.C },
               ]}
               buttonClassName="bg-white text-xs py-2 rounded-lg border border-purple-200"
             />
@@ -72,6 +77,8 @@ export function QuestionProgrammingEditor({
             <label className="block text-xs font-semibold text-gray-700 mb-1">Giới hạn thời gian (ms)</label>
             <input
               type="number"
+              min={100}
+              max={60000}
               value={timeLimitMs}
               onChange={(e) => onTimeLimitChange(Number(e.target.value))}
               className="w-full bg-white border border-purple-200 text-xs rounded-lg p-2 focus:outline-none focus:border-purple-500"
@@ -82,8 +89,22 @@ export function QuestionProgrammingEditor({
             <label className="block text-xs font-semibold text-gray-700 mb-1">Giới hạn bộ nhớ (MB)</label>
             <input
               type="number"
+              min={16}
+              max={2048}
               value={memoryLimitMb}
               onChange={(e) => onMemoryLimitChange(Number(e.target.value))}
+              className="w-full bg-white border border-purple-200 text-xs rounded-lg p-2 focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Kích thước mã tối đa (KB)</label>
+            <input
+              type="number"
+              min={1}
+              max={1024}
+              value={maxCodeSizeKb}
+              onChange={(e) => onMaxCodeSizeChange(Number(e.target.value))}
               className="w-full bg-white border border-purple-200 text-xs rounded-lg p-2 focus:outline-none focus:border-purple-500"
             />
           </div>
@@ -115,7 +136,6 @@ export function QuestionProgrammingEditor({
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-purple-700">TC #{idx + 1}</span>
-                    <span className="text-xs text-gray-500 font-medium">Trọng số: {tc.weight}%</span>
                     {tc.isHidden ? (
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
                         <EyeOff size={11} /> Ẩn khỏi SV
@@ -174,17 +194,7 @@ export function QuestionProgrammingEditor({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs font-medium text-gray-700">Trọng số (% điểm):</label>
-                        <input
-                          type="number"
-                          value={tc.weight}
-                          onChange={(e) => handleUpdateTestCase(tc.id, { weight: Number(e.target.value) })}
-                          className="w-16 bg-gray-50 border border-gray-200 text-xs rounded-lg p-1.5 text-center focus:outline-none focus:border-purple-500"
-                        />
-                      </div>
-
+                    <div className="flex justify-end pt-1">
                       <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-gray-700">
                         <input
                           type="checkbox"

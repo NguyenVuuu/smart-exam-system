@@ -38,6 +38,7 @@ export default function TeacherQuestionAuditPage() {
       const q = searchQuery.toLowerCase().trim()
       const matchesSearch =
         !q ||
+        issue.title.toLowerCase().includes(q) ||
         issue.content.toLowerCase().includes(q) ||
         issue.subjectName.toLowerCase().includes(q) ||
         issue.description.toLowerCase().includes(q)
@@ -48,11 +49,11 @@ export default function TeacherQuestionAuditPage() {
   // 3. Cấu hình bảng hiển thị
   const columns: ColumnDef<AuditIssue>[] = [
     {
-      header: 'Nội dung câu hỏi',
+      header: 'Tiêu đề câu hỏi',
       render: (issue) => (
         <div className="max-w-2xl space-y-1.5 py-1">
           <p className="line-clamp-2 text-sm font-semibold text-gray-900 leading-relaxed">
-            {issue.content}
+            {issue.title}
           </p>
           <p
             className={`flex items-center gap-1.5 text-xs font-semibold ${

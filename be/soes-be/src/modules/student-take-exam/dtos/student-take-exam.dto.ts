@@ -32,6 +32,11 @@ export interface ExamContentProgrammingQuestionDto {
   points:          number
   draftSourceCode: string | null  // null if unanswered
   language:        string
+  programmingConfig: {
+    timeLimitMs: number
+    memoryLimitMb: number
+    maxCodeSizeKb: number
+  }
 }
 
 export type ExamContentQuestionDto =
@@ -84,6 +89,16 @@ export interface GetAttemptStatusResponseDto {
   totalQuestionCount: number
 }
 
+export interface GetAttemptResultResponseDto {
+  available: boolean
+  releaseMode: string
+  releaseAt: string | null
+  score: number | null
+  maxScore: number | null
+  reviewPolicy: string | null
+  reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
+}
+
 
 // ─── API 6: Send Heartbeat ─────────────────────────────────────────────────────
 
@@ -94,26 +109,16 @@ export interface SendHeartbeatResponseDto {
 
 // ─── API 7: Run Code ───────────────────────────────────────────────────────────
 
-export interface RunCodeTestCaseDtoBase {
+export interface RunCodeTestCaseDto {
   testCaseId: string
-  isSample: boolean
-  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
-}
-
-export interface RunCodeSampleTestCaseDto extends RunCodeTestCaseDtoBase {
   isSample: true
+  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
   input: string
   expectedOutput: string
   actualOutput: string | null
   executionTimeMs: number
   memoryUsedKb: number
 }
-
-export interface RunCodeHiddenTestCaseDto extends RunCodeTestCaseDtoBase {
-  isSample: false
-}
-
-export type RunCodeTestCaseDto = RunCodeSampleTestCaseDto | RunCodeHiddenTestCaseDto
 
 export interface RunCodeResponseDto {
   questionId: string

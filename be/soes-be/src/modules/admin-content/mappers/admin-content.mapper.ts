@@ -6,7 +6,7 @@ type BankRow = Prisma.QuestionBankItemGetPayload<{ include: typeof bankInclude }
 type ExamRow = Prisma.ExamGetPayload<{ include: typeof trackedExamInclude }>
 
 export const toAdminQuestionBankItemDto = (row: BankRow): AdminQuestionBankItemDto => ({
-  id: row.id, content: row.question.content, explanation: row.question.explanation,
+  id: row.id, title: row.question.title, content: row.question.content, explanation: row.question.explanation,
   type: row.question.type, difficulty: row.question.difficulty,
   subject: row.question.subject,
   contributor: { id: row.question.owner.id, fullName: row.question.owner.user.fullName },
@@ -25,7 +25,7 @@ export const toAdminQuestionBankItemDto = (row: BankRow): AdminQuestionBankItemD
   } : null,
   testCases: row.question.programmingTests.map((test) => ({
     id: test.id, input: test.input, expectedOutput: test.expectedOutput,
-    weight: Number(test.weight), isHidden: test.isHidden,
+    isHidden: test.isHidden,
   })),
 })
 
@@ -34,6 +34,7 @@ export const toAdminExamTrackingDto = (row: ExamRow): AdminExamTrackingDto => ({
   format: row.format, status: row.status, approvalStatus: row.approvalStatus,
   totalPoints: Number(row.totalPoints), durationMinutes: row.defaultDurationMinutes,
   subject: row.subject,
+  semester: row.semester,
   creator: { id: row.createdBy.id, fullName: row.createdBy.user.fullName },
   reviewer: row.reviewedBy ? { id: row.reviewedBy.id, fullName: row.reviewedBy.user.fullName } : null,
   questionCount: row._count.examQuestions, scheduleCount: row._count.schedules,

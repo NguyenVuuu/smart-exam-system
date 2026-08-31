@@ -4,8 +4,10 @@ export interface CourseOffering {
   subjectCode: string
   subjectName: string
   courseCode: string // Mã lớp học phần duy nhất (BR-05)
+  semesterCode: string
   semesterName: string
   semesterId: string
+  semesterStatus?: 'UPCOMING' | 'ACTIVE' | 'CLOSED'
   teacherName: string
   totalStudents: number
   totalExams: number
@@ -38,7 +40,7 @@ export interface CourseAnnouncement {
   id: string
   title: string
   content: string
-  attachedFiles?: Array<{ name: string; size: string }>
+  attachedFiles?: Array<{ id: string; name: string; size: string }>
   createdAt: string
   teacherName: string
   pinned?: boolean

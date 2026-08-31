@@ -88,6 +88,7 @@ export default function TeacherQuestionBankPage() {
 
     const matchesSubject = selectedSubject === 'ALL' || q.subjectId === selectedSubject
     const matchesSearch =
+      q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       q.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (q.subjectName && q.subjectName.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesType = selectedType === 'ALL' || q.type === selectedType

@@ -2,7 +2,9 @@ import { apiClient } from '../../../api/axios'
 import type {
   TeacherExamDetailDto, TeacherExamDto, TeacherExamPayload,
   TeacherExamScheduleDto, TeacherExamSchedulePayload,
+  TeacherSubmissionPage,
 } from '../types/teacher-exam-api.types'
+import type { ViolationRecord } from '../types/teacher-exam.types'
 
 interface ApiResponse<T> { success: boolean; data: T }
 
@@ -42,6 +44,12 @@ export const replaceTeacherExamQuestions = (
 
 export const submitTeacherExam = (id: string) => apiClient.post(`/teacher/exams/${id}/submit`)
 
+export const lockTeacherExamDistribution = (id: string) =>
+  apiClient.post<ApiResponse<TeacherExamDto>>(`/teacher/exams/${id}/distribution-lock`).then(({ data }) => data.data)
+
+export const unlockTeacherExamDistribution = (id: string) =>
+  apiClient.delete<ApiResponse<TeacherExamDto>>(`/teacher/exams/${id}/distribution-lock`).then(({ data }) => data.data)
+
 export const getTeacherExamSchedules = (examId: string) =>
   apiClient.get<ApiResponse<TeacherExamScheduleDto[]>>(`/teacher/exams/${examId}/schedules`).then(({ data }) => data.data)
 
@@ -53,3 +61,25 @@ export const updateTeacherExamSchedule = (examId: string, scheduleId: string, pa
 
 export const cancelTeacherExamSchedule = (examId: string, scheduleId: string, reason: string) =>
   apiClient.post<ApiResponse<TeacherExamScheduleDto>>(`/teacher/exams/${examId}/schedules/${scheduleId}/cancel`, { reason }).then(({ data }) => data.data)
+
+export const getTeacherExamSubmissions = (examId: string, scheduleId: string, page: number) =>
+  apiClient.get<ApiResponse<TeacherSubmissionPage>>(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions`, {
+    params: { page, pageSize: 10 },
+  }).then(({ data }) => data.data)
+
+export const getTeacherExamViolations = (examId: string, scheduleId: string) =>
+  apiClient.get<ApiResponse<{ items: ViolationRecord[] }>>(`/teacher/exams/${examId}/schedules/${scheduleId}/violations`, {
+    params: { page: 1, pageSize: 100 },
+  }).then(({ data }) => data.data.items)
+
+export const gradeTeacherExamSubmission = (
+  examId: string, scheduleId: string, attemptId: string, score: number, reason: string,
+) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/grade`, {
+  score, reason,
+})
+
+export const updateTeacherResultRelease = (
+  examId: string,
+  scheduleId: string,
+  payload: { mode: 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED'; releaseAt?: string | null; published: boolean },
+) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/results`, payload)

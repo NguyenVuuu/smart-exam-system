@@ -30,6 +30,7 @@ import {
   inferSectionId,
   isQuestionAllowedForExam,
   splitPointsPrecisely,
+  orderQuestionsBySection,
 } from './utils/ExamEditorUtils'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
 import type {
@@ -54,7 +55,7 @@ export default function TeacherExamEditorPage() {
   const navigate = useNavigate()
   const { examId } = useParams<{ examId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { courses } = useTeacherCourses()
+  const { courses, semesterOptions, currentSemesterId } = useTeacherCourses()
   const { questions: bankQuestions, subjects } = useTeacherQuestions()
   const copyFromId = searchParams.get('copyFrom')
   const isCopy = Boolean(copyFromId)
@@ -74,6 +75,7 @@ export default function TeacherExamEditorPage() {
   const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
   const [examType, setExamType] = useState<ExamType>(initialTypeFromUrl)
   const [subjectId, setSubjectId] = useState('')
+  const [semesterId, setSemesterId] = useState('')
   const [sections, setSections] = useState<ExamSection[]>(initialSections)
   const [activeSectionId, setActiveSectionId] = useState(initialSections[0].id)
   const [durationMinutes, setDurationMinutes] = useState(60)
@@ -88,10 +90,6 @@ export default function TeacherExamEditorPage() {
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
 
   useEffect(() => {
-    if (!subjectId && courses[0]) setSubjectId(courses[0].subjectId)
-  }, [courses, subjectId])
-
-  useEffect(() => {
     if (!sourceExam || initializedSourceId.current === sourceExam.id) return
     const nextSections = sourceExam.sections?.map((section) => ({ ...section }))
       ?? buildInitialSections(sourceExam.type)
@@ -101,6 +99,7 @@ export default function TeacherExamEditorPage() {
     setExamCategory(sourceExam.category ?? 'QUIZ')
     setExamType(sourceExam.type)
     setSubjectId(sourceExam.subjectId)
+    setSemesterId(sourceExam.semesterId)
     setSections(nextSections)
     setActiveSectionId(nextSections[0].id)
     setDurationMinutes(sourceExam.defaultDurationMinutes)
@@ -116,12 +115,17 @@ export default function TeacherExamEditorPage() {
     navigate('/teacher/exams', { replace: true })
   }, [navigate, sourceError, sourceId, sourceLoading])
 
-  const selectedCourse = courses.find((course) => course.subjectId === subjectId)
+  const selectedSemesterId = semesterId || currentSemesterId || ''
+  const semesterCourses = courses.filter((course) => course.semesterId === selectedSemesterId)
+  const selectedSubjectId = semesterCourses.some((course) => course.subjectId === subjectId)
+    ? subjectId
+    : semesterCourses[0]?.subjectId ?? ''
+  const selectedCourse = semesterCourses.find((course) => course.subjectId === selectedSubjectId)
   const selectedSubject = {
     subjectCode: selectedCourse?.subjectCode ?? '',
     subjectName: selectedCourse?.subjectName ?? 'Chưa chọn môn học',
   }
-  const subjectOptions = Array.from(new Map(courses.map((course) => [course.subjectId, {
+  const subjectOptions = Array.from(new Map(semesterCourses.map((course) => [course.subjectId, {
     value: course.subjectId, label: `${course.subjectCode} - ${course.subjectName}`,
   }])).values())
   const totalPoints = questions.reduce((sum, item) => sum + item.points, 0)
@@ -229,6 +233,7 @@ export default function TeacherExamEditorPage() {
       reviewStatus: 'PRIVATE',
       type: savedQ.type || (examType === 'PROGRAMMING' ? 'PROGRAMMING' : 'SINGLE_CHOICE'),
       difficulty: savedQ.difficulty || 'EASY',
+      title: savedQ.title || '',
       content: savedQ.content || '',
       explanation: savedQ.explanation,
       options: savedQ.options,
@@ -249,6 +254,11 @@ export default function TeacherExamEditorPage() {
   const validateExam = () => {
     if (!title.trim()) {
       toast.error('Vui lòng nhập tên bài thi.')
+      setActiveStep('INFO')
+      return false
+    }
+    if (!selectedSemesterId) {
+      toast.error('Vui lòng chọn học kỳ của đề thi.')
       setActiveStep('INFO')
       return false
     }
@@ -273,9 +283,10 @@ export default function TeacherExamEditorPage() {
 
   const persistExam = async (submit: boolean) => {
     if (!validateExam()) return
-    if (!subjectId) { toast.error('Vui lòng chọn môn học.'); return }
+    if (!selectedSubjectId) { toast.error('Vui lòng chọn môn học.'); return }
     const payload = {
-      title: title.trim(), description: description.trim() || null, subjectId,
+      title: title.trim(), description: description.trim() || null,
+      subjectId: selectedSubjectId, semesterId: selectedSemesterId,
       type: examCategory,
       format: examType === 'MULTIPLE_CHOICE' ? 'OBJECTIVE' as const : examType,
       creationMethod: sourceExam?.creationMethod ?? 'MANUAL' as const,
@@ -289,7 +300,10 @@ export default function TeacherExamEditorPage() {
       const saved = !isCopy && sourceExam
         ? await examApi.updateTeacherExam(sourceExam.id, payload)
         : await examApi.createTeacherExam(payload)
-      await examApi.replaceTeacherExamQuestions(saved.id, questions.map(({ questionId, points, sectionId }) => ({ questionId, points, sectionId })))
+      const orderedQuestions = orderQuestionsBySection(questions, sections)
+      await examApi.replaceTeacherExamQuestions(saved.id, orderedQuestions.map(
+        ({ questionId, points, sectionId }) => ({ questionId, points, sectionId }),
+      ))
       if (submit) await examApi.submitTeacherExam(saved.id)
       toast.success(
         submit
@@ -388,9 +402,12 @@ export default function TeacherExamEditorPage() {
                   setExamCategory={setExamCategory}
                   examType={examType}
                   updateExamType={updateExamType}
-                  subjectId={subjectId}
+                  subjectId={selectedSubjectId}
                   setSubjectId={setSubjectId}
                   subjectOptions={subjectOptions}
+                  semesterId={selectedSemesterId}
+                  setSemesterId={setSemesterId}
+                  semesterOptions={semesterOptions}
                 />
               )}
 
@@ -489,7 +506,7 @@ export default function TeacherExamEditorPage() {
         existingQuestionIds={questions.map((q) => q.questionId)}
         examType={examType}
         questions={bankQuestions}
-        targetSubjectId={subjectId}
+        targetSubjectId={selectedSubjectId}
       />
 
       <AIPdfGeneratorModal

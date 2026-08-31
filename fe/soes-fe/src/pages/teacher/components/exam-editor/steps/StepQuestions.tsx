@@ -87,13 +87,13 @@ export function StepQuestions(props: {
         </div>
 
         <div className="space-y-3">
-          {props.visibleQuestions.map((item) => {
+          {props.visibleQuestions.map((item, sectionIndex) => {
             const globalIndex = props.questions.findIndex((q) => q.questionId === item.questionId)
             return (
               <QuestionRow
                 key={item.questionId}
                 item={item}
-                index={globalIndex}
+                index={sectionIndex}
                 sections={props.sections}
                 isCollapsed={props.collapsedQuestionIds.includes(item.questionId)}
                 onToggleCollapse={() => props.onToggleQuestionCollapse(item.questionId)}

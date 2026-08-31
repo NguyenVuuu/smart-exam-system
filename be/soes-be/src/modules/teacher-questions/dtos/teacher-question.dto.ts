@@ -3,13 +3,13 @@ export interface QuestionOptionDto {
 }
 
 export interface TeacherQuestionDto {
-  id: string; content: string; explanation: string | null
+  id: string; title: string; content: string; explanation: string | null
   type: string; difficulty: string; source: string; language: string | null
   subject: { id: string; code: string; name: string }
   owner: { id: string; fullName: string }
   options: QuestionOptionDto[]
   programmingConfig: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number } | null
-  testCases: Array<{ id: string; input: string; expectedOutput: string; weight: number; isHidden: boolean }>
+  testCases: Array<{ id: string; input: string; expectedOutput: string; isHidden: boolean }>
   sharedBank: {
     itemId: string; status: string; rejectionReason: string | null
     removedAt: Date | null; reviewedAt: Date | null

@@ -9,10 +9,19 @@ type ExamDetailRow = Prisma.ExamGetPayload<{ include: typeof examDetailInclude }
 export function examCapabilities(row: ExamRow, ownerId: string): ExamCapabilities {
   const owns = row.createdById === ownerId
   const editable = owns && row.status === 'DRAFT' && row.approvalStatus !== 'PENDING'
+  const distributionCanReopen = row.schedules.every((schedule) =>
+    schedule._count.attempts === 0
+    && (schedule.status === 'DRAFT' || schedule.status === 'CANCELLED' || schedule.startTime > new Date()),
+  )
   return {
-    canEdit: editable, canDelete: editable && row._count.schedules === 0,
+    canEdit: editable,
+    canDelete: editable && row._count.schedules === 0,
     canSubmitForApproval: owns && row.status === 'DRAFT' && row._count.examQuestions > 0,
-    canSchedule: row.status === 'READY', canCopy: owns, canArchive: owns && row.status !== 'DRAFT',
+    canSchedule: owns && row.type !== 'FINAL' && row.status === 'READY',
+    canLock: owns && row.type !== 'FINAL' && row.status === 'READY'
+      && row.schedules.some((schedule) => schedule.status !== 'CANCELLED'),
+    canUnlock: owns && row.type !== 'FINAL' && row.status === 'LOCKED' && distributionCanReopen,
+    canCopy: owns, canArchive: owns && row.status !== 'DRAFT',
     ...(!editable && { lockReason: 'Exam is not editable in its current state' }),
   }
 }
@@ -23,6 +32,7 @@ export function toTeacherExamDto(row: ExamRow, actorId: string): TeacherExamDto 
     creationMethod: row.creationMethod, status: row.status, approvalStatus: row.approvalStatus,
     defaultDurationMinutes: row.defaultDurationMinutes, totalPoints: Number(row.totalPoints),
     subject: { id: row.subject.id, code: row.subject.code, name: row.subject.name },
+    semester: row.semester,
     creator: { id: row.createdBy.id, fullName: row.createdBy.user.fullName },
     reviewer: row.reviewedBy ? { id: row.reviewedBy.id, fullName: row.reviewedBy.user.fullName } : null,
     rejectionReason: row.rejectionReason, questionCount: row._count.examQuestions,
@@ -40,7 +50,7 @@ export function toTeacherExamDetailDto(row: ExamDetailRow, actorId: string): Tea
     ...toTeacherExamDto(row, actorId),
     questions: row.examQuestions.map((question) => ({
       id: question.id, sourceQuestionId: question.sourceQuestionId, sectionId: question.sectionId,
-      content: question.content, explanation: question.explanation, type: question.type,
+      title: question.title, content: question.content, explanation: question.explanation, type: question.type,
       difficulty: question.difficulty, language: question.language,
       points: Number(question.points), orderIndex: question.orderIndex,
       options: question.options.map(({ id, content, isCorrect }) => ({ id, content, isCorrect })),
@@ -51,7 +61,7 @@ export function toTeacherExamDetailDto(row: ExamDetailRow, actorId: string): Tea
       } : null,
       testCases: question.programmingTests.map((test) => ({
         id: test.id, input: test.input, expectedOutput: test.expectedOutput,
-        weight: Number(test.weight), isHidden: test.isHidden,
+        isHidden: test.isHidden,
       })),
     })),
   }

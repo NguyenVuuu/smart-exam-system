@@ -69,7 +69,7 @@ export default function ExamTrackingTable({
     {
       header: 'TRẠNG THÁI',
       width: '160px',
-      render: (item) => <ExamStatusBadge status={item.status} />,
+      render: (item) => <ExamStatusBadge status={item.status} category={item.category} />,
     },
     {
       header: 'THAO TÁC',

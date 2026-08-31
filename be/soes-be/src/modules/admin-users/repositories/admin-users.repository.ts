@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
-import type { CreateUserBody, UpdateUserBody, UsersQuery } from '../validators/admin-users.validator'
+import type { CreateUserBody, EnrollmentQuery, UpdateUserBody, UsersQuery } from '../validators/admin-users.validator'
 
 export const userSelect = {
   id: true, fullName: true, email: true, phoneNumber: true, avatarUrl: true,
@@ -112,24 +112,72 @@ export async function enrollmentContext(
   courseOfferingId: string,
   studentIds: string[],
 ) {
-  const [course, validStudents, existing] = await Promise.all([
-    tx.courseOffering.findUnique({
-      where: { id: courseOfferingId }, include: { _count: { select: { enrollments: true } } },
-    }),
+  const course = await tx.courseOffering.findUnique({
+    where: { id: courseOfferingId },
+    include: { semester: true, _count: { select: { enrollments: true } } },
+  })
+  if (!course) return { course: null, validStudents: 0, existing: 0, conflicting: null }
+
+  const [validStudents, existing, conflicting] = await Promise.all([
     tx.student.count({ where: { id: { in: studentIds }, status: 'ACTIVE' } }),
     tx.enrollment.count({ where: { courseOfferingId, studentId: { in: studentIds } } }),
+    tx.enrollment.findFirst({
+      where: {
+        studentId: { in: studentIds },
+        courseOfferingId: { not: courseOfferingId },
+        subjectId: course.subjectId,
+        semesterId: course.semesterId,
+      },
+      include: {
+        student: { select: { studentCode: true } },
+        courseOffering: { select: { code: true } },
+      },
+    }),
   ])
-  return { course, validStudents, existing }
+  return { course, validStudents, existing, conflicting }
 }
 
 export const createEnrollments = (
   tx: Prisma.TransactionClient,
-  courseOfferingId: string,
+  course: { id: string; subjectId: string; semesterId: string },
   studentIds: string[],
 ) => tx.enrollment.createMany({
-  data: studentIds.map((studentId) => ({ courseOfferingId, studentId })),
+  data: studentIds.map((studentId) => ({
+    courseOfferingId: course.id,
+    studentId,
+    subjectId: course.subjectId,
+    semesterId: course.semesterId,
+  })),
   skipDuplicates: true,
 })
+
+export function listCourseEnrollments(courseOfferingId: string, query: EnrollmentQuery) {
+  const where: Prisma.EnrollmentWhereInput = {
+    courseOfferingId,
+    ...(query.keyword && {
+      student: {
+        OR: [
+          { studentCode: { contains: query.keyword, mode: 'insensitive' } },
+          { user: { fullName: { contains: query.keyword, mode: 'insensitive' } } },
+          { user: { email: { contains: query.keyword, mode: 'insensitive' } } },
+        ],
+      },
+    }),
+  }
+  return Promise.all([
+    prisma.enrollment.count({ where }),
+    prisma.enrollment.findMany({
+      where,
+      include: { student: { include: { user: true } } },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+      orderBy: [{ student: { studentCode: 'asc' } }],
+    }),
+  ])
+}
+
+export const countStudentAttemptsInCourse = (courseOfferingId: string, studentId: string) =>
+  prisma.examAttempt.count({ where: { courseOfferingId, studentId } })
 
 export const withdrawEnrollment = (courseOfferingId: string, studentId: string) => prisma.enrollment.deleteMany({
   where: { courseOfferingId, studentId },

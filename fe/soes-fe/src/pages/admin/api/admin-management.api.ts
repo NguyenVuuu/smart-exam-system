@@ -1,6 +1,6 @@
 import { apiClient } from '../../../api/axios'
 import type {
-  ApiPage, ApiResponse, CourseOfferingApiDto, CourseOfferingPayload,
+  ApiPage, ApiResponse, CourseEnrollmentApiDto, CourseOfferingApiDto, CourseOfferingPayload,
   DepartmentApiDto, DepartmentPayload, SubjectApiDto, SubjectPayload,
   UpdateUserPayload, UserApiDto, UserPayload,
 } from '../types/admin-api.types'
@@ -8,28 +8,46 @@ import type {
 const unwrap = <T>(response: { data: ApiResponse<T> }) => response.data.data
 const pageParams = { page: 1, pageSize: 100 }
 
-export const getDepartments = () => apiClient
-  .get<ApiResponse<ApiPage<DepartmentApiDto>>>('/admin/departments', { params: pageParams }).then(unwrap)
+async function getAllPages<T>(url: string, params: Record<string, unknown> = {}) {
+  const first = await apiClient
+    .get<ApiResponse<ApiPage<T>>>(url, { params: { ...pageParams, ...params } })
+    .then(unwrap)
+  if (first.pagination.totalPages <= 1) return first
+
+  const remaining = await Promise.all(
+    Array.from({ length: first.pagination.totalPages - 1 }, (_, index) => apiClient
+      .get<ApiResponse<ApiPage<T>>>(url, {
+        params: { ...pageParams, ...params, page: index + 2 },
+      })
+      .then(unwrap)),
+  )
+  const items = [first, ...remaining].flatMap((page) => page.items)
+  return {
+    items,
+    pagination: { page: 1, pageSize: items.length, totalItems: items.length, totalPages: 1 },
+  }
+}
+
+export const getDepartments = () => getAllPages<DepartmentApiDto>('/admin/departments')
 export const saveDepartment = (id: string | null, payload: DepartmentPayload) => id
   ? apiClient.put<ApiResponse<DepartmentApiDto>>(`/admin/departments/${id}`, payload).then(unwrap)
   : apiClient.post<ApiResponse<DepartmentApiDto>>('/admin/departments', payload).then(unwrap)
 export const assignDepartmentHead = (id: string, teacherId: string | null) => apiClient
   .patch<ApiResponse<unknown>>(`/admin/departments/${id}/head`, { teacherId }).then(unwrap)
 
-export const getSubjects = () => apiClient
-  .get<ApiResponse<ApiPage<SubjectApiDto>>>('/admin/subjects', { params: pageParams }).then(unwrap)
+export const getSubjects = () => getAllPages<SubjectApiDto>('/admin/subjects')
 export const saveSubject = (id: string | null, payload: SubjectPayload) => id
   ? apiClient.put<ApiResponse<SubjectApiDto>>(`/admin/subjects/${id}`, payload).then(unwrap)
   : apiClient.post<ApiResponse<SubjectApiDto>>('/admin/subjects', payload).then(unwrap)
 
-export const getCourseOfferings = () => apiClient
-  .get<ApiResponse<ApiPage<CourseOfferingApiDto>>>('/admin/course-offerings', { params: pageParams }).then(unwrap)
+export const getCourseOfferings = (params: {
+  keyword?: string; semesterId?: string; departmentId?: string; subjectId?: string; status?: 'ACTIVE' | 'CLOSED'
+} = {}) => getAllPages<CourseOfferingApiDto>('/admin/course-offerings', params)
 export const saveCourseOffering = (id: string | null, payload: CourseOfferingPayload) => id
   ? apiClient.put<ApiResponse<CourseOfferingApiDto>>(`/admin/course-offerings/${id}`, payload).then(unwrap)
   : apiClient.post<ApiResponse<CourseOfferingApiDto>>('/admin/course-offerings', payload).then(unwrap)
 
-export const getUsers = () => apiClient
-  .get<ApiResponse<ApiPage<UserApiDto>>>('/admin/users', { params: pageParams }).then(unwrap)
+export const getUsers = () => getAllPages<UserApiDto>('/admin/users')
 export const createUser = (payload: UserPayload) => apiClient
   .post<ApiResponse<unknown>>('/admin/users', payload).then(unwrap)
 export const updateUser = (role: UserApiDto['role'], profileId: string, payload: UpdateUserPayload) => apiClient
@@ -41,3 +59,7 @@ export const resetUserPassword = (role: UserApiDto['role'], profileId: string) =
 
 export const enrollStudents = (courseOfferingId: string, studentIds: string[]) => apiClient
   .post(`/admin/course-offerings/${courseOfferingId}/enrollments`, { studentIds })
+export const getCourseEnrollments = (courseOfferingId: string) =>
+  getAllPages<CourseEnrollmentApiDto>(`/admin/course-offerings/${courseOfferingId}/enrollments`)
+export const withdrawStudent = (courseOfferingId: string, studentId: string) => apiClient
+  .delete(`/admin/course-offerings/${courseOfferingId}/enrollments/${studentId}`)

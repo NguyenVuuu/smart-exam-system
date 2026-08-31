@@ -5,7 +5,7 @@ const id = z.string().trim().min(1)
 const optionSchema = z.object({ content: z.string().trim().min(1).max(1000), isCorrect: z.boolean() })
 const testCaseSchema = z.object({
   input: z.string().max(20000), expectedOutput: z.string().max(20000),
-  weight: z.coerce.number().positive().max(1000), isHidden: z.boolean().default(false),
+  isHidden: z.boolean().default(false),
 })
 
 export const questionsQuerySchema = z.object({
@@ -20,7 +20,8 @@ export const questionsQuerySchema = z.object({
 
 export const questionBodySchema = z.object({
   subjectId: id,
-  content: z.string().trim().min(5).max(10000),
+  title: z.string().trim().min(3).max(200),
+  content: z.string().trim().max(10000).optional().nullable(),
   explanation: z.string().trim().max(5000).optional().nullable(),
   type: z.enum(['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE', 'PROGRAMMING']),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']),
@@ -28,9 +29,20 @@ export const questionBodySchema = z.object({
   options: z.array(optionSchema).max(20).default([]),
   timeLimitMs: z.coerce.number().int().min(100).max(60000).optional(),
   memoryLimitMb: z.coerce.number().int().min(16).max(2048).optional(),
-  maxCodeSizeKb: z.coerce.number().int().min(1).max(1024).optional(),
+  maxCodeSizeKb: z.coerce.number().int().min(1).max(1024).default(256),
   testCases: z.array(testCaseSchema).max(100).default([]),
-})
+}).superRefine((data, ctx) => {
+  if (data.type === 'PROGRAMMING' && !data.content?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['content'],
+      message: 'Programming problem description is required',
+    })
+  }
+}).transform((data) => ({
+  ...data,
+  content: data.type === 'PROGRAMMING' ? data.content!.trim() : data.title,
+}))
 
 export const approvalQuerySchema = z.object({
   ...paginationFields, keyword: z.string().trim().max(200).optional(), subjectId: id.optional(),

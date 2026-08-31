@@ -54,6 +54,7 @@ function BankQuestionPickerModalContent({
     const isAlreadyInExam = existingQuestionIds.includes(q.id)
     const matchesSearch =
       !searchQuery ||
+      (q.title && q.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
       q.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (q.subjectName && q.subjectName.toLowerCase().includes(searchQuery.toLowerCase()))
 
@@ -178,7 +179,7 @@ function BankQuestionPickerModalContent({
               <Search size={15} className="text-gray-400 shrink-0" />
               <input
                 type="text"
-                placeholder="Tìm nội dung câu hỏi..."
+                placeholder="Tìm tiêu đề câu hỏi..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-transparent text-xs text-gray-800 placeholder-gray-400 focus:outline-hidden w-full pr-4"
@@ -274,7 +275,7 @@ function BankQuestionPickerModalContent({
                         <span className="text-xs font-medium text-gray-500">• Môn: {q.subjectName}</span>
                       </div>
                       <p className="text-sm font-semibold text-gray-900 leading-relaxed">
-                        {q.content}
+                        {q.title || q.content}
                       </p>
                     </div>
                   </div>

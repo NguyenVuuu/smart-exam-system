@@ -1,4 +1,4 @@
-import { Plus, Upload, Users } from 'lucide-react'
+import { Plus, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import AdminButton from './components/AdminButton'
@@ -14,10 +14,18 @@ import { useAdminClassSections } from './hooks/useAdminClassSections'
 import type { CourseOfferingAdmin } from './types/admin.types'
 
 export default function AdminClassSectionsPage() {
-  const data = useAdminClassSections()
+  const [departmentFilter, setDepartmentFilter] = useState('ALL')
   const [subjectFilter, setSubjectFilter] = useState('ALL')
+  const [semesterFilter, setSemesterFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | CourseOfferingAdmin['status']>('ALL')
   const [search, setSearch] = useState('')
+  const data = useAdminClassSections({
+    keyword: search,
+    semesterId: semesterFilter,
+    departmentId: departmentFilter,
+    subjectId: subjectFilter,
+    status: statusFilter,
+  })
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<CourseOfferingAdmin | null>(null)
   const [departmentId, setDepartmentId] = useState('')
@@ -35,12 +43,9 @@ export default function AdminClassSectionsPage() {
     () => data.subjects.filter((item) => item.departmentId === departmentId),
     [data.subjects, departmentId],
   )
-  const filteredItems = data.items.filter((item) =>
-    (subjectFilter === 'ALL' || item.subjectId === subjectFilter) &&
-    (statusFilter === 'ALL' || item.status === statusFilter) &&
-    `${item.code} ${item.subjectName} ${item.teacherName}`.toLowerCase().includes(search.toLowerCase()),
-  )
+  const enrolledIds = useMemo(() => new Set(data.enrollments.map(({ id }) => id)), [data.enrollments])
   const filteredStudents = data.students.filter((item) =>
+    !enrolledIds.has(item.id) &&
     `${item.code} ${item.fullName} ${item.email}`.toLowerCase().includes(studentSearch.toLowerCase()),
   )
 
@@ -88,24 +93,51 @@ export default function AdminClassSectionsPage() {
     <AdminLayout>
       <AdminPageHeader icon={<Users size={20} />} title="Lớp học phần và Xếp lớp"
         description="Quản lý lớp học phần theo học kỳ, giảng viên phụ trách và ghi danh sinh viên vào lớp."
-        action={<div className="flex gap-2">
-          <AdminButton tone="secondary" icon={<Upload size={17} />} onClick={() => data.items[0] && setEnrollmentClass(data.items[0])}>Nhập sinh viên</AdminButton>
-          <AdminButton icon={<Plus size={17} />} onClick={openCreate}>Thêm lớp học phần</AdminButton>
-        </div>} />
+        action={<AdminButton icon={<Plus size={17} />} onClick={openCreate}>Thêm lớp học phần</AdminButton>} />
       <AdminTablePanel>
-        <AdminToolbar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm mã lớp, môn học hoặc giảng viên..."
-          onReset={() => { setSearch(''); setSubjectFilter('ALL'); setStatusFilter('ALL') }} filters={<>
-            <AdminSelect value={subjectFilter} onChange={setSubjectFilter} className="w-64" options={[
-              { value: 'ALL', label: 'Môn học' }, ...data.subjects.map(({ id, code, name }) => ({ value: id, label: `${code} - ${name}` })),
-            ]} />
-            <AdminSelect value={statusFilter} onChange={setStatusFilter} className="w-44" options={[
-              { value: 'ALL', label: 'Trạng thái' }, { value: 'OPEN', label: 'Đang mở' }, { value: 'CLOSED', label: 'Đã đóng' },
-            ]} />
-          </>} />
+        <AdminToolbar
+          variant="split"
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Tìm mã lớp, môn học hoặc giảng viên..."
+          onReset={() => {
+            setSearch(''); setDepartmentFilter('ALL'); setSubjectFilter('ALL'); setStatusFilter('ALL')
+            setSemesterFilter(data.semesters.find(({ isCurrent }) => isCurrent)?.id ?? '')
+          }}
+          filters={
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 w-full">
+              <AdminSelect value={semesterFilter} onChange={setSemesterFilter} className="w-full" options={[
+                { value: '', label: 'Tất cả học kỳ' },
+                ...data.semesters.map(({ id, name, isCurrent }) => ({
+                  value: id, label: `${name}${isCurrent ? ' (Hiện tại)' : ''}`,
+                })),
+              ]} />
+              <AdminSelect value={departmentFilter} onChange={(value) => {
+                setDepartmentFilter(value)
+                setSubjectFilter('ALL')
+              }} className="w-full" options={[
+                { value: 'ALL', label: 'Tất cả bộ môn' },
+                ...data.departments.map(({ id, name }) => ({ value: id, label: name })),
+              ]} />
+              <AdminSelect value={subjectFilter} onChange={setSubjectFilter} className="w-full" options={[
+                { value: 'ALL', label: 'Tất cả môn học' },
+                ...data.subjects
+                  .filter((subject) => departmentFilter === 'ALL' || subject.departmentId === departmentFilter)
+                  .map(({ id, code, name }) => ({ value: id, label: `${code} - ${name}` })),
+              ]} />
+              <AdminSelect value={statusFilter} onChange={setStatusFilter} className="w-full" options={[
+                { value: 'ALL', label: 'Tất cả trạng thái' }, { value: 'OPEN', label: 'Đang mở' }, { value: 'CLOSED', label: 'Đã đóng' },
+              ]} />
+            </div>
+          }
+        />
         {data.loading && <p className="py-8 text-center text-sm text-slate-500">Đang tải lớp học phần...</p>}
         {data.error && <p className="py-8 text-center text-sm text-red-500">{data.error} <button className="ml-2 underline" onClick={data.retry}>Thử lại</button></p>}
-        {!data.loading && !data.error && <ClassSectionsTable items={filteredItems}
-          onOpenEnrollment={(item) => { setEnrollmentClass(item); setSelectedStudentIds([]); setStudentSearch('') }}
+        {!data.loading && !data.error && <ClassSectionsTable items={data.items}
+          onOpenEnrollment={(item) => {
+            setEnrollmentClass(item); setSelectedStudentIds([]); setStudentSearch('')
+            void data.loadEnrollments(item.id)
+          }}
           onOpenEdit={openEdit} onToggleStatus={(item) => void toggleStatus(item)} />}
       </AdminTablePanel>
       <ClassSectionFormModal open={modalOpen} editingClassId={editing?.id ?? null} departmentInput={departmentId}
@@ -115,14 +147,20 @@ export default function AdminClassSectionsPage() {
         teacherIdInput={teacherId} onTeacherIdChange={setTeacherId} teacherOptions={data.teachers}
         departments={data.departments} semesters={data.semesters} classStatusInput={classStatus}
         onClassStatusChange={setClassStatus} onClose={() => setModalOpen(false)} onConfirm={() => void save()} />
-      <ClassEnrollmentModal course={enrollmentClass} students={filteredStudents} search={studentSearch}
+      <ClassEnrollmentModal key={enrollmentClass?.id ?? 'closed'} course={enrollmentClass} students={filteredStudents} search={studentSearch}
+        enrollments={data.enrollments} loading={data.enrollmentsLoading}
         selectedStudentIds={selectedStudentIds} onSearchChange={setStudentSearch}
         onToggleStudent={(id) => setSelectedStudentIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}
         onClose={() => setEnrollmentClass(null)} onConfirm={() => {
           if (!enrollmentClass || selectedStudentIds.length === 0) return toast.error('Vui lòng chọn ít nhất một sinh viên.')
           void data.enroll(enrollmentClass.id, selectedStudentIds)
-            .then(() => { toast.success('Đã ghi danh sinh viên.'); setEnrollmentClass(null) })
-            .catch(() => toast.error('Không thể ghi danh. Lớp có thể đã đủ sức chứa.'))
+            .then(() => { toast.success('Đã ghi danh sinh viên.'); setSelectedStudentIds([]) })
+            .catch(() => toast.error('Không thể ghi danh. Sinh viên có thể đã thuộc lớp khác cùng môn và học kỳ.'))
+        }} onRemoveStudent={(studentId) => {
+          if (!enrollmentClass) return
+          void data.withdraw(enrollmentClass.id, studentId)
+            .then(() => toast.success('Đã xóa sinh viên khỏi lớp.'))
+            .catch(() => toast.error('Không thể xóa sinh viên đã phát sinh bài thi trong lớp.'))
         }} />
     </AdminLayout>
   )

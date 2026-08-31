@@ -68,11 +68,11 @@ export default function QuestionBankTable({
       render: (_, idx) => <span className="text-gray-400">{idx + 1}</span>,
     },
     {
-      header: 'NỘI DUNG CÂU HỎI',
+      header: 'CÂU HỎI',
       render: (q) => (
         <div className="min-w-0 w-[360px] max-w-[360px] space-y-1 py-1">
-          <p className="truncate text-sm font-semibold text-gray-900">{q.content}</p>
-          <p className="text-xs text-blue-600 line-clamp-1">{q.subjectName || 'Lập trình Java căn bản'}</p>
+          <p className="truncate text-sm font-semibold text-gray-900">{q.title}</p>
+          <p className="line-clamp-1 text-xs text-blue-600">{q.subjectName}</p>
         </div>
       ),
     },

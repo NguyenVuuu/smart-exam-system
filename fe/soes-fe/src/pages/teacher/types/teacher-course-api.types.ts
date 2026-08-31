@@ -2,7 +2,7 @@ export interface TeacherCourseApiDto {
   id: string
   code: string
   status: 'ACTIVE' | 'CLOSED'
-  semester: { id: string; code: string; name: string }
+  semester: { id: string; code: string; name: string; status: 'UPCOMING' | 'ACTIVE' | 'CLOSED' }
   subject: { id: string; code: string; name: string }
   enrollmentCount: number
   scheduleCount: number
@@ -49,5 +49,25 @@ export interface TeacherPage<T> {
   pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
 }
 
+export interface TeacherCoursesResponse extends TeacherPage<TeacherCourseApiDto> {
+  semesterOptions: Array<{
+    id: string
+    code: string
+    name: string
+    status: 'UPCOMING' | 'ACTIVE' | 'CLOSED'
+  }>
+  currentSemesterId: string | null
+}
+
 export type CourseStudentApiDto = TeacherCourseDetailApiDto['students'][number]
 export type CourseExamApiDto = TeacherCourseDetailApiDto['exams'][number]
+export interface CourseGradebookApiDto {
+  assessments: Array<{
+    scheduleId: string; title: string; type: string; totalPoints: number; resultsPublished: boolean
+  }>
+  students: Array<{
+    studentId: string; studentCode: string; fullName: string
+    scores: Record<string, number | null>; averageScore: number | null
+  }>
+  pagination: TeacherPage<never>['pagination']
+}

@@ -86,7 +86,7 @@ export default function TeacherInvigilationSchedulePage() {
                   <thead className="border-y border-gray-100 bg-gray-50 text-[11px] font-semibold uppercase text-slate-500">
                     <tr>
                       <th className="whitespace-nowrap px-6 py-3.5">Ca thi</th>
-                      <th className="whitespace-nowrap px-6 py-3.5">Lớp được phân công</th>
+                      <th className="whitespace-nowrap px-6 py-3.5">Lớp học phần</th>
                       <th className="whitespace-nowrap px-6 py-3.5">Thời gian</th>
                       <th className="whitespace-nowrap px-6 py-3.5">Trạng thái</th>
                       <th className="whitespace-nowrap px-6 py-3.5">Nguồn</th>
@@ -112,7 +112,7 @@ export default function TeacherInvigilationSchedulePage() {
                             <AppBadge tone={meta.tone}>{meta.label}</AppBadge>
                           </td>
                           <td className="whitespace-nowrap px-6 py-4 font-normal text-slate-600">
-                            {assignment.source === 'ASSIGNED' ? 'Được phân công' : 'Ca đã tạo'}
+                            {assignment.source === 'ASSIGNED' ? 'Được phân công' : 'Tự tạo ca thi'}
                           </td>
                           <td className="px-6 py-4 text-right">
                             <button

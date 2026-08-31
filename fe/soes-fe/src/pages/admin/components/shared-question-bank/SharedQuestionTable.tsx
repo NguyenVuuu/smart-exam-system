@@ -11,6 +11,13 @@ const typeLabel: Record<SharedQuestionAdmin['type'], string> = {
   PROGRAMMING: 'Lập trình',
 }
 
+const typeTone = {
+  SINGLE_CHOICE: 'blue',
+  MULTIPLE_CHOICE: 'blue',
+  TRUE_FALSE: 'amber',
+  PROGRAMMING: 'emerald',
+} as const
+
 const difficultyTone = {
   EASY: 'emerald',
   MEDIUM: 'amber',
@@ -51,7 +58,7 @@ export default function SharedQuestionTable({
       header: 'CÂU HỎI',
       render: (item) => (
         <div className="space-y-1">
-          <p className="line-clamp-2 text-sm font-semibold text-slate-950">{item.content}</p>
+          <p className="line-clamp-1 text-sm font-semibold text-slate-950">{item.title}</p>
           <p className="text-xs text-slate-400">
             {subjectsByCode.get(item.subjectCode)?.name ?? item.subjectCode} • Đóng góp bởi: {item.contributorName}
           </p>
@@ -61,7 +68,7 @@ export default function SharedQuestionTable({
     {
       header: 'DẠNG CÂU',
       width: '160px',
-      render: (item) => <span className="text-sm text-slate-700">{typeLabel[item.type]}</span>,
+      render: (item) => <AppBadge tone={typeTone[item.type]}>{typeLabel[item.type]}</AppBadge>,
     },
     {
       header: 'ĐỘ KHÓ',

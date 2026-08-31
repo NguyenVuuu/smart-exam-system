@@ -1,11 +1,7 @@
 import prisma from '../../../lib/prisma'
+import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
 
-const releasedResultWhere = {
-  OR: [
-    { examSchedule: { resultReleaseMode: 'IMMEDIATE' as const } },
-    { examSchedule: { resultsPublishedAt: { not: null } } },
-  ],
-}
+const releasedResultWhere = () => ({ examSchedule: releasedResultScheduleWhere() })
 
 export async function findStudentById(studentId: string) {
   return prisma.student.findUnique({
@@ -51,7 +47,7 @@ export async function findReleasedAttempts(studentId: string) {
       studentId,
       status: { in: ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
       totalScore: { not: null },
-      ...releasedResultWhere,
+      ...releasedResultWhere(),
     },
     select: {
       totalScore: true,
@@ -87,7 +83,7 @@ export async function findClassAveragesBySchedule(
       examScheduleId: { in: scheduleIds },
       status: { in: ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
       totalScore: { not: null },
-      ...releasedResultWhere,
+      ...releasedResultWhere(),
     },
     select: {
       examScheduleId: true,

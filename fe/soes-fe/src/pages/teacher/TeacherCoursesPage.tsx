@@ -1,5 +1,5 @@
 import { BookOpen, ChevronRight, RotateCcw, Search, Users, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppBadge from '../../components/common/AppBadge'
 import AppSelect from '../../components/common/AppSelect'
@@ -10,13 +10,17 @@ import { useTeacherCourses } from './hooks/useTeacherCourses'
 
 export default function TeacherCoursesPage() {
   const navigate = useNavigate()
-  const { courses, loading, error, retry } = useTeacherCourses()
+  const { courses, semesterOptions, currentSemesterId, loading, error, retry } = useTeacherCourses()
   const [selectedSemester, setSelectedSemester] = useState<string>('ALL')
   const [selectedSubject, setSelectedSubject] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
+  useEffect(() => {
+    if (currentSemesterId) setSelectedSemester(currentSemesterId)
+  }, [currentSemesterId])
+
   const handleResetFilters = () => {
-    setSelectedSemester('ALL')
+    setSelectedSemester(currentSemesterId ?? 'ALL')
     setSelectedSubject('ALL')
     setSearchQuery('')
   }
@@ -45,15 +49,16 @@ export default function TeacherCoursesPage() {
           />
 
           {/* Filter Bar with Reset */}
-          <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
+          <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between gap-3 overflow-visible">
             <div className="flex items-center gap-3 shrink-0">
               {/* Semester Filter */}
               <AppSelect
                 value={selectedSemester}
                 onChange={setSelectedSemester}
-                className="w-48"
-                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl"
-                options={[{ value: 'ALL', label: 'Học kỳ' }, ...uniqueOptions(courses, 'semesterId', 'semesterName')]}
+                className="w-72"
+                buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl whitespace-nowrap"
+                menuClassName="whitespace-nowrap"
+                options={[{ value: 'ALL', label: 'Tất cả học kỳ' }, ...semesterOptions]}
               />
 
               {/* Subject Filter */}

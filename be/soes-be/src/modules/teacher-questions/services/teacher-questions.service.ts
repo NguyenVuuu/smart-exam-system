@@ -17,8 +17,9 @@ function validateQuestion(data: QuestionBody) {
     if (!data.language) throw new ValidationError('Programming language is required')
     if (data.options.length) throw new ValidationError('Programming question cannot have options')
     if (!data.testCases.length) throw new ValidationError('Programming question requires at least one test case')
-    const totalWeight = data.testCases.reduce((sum, test) => sum + test.weight, 0)
-    if (Math.abs(totalWeight - 100) > 0.001) throw new ValidationError('Programming test case weights must equal 100')
+    if (!data.testCases.some((test) => !test.isHidden)) {
+      throw new ValidationError('Programming question requires at least one public test case')
+    }
     return
   }
   if (data.testCases.length) throw new ValidationError('Objective question cannot have programming test cases')

@@ -27,7 +27,12 @@ export const updateUserSchema = createUserSchema.omit({ role: true, password: tr
 export const accountStatusSchema = z.object({ status: z.enum(['ACTIVE', 'INACTIVE']) })
 export const resetPasswordSchema = z.object({ password: z.string().min(6).max(100).default('123456') })
 export const enrollmentBodySchema = z.object({ studentIds: z.array(id).min(1).max(1000) })
+export const enrollmentQuerySchema = z.object({
+  ...paginationFields,
+  keyword: z.string().trim().max(200).optional(),
+})
 
 export type UsersQuery = z.infer<typeof usersQuerySchema>
 export type CreateUserBody = z.infer<typeof createUserSchema>
 export type UpdateUserBody = z.infer<typeof updateUserSchema>
+export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>

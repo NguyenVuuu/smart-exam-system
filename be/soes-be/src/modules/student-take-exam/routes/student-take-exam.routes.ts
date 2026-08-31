@@ -45,6 +45,13 @@ router.get(
   takeExamController.getAttemptStatus,
 )
 
+router.get(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/result',
+  authenticate,
+  requireStudent(),
+  takeExamController.getAttemptResult,
+)
+
 // POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/heartbeat
 router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/heartbeat',

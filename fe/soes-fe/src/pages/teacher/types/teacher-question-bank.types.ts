@@ -17,7 +17,6 @@ export interface TestCase {
   id: string
   input: string
   expectedOutput: string
-  weight: number
   isHidden: boolean
 }
 
@@ -36,12 +35,14 @@ export interface Question {
   sharedBankItemId?: string
   type: QuestionType
   difficulty: DifficultyLevel
+  title: string
   content: string
   explanation?: string
   options?: QuestionOption[]
   programmingLanguage?: 'JAVA' | 'C' | 'CPP'
   timeLimitMs?: number
   memoryLimitMb?: number
+  maxCodeSizeKb?: number
   testCases?: TestCase[]
   createdAt: string
   archivedAt?: string

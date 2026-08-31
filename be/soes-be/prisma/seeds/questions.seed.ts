@@ -5,6 +5,8 @@ interface QuestionSeedInput {
   teachers: Teacher[]
 }
 
+const questionTitle = (content: string) => content.split(':', 1)[0].trim()
+
 function makeQuestions(subject: Subject, teacher: Teacher): Array<{
   content: string
   explanation: string
@@ -137,6 +139,7 @@ export async function seedQuestions(
 
       const question = await prisma.question.create({
         data: {
+          title: questionTitle(qData.content),
           content: qData.content,
           explanation: qData.explanation,
           type: questionType,

@@ -2,6 +2,7 @@ import type { DifficultyLevel, QuestionType } from './teacher-question-bank.type
 
 export interface TeacherQuestionDto {
   id: string
+  title: string
   content: string
   explanation: string | null
   type: QuestionType
@@ -11,7 +12,7 @@ export interface TeacherQuestionDto {
   owner: { id: string; fullName: string }
   options: Array<{ id: string; content: string; isCorrect: boolean }>
   programmingConfig: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number } | null
-  testCases: Array<{ id: string; input: string; expectedOutput: string; weight: number; isHidden: boolean }>
+  testCases: Array<{ id: string; input: string; expectedOutput: string; isHidden: boolean }>
   sharedBank: {
     itemId: string
     status: 'PENDING' | 'APPROVED' | 'REJECTED'
@@ -24,6 +25,7 @@ export interface TeacherQuestionDto {
 
 export interface QuestionPayload {
   subjectId: string
+  title: string
   content: string
   explanation?: string | null
   type: QuestionType
@@ -33,7 +35,7 @@ export interface QuestionPayload {
   timeLimitMs?: number
   memoryLimitMb?: number
   maxCodeSizeKb?: number
-  testCases: Array<{ input: string; expectedOutput: string; weight: number; isHidden: boolean }>
+  testCases: Array<{ input: string; expectedOutput: string; isHidden: boolean }>
 }
 
 export interface TeacherSubjectOption {

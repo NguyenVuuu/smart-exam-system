@@ -4,6 +4,7 @@ import { toPagination } from '../../../utils/pagination'
 import { runSerializable } from '../../../utils/transaction'
 import { computeScheduleStatus, toExamScheduleDto } from '../mappers/exam-schedule.mapper'
 import * as repo from '../repositories/exam-schedule.repository'
+import { PROCTOR_TURNOVER_MINUTES } from '../repositories/exam-schedule.repository'
 import type { ScheduleWriteInput } from '../types/exam-schedule.types'
 import type { ScheduleBody, SchedulesQuery } from '../validators/exam-schedule.validator'
 
@@ -44,15 +45,20 @@ async function validateContext(
     throw new ValidationError('Only approved and ready final exams can be centrally scheduled')
   }
   if (!exam.examQuestions.length) throw new ValidationError('Exam has no questions')
-  if (courses.length !== courseIds.length || courses.some(({ subjectId, status }) => subjectId !== exam.subjectId || status !== 'ACTIVE')) {
-    throw new ValidationError('All course offerings must be active and belong to the exam subject')
+  if (courses.length !== courseIds.length || courses.some(({ subjectId, semesterId, status }) =>
+    subjectId !== exam.subjectId || semesterId !== exam.semesterId || status !== 'ACTIVE')) {
+    throw new ValidationError('All course offerings must be active and belong to the exam subject and semester')
   }
   if (teachers.length !== teacherIds.length) throw new ValidationError('One or more proctors are invalid or inactive')
   const [courseConflict, proctorConflict] = await repo.findScheduleConflicts(
     tx, courseIds, teacherIds, input.startTime, input.endTime, excludeId,
   )
   if (courseConflict) throw new ConflictError(`Course offering ${courseConflict.courseOffering.code} already has an overlapping exam`)
-  if (proctorConflict) throw new ConflictError(`Proctor ${proctorConflict.teacher.user.fullName} already has an overlapping assignment`)
+  if (proctorConflict) {
+    throw new ConflictError(
+      `Proctor ${proctorConflict.teacher.user.fullName} already has an overlapping assignment or less than ${PROCTOR_TURNOVER_MINUTES} minutes between schedules`,
+    )
+  }
 }
 
 export async function list(query: SchedulesQuery) {

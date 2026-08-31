@@ -14,46 +14,36 @@ import CreateExamTypeModal from './components/exam-detail/CreateExamTypeModal'
 import DeleteExamDialog from './components/exam-detail/DeleteExamDialog'
 import { useTeacherExams } from './hooks/useTeacherExams'
 import type { Exam } from './types/teacher-exam.types'
-
-const examStatusTone = {
-  DRAFT: 'amber',
-  PENDING_APPROVAL: 'blue',
-  REJECTED: 'rose',
-  PUBLISHED: 'emerald',
-  LOCKED: 'gray',
-  ARCHIVED: 'gray',
-} as const
-
-const examStatusLabel = {
-  DRAFT: 'Bản nháp',
-  PENDING_APPROVAL: 'Chờ duyệt',
-  REJECTED: 'Bị từ chối',
-  PUBLISHED: 'Đã công bố',
-  LOCKED: 'Đã khóa',
-  ARCHIVED: 'Đã lưu trữ',
-} as const
+import { examStatusLabel, examStatusTone } from './constants/examStatus'
+import { useTeacherCourses } from './hooks/useTeacherCourses'
 
 export default function TeacherExamsPage() {
   const navigate = useNavigate()
   const examApi = useTeacherExams()
   const { exams } = examApi
+  const { semesterOptions, currentSemesterId } = useTeacherCourses()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('ALL')
+  const [selectedSemester, setSelectedSemester] = useState<string | null>(null)
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false)
   const [deletingExam, setDeletingExam] = useState<Exam | null>(null)
+
+  const effectiveSemester = selectedSemester ?? currentSemesterId ?? 'ALL'
 
   const handleResetFilters = () => {
     setSearchQuery('')
     setSelectedStatus('ALL')
+    setSelectedSemester(currentSemesterId ?? 'ALL')
   }
 
   const filteredExams = exams.filter((e) => {
     const matchesStatus = selectedStatus === 'ALL' || e.status === selectedStatus
+    const matchesSemester = effectiveSemester === 'ALL' || e.semesterId === effectiveSemester
     const matchesSearch =
       e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.subjectName.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesStatus && matchesSearch
+    return matchesStatus && matchesSemester && matchesSearch
   })
 
   const handleDeleteExam = (exam: Exam, e: React.MouseEvent) => {
@@ -86,7 +76,7 @@ export default function TeacherExamsPage() {
             <p className="font-semibold text-gray-900 text-sm">{e.title}</p>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            Môn học: {e.subjectName}
+            {e.subjectName} · {e.semesterName}
           </p>
         </div>
       ),
@@ -200,7 +190,13 @@ export default function TeacherExamsPage() {
 
           <TeacherTablePanel>
             <TeacherToolbar
-              filters={
+              filters={<>
+                <AppSelect
+                  value={effectiveSemester}
+                  onChange={setSelectedSemester}
+                  className="w-72"
+                  options={[{ value: 'ALL', label: 'Tất cả học kỳ' }, ...semesterOptions]}
+                />
                 <AppSelect
                   value={selectedStatus}
                   onChange={setSelectedStatus}
@@ -210,12 +206,12 @@ export default function TeacherExamsPage() {
                     { value: 'DRAFT', label: 'Bản nháp (DRAFT)' },
                     { value: 'PENDING_APPROVAL', label: 'Chờ duyệt chuyên môn' },
                     { value: 'REJECTED', label: 'Bị từ chối' },
-                    { value: 'PUBLISHED', label: 'Công bố (PUBLISHED)' },
+                    { value: 'PUBLISHED', label: 'Đã công bố' },
                     { value: 'LOCKED', label: 'Đã khóa' },
                     { value: 'ARCHIVED', label: 'Đã lưu trữ' },
                   ]}
                 />
-              }
+              </>}
               searchValue={searchQuery}
               onSearchChange={setSearchQuery}
               searchPlaceholder="Tìm tên đề thi, môn học..."

@@ -4,7 +4,7 @@ import { paginationFields } from '../../../utils/pagination'
 const id = z.string().trim().min(1)
 
 export const examsQuerySchema = z.object({
-  ...paginationFields, keyword: z.string().trim().max(200).optional(), subjectId: id.optional(),
+  ...paginationFields, keyword: z.string().trim().max(200).optional(), subjectId: id.optional(), semesterId: id.optional(),
   type: z.enum(['QUIZ', 'MIDTERM', 'FINAL']).optional(),
   status: z.enum(['DRAFT', 'READY', 'LOCKED', 'ARCHIVED']).optional(),
   approvalStatus: z.enum(['NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED']).optional(),
@@ -12,7 +12,7 @@ export const examsQuerySchema = z.object({
 
 export const examBodySchema = z.object({
   title: z.string().trim().min(5).max(250), description: z.string().trim().max(2000).optional().nullable(),
-  subjectId: id, type: z.enum(['QUIZ', 'MIDTERM', 'FINAL']),
+  subjectId: id, semesterId: id, type: z.enum(['QUIZ', 'MIDTERM', 'FINAL']),
   format: z.enum(['OBJECTIVE', 'PROGRAMMING', 'MIXED']),
   creationMethod: z.enum(['MANUAL', 'QUESTION_BANK', 'AI_GENERATED', 'MIXED']).default('MANUAL'),
   defaultDurationMinutes: z.coerce.number().int().min(1).max(1440),
@@ -44,7 +44,7 @@ export const examQuestionsSchema = z.object({
 })
 
 export const examApprovalQuerySchema = z.object({
-  ...paginationFields, keyword: z.string().trim().max(200).optional(), subjectId: id.optional(),
+  ...paginationFields, keyword: z.string().trim().max(200).optional(), subjectId: id.optional(), semesterId: id.optional(),
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).default('PENDING'),
 })
 

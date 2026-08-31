@@ -169,7 +169,7 @@ export default function AdminExamSchedulesPage() {
                   <p className="truncate text-sm font-semibold text-slate-900">{exam.title}</p>
                   <p className="mt-1 text-xs text-slate-400">{exam.subjectName} • {exam.totalPoints} điểm</p>
                 </div>
-                <ExamStatusBadge status={exam.status} />
+                <ExamStatusBadge status={exam.status} category={exam.category} />
               </div>
             ))}
           </div>

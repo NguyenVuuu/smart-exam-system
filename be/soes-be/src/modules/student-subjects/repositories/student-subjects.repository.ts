@@ -22,20 +22,13 @@ export async function findSemesterById(semesterId: string) {
   })
 }
 
-// All semesters in which this student has at least one enrollment
-export async function findSemesterOptionsForStudent(studentId: string) {
+// All system semesters; the active semester is shown first in filters.
+export async function findSemesterOptions() {
   const rows = await prisma.semester.findMany({
-    where: {
-      courseOfferings: {
-        some: {
-          enrollments: { some: { studentId } },
-        },
-      },
-    },
-    select: { id: true, name: true },
+    select: { id: true, name: true, status: true },
     orderBy: { startDate: 'desc' },
   })
-  return rows
+  return rows.sort((left, right) => Number(right.status === 'ACTIVE') - Number(left.status === 'ACTIVE'))
 }
 
 export interface SubjectQueryParams {

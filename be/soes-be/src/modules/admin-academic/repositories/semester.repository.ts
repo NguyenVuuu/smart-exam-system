@@ -39,7 +39,21 @@ export function updateSemester(id: string, data: SemesterBody, code: string, nam
 
 export function activateSemester(id: string) {
   return prisma.$transaction(async (tx) => {
-    await tx.semester.updateMany({ where: { status: 'ACTIVE', id: { not: id } }, data: { status: 'CLOSED' } })
+    const previous = await tx.semester.findMany({
+      where: { status: 'ACTIVE', id: { not: id } },
+      select: { id: true },
+    })
+    const previousIds = previous.map(({ id: semesterId }) => semesterId)
+    if (previousIds.length) {
+      await tx.courseOffering.updateMany({
+        where: { semesterId: { in: previousIds }, status: 'ACTIVE' },
+        data: { status: 'CLOSED' },
+      })
+      await tx.semester.updateMany({
+        where: { id: { in: previousIds } },
+        data: { status: 'CLOSED' },
+      })
+    }
     return tx.semester.update({ where: { id }, data: { status: 'ACTIVE' }, include: semesterInclude })
   })
 }

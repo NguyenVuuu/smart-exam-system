@@ -1,68 +1,56 @@
-﻿import { FileSpreadsheet } from 'lucide-react'
-import { useState } from 'react'
-import AppBadge from '../../../../components/common/AppBadge'
-import { MOCK_STUDENT_SCORES } from '../../mock/teacher-course.mock'
+import { FileSpreadsheet } from 'lucide-react'
+import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
+import type { CourseGradebookApiDto } from '../../types/teacher-course-api.types'
 
-export default function CourseScoresTab() {
-  const [isScoresPublished, setIsScoresPublished] = useState(true)
+type GradeRow = CourseGradebookApiDto['students'][number]
+
+export default function CourseScoresTab({
+  gradebook,
+  onPageChange,
+}: {
+  gradebook: CourseGradebookApiDto
+  onPageChange: (page: number) => void
+}) {
+  const columns: ColumnDef<GradeRow>[] = [
+    { header: 'MSSV', width: '140px', render: (row) => <span className="font-medium">{row.studentCode}</span> },
+    { header: 'Họ và tên', width: '220px', render: (row) => <span className="font-semibold text-gray-900">{row.fullName}</span> },
+    ...gradebook.assessments.map<ColumnDef<GradeRow>>((assessment) => ({
+      header: <span title={assessment.title} className="block max-w-48 truncate normal-case">{assessment.title} ({assessment.totalPoints}đ)</span>,
+      width: '190px',
+      align: 'center',
+      render: (row) => {
+        const score = row.scores[assessment.scheduleId]
+        return <span className={assessment.resultsPublished ? 'text-gray-800' : 'text-gray-500'}>{score ?? '-'}</span>
+      },
+    })),
+    {
+      header: 'Trung bình (thang 10)', width: '170px', align: 'center',
+      render: (row) => <span className="font-semibold text-gray-900">{row.averageScore ?? '-'}</span>,
+    },
+  ]
 
   return (
     <div className="space-y-5">
-      {/* Score Controls */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2.5 cursor-pointer select-none bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl text-sm">
-            <input
-              type="checkbox"
-              checked={isScoresPublished}
-              onChange={(e) => setIsScoresPublished(e.target.checked)}
-              className="w-4 h-4 rounded accent-emerald-600 text-emerald-600 focus:ring-emerald-500"
-            />
-            <span className="font-semibold text-emerald-800">
-              Công bố điểm các bài thi trong lớp
-            </span>
-          </label>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div>
+          <h3 className="text-base font-semibold text-gray-900">Bảng điểm lớp học phần</h3>
+          <p className="mt-1 text-sm text-gray-500">Điểm được lấy từ bài nộp thật của từng ca thi.</p>
         </div>
-
-        <button
-          onClick={() => alert('Đã xuất Bảng điểm Lớp Học Phần ra tệp Excel thành công!')}
-          className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-xs transition-colors flex items-center gap-2"
-        >
-          <FileSpreadsheet size={18} /> Export Bảng Điểm Excel
+        <button disabled title="Tính năng xuất Excel sẽ được nối sau" className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
+          <FileSpreadsheet size={18} /> Xuất Excel
         </button>
       </div>
-
-      {/* Scores Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-500 font-semibold uppercase text-xs border-b border-gray-100">
-            <tr>
-              <th className="p-4 sm:px-5 sm:py-4">MSSV</th>
-              <th className="p-4 sm:px-5 sm:py-4">Họ và Tên</th>
-              <th className="p-4 sm:px-5 sm:py-4">Điểm Giữa Kỳ (40%)</th>
-              <th className="p-4 sm:px-5 sm:py-4">Điểm Cuối Kỳ (60%)</th>
-              <th className="p-4 sm:px-5 sm:py-4">Điểm Tổng Kết</th>
-              <th className="p-4 sm:px-5 sm:py-4 text-right">Trạng thái công bố</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {MOCK_STUDENT_SCORES.map((sc, idx) => (
-              <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                <td className="p-4 sm:px-5 sm:py-4 text-gray-700 font-medium">{sc.studentCode}</td>
-                <td className="p-4 sm:px-5 sm:py-4 font-semibold text-gray-900">{sc.fullName}</td>
-                <td className="p-4 sm:px-5 sm:py-4 text-gray-700">{sc.midtermScore ?? '-'}</td>
-                <td className="p-4 sm:px-5 sm:py-4 text-gray-700">{sc.finalScore ?? '-'}</td>
-                <td className="p-4 sm:px-5 sm:py-4 font-semibold text-gray-900">{sc.averageScore ?? '-'}</td>
-                <td className="p-4 sm:px-5 sm:py-4 text-right">
-                  <AppBadge tone={isScoresPublished ? 'emerald' : 'gray'}>
-                    {isScoresPublished ? 'Đã công bố' : 'Ẩn với sinh viên'}
-                  </AppBadge>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={gradebook.students}
+        keyExtractor={(row) => row.studentId}
+        emptyText="Chưa có dữ liệu điểm trong lớp học phần"
+        page={gradebook.pagination.page}
+        totalItems={gradebook.pagination.totalItems}
+        totalPages={gradebook.pagination.totalPages}
+        pageSize={gradebook.pagination.pageSize}
+        onPageChange={onPageChange}
+      />
     </div>
   )
 }
