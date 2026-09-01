@@ -1,5 +1,6 @@
 import { Clock, Database, Plus, Sparkles } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuthStore } from '../../store/authStore'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -7,7 +8,6 @@ import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTablePanel from './components/TeacherTablePanel'
 import TeacherTopBar from './components/TeacherTopBar'
 import AIGenerationHistoryModal from './components/question-bank/AIGenerationHistoryModal'
-import AIQuestionGeneratorModal from './components/question-bank/AIQuestionGeneratorModal'
 import QuestionBankTable from './components/question-bank/QuestionBankTable'
 import QuestionBankToolbar from './components/question-bank/QuestionBankToolbar'
 import QuestionDetailModal from './components/question-bank/QuestionDetailModal'
@@ -18,6 +18,7 @@ import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 import type { Question } from './types/teacher-question-bank.types'
 
 export default function TeacherQuestionBankPage() {
+  const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const questionApi = useTeacherQuestions()
   const storeQuestions = useTeacherWorkspaceStore((state) => state.questions)
@@ -54,7 +55,6 @@ export default function TeacherQuestionBankPage() {
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
   const [viewingQuestion, setViewingQuestion] = useState<Question | null>(null)
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [removingSharedQuestion, setRemovingSharedQuestion] = useState<Question | null>(null)
   const [removeReason, setRemoveReason] = useState('Gỡ khỏi ngân hàng chung để xử lý vấn đề chuyên môn.')
@@ -187,11 +187,11 @@ export default function TeacherQuestionBankPage() {
                 </button>
 
                 <button
-                  onClick={() => setIsAiModalOpen(true)}
+                  onClick={() => navigate('/teacher/question-bank/ai-generator')}
                   className="px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-blue-200"
                 >
                   <Sparkles size={15} className="text-amber-500" />
-                  AI Bóc Tách Đề (PDF / Word)
+                  Tạo câu hỏi bằng AI
                 </button>
 
                 <button
@@ -290,34 +290,6 @@ export default function TeacherQuestionBankPage() {
         isOpen={!!viewingQuestion}
         question={viewingQuestion}
         onClose={() => setViewingQuestion(null)}
-      />
-
-      <AIQuestionGeneratorModal
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-        onApprovedSave={async (approvedDrafts) => {
-          const subject = subjects[0]
-          if (!subject) return toast.error('Không có môn học phù hợp để lưu câu hỏi.')
-          try {
-            await Promise.all(
-              approvedDrafts.map((d) =>
-                questionApi.save({
-                  type: d.type,
-                  difficulty: d.difficulty,
-                  content: d.content,
-                  explanation: d.explanation,
-                  options: d.options,
-                  subjectId: subject.id,
-                  subjectName: subject.name,
-                }),
-              ),
-            )
-            toast.success(`Đã lưu ${approvedDrafts.length} câu hỏi AI vào ngân hàng cá nhân.`)
-          } catch {
-            toast.error('Không thể lưu một số câu hỏi AI. Vui lòng thử lại.')
-          }
-          setIsAiModalOpen(false)
-        }}
       />
 
       <AIGenerationHistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} />

@@ -21,6 +21,7 @@ import StudentPostDetailPage from '../pages/student/StudentPostDetailPage'
 import StudentTakeExamPage from '../pages/student/StudentTakeExamPage'
 import StudentSubjectsPage from '../pages/student/StudentSubjectsPage'
 import TeacherAutoExamMatrixPage from '../pages/teacher/TeacherAutoExamMatrixPage'
+import TeacherAiQuestionGeneratorPage from '../pages/teacher/TeacherAiQuestionGeneratorPage'
 import TeacherCourseDetailPage from '../pages/teacher/TeacherCourseDetailPage'
 import TeacherCoursesPage from '../pages/teacher/TeacherCoursesPage'
 import TeacherDashboard from '../pages/teacher/TeacherDashboard'
@@ -202,6 +203,14 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['TEACHER']}>
               <TeacherQuestionBankPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/teacher/question-bank/ai-generator"
+          element={
+            <RoleRoute allowedRoles={['TEACHER']}>
+              <TeacherAiQuestionGeneratorPage />
             </RoleRoute>
           }
         />
