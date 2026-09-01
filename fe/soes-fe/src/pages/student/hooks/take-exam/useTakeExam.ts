@@ -43,10 +43,10 @@ export function useTakeExam({
 
   // Initialize timer once session is loaded
   useEffect(() => {
-    if (!session?.attemptEndAt || sessionInitializedRef.current) return
+    if (!session?.deadlineAt || sessionInitializedRef.current) return
 
     const timeoutId = window.setTimeout(() => {
-      const endAt = new Date(session.attemptEndAt).getTime()
+      const endAt = new Date(session.deadlineAt).getTime()
       if (isNaN(endAt)) return
 
       const remaining = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
@@ -61,13 +61,13 @@ export function useTakeExam({
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [onTimeExpired, session?.attemptEndAt])
+  }, [onTimeExpired, session?.deadlineAt])
 
   // Countdown timer — only runs after session is initialized
   useEffect(() => {
-    if (phase !== 'IN_PROGRESS' || !session?.attemptEndAt || !sessionInitializedRef.current) return
+    if (phase !== 'IN_PROGRESS' || !session?.deadlineAt || !sessionInitializedRef.current) return
 
-    const endAt = new Date(session.attemptEndAt).getTime()
+    const endAt = new Date(session.deadlineAt).getTime()
     if (isNaN(endAt)) return
 
     const intervalId = window.setInterval(() => {
@@ -82,7 +82,7 @@ export function useTakeExam({
     }, 1000)
 
     return () => window.clearInterval(intervalId)
-  }, [onTimeExpired, phase, session?.attemptEndAt])
+  }, [onTimeExpired, phase, session?.deadlineAt])
 
   const goToQuestion = useCallback(
     (questionId: string) => {

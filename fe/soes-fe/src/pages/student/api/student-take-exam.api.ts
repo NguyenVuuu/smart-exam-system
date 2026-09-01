@@ -19,7 +19,7 @@ export interface StartExamRequest {
 export interface StartExamResponse {
   attemptId: string
   startedAt: string
-  attemptEndAt: string
+  deadlineAt: string
   remainingSeconds: number
 }
 
@@ -75,7 +75,7 @@ export interface AttemptStatus {
   attemptId: string
   status: 'IN_PROGRESS' | 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'EXPIRED' | 'INVALIDATED'
   startedAt: string
-  attemptEndAt: string
+  deadlineAt: string
   submittedAt: string | null
   endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | null
   remainingSeconds: number
@@ -145,7 +145,7 @@ export const takeExamApi = {
       title: string
       durationMinutes: number
       remainingSeconds: number
-      attemptEndAt: string
+      deadlineAt: string
       integritySettings?: ApiExamIntegritySettings
       questions: ApiTakeExamQuestion[]
     }>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}`)

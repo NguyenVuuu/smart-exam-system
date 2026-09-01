@@ -1,7 +1,7 @@
 export interface StartExamResponseDto {
   attemptId: string
   startedAt: string
-  attemptEndAt: string
+  deadlineAt: string
   remainingSeconds: number
 }
 
@@ -48,7 +48,7 @@ export interface GetExamContentResponseDto {
   title:            string
   durationMinutes:  number
   remainingSeconds: number
-  attemptEndAt:     string
+  deadlineAt:      string
   integritySettings: ExamIntegritySettingsDto
   questions:        ExamContentQuestionDto[]
 }
@@ -79,7 +79,7 @@ export interface GetAttemptStatusResponseDto {
   attemptId:          string
   status:             string
   startedAt:          string
-  attemptEndAt:       string
+  deadlineAt:         string
   submittedAt:        string | null
   endedBy:            string | null
   remainingSeconds:   number
