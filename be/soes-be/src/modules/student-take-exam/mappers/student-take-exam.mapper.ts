@@ -5,7 +5,7 @@ export function toStartExamResponseDto(result: StartExamResult): StartExamRespon
   return {
     attemptId:        result.attemptId,
     startedAt:        result.startedAt.toISOString(),
-    attemptEndAt:     result.attemptEndAt.toISOString(),
+    deadlineAt:     result.deadlineAt.toISOString(),
     remainingSeconds: result.remainingSeconds,
   }
 }
@@ -43,7 +43,7 @@ export function toGetExamContentResponseDto(result: ExamContentResult): GetExamC
     title:            result.title,
     durationMinutes:  result.durationMinutes,
     remainingSeconds: result.remainingSeconds,
-    attemptEndAt:     result.attemptEndAt.toISOString(),
+    deadlineAt:     result.deadlineAt.toISOString(),
     integritySettings: result.integritySettings,
     questions:        result.questions.map(toExamContentQuestionDto),
   }
@@ -77,7 +77,7 @@ export function toGetAttemptStatusResponseDto(result: AttemptStatusResult): GetA
     attemptId:          result.attemptId,
     status:             result.status,
     startedAt:          result.startedAt.toISOString(),
-    attemptEndAt:       result.attemptEndAt.toISOString(),
+    deadlineAt:       result.deadlineAt.toISOString(),
     submittedAt:        result.submittedAt ? result.submittedAt.toISOString() : null,
     endedBy:            result.endedBy,
     remainingSeconds:   result.remainingSeconds,

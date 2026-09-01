@@ -233,7 +233,7 @@ export default function StudentExamResultPage() {
                     </div>
                     <div className="flex justify-between border-b border-dashed border-gray-100 pb-2">
                       <span className="text-gray-500">Deadline attempt</span>
-                      <span className="font-semibold">{formatDateTime(status.attemptEndAt)}</span>
+                      <span className="font-semibold">{formatDateTime(status.deadlineAt)}</span>
                     </div>
                     <div className="flex justify-between border-b border-dashed border-gray-100 pb-2">
                       <span className="text-gray-500">Thời điểm nộp</span>
