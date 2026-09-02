@@ -5,7 +5,7 @@ import type { ApprovalQuery, QuestionBody, QuestionsQuery } from '../validators/
 export const questionInclude = {
   subject: { select: { id: true, code: true, name: true, departmentId: true } },
   owner: { select: { id: true, user: { select: { fullName: true } } } },
-  options: { orderBy: { id: 'asc' as const } },
+  options: { orderBy: { orderIndex: 'asc' as const } },
   programmingConfig: true,
   programmingTests: { orderBy: { orderIndex: 'asc' as const } },
   questionBankItem: { select: { id: true, status: true, rejectionReason: true, removedAt: true, reviewedAt: true } },
@@ -27,6 +27,9 @@ export const listActiveSubjects = (departmentId: string) => prisma.subject.findM
   select: { id: true, code: true, name: true },
   orderBy: { name: 'asc' },
 })
+
+const optionsWithOrder = (options: QuestionBody['options']) =>
+  options.map((option, index) => ({ ...option, orderIndex: index }))
 
 function questionFilters(query: QuestionsQuery): Prisma.QuestionWhereInput {
   return {
@@ -82,7 +85,7 @@ export function createQuestion(ownerId: string, data: QuestionBody) {
   return prisma.question.create({
     data: {
       ...question, ownerId, source: 'MANUAL',
-      options: { create: options },
+      options: { create: optionsWithOrder(options) },
       ...(programming && {
         programmingConfig: { create: {
           timeLimitMs, memoryLimitKb: memoryLimitMb && memoryLimitMb * 1024, maxCodeSizeKb,
@@ -109,7 +112,7 @@ export function updateQuestion(id: string, ownerId: string, expectedUpdatedAt: D
     await tx.questionProgrammingConfig.deleteMany({ where: { questionId: id } })
     return tx.question.update({
       where: { id }, data: {
-        ...question, options: { create: options },
+        ...question, options: { create: optionsWithOrder(options) },
         ...(programming && {
           programmingConfig: { create: {
             timeLimitMs, memoryLimitKb: memoryLimitMb && memoryLimitMb * 1024, maxCodeSizeKb,

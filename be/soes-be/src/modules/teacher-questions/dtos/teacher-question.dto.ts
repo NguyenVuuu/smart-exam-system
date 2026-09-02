@@ -4,7 +4,7 @@ export interface QuestionOptionDto {
 
 export interface TeacherQuestionDto {
   id: string; title: string; content: string; explanation: string | null
-  type: string; difficulty: string; source: string; language: string | null
+  type: string; difficulty: string; aiDifficultyReason: string | null; source: string; language: string | null
   subject: { id: string; code: string; name: string }
   owner: { id: string; fullName: string }
   options: QuestionOptionDto[]

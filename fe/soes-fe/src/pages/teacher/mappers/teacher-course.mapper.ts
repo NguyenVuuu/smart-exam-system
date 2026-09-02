@@ -30,8 +30,11 @@ export function toTeacherCourseDetail(dto: TeacherCourseDetailApiDto): TeacherCo
       ...student, email: student.email ?? '', enrolledAt: dateTime(student.enrolledAt), status: 'ACTIVE',
     })),
     materials: dto.materials.map((material) => ({
-      id: material.id, courseOfferingId: dto.id, fileName: material.fileName,
+      id: material.id, courseOfferingId: dto.id,
+      subjectId: dto.subject.id, subjectName: dto.subject.name, courseCode: dto.code,
+      title: material.title ?? undefined, fileName: material.fileName,
       fileType: fileType(material.contentType, material.fileName), fileSize: fileSize(material.fileSize),
+      checksum: material.checksum ?? undefined, storageProvider: material.storageProvider,
       uploadedAt: dateTime(material.createdAt), selectedForAI: material.aiEnabled, downloadUrl: '#',
     })),
     announcements: dto.posts.map((post) => ({

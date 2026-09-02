@@ -18,9 +18,15 @@ export interface CourseOffering {
 export interface CourseMaterial {
   id: string
   courseOfferingId: string
+  subjectId?: string
+  subjectName?: string
+  courseCode?: string
+  title?: string
   fileName: string
   fileType: 'PDF' | 'DOCX' | 'PPTX'
   fileSize: string
+  checksum?: string
+  storageProvider?: 'LOCAL' | 'SUPABASE'
   uploadedAt: string
   selectedForAI: boolean // BR-10: Checkbox chọn tài liệu cho AI
   downloadUrl: string

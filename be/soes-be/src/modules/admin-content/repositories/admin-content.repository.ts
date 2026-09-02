@@ -6,7 +6,7 @@ export const bankInclude = {
   question: { include: {
     subject: { select: { id: true, code: true, name: true, departmentId: true } },
     owner: { select: { id: true, user: { select: { fullName: true } } } },
-    options: { orderBy: { id: 'asc' as const } }, programmingConfig: true,
+    options: { orderBy: { orderIndex: 'asc' as const } }, programmingConfig: true,
     programmingTests: { orderBy: { orderIndex: 'asc' as const } },
   } },
   reviewedByTeacher: { select: { id: true, user: { select: { fullName: true } } } },

@@ -9,7 +9,8 @@ export function toTeacherQuestionDto(row: QuestionRow): TeacherQuestionDto {
   const bank = row.questionBankItem
   return {
     id: row.id, title: row.title, content: row.content, explanation: row.explanation,
-    type: row.type, difficulty: row.difficulty, source: row.source, language: row.language,
+    type: row.type, difficulty: row.difficulty, aiDifficultyReason: row.aiDifficultyReason,
+    source: row.source, language: row.language,
     subject: { id: row.subject.id, code: row.subject.code, name: row.subject.name },
     owner: { id: row.owner.id, fullName: row.owner.user.fullName },
     options: row.options.map(({ id, content, isCorrect }) => ({ id, content, isCorrect })),

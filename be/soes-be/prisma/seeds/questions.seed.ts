@@ -6,6 +6,8 @@ interface QuestionSeedInput {
 }
 
 const questionTitle = (content: string) => content.split(':', 1)[0].trim()
+const optionsWithOrder = (options: Array<{ content: string; isCorrect: boolean }>) =>
+  options.map((option, index) => ({ ...option, orderIndex: index }))
 
 function makeQuestions(subject: Subject, teacher: Teacher): Array<{
   content: string
@@ -149,7 +151,7 @@ export async function seedQuestions(
           ownerId: teacher.id,
           subjectId: subject.id,
           options: questionType === 'PROGRAMMING' ? undefined : {
-            create: qData.options,
+            create: optionsWithOrder(qData.options),
           },
         },
         include: { options: true },

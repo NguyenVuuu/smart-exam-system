@@ -35,6 +35,7 @@ export interface Question {
   sharedBankItemId?: string
   type: QuestionType
   difficulty: DifficultyLevel
+  aiDifficultyReason?: string
   title: string
   content: string
   explanation?: string
