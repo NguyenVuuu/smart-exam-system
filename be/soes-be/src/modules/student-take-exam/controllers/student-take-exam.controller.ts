@@ -163,7 +163,8 @@ export async function recordViolation(req: Request, res: Response, next: NextFun
   try {
     const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
     const body = recordViolationBodySchema.parse(req.body)
-    const result = await takeExamService.recordViolation(scheduleId, attemptId, req.user!.profileId, body)
+    const evidenceFiles = Array.isArray(req.files) ? req.files : []
+    const result = await takeExamService.recordViolation(scheduleId, attemptId, req.user!.profileId, body, evidenceFiles)
 
     res.status(201).json({
       success: true,

@@ -114,6 +114,7 @@ export interface RecordViolationResult {
   violationType: string
   severity: string
   detectedAt: Date
+  evidenceUrls: string[]
 }
 
 // ─── API 7: Run Code ───────────────────────────────────────────────────────────
