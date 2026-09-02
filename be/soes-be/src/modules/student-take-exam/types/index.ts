@@ -21,6 +21,7 @@ export interface ExamContentResult {
 
 export interface ExamIntegritySettings {
   enableWebcam: boolean
+  requireFullscreen: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
 }
@@ -99,6 +100,28 @@ export interface AttemptResult {
   maxScore: number | null
   reviewPolicy: string | null
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
+  reviewItems: AttemptReviewItem[]
+}
+
+export interface AttemptReviewOption {
+  id: string
+  content: string
+  isCorrect?: boolean
+}
+
+export interface AttemptReviewItem {
+  questionId: string
+  orderIndex: number
+  type: string
+  content: string
+  points: number
+  score: number | null
+  isCorrect: boolean | null
+  selectedOptionIds?: string[]
+  draftSourceCode?: string | null
+  options?: AttemptReviewOption[]
+  correctOptionIds?: string[]
+  explanation?: string | null
 }
 
 

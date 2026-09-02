@@ -40,6 +40,28 @@ export interface AttemptResult {
   maxScore: number | null
   reviewPolicy: 'NONE' | 'SCORE_ONLY' | 'ANSWERS_NO_KEY' | 'FULL_AFTER_RELEASE' | null
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
+  reviewItems: AttemptReviewItem[]
+}
+
+export interface AttemptReviewOption {
+  id: string
+  content: string
+  isCorrect?: boolean
+}
+
+export interface AttemptReviewItem {
+  questionId: string
+  orderIndex: number
+  type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'PROGRAMMING'
+  content: string
+  points: number
+  score: number | null
+  isCorrect: boolean | null
+  selectedOptionIds?: string[]
+  draftSourceCode?: string | null
+  options?: AttemptReviewOption[]
+  correctOptionIds?: string[]
+  explanation?: string | null
 }
 
 export type ExamViolationType =
@@ -106,6 +128,7 @@ const BASE_URL = '/student/exam-schedules'
 
 interface ApiExamIntegritySettings {
   enableWebcam?: boolean
+  requireFullscreen?: boolean
   blockCopyPaste?: boolean
   blockRightClick?: boolean
 }
@@ -171,6 +194,7 @@ export const takeExamApi = {
       ...data,
       integritySettings: {
         enableWebcam: data.integritySettings?.enableWebcam ?? false,
+        requireFullscreen: data.integritySettings?.requireFullscreen ?? false,
         blockCopyPaste: data.integritySettings?.blockCopyPaste ?? true,
         blockRightClick: data.integritySettings?.blockRightClick ?? true,
       },
