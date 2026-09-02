@@ -1,4 +1,6 @@
 import { ConflictError, NotFoundError, ValidationError } from '../../../errors/AppError'
+import { getViolationEvidenceUrl } from '../../../lib/minio'
+import { logger } from '../../../lib/logger'
 import { toPagination } from '../../../utils/pagination'
 import { computeScheduleStatus } from '../../exam-schedules/mappers/exam-schedule.mapper'
 import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
@@ -39,17 +41,34 @@ export async function listViolations(teacherId: string, examId: string, schedule
   if (!schedule) throw new NotFoundError('Exam schedule not found')
   const courseOfferingIds = schedule.scheduleCourses.map((course) => course.courseOfferingId)
   const [total, rows] = await repo.listViolations(scheduleId, courseOfferingIds, query.page, query.pageSize)
-  return {
-    items: rows.map((row) => {
-      const evidence = Array.isArray(row.evidenceUrls) ? row.evidenceUrls : []
-      return {
-        id: row.id, scheduleId, attemptId: row.attemptId, studentId: row.attempt.studentId,
-        studentCode: row.attempt.student.studentCode, studentName: row.attempt.student.user.fullName,
-        type: row.violationType, timestamp: row.detectedAt, severity: row.severity,
-        evidenceImageUrl: typeof evidence[0] === 'string' ? evidence[0] : null,
-        note: row.description,
+  const items = await Promise.all(rows.map(async (row) => {
+    const evidence = Array.isArray(row.evidenceUrls) ? row.evidenceUrls : []
+    const firstEvidenceObjectName = evidence.find((item): item is string => typeof item === 'string') ?? null
+    let evidenceImageUrl: string | null = null
+
+    if (firstEvidenceObjectName) {
+      try {
+        evidenceImageUrl = await getViolationEvidenceUrl(firstEvidenceObjectName)
+      } catch (error) {
+        logger.error('Failed to create violation evidence URL', {
+          violationId: row.id,
+          objectName: firstEvidenceObjectName,
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
-    }),
+    }
+
+    return {
+      id: row.id, scheduleId, attemptId: row.attemptId, studentId: row.attempt.studentId,
+      studentCode: row.attempt.student.studentCode, studentName: row.attempt.student.user.fullName,
+      type: row.violationType, timestamp: row.detectedAt, severity: row.severity,
+      evidenceImageUrl,
+      note: row.description,
+    }
+  }))
+
+  return {
+    items,
     pagination: toPagination(query.page, query.pageSize, total),
   }
 }

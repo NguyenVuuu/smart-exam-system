@@ -2,6 +2,8 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from ".
 import bcrypt from 'bcrypt'
 import type { SeverityLevel, ViolationType } from '@prisma/client'
 import { examConfig } from "../../../config";
+import { logger } from '../../../lib/logger'
+import { uploadViolationEvidenceFiles } from '../../../lib/minio'
 import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
 import { judge0Service, Judge0Service } from '../../../lib/judge0'
@@ -699,6 +701,7 @@ export async function recordViolation(
     description?: string
     detectedAt?: string
   },
+  evidenceFiles: Express.Multer.File[] = [],
 ): Promise<RecordViolationResult> {
   const attempt = await repo.findAttemptForViolation(attemptId, scheduleId, studentId)
   if (!attempt) {
@@ -715,12 +718,29 @@ export async function recordViolation(
     throw new ValidationError('Invalid detectedAt')
   }
 
+  let evidenceUrls: string[] = []
+  try {
+    evidenceUrls = await uploadViolationEvidenceFiles({
+      attemptId,
+      violationType: input.violationType,
+      detectedAt,
+      files: evidenceFiles,
+    })
+  } catch (error) {
+    logger.error('Failed to upload violation evidence', {
+      attemptId,
+      violationType: input.violationType,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
   return repo.createViolation({
     attemptId,
     violationType: input.violationType as ViolationType,
     severity: input.severity as SeverityLevel,
     description: input.description,
     detectedAt,
+    evidenceUrls,
   })
 }
 
