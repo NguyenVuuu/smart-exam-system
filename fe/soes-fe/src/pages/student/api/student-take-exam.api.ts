@@ -42,6 +42,23 @@ export interface AttemptResult {
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
 }
 
+export type ExamViolationType =
+  | 'TAB_SWITCH'
+  | 'FULLSCREEN_EXIT'
+  | 'INACTIVITY'
+  | 'COPY_PASTE'
+  | 'CAMERA_BLOCKED'
+
+export type ExamViolationSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
+
+export interface RecordViolationPayload {
+  violationType: ExamViolationType
+  severity: ExamViolationSeverity
+  description?: string
+  detectedAt?: string
+  evidenceFiles?: File[]
+}
+
 // ─── Run code (programming questions) ────────────────────────────────────────
 
 export interface RunCodeTestCase {
@@ -177,6 +194,23 @@ export const takeExamApi = {
 
   sendHeartbeat: async (scheduleId: string, attemptId: string): Promise<void> => {
     await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/heartbeat`)
+  },
+
+  recordViolation: async (scheduleId: string, attemptId: string, data: RecordViolationPayload): Promise<void> => {
+    const evidenceFiles = data.evidenceFiles ?? []
+    if (evidenceFiles.length === 0) {
+      await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/violations`, data)
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('violationType', data.violationType)
+    formData.append('severity', data.severity)
+    if (data.description) formData.append('description', data.description)
+    if (data.detectedAt) formData.append('detectedAt', data.detectedAt)
+    evidenceFiles.forEach((file) => formData.append('evidence', file, file.name))
+
+    await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/violations`, formData)
   },
 
   getAttemptStatus: async (scheduleId: string, attemptId: string): Promise<AttemptStatus> => {

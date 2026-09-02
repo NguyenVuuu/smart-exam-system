@@ -21,6 +21,21 @@ services:
     volumes:
       - redis_data:/data
 
+  # MinIO object storage — used by be/soes-be for violation evidence
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: soes-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: soes_minio_admin
+      MINIO_ROOT_PASSWORD: soes_minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
   # Judge0 code execution sandbox — used by be/soes-be for running submissions
   judge0-db:
     image: postgres:16-alpine
@@ -63,4 +78,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  minio_data:
   judge0_db_data:

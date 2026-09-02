@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
-import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema, sendHeartbeatParamsSchema, runCodeParamsSchema, runCodeBodySchema } from '../validators/student-take-exam.validator'
-import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto, toGetAttemptResultResponseDto, toSendHeartbeatResponseDto, toRunCodeResponseDto } from '../mappers/student-take-exam.mapper'
+import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema, sendHeartbeatParamsSchema, recordViolationBodySchema, runCodeParamsSchema, runCodeBodySchema } from '../validators/student-take-exam.validator'
+import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto, toGetAttemptResultResponseDto, toSendHeartbeatResponseDto, toRecordViolationResponseDto, toRunCodeResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -158,6 +158,23 @@ export async function sendHeartbeat(req: Request, res: Response, next: NextFunct
 }
 
 // ─── API 7: Run Code ───────────────────────────────────────────────────────────
+
+export async function recordViolation(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
+    const body = recordViolationBodySchema.parse(req.body)
+    const evidenceFiles = Array.isArray(req.files) ? req.files : []
+    const result = await takeExamService.recordViolation(scheduleId, attemptId, req.user!.profileId, body, evidenceFiles)
+
+    res.status(201).json({
+      success: true,
+      message: 'Violation recorded',
+      data: toRecordViolationResponseDto(result),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
 
 export async function runCode(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

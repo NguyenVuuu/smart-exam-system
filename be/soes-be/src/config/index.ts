@@ -53,3 +53,33 @@ export const judge0Config = {
     return parseInt(process.env.JUDGE0_MAX_SUBMISSIONS_PER_REQUEST ?? '20', 10)
   },
 } as const
+
+export const minioConfig = {
+  get endPoint(): string {
+    return process.env.MINIO_ENDPOINT ?? 'localhost'
+  },
+
+  get port(): number {
+    return parseInt(process.env.MINIO_PORT ?? '9000', 10)
+  },
+
+  get useSSL(): boolean {
+    return process.env.MINIO_USE_SSL === 'true'
+  },
+
+  get accessKey(): string {
+    return process.env.MINIO_ACCESS_KEY ?? 'soes_minio_admin'
+  },
+
+  get secretKey(): string {
+    return process.env.MINIO_SECRET_KEY ?? 'soes_minio_password'
+  },
+
+  get evidenceBucket(): string {
+    return process.env.MINIO_EVIDENCE_BUCKET ?? 'soes-evidence'
+  },
+
+  get evidenceUrlExpirySeconds(): number {
+    return parseInt(process.env.MINIO_EVIDENCE_URL_EXPIRY_SECONDS ?? '300', 10)
+  },
+} as const

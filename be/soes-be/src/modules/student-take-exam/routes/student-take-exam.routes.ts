@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { authenticate } from '../../auth/middlewares/authenticate'
 import { requireStudent } from '../../auth/middlewares/authorize'
+import { uploadViolationEvidence } from '../middlewares/evidence-upload'
 import * as takeExamController from '../controllers/student-take-exam.controller'
 
 const router = Router()
@@ -58,6 +59,15 @@ router.post(
   authenticate,
   requireStudent(),
   takeExamController.sendHeartbeat,
+)
+
+// POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/violations
+router.post(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/violations',
+  authenticate,
+  requireStudent(),
+  uploadViolationEvidence,
+  takeExamController.recordViolation,
 )
 
 // POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run

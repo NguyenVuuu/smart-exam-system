@@ -107,6 +107,14 @@ export interface SendHeartbeatResponseDto {
   isOnline: boolean
 }
 
+export interface RecordViolationResponseDto {
+  id: string
+  violationType: string
+  severity: string
+  detectedAt: string
+  evidenceUrls: string[]
+}
+
 // ─── API 7: Run Code ───────────────────────────────────────────────────────────
 
 export interface RunCodeTestCaseDto {
