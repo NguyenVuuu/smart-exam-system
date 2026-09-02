@@ -9,6 +9,7 @@ import type {
 
 interface ApiResponse<T> { success: boolean; data: T }
 type PostDto = TeacherCourseDetailApiDto['posts'][number]
+type CourseMaterialApiDto = TeacherCourseDetailApiDto['materials'][number]
 
 export async function getTeacherCourses() {
   const response = await apiClient.get<ApiResponse<TeacherCoursesResponse>>('/teacher/course-offerings', {
@@ -31,10 +32,21 @@ export async function getTeacherProctorAssignments() {
   return response.data.data
 }
 
-type PostPayload = { title: string; content: string; attachments?: File[] }
-const postFormData = ({ title, content, attachments = [] }: PostPayload) => {
+export type PostPayload = {
+  title: string
+  content: string
+  attachments?: File[]
+  removedAttachmentIds?: string[]
+}
+
+const postFormData = ({ title, content, attachments = [], removedAttachmentIds = [] }: PostPayload) => {
   const form = new FormData()
-  form.set('title', title); form.set('content', content); form.set('status', 'PUBLISHED')
+  form.set('title', title)
+  form.set('content', content)
+  form.set('status', 'PUBLISHED')
+  if (removedAttachmentIds.length) {
+    form.set('removedAttachmentIds', JSON.stringify(removedAttachmentIds))
+  }
   attachments.forEach((file) => form.append('attachments', file))
   return form
 }
@@ -45,16 +57,20 @@ export const createCoursePost = async (courseId: string, payload: PostPayload) =
   })
   return response.data.data
 }
+
 export const updateCoursePost = async (courseId: string, postId: string, payload: PostPayload) => {
   const response = await apiClient.put<ApiResponse<PostDto>>(`/teacher/course-offerings/${courseId}/posts/${postId}`, postFormData(payload), {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return response.data.data
 }
+
 export const pinCoursePost = (courseId: string, postId: string, isPinned: boolean) => apiClient
   .patch(`/teacher/course-offerings/${courseId}/posts/${postId}/pin`, { isPinned })
+
 export const deleteCoursePost = (courseId: string, postId: string) => apiClient
   .delete(`/teacher/course-offerings/${courseId}/posts/${postId}`)
+
 export async function downloadCoursePostAttachment(courseId: string, postId: string, attachmentId: string, fileName: string) {
   const response = await apiClient.get(
     `/teacher/course-offerings/${courseId}/posts/${postId}/attachments/${attachmentId}`,
@@ -80,3 +96,31 @@ export const getCourseGradebook = (courseId: string, page: number) => apiClient
   .get<ApiResponse<CourseGradebookApiDto>>(`/teacher/course-offerings/${courseId}/gradebook`, {
     params: { page, pageSize: 10 },
   }).then(({ data }) => data.data)
+
+export async function uploadCourseMaterials(courseId: string, files: File[]) {
+  const form = new FormData()
+  files.forEach((file) => form.append('materials', file))
+  const response = await apiClient.post<ApiResponse<CourseMaterialApiDto[]>>(
+    `/teacher/course-offerings/${courseId}/materials`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return response.data.data
+}
+
+export async function downloadCourseMaterial(courseId: string, materialId: string, fileName: string) {
+  const response = await apiClient.get(
+    `/teacher/course-offerings/${courseId}/materials/${materialId}`,
+    { responseType: 'blob' },
+  )
+  const url = URL.createObjectURL(response.data)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function deleteCourseMaterial(courseId: string, materialId: string) {
+  await apiClient.delete(`/teacher/course-offerings/${courseId}/materials/${materialId}`)
+}

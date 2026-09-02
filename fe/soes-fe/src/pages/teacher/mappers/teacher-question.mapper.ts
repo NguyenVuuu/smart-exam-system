@@ -4,7 +4,7 @@ import type { QuestionPayload, TeacherQuestionDto } from '../types/teacher-quest
 function reviewStatus(dto: TeacherQuestionDto): Question['reviewStatus'] {
   const bank = dto.sharedBank
   if (!bank) return 'PRIVATE'
-  if (bank.removedAt) return 'REMOVED'
+  if (bank.removedAt) return 'PRIVATE'
   if (bank.status === 'PENDING') return 'PENDING_REVIEW'
   return bank.status
 }
@@ -18,7 +18,9 @@ export const toQuestion = (dto: TeacherQuestionDto): Question => ({
   bankScope: dto.sharedBank?.status === 'APPROVED' && !dto.sharedBank.removedAt ? 'SHARED' : 'PERSONAL',
   reviewStatus: reviewStatus(dto),
   rejectionReason: dto.sharedBank?.rejectionReason ?? undefined,
+  removedByName: dto.sharedBank?.removedByName ?? undefined,
   removedAt: dto.sharedBank?.removedAt ?? undefined,
+  removalReason: dto.sharedBank?.removalReason ?? undefined,
   sharedBankItemId: dto.sharedBank?.itemId,
   type: dto.type,
   difficulty: dto.difficulty,

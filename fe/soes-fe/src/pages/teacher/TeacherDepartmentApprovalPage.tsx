@@ -9,6 +9,7 @@ import {
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
+import HtmlContent from '../../components/common/HtmlContent'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
 import { useAuthStore } from '../../store/authStore'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -375,8 +376,7 @@ function ExamReviewContent({ exam }: { exam: Exam }) {
                   {item.points} điểm
                 </AppBadge>
               </div>
-              <p className="text-sm font-semibold text-gray-950">{item.question.title}</p>
-              <p className="text-sm font-medium leading-7 text-gray-900">{item.question.content}</p>
+              <HtmlContent content={item.question.content} className="text-sm font-medium leading-7 text-gray-900" />
               <QuestionAnswerBlock question={item.question} />
             </div>
           ))}
@@ -398,7 +398,7 @@ function QuestionReviewContent({ question }: { question: Question }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-100 p-5">
         <h4 className="text-base font-semibold text-gray-950">{question.title}</h4>
-        <p className="mt-2 text-sm font-medium leading-7 text-gray-900">{question.content}</p>
+        <HtmlContent content={question.content} className="mt-2 text-sm font-medium leading-7 text-gray-900" />
         <div className="mt-4">
           <QuestionAnswerBlock question={question} />
         </div>

@@ -110,9 +110,6 @@ export default function QuestionBankTable({
         if (status === 'REJECTED') {
           return <AppBadge tone="rose">Bị từ chối</AppBadge>
         }
-        if (status === 'REMOVED') {
-          return <AppBadge tone="gray">Đã gỡ khỏi chung</AppBadge>
-        }
         return <AppBadge tone="gray">Cá nhân</AppBadge>
       },
     },

@@ -1,11 +1,14 @@
-import { Router } from 'express'
+﻿import { Router } from 'express'
 import { asyncHandler } from '../../../middlewares/asyncHandler'
 import { authenticate } from '../../auth/middlewares/authenticate'
 import { requireTeacher } from '../../auth/middlewares/authorize'
 import * as controller from '../controllers/teacher-questions.controller'
+import { uploadAiSourceFiles, uploadQuestionImage } from '../../../middlewares/fileUpload'
 
 const router = Router()
 router.use(authenticate, requireTeacher())
+router.post('/question-images', uploadQuestionImage, asyncHandler(controller.uploadQuestionImage))
+router.post('/ai-source-files', uploadAiSourceFiles, asyncHandler(controller.uploadAiSourceFiles))
 router.get('/questions', asyncHandler(controller.listQuestions))
 router.get('/question-subjects', asyncHandler(controller.listSubjects))
 router.post('/questions', asyncHandler(controller.createQuestion))

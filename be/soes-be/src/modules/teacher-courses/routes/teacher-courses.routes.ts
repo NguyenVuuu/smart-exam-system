@@ -3,12 +3,15 @@ import { asyncHandler } from '../../../middlewares/asyncHandler'
 import { authenticate } from '../../auth/middlewares/authenticate'
 import { requireTeacher } from '../../auth/middlewares/authorize'
 import * as controller from '../controllers/teacher-courses.controller'
-import { uploadPostAttachments } from '../middlewares/post-attachment-upload'
+import { uploadCourseMaterials, uploadPostAttachments } from '../../../middlewares/fileUpload'
 
 const router = Router()
 router.use(authenticate, requireTeacher())
 router.get('/course-offerings', asyncHandler(controller.listCourses))
 router.get('/course-offerings/:id', asyncHandler(controller.getCourse))
+router.post('/course-offerings/:id/materials', uploadCourseMaterials, asyncHandler(controller.uploadMaterials))
+router.get('/course-offerings/:id/materials/:materialId', asyncHandler(controller.downloadMaterial))
+router.delete('/course-offerings/:id/materials/:materialId', asyncHandler(controller.removeMaterial))
 router.get('/course-offerings/:id/students', asyncHandler(controller.listStudents))
 router.get('/course-offerings/:id/exams', asyncHandler(controller.listExams))
 router.get('/course-offerings/:id/gradebook', asyncHandler(controller.getGradebook))

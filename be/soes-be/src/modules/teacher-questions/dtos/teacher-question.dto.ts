@@ -13,6 +13,7 @@ export interface TeacherQuestionDto {
   sharedBank: {
     itemId: string; status: string; rejectionReason: string | null
     removedAt: Date | null; reviewedAt: Date | null
+    removalReason: string | null; removedByName: string | null
   } | null
   createdAt: Date; updatedAt: Date; archivedAt: Date | null
 }

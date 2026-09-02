@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Check,
   CheckCircle2,
@@ -15,9 +15,11 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import AppSelect from '../../components/common/AppSelect'
+import FileSelectionList from './components/FileSelectionList'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
+import { uploadAiSourceFiles } from './api/teacher-questions.api'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import { MOCK_COURSE_MATERIALS, MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
 import { MOCK_AI_DRAFT_QUESTIONS } from './mock/teacher-question-bank.mock'
@@ -97,7 +99,7 @@ export default function TeacherAiQuestionGeneratorPage() {
     'mat-01',
     'mat-02',
   ])
-  const [uploadedFileNames, setUploadedFileNames] = useState<string[]>(['De_Giua_Ky_Java_2025.pdf'])
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [questionCount, setQuestionCount] = useState(5)
   const [desiredDifficulty, setDesiredDifficulty] = useState<DesiredDifficulty>('AUTO')
   const [promptInput, setPromptInput] = useState(
@@ -126,13 +128,17 @@ export default function TeacherAiQuestionGeneratorPage() {
   )
   const selectedCourseMaterials = filteredMaterials.filter((material) => selectedMaterials.includes(material.id))
 
+  const removeUploadedFile = (index: number) => {
+    setUploadedFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))
+  }
+
   const toggleMaterial = (materialId: string, checked: boolean) => {
     setSelectedMaterials((prev) =>
       checked ? [...prev, materialId] : prev.filter((item) => item !== materialId),
     )
   }
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!subjectId) {
       toast.error('Vui lòng chọn môn học để AI gán câu hỏi đúng ngân hàng.')
       return
@@ -141,13 +147,22 @@ export default function TeacherAiQuestionGeneratorPage() {
       toast.error('Vui lòng chọn ít nhất một tài liệu lớp học.')
       return
     }
+    if (sourceMode === 'UPLOAD_FILE' && uploadedFiles.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một file để AI xử lý.')
+      return
+    }
+
     setIsGenerating(true)
-    setTimeout(() => {
+    try {
+      const uploadedSources = sourceMode === 'UPLOAD_FILE'
+        ? await uploadAiSourceFiles(subjectId, uploadedFiles)
+        : []
+      await new Promise((resolve) => setTimeout(resolve, 1000))
       const generatedAt = Date.now()
       const sourceMaterialName =
         sourceMode === 'COURSE_MATERIAL'
           ? selectedCourseMaterials.map(displayMaterialName).join(', ')
-          : uploadedFileNames.join(', ')
+          : uploadedSources.map((file) => file.fileName).join(', ')
       const generatedQuestions = MOCK_AI_DRAFT_QUESTIONS.map((question, index) => ({
         ...question,
         id: `${question.id}-${generatedAt}-${index}`,
@@ -160,9 +175,12 @@ export default function TeacherAiQuestionGeneratorPage() {
       }))
 
       setDraftQuestions((prev) => [...prev, ...generatedQuestions])
-      setIsGenerating(false)
       toast.success(draftQuestions.length > 0 ? 'Đã thêm câu hỏi mới vào danh sách nháp.' : 'AI đã tạo danh sách câu hỏi nháp.')
-    }, 1000)
+    } catch {
+      toast.error('Không thể tải file nguồn AI lên Supabase. Vui lòng kiểm tra cấu hình và thử lại.')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const updateDraftStatus = (id: string, status: AIDraftQuestion['status']) => {
@@ -367,27 +385,32 @@ export default function TeacherAiQuestionGeneratorPage() {
                   </div>
                 </div>
               ) : (
-                <label className="block cursor-pointer rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/30 p-6 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/60">
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
-                    multiple
-                    className="hidden"
-                    onChange={(event) => {
-                      const files = Array.from(event.target.files ?? [])
-                      if (files.length) setUploadedFileNames(files.map((file) => file.name))
-                    }}
+                <div className="space-y-3">
+                  <label className="block cursor-pointer rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/30 p-6 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/60">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => {
+                        const files = Array.from(event.target.files ?? [])
+                        if (files.length) setUploadedFiles(files)
+                        event.currentTarget.value = ''
+                      }}
+                    />
+                    <Upload size={22} className="mx-auto text-blue-600" />
+                    <p className="mt-2 text-xs font-bold text-gray-900">Chọn một hoặc nhiều file PDF, DOCX, TXT, PNG, JPG</p>
+                    <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-400">
+                      <HardDrive size={13} />
+                      File sẽ lưu Supabase, checksum tính ở backend khi upload.
+                    </p>
+                  </label>
+                  <FileSelectionList
+                    files={uploadedFiles}
+                    onRemove={removeUploadedFile}
+                    onClear={() => setUploadedFiles([])}
                   />
-                  <Upload size={22} className="mx-auto text-blue-600" />
-                  <p className="mt-2 text-xs font-bold text-gray-900">Chọn một hoặc nhiều file PDF, DOCX, TXT, PNG, JPG</p>
-                  <p className="mt-1 line-clamp-2 text-xs text-gray-500">
-                    File đã chọn: <span className="font-semibold text-blue-700">{uploadedFileNames.join(', ')}</span>
-                  </p>
-                  <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-400">
-                    <HardDrive size={13} />
-                    File sẽ lưu Supabase, checksum tính ở backend khi upload.
-                  </p>
-                </label>
+                </div>
               )}
 
               <div>

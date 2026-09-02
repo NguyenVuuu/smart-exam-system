@@ -1,5 +1,6 @@
 import { HelpCircle, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import type { Editor as TinyMCEEditor } from 'tinymce'
 import type { ExamType } from '../../types/teacher-exam.types'
 import type {
   Question,
@@ -11,6 +12,8 @@ import { validateQuestion } from '../../utils/QuestionValidation'
 import { QuestionBasicFields } from './editor/QuestionBasicFields'
 import { QuestionOptionsEditor } from './editor/QuestionOptionsEditor'
 import { QuestionProgrammingEditor } from './editor/QuestionProgrammingEditor'
+import { uploadImagesInHtml } from '../../api/teacher-questions.api'
+import { getApiErrorMessage } from '../../../../api/errors'
 
 interface QuestionEditorModalProps {
   isOpen: boolean
@@ -54,17 +57,45 @@ function QuestionEditorContent({
   })
   const [title, setTitle] = useState(initialQuestion?.title || '')
   const [content, setContent] = useState(initialQuestion?.content || '')
+  const contentEditorRef = useRef<TinyMCEEditor | null>(null)
   const [explanation, setExplanation] = useState(initialQuestion?.explanation || '')
   const [difficulty, setDifficulty] = useState<Question['difficulty']>(initialQuestion?.difficulty || 'EASY')
 
-  const [options, setOptions] = useState<QuestionOption[]>(
-    initialQuestion?.options || [
+  const [options, setOptions] = useState<QuestionOption[]>(() => {
+    if (initialQuestion?.options?.length) return initialQuestion.options
+    if (questionType === 'TRUE_FALSE') {
+      return [
+        { id: 'opt-true', content: 'Đúng', isCorrect: true },
+        { id: 'opt-false', content: 'Sai', isCorrect: false },
+      ]
+    }
+    return [
       { id: 'opt-1', content: 'Phương án A', isCorrect: true },
       { id: 'opt-2', content: 'Phương án B', isCorrect: false },
       { id: 'opt-3', content: 'Phương án C', isCorrect: false },
       { id: 'opt-4', content: 'Phương án D', isCorrect: false },
-    ],
-  )
+    ]
+  })
+
+  const handleQuestionTypeChange = (newType: QuestionType) => {
+    setQuestionType(newType)
+    if (newType === 'TRUE_FALSE') {
+      setOptions((prev) => {
+        const isCurrentlyFalse = prev.find((opt) => opt.isCorrect)?.content === 'Sai'
+        return [
+          { id: 'opt-true', content: 'Đúng', isCorrect: !isCurrentlyFalse },
+          { id: 'opt-false', content: 'Sai', isCorrect: isCurrentlyFalse },
+        ]
+      })
+    } else if (questionType === 'TRUE_FALSE' && (newType === 'SINGLE_CHOICE' || newType === 'MULTIPLE_CHOICE')) {
+      setOptions([
+        { id: 'opt-1', content: 'Phương án A', isCorrect: true },
+        { id: 'opt-2', content: 'Phương án B', isCorrect: false },
+        { id: 'opt-3', content: 'Phương án C', isCorrect: false },
+        { id: 'opt-4', content: 'Phương án D', isCorrect: false },
+      ])
+    }
+  }
 
   const [programmingLanguage, setProgrammingLanguage] = useState<'JAVA' | 'C' | 'CPP'>(
     initialQuestion?.programmingLanguage || 'JAVA',
@@ -110,8 +141,12 @@ function QuestionEditorContent({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (questionType === 'PROGRAMMING') {
+      await contentEditorRef.current?.uploadImages()
+    }
     const normalizedTitle = title.trim()
-    const normalizedContent = questionType === 'PROGRAMMING' ? content.trim() : normalizedTitle
+    const editorContent = contentEditorRef.current?.getContent() ?? content
+    const normalizedContent = questionType === 'PROGRAMMING' ? editorContent.trim() : normalizedTitle
     const payload: Partial<Question> = {
       type: questionType,
       difficulty,
@@ -144,10 +179,16 @@ function QuestionEditorContent({
     setValidationErrors([])
     setSaving(true)
     try {
-      await onSave(payload)
+      const finalContent = questionType === 'PROGRAMMING'
+        ? await uploadImagesInHtml(normalizedContent)
+        : normalizedContent
+
+      await onSave({ ...payload, content: finalContent })
       onClose()
-    } catch {
-      setValidationErrors(['Không thể lưu câu hỏi. Dữ liệu đã nhập vẫn được giữ để bạn kiểm tra lại.'])
+    } catch (err: unknown) {
+      setValidationErrors([
+        getApiErrorMessage(err, 'Không thể lưu câu hỏi. Dữ liệu đã nhập vẫn được giữ để bạn kiểm tra lại.'),
+      ])
     } finally {
       setSaving(false)
     }
@@ -200,13 +241,14 @@ function QuestionEditorContent({
             subjectId={subjectId}
             onSubjectChange={setSubjectId}
             questionType={questionType}
-            onQuestionTypeChange={setQuestionType}
+            onQuestionTypeChange={handleQuestionTypeChange}
             difficulty={difficulty}
             onDifficultyChange={setDifficulty}
             title={title}
             onTitleChange={setTitle}
             content={content}
             onContentChange={setContent}
+            onContentEditorInit={(editor) => { contentEditorRef.current = editor }}
             questionTypeOptions={questionTypeOptions}
           />
 

@@ -1,4 +1,4 @@
-﻿import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import TeacherSidebar from './components/TeacherSidebar'
@@ -18,7 +18,7 @@ export default function TeacherCourseDetailPage() {
   const { courseOfferingId } = useParams<{ courseOfferingId: string }>()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<CourseTab>('materials')
-  const { data, loading, error, retry, createPost, updatePost, pinPost, deletePost, downloadAttachment } = useTeacherCourseDetail(courseOfferingId)
+  const { data, loading, error, retry, createPost, updatePost, pinPost, deletePost, downloadAttachment, uploadMaterials, downloadMaterial, removeMaterial } = useTeacherCourseDetail(courseOfferingId)
   const [materials, setMaterials] = useState<CourseMaterial[]>([])
   const collections = useTeacherCourseCollections(courseOfferingId)
 
@@ -65,9 +65,11 @@ export default function TeacherCourseDetailPage() {
           {/* Tab Content */}
           {activeTab === 'materials' && (
             <CourseMaterialsTab
-              courseOfferingId={course.id}
               materials={materials}
               setMaterials={setMaterials}
+              onUpload={uploadMaterials}
+              onDownload={downloadMaterial}
+              onRemove={removeMaterial}
             />
           )}
 

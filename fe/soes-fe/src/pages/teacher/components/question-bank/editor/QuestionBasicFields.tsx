@@ -1,5 +1,7 @@
 ﻿import AppSelect from '../../../../../components/common/AppSelect'
 import type { Question, QuestionType } from '../../../types/teacher-question-bank.types'
+import RichTextEditor from './RichTextEditor'
+import type { Editor as TinyMCEEditor } from 'tinymce'
 
 export function QuestionBasicFields({
   subjects,
@@ -13,6 +15,7 @@ export function QuestionBasicFields({
   onTitleChange,
   content,
   onContentChange,
+  onContentEditorInit,
   questionTypeOptions,
 }: {
   subjects: Array<{ id: string; name: string }>
@@ -26,27 +29,25 @@ export function QuestionBasicFields({
   onTitleChange: (value: string) => void
   content: string
   onContentChange: (val: string) => void
+  onContentEditorInit?: (editor: TinyMCEEditor) => void
   questionTypeOptions: Array<{ value: QuestionType; label: string }>
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Môn Học</label>
+          <label className="mb-1 block text-xs font-semibold text-gray-700">Môn Học</label>
           <AppSelect
             value={subjectId}
             onChange={onSubjectChange}
             buttonClassName="bg-gray-50 text-blue-900"
             menuClassName="z-50"
-            options={subjects.map((subject) => ({
-              value: subject.id,
-              label: subject.name,
-            }))}
+            options={subjects.map((subject) => ({ value: subject.id, label: subject.name }))}
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Dạng Câu Hỏi</label>
+          <label className="mb-1 block text-xs font-semibold text-gray-700">Dạng Câu Hỏi</label>
           <AppSelect
             value={questionType}
             onChange={onQuestionTypeChange}
@@ -57,7 +58,7 @@ export function QuestionBasicFields({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Độ Khó</label>
+          <label className="mb-1 block text-xs font-semibold text-gray-700">Độ Khó</label>
           <AppSelect
             value={difficulty}
             onChange={onDifficultyChange}
@@ -73,7 +74,7 @@ export function QuestionBasicFields({
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-gray-700 mb-1">Tiêu Đề Câu Hỏi *</label>
+        <label className="mb-1 block text-xs font-semibold text-gray-700">Tiêu Đề Câu Hỏi *</label>
         <input
           value={title}
           maxLength={200}
@@ -85,13 +86,12 @@ export function QuestionBasicFields({
 
       {questionType === 'PROGRAMMING' && (
         <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Mô Tả Bài Toán *</label>
-          <textarea
-            rows={5}
+          <label className="mb-1 block text-xs font-semibold text-gray-700">Mô Tả Bài Toán *</label>
+          <RichTextEditor
             value={content}
-            onChange={(e) => onContentChange(e.target.value)}
-            placeholder="Mô tả yêu cầu, input, output và ràng buộc của bài lập trình..."
-            className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-3 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium text-gray-800"
+            onChange={onContentChange}
+            onInit={onContentEditorInit}
+            placeholder="Mô tả yêu cầu, input, output, ràng buộc và ví dụ của bài lập trình..."
           />
         </div>
       )}

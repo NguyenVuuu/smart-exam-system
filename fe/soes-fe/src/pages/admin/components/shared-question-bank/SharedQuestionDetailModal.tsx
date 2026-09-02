@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
+import HtmlContent from '../../../../components/common/HtmlContent'
 import type { AdminSubject, SharedQuestionAdmin } from '../../types/admin.types'
 import { QuestionStatusBadge } from '../AdminBadges'
 import AdminButton from '../AdminButton'
@@ -30,7 +31,9 @@ export default function SharedQuestionDetailModal({ question, subjectsByCode, on
         {question.type === 'PROGRAMMING' && (
           <div className="space-y-1.5">
             <p className="text-xs font-semibold uppercase text-slate-400">Mô tả bài toán</p>
-            <p className="whitespace-pre-wrap rounded-xl border border-gray-200 bg-slate-50/60 p-4 text-sm font-medium leading-7 text-slate-900">{question.content}</p>
+            <div className="rounded-xl border border-gray-200 bg-slate-50/60 p-4 text-sm font-medium leading-7 text-slate-900">
+              <HtmlContent content={question.content} />
+            </div>
           </div>
         )}
         {question.options?.length ? <div className="space-y-2">{question.options.map((option, index) =>

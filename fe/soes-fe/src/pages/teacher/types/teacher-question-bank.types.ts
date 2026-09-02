@@ -27,7 +27,7 @@ export interface Question {
   teacherId: string
   teacherName: string
   bankScope?: QuestionBankScope
-  reviewStatus?: 'PRIVATE' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'REMOVED'
+  reviewStatus?: 'PRIVATE' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
   rejectionReason?: string
   removedByName?: string
   removedAt?: string
