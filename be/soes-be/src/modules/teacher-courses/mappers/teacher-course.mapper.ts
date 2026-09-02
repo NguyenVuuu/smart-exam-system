@@ -33,8 +33,9 @@ export function toTeacherCourseDetailDto(row: TeacherCourseDetailRow): TeacherCo
     teacher: { id: row.teacher.id, fullName: row.teacher.user.fullName },
     students: [],
     materials: row.materials.map((material) => ({
-      id: material.id, fileName: material.fileName, fileSize: material.fileSize,
-      contentType: material.contentType, aiEnabled: material.aiEnabled, createdAt: material.createdAt,
+      id: material.id, title: material.title, fileName: material.fileName, fileSize: material.fileSize,
+      contentType: material.contentType, checksum: material.checksum,
+      storageProvider: material.storageProvider, aiEnabled: material.aiEnabled, createdAt: material.createdAt,
     })),
     posts: row.posts.map(toPostDto),
     exams: [],

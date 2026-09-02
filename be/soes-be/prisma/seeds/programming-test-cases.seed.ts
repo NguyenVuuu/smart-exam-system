@@ -1,4 +1,4 @@
-import { PrismaClient, ProgrammingTestCase, ExamQuestion } from '@prisma/client'
+﻿import { PrismaClient, ProgrammingTestCase, ExamQuestion } from '@prisma/client'
 
 interface ProgrammingTestCaseSeedInput {
   examQuestions: ExamQuestion[]
@@ -25,7 +25,6 @@ export async function seedProgrammingTestCases(
         {
           input: '5\n3',
           expectedOutput: '8',
-          weight: 30.00,
           isSample: true,
           isHidden: false,
           examQuestionId: eq.id,
@@ -33,7 +32,6 @@ export async function seedProgrammingTestCases(
         {
           input: '10\n20',
           expectedOutput: '30',
-          weight: 30.00,
           isSample: true,
           isHidden: false,
           examQuestionId: eq.id,
@@ -41,7 +39,6 @@ export async function seedProgrammingTestCases(
         {
           input: '-5\n10',
           expectedOutput: '5',
-          weight: 20.00,
           isSample: false,
           isHidden: true,
           examQuestionId: eq.id,
@@ -49,7 +46,6 @@ export async function seedProgrammingTestCases(
         {
           input: '0\n0',
           expectedOutput: '0',
-          weight: 20.00,
           isSample: false,
           isHidden: true,
           examQuestionId: eq.id,

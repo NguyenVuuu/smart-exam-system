@@ -113,21 +113,22 @@ model Semester {
 }
 
 model Subject {
-  id              String           @id @default(uuid())
-  code            String           @unique
+  id              String                @id @default(uuid())
+  code            String                @unique
   name            String
   description     String?
-  credits         Int              @default(3)
-  status          SubjectStatus    @default(ACTIVE)
+  credits         Int                   @default(3)
+  status          SubjectStatus         @default(ACTIVE)
   departmentId    String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   courseOfferings CourseOffering[]
   enrollments     Enrollment[]
   questions       Question[]
   questionBank    QuestionBank?
   exams           Exam[]
-  department      Department       @relation("DepartmentSubjects", fields: [departmentId], references: [id])
+  aiGenerations   AIGenerationHistory[]
+  department      Department            @relation("DepartmentSubjects", fields: [departmentId], references: [id])
 
   @@index([departmentId])
 }
@@ -213,11 +214,14 @@ model PostAttachment {
 
 model Material {
   id               String                 @id @default(uuid())
+  title            String?
   fileName         String
   objectName       String
   fileSize         Int
   contentType      String
   storagePath      String
+  checksum         String?
+  storageProvider  FileStorageProvider    @default(LOCAL)
   aiEnabled        Boolean                @default(false)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
@@ -230,6 +234,7 @@ model Material {
   @@unique([courseOfferingId, fileName])
   @@index([courseOfferingId])
   @@index([uploaderId])
+  @@index([checksum])
 }
 
 model QuestionBank {
@@ -271,29 +276,30 @@ model QuestionBankItem {
 }
 
 model Question {
-  id                String                        @id @default(uuid())
-  title             String
-  content           String
-  explanation       String?
-  type              QuestionType
-  difficulty        QuestionDifficulty
-  source            QuestionSource
-  language          ProgrammingLanguage?
-  aiReviewStatus    AIReviewStatus? // BR-12A: Giảng viên review câu AI
-  createdAt         DateTime                      @default(now())
-  updatedAt         DateTime                      @updatedAt
-  archivedAt        DateTime?
-  ownerId           String
-  subjectId         String
-  aiGenerationId    String?
-  owner             Teacher                       @relation("OwnerQuestions", fields: [ownerId], references: [id])
-  subject           Subject                       @relation(fields: [subjectId], references: [id])
-  aiGeneration      AIGenerationHistory?          @relation(fields: [aiGenerationId], references: [id])
-  examQuestions     ExamQuestion[]                @relation("ExamQuestionSource")
-  questionBankItem  QuestionBankItem?
-  options           QuestionOption[]
-  programmingConfig QuestionProgrammingConfig?
-  programmingTests  QuestionProgrammingTestCase[]
+  id                 String                        @id @default(uuid())
+  title              String
+  content            String
+  explanation        String?
+  type               QuestionType
+  difficulty         QuestionDifficulty
+  aiDifficultyReason String?
+  source             QuestionSource
+  language           ProgrammingLanguage?
+  aiReviewStatus     AIReviewStatus? // BR-12A: Giảng viên review câu AI
+  createdAt          DateTime                      @default(now())
+  updatedAt          DateTime                      @updatedAt
+  archivedAt         DateTime?
+  ownerId            String
+  subjectId          String
+  aiGenerationId     String?
+  owner              Teacher                       @relation("OwnerQuestions", fields: [ownerId], references: [id])
+  subject            Subject                       @relation(fields: [subjectId], references: [id])
+  aiGeneration       AIGenerationHistory?          @relation(fields: [aiGenerationId], references: [id])
+  examQuestions      ExamQuestion[]                @relation("ExamQuestionSource")
+  questionBankItem   QuestionBankItem?
+  options            QuestionOption[]
+  programmingConfig  QuestionProgrammingConfig?
+  programmingTests   QuestionProgrammingTestCase[]
 
   @@index([ownerId])
   @@index([subjectId])
@@ -306,9 +312,11 @@ model QuestionOption {
   id         String   @id @default(uuid())
   content    String
   isCorrect  Boolean  @default(false)
+  orderIndex Int      @default(0)
   questionId String
   question   Question @relation(fields: [questionId], references: [id])
 
+  @@unique([questionId, orderIndex])
   @@index([questionId])
 }
 
@@ -338,20 +346,33 @@ model QuestionProgrammingTestCase {
 model AIGenerationHistory {
   id               String                 @id @default(uuid())
   teacherId        String
-  courseOfferingId String
+  subjectId        String
+  courseOfferingId String?
+  examId           String?
   prompt           String
   aiModel          String
+  mode             AIGenerationMode
+  sourceType       AIGenerationSourceType
+  sourceFileName   String?
+  sourceFilePath   String?
+  sourceFileSize   Int?
+  sourceMimeType   String?
   questionCount    Int
   status           AIGenerationStatus     @default(PENDING)
+  errorMessage     String?
   createdAt        DateTime               @default(now())
   completedAt      DateTime?
   teacher          Teacher                @relation(fields: [teacherId], references: [id])
-  courseOffering   CourseOffering         @relation(fields: [courseOfferingId], references: [id])
+  subject          Subject                @relation(fields: [subjectId], references: [id])
+  courseOffering   CourseOffering?        @relation(fields: [courseOfferingId], references: [id])
+  exam             Exam?                  @relation(fields: [examId], references: [id])
   materials        AIGenerationMaterial[]
   questions        Question[]
 
   @@index([teacherId])
+  @@index([subjectId])
   @@index([courseOfferingId])
+  @@index([examId])
 }
 
 model AIGenerationMaterial {
@@ -367,28 +388,29 @@ model AIGenerationMaterial {
 }
 
 model Exam {
-  id                     String             @id @default(uuid())
+  id                     String                @id @default(uuid())
   title                  String
   description            String?
   subjectId              String
   semesterId             String
   defaultDurationMinutes Int
-  totalPoints            Decimal            @default(10) @db.Decimal(5, 2)
+  totalPoints            Decimal               @default(10) @db.Decimal(5, 2)
   format                 ExamFormat
-  status                 ExamStatus         @default(DRAFT)
-  approvalStatus         ExamApprovalStatus @default(NOT_REQUIRED)
+  status                 ExamStatus            @default(DRAFT)
+  approvalStatus         ExamApprovalStatus    @default(NOT_REQUIRED)
   reviewedAt             DateTime?
   reviewedById           String?
   rejectionReason        String?
-  creationMethod         ExamCreationMethod @default(MANUAL)
-  type                   ExamType           @default(QUIZ)
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  creationMethod         ExamCreationMethod    @default(MANUAL)
+  type                   ExamType              @default(QUIZ)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
   createdById            String
-  subject                Subject            @relation(fields: [subjectId], references: [id])
-  semester               Semester           @relation(fields: [semesterId], references: [id])
-  createdBy              Teacher            @relation("CreatorExams", fields: [createdById], references: [id])
-  reviewedBy             Teacher?           @relation("TeacherExamReviews", fields: [reviewedById], references: [id])
+  subject                Subject               @relation(fields: [subjectId], references: [id])
+  semester               Semester              @relation(fields: [semesterId], references: [id])
+  createdBy              Teacher               @relation("CreatorExams", fields: [createdById], references: [id])
+  reviewedBy             Teacher?              @relation("TeacherExamReviews", fields: [reviewedById], references: [id])
+  aiGenerations          AIGenerationHistory[]
   examQuestions          ExamQuestion[]
   sections               ExamSection[]
   schedules              ExamSchedule[]
@@ -793,11 +815,26 @@ enum AIReviewStatus {
   REJECTED
 }
 
+enum AIGenerationMode {
+  GENERATE_FROM_MATERIAL
+  EXTRACT_EXISTING_EXAM
+}
+
+enum AIGenerationSourceType {
+  COURSE_MATERIAL
+  UPLOAD_FILE
+}
+
 enum AIGenerationStatus {
   PENDING
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum FileStorageProvider {
+  LOCAL
+  SUPABASE
 }
 
 enum ProgrammingLanguage {

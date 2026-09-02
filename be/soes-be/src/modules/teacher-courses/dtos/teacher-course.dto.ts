@@ -17,7 +17,8 @@ export interface TeacherCourseDetailDto extends TeacherCourseDto {
     id: string; studentId: string; studentCode: string; fullName: string; email: string | null; enrolledAt: Date;
   }>;
   materials: Array<{
-    id: string; fileName: string; fileSize: number; contentType: string; aiEnabled: boolean; createdAt: Date;
+    id: string; title: string | null; fileName: string; fileSize: number; contentType: string;
+    checksum: string | null; storageProvider: string; aiEnabled: boolean; createdAt: Date;
   }>;
   posts: Array<{
     id: string; title: string; content: string; status: string; publishedAt: Date | null; createdAt: Date;

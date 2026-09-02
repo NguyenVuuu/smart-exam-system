@@ -1,8 +1,9 @@
-import {
+﻿import {
   ArrowLeft,
   Check,
   CheckCircle2,
   FileText,
+  HardDrive,
   Loader2,
   Save,
   Sparkles,
@@ -10,7 +11,7 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import AppSelect from '../../components/common/AppSelect'
@@ -18,7 +19,7 @@ import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
-import { MOCK_COURSE_MATERIALS } from './mock/teacher-course.mock'
+import { MOCK_COURSE_MATERIALS, MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
 import { MOCK_AI_DRAFT_QUESTIONS } from './mock/teacher-question-bank.mock'
 import type { AIDraftQuestion, DifficultyLevel } from './types/teacher-question-bank.types'
 
@@ -30,12 +31,12 @@ const sourceOptions: Array<{ value: SourceMode; title: string; description: stri
   {
     value: 'COURSE_MATERIAL',
     title: 'Tài liệu lớp học',
-    description: 'File đã upload ở lớp học phần.',
+    description: 'File đã upload trong lớp.',
   },
   {
     value: 'UPLOAD_FILE',
     title: 'Tải file mới',
-    description: 'PDF, DOCX, TXT hoặc ảnh.',
+    description: 'File riêng cho lần sinh này.',
   },
 ]
 
@@ -71,26 +72,32 @@ const statusLabel: Record<AIDraftQuestion['status'], string> = {
   REJECTED: 'Đã từ chối',
 }
 
+const displayMaterialName = (material: (typeof MOCK_COURSE_MATERIALS)[number]) =>
+  material.title?.trim() || material.fileName
+
 export default function TeacherAiQuestionGeneratorPage() {
   const navigate = useNavigate()
   const { subjects } = useTeacherQuestions()
+  const fallbackSubjectOptions = Array.from(
+    new Map(
+      MOCK_TEACHER_COURSES.map((course) => [
+        course.subjectId,
+        { value: course.subjectId, label: `${course.subjectCode} - ${course.subjectName}` },
+      ]),
+    ).values(),
+  )
   const subjectOptions =
     subjects.length > 0
       ? subjects.map((subject) => ({ value: subject.id, label: subject.name }))
-      : [
-          { value: 'sub-01', label: 'Lập trình Java căn bản' },
-          { value: 'sub-02', label: 'Cấu trúc dữ liệu và Giải thuật' },
-          { value: 'sub-03', label: 'Lập trình C++' },
-          { value: 'sub-04', label: 'Cơ sở dữ liệu' },
-        ]
+      : fallbackSubjectOptions
   const [sourceMode, setSourceMode] = useState<SourceMode>('COURSE_MATERIAL')
   const [aiMode, setAiMode] = useState<AiMode>('GENERATE_FROM_MATERIAL')
   const [subjectId, setSubjectId] = useState(subjectOptions[0]?.value ?? '')
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([
-    'Chuong_1_Tong_Quan_Java.pdf',
-    'Chuong_2_Huong_Doi_Tuong_OOP.pdf',
+    'mat-01',
+    'mat-02',
   ])
-  const [uploadedFileName, setUploadedFileName] = useState('De_Giua_Ky_Java_2025.pdf')
+  const [uploadedFileNames, setUploadedFileNames] = useState<string[]>(['De_Giua_Ky_Java_2025.pdf'])
   const [questionCount, setQuestionCount] = useState(5)
   const [desiredDifficulty, setDesiredDifficulty] = useState<DesiredDifficulty>('AUTO')
   const [promptInput, setPromptInput] = useState(
@@ -98,15 +105,39 @@ export default function TeacherAiQuestionGeneratorPage() {
   )
   const [isGenerating, setIsGenerating] = useState(false)
   const [draftQuestions, setDraftQuestions] = useState<AIDraftQuestion[]>([])
+  const courseById = useMemo(
+    () => new Map(MOCK_TEACHER_COURSES.map((course) => [course.id, course])),
+    [],
+  )
+  const materialDuplicateCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const material of MOCK_COURSE_MATERIALS) {
+      if (material.checksum) counts.set(material.checksum, (counts.get(material.checksum) ?? 0) + 1)
+    }
+    return counts
+  }, [])
+  const filteredMaterials = useMemo(
+    () =>
+      MOCK_COURSE_MATERIALS.filter((material) => {
+        const course = courseById.get(material.courseOfferingId)
+        return (material.subjectId ?? course?.subjectId) === subjectId
+      }),
+    [courseById, subjectId],
+  )
+  const selectedCourseMaterials = filteredMaterials.filter((material) => selectedMaterials.includes(material.id))
 
-  const toggleMaterial = (fileName: string, checked: boolean) => {
+  const toggleMaterial = (materialId: string, checked: boolean) => {
     setSelectedMaterials((prev) =>
-      checked ? [...prev, fileName] : prev.filter((item) => item !== fileName),
+      checked ? [...prev, materialId] : prev.filter((item) => item !== materialId),
     )
   }
 
   const handleGenerate = () => {
-    if (sourceMode === 'COURSE_MATERIAL' && selectedMaterials.length === 0) {
+    if (!subjectId) {
+      toast.error('Vui lòng chọn môn học để AI gán câu hỏi đúng ngân hàng.')
+      return
+    }
+    if (sourceMode === 'COURSE_MATERIAL' && selectedCourseMaterials.length === 0) {
       toast.error('Vui lòng chọn ít nhất một tài liệu lớp học.')
       return
     }
@@ -114,7 +145,9 @@ export default function TeacherAiQuestionGeneratorPage() {
     setTimeout(() => {
       const generatedAt = Date.now()
       const sourceMaterialName =
-        sourceMode === 'COURSE_MATERIAL' ? selectedMaterials.join(', ') : uploadedFileName
+        sourceMode === 'COURSE_MATERIAL'
+          ? selectedCourseMaterials.map(displayMaterialName).join(', ')
+          : uploadedFileNames.join(', ')
       const generatedQuestions = MOCK_AI_DRAFT_QUESTIONS.map((question, index) => ({
         ...question,
         id: `${question.id}-${generatedAt}-${index}`,
@@ -241,11 +274,27 @@ export default function TeacherAiQuestionGeneratorPage() {
               <div>
                 <h2 className="text-sm font-bold text-gray-950">Cấu hình AI</h2>
                 <p className="mt-1 text-xs text-gray-500">
-                  AI chỉ tạo câu hỏi nháp. Giảng viên cần kiểm tra trước khi lưu vào ngân hàng.
+                  AI tạo câu hỏi nháp, giảng viên duyệt rồi mới lưu.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-gray-900">Môn học</label>
+                <AppSelect
+                  value={subjectId}
+                  onChange={(value) => {
+                    setSubjectId(value)
+                    setSelectedMaterials([])
+                  }}
+                  buttonClassName="bg-white"
+                  options={subjectOptions}
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  File tải mới hoặc tài liệu lớp học đều sẽ sinh câu hỏi cho môn này.
+                </p>
+              </div>
+
+              <div>
                 <label className="text-xs font-bold text-gray-900">Nguồn dữ liệu</label>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {sourceOptions.map((option) => (
@@ -267,51 +316,54 @@ export default function TeacherAiQuestionGeneratorPage() {
               </div>
 
               {sourceMode === 'COURSE_MATERIAL' ? (
-                <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50/50 p-4">
-                  <div>
-                    <label className="mb-1 block text-xs font-bold text-gray-900">Môn học có tài liệu</label>
-                    <AppSelect
-                      value={subjectId}
-                      onChange={setSubjectId}
-                      buttonClassName="bg-white"
-                      options={subjectOptions}
-                    />
-                    <p className="mt-2 text-xs text-gray-500">
-                      Chỉ hiện các file đã upload trong lớp học phần thuộc môn đã chọn.
-                    </p>
-                  </div>
-
+                <div className="space-y-3">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-900">Tài liệu lớp học</label>
-                    <div className="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-gray-100 bg-white p-3">
-                      {MOCK_COURSE_MATERIALS.map((material) => {
-                        const checked = selectedMaterials.includes(material.fileName)
+                    <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+                      {filteredMaterials.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-gray-200 p-5 text-center text-xs text-gray-500">
+                          Chưa có tài liệu nào thuộc môn đã chọn.
+                        </div>
+                      ) : filteredMaterials.map((material) => {
+                        const checked = selectedMaterials.includes(material.id)
+                        const course = courseById.get(material.courseOfferingId)
+                        const duplicated = Boolean(
+                          material.checksum && (materialDuplicateCounts.get(material.checksum) ?? 0) > 1,
+                        )
                         return (
                           <label
                             key={material.id}
-                            className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                            className={`relative flex min-h-[64px] cursor-pointer items-center gap-3 rounded-xl border p-3 pr-24 transition-colors ${
                               checked ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'
                             }`}
                           >
                             <input
                               type="checkbox"
                               checked={checked}
-                              onChange={(event) => toggleMaterial(material.fileName, event.target.checked)}
+                              onChange={(event) => toggleMaterial(material.id, event.target.checked)}
                               className="rounded text-blue-600 focus:ring-blue-500"
                             />
                             <FileText size={16} className="text-blue-600" />
                             <span className="min-w-0">
                               <span className="block truncate text-xs font-semibold text-gray-900">
-                                {material.fileName}
+                                {displayMaterialName(material)}
                               </span>
-                              <span className="text-xs text-gray-400">
-                                {material.fileSize} - {material.fileType}
+                              <span className="block truncate text-xs text-gray-400">
+                                {course?.courseCode ?? material.courseCode} - {material.fileSize} - {material.fileType}
                               </span>
+                              {duplicated && (
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-700">
+                                  Trùng nội dung
+                                </span>
+                              )}
                             </span>
                           </label>
                         )
                       })}
                     </div>
+                    <p className="text-xs text-gray-500">
+                      File trùng được nhận biết bằng checksum.
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -319,21 +371,26 @@ export default function TeacherAiQuestionGeneratorPage() {
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                    multiple
                     className="hidden"
                     onChange={(event) => {
-                      const file = event.target.files?.[0]
-                      if (file) setUploadedFileName(file.name)
+                      const files = Array.from(event.target.files ?? [])
+                      if (files.length) setUploadedFileNames(files.map((file) => file.name))
                     }}
                   />
                   <Upload size={22} className="mx-auto text-blue-600" />
-                  <p className="mt-2 text-xs font-bold text-gray-900">Chọn file PDF, DOCX, TXT, PNG hoặc JPG</p>
-                  <p className="mt-1 truncate text-xs text-gray-500">
-                    File đã chọn: <span className="font-semibold text-blue-700">{uploadedFileName}</span>
+                  <p className="mt-2 text-xs font-bold text-gray-900">Chọn một hoặc nhiều file PDF, DOCX, TXT, PNG, JPG</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                    File đã chọn: <span className="font-semibold text-blue-700">{uploadedFileNames.join(', ')}</span>
+                  </p>
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-400">
+                    <HardDrive size={13} />
+                    File sẽ lưu Supabase, checksum tính ở backend khi upload.
                   </p>
                 </label>
               )}
 
-              <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <div>
                 <label className="text-xs font-bold text-gray-900">Chế độ xử lý</label>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {modeOptions.map((option) => (
