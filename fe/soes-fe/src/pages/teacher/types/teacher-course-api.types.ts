@@ -15,7 +15,8 @@ export interface TeacherCourseDetailApiDto extends TeacherCourseApiDto {
     id: string; studentId: string; studentCode: string; fullName: string; email: string | null; enrolledAt: string
   }>
   materials: Array<{
-    id: string; fileName: string; fileSize: number; contentType: string; aiEnabled: boolean; createdAt: string
+    id: string; title: string | null; fileName: string; fileSize: number; contentType: string
+    checksum: string | null; storageProvider: 'LOCAL' | 'SUPABASE'; aiEnabled: boolean; createdAt: string
   }>
   posts: Array<{
     id: string; title: string; content: string; status: string; publishedAt: string | null; createdAt: string

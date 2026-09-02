@@ -1,4 +1,4 @@
-import {
+﻿import {
   Exam,
   ExamCreationMethod,
   ExamFormat,
@@ -39,7 +39,7 @@ async function createQuestionSnapshots(prisma: PrismaClient, examId: string, que
 
   const sourceQuestions = await prisma.question.findMany({
     where: { id: { in: questions.map((question) => question.id) } },
-    include: { options: { orderBy: { id: 'asc' } } },
+    include: { options: { orderBy: { orderIndex: 'asc' } } },
   })
 
   for (const [index, question] of sourceQuestions.entries()) {
@@ -68,10 +68,10 @@ async function createQuestionSnapshots(prisma: PrismaClient, examId: string, que
         programmingTests: isProgramming
           ? {
               create: [
-                { input: '5\n3', expectedOutput: '8', weight: 30, isHidden: false },
-                { input: '10\n20', expectedOutput: '30', weight: 30, isHidden: false },
-                { input: '-5\n10', expectedOutput: '5', weight: 20, isHidden: true },
-                { input: '0\n0', expectedOutput: '0', weight: 20, isHidden: true },
+                { input: '5\n3', expectedOutput: '8', isHidden: false },
+                { input: '10\n20', expectedOutput: '30', isHidden: false },
+                { input: '-5\n10', expectedOutput: '5', isHidden: true },
+                { input: '0\n0', expectedOutput: '0', isHidden: true },
               ],
             }
           : undefined,

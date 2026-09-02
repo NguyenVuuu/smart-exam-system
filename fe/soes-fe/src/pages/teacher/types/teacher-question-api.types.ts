@@ -7,6 +7,7 @@ export interface TeacherQuestionDto {
   explanation: string | null
   type: QuestionType
   difficulty: DifficultyLevel
+  aiDifficultyReason: string | null
   language: 'JAVA' | 'C' | 'CPP' | null
   subject: { id: string; code: string; name: string }
   owner: { id: string; fullName: string }

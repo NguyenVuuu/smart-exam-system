@@ -28,9 +28,12 @@ export async function seedAIGenerationHistories(
       data: {
         prompt: 'Generate 5 programming questions for Java beginners about basic syntax and control flow.',
         aiModel: 'gpt-4',
+        mode: 'GENERATE_FROM_MATERIAL',
+        sourceType: 'COURSE_MATERIAL',
         questionCount: 5,
         status: 'COMPLETED',
         teacherId: teacher.id,
+        subjectId: offering.subjectId,
         courseOfferingId: offering.id,
         materials: {
           create: [],

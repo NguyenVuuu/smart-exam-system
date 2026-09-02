@@ -22,6 +22,7 @@ export const toQuestion = (dto: TeacherQuestionDto): Question => ({
   sharedBankItemId: dto.sharedBank?.itemId,
   type: dto.type,
   difficulty: dto.difficulty,
+  aiDifficultyReason: dto.aiDifficultyReason ?? undefined,
   title: dto.title,
   content: dto.content,
   explanation: dto.explanation ?? undefined,
