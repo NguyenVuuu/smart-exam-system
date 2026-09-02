@@ -4,7 +4,7 @@ import type { SeverityLevel, ViolationType } from '@prisma/client'
 import { examConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { uploadViolationEvidenceFiles } from '../../../lib/minio'
-import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
+import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
 import { judge0Service, Judge0Service } from '../../../lib/judge0'
 import type { Judge0Submission, Judge0SubmissionResult } from '../../../lib/judge0'
@@ -52,6 +52,104 @@ function remainingSecondsUntil(endAt: Date, now: Date) {
 function isAttemptOnline(attempt: RunCodeAttempt, now: Date) {
   return attempt.examSession !== null &&
     (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+}
+
+async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
+  await gradeProgrammingAnswers(attemptId)
+  await gradeObjectiveAnswers(attemptId, { finalStatus: 'AUTO_SUBMITTED' })
+}
+
+export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date()): Promise<SubmitExamResult | null> {
+  const result = await repo.autoSubmitAttemptWithAudit(attemptId, now)
+  if (!result) return null
+
+  await gradeAutoSubmittedAttempt(attemptId)
+  logger.info('Exam attempt auto-submitted by timeout', {
+    attemptId,
+    submittedAt: now.toISOString(),
+  })
+
+  return result
+}
+
+export async function processExpiredAttempts(now = new Date(), limit = 50): Promise<number> {
+  const expiredAttempts = await repo.findExpiredInProgressAttemptIds(now, limit)
+  let processed = 0
+
+  for (const { id } of expiredAttempts) {
+    try {
+      const result = await autoSubmitExpiredAttempt(id, now)
+      if (result) processed++
+    } catch (error) {
+      logger.error('Failed to auto-submit expired exam attempt', {
+        attemptId: id,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  return processed
+}
+
+export async function markOfflineExamSessions(now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - examConfig.heartbeatTimeoutMs)
+  const result = await repo.markStaleExamSessionsOffline(cutoff)
+  if (result.count > 0) {
+    logger.info('Marked stale exam sessions offline', {
+      count: result.count,
+      cutoff: cutoff.toISOString(),
+    })
+  }
+  return result.count
+}
+
+function orderedReviewOptions(
+  options: Array<{ id: string; content: string; isCorrect: boolean }>,
+  shuffledOptionIds: string[],
+) {
+  if (shuffledOptionIds.length === 0) return options
+  const byId = new Map(options.map((option) => [option.id, option]))
+  return shuffledOptionIds.map((id) => byId.get(id)).filter((option): option is { id: string; content: string; isCorrect: boolean } => Boolean(option))
+}
+
+function buildReviewItems(
+  attempt: NonNullable<Awaited<ReturnType<typeof repo.findAttemptResult>>>,
+  includeAnswerKey: boolean,
+): AttemptReviewItem[] {
+  const answers = new Map(attempt.studentAnswers.map((answer) => [answer.examQuestionId, answer]))
+
+  return attempt.attemptQuestions.map((attemptQuestion) => {
+    const question = attemptQuestion.examQuestion
+    const answer = answers.get(question.id)
+    const isProgramming = question.type === 'PROGRAMMING'
+    const options = isProgramming
+      ? undefined
+      : orderedReviewOptions(question.options, attemptQuestion.shuffledOptionIds).map((option) => ({
+          id: option.id,
+          content: option.content,
+          ...(includeAnswerKey ? { isCorrect: option.isCorrect } : {}),
+        }))
+
+    return {
+      questionId: question.id,
+      orderIndex: attemptQuestion.displayOrder,
+      type: question.type,
+      content: question.content,
+      points: Number(question.points),
+      score: answer?.score === null || answer?.score === undefined ? null : Number(answer.score),
+      isCorrect: answer?.isCorrect ?? null,
+      ...(isProgramming
+        ? { draftSourceCode: answer?.draftSourceCode ?? null }
+        : {
+            selectedOptionIds: answer?.selectedOptionIds ?? [],
+            options,
+          }),
+      ...(includeAnswerKey && !isProgramming
+        ? { correctOptionIds: question.options.filter((option) => option.isCorrect).map((option) => option.id) }
+        : {}),
+      ...(includeAnswerKey ? { explanation: question.explanation } : {}),
+    }
+  })
 }
 
 function systemErrorResult(error: unknown): Judge0SubmissionResult {
@@ -396,6 +494,7 @@ export async function getExamContent(
     deadlineAt:       attempt.deadlineAt,
     integritySettings: {
       enableWebcam: attempt.examSchedule.enableWebcam,
+      requireFullscreen: attempt.examSchedule.requireFullscreen,
       blockCopyPaste: attempt.examSchedule.blockCopyPaste,
       blockRightClick: attempt.examSchedule.blockRightClick,
     },
@@ -557,7 +656,12 @@ export async function submitExam(
     throw new ConflictError('Exam attempt has already been submitted');
   }
 
-  // EXPIRED, or still IN_PROGRESS but deadline has passed
+  if (attempt.status === 'IN_PROGRESS' && attempt.deadlineAt <= now) {
+    const result = await autoSubmitExpiredAttempt(attemptId, now)
+    if (result) return result
+  }
+
+  // AUTO_SUBMITTED, INVALIDATED, or still IN_PROGRESS but deadline has passed
   if (attempt.status === 'AUTO_SUBMITTED' || attempt.status === 'INVALIDATED') {
     throw new ConflictError('Exam attempt has ended');
   }
@@ -582,6 +686,16 @@ export async function getAttemptStatus(
   // ── 2. Compute remainingSeconds realtime from deadlineAt ────────────────
   // Contract: IN_PROGRESS → realtime calc; SUBMITTED / EXPIRED → 0
   const now = new Date()
+
+  if (data.status === 'IN_PROGRESS' && now >= data.deadlineAt) {
+    await autoSubmitExpiredAttempt(attemptId, now)
+    const refreshed = await repo.findAttemptStatus(attemptId, scheduleId, studentId)
+    if (!refreshed) throw new NotFoundError('Attempt not found')
+    data.status = refreshed.status
+    data.submittedAt = refreshed.submittedAt
+    data.endedBy = refreshed.endedBy
+    data.lastSavedAt = refreshed.lastSavedAt
+  }
 
   const remainingSeconds =
     data.status === 'IN_PROGRESS'
@@ -616,6 +730,14 @@ export async function getAttemptResult(
   const attempt = await repo.findAttemptResult(attemptId, scheduleId, studentId)
   if (!attempt) throw new NotFoundError('Attempt not found')
 
+  const now = new Date()
+  if (attempt.status === 'IN_PROGRESS' && now >= attempt.deadlineAt) {
+    await autoSubmitExpiredAttempt(attemptId, now)
+    const refreshed = await repo.findAttemptResult(attemptId, scheduleId, studentId)
+    if (!refreshed) throw new NotFoundError('Attempt not found')
+    return getAttemptResult(scheduleId, attemptId, studentId)
+  }
+
   const schedule = attempt.examSchedule
   const released = isResultReleased(schedule)
   const graded = attempt.totalScore !== null
@@ -633,6 +755,10 @@ export async function getAttemptResult(
         ? 'GRADING'
         : 'AVAILABLE'
 
+  const reviewItems = available && ['ANSWERS_NO_KEY', 'FULL_AFTER_RELEASE'].includes(schedule.reviewPolicy)
+    ? buildReviewItems(attempt, schedule.reviewPolicy === 'FULL_AFTER_RELEASE')
+    : []
+
   return {
     available,
     releaseMode: schedule.resultReleaseMode,
@@ -641,6 +767,7 @@ export async function getAttemptResult(
     maxScore: available ? maxScore : null,
     reviewPolicy: available ? schedule.reviewPolicy : null,
     reason,
+    reviewItems,
   }
 }
 

@@ -33,6 +33,7 @@ export async function findAttemptWithContent(
           durationMinutes: true,
           endTime: true,
           enableWebcam: true,
+          requireFullscreen: true,
           blockCopyPaste: true,
           blockRightClick: true,
           exam: { select: { id: true } },
@@ -185,6 +186,80 @@ export async function submitAttempt(
   })
 }
 
+export async function autoSubmitAttemptWithAudit(attemptId: string, submittedAt: Date) {
+  return prisma.$transaction(async (tx) => {
+    const attempt = await tx.examAttempt.findUnique({
+      where: { id: attemptId },
+      select: {
+        id: true,
+        status: true,
+        deadlineAt: true,
+        examScheduleId: true,
+        studentId: true,
+        student: { select: { userId: true } },
+      },
+    })
+
+    if (!attempt || attempt.status !== 'IN_PROGRESS' || attempt.deadlineAt > submittedAt) {
+      return null
+    }
+
+    const updated = await tx.examAttempt.updateMany({
+      where: {
+        id: attemptId,
+        status: 'IN_PROGRESS',
+        deadlineAt: { lte: submittedAt },
+      },
+      data: {
+        status: 'AUTO_SUBMITTED',
+        endedBy: 'TIMEOUT',
+        submittedAt,
+        version: { increment: 1 },
+      },
+    })
+
+    if (updated.count === 0) return null
+
+    await tx.examSession.updateMany({
+      where: { attemptId },
+      data: { isOnline: false },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        userId: attempt.student.userId,
+        action: 'AUTO_SUBMIT_EXAM_ATTEMPT',
+        entityType: 'ExamAttempt',
+        entityId: attempt.id,
+        metadata: {
+          examScheduleId: attempt.examScheduleId,
+          studentId: attempt.studentId,
+          deadlineAt: attempt.deadlineAt.toISOString(),
+          submittedAt: submittedAt.toISOString(),
+          reason: 'TIMEOUT',
+        },
+      },
+    })
+
+    return {
+      attemptId: attempt.id,
+      submittedAt,
+    }
+  })
+}
+
+export async function findExpiredInProgressAttemptIds(now: Date, limit = 50) {
+  return prisma.examAttempt.findMany({
+    where: {
+      status: 'IN_PROGRESS',
+      deadlineAt: { lte: now },
+    },
+    orderBy: { deadlineAt: 'asc' },
+    take: limit,
+    select: { id: true },
+  })
+}
+
 export async function findAttemptIdentity(attemptId: string) {
   return prisma.examAttempt.findUnique({
     where: { id: attemptId },
@@ -215,9 +290,41 @@ export async function findAttemptResult(attemptId: string, scheduleId: string, s
     select: {
       id: true,
       status: true,
+      deadlineAt: true,
       totalScore: true,
+      autoScore: true,
+      manualScore: true,
+      submittedAt: true,
+      endedBy: true,
       attemptQuestions: {
-        select: { examQuestion: { select: { points: true } } },
+        orderBy: { displayOrder: 'asc' },
+        select: {
+          displayOrder: true,
+          shuffledOptionIds: true,
+          examQuestion: {
+            select: {
+              id: true,
+              content: true,
+              explanation: true,
+              type: true,
+              language: true,
+              points: true,
+              options: {
+                orderBy: { orderIndex: 'asc' },
+                select: { id: true, content: true, isCorrect: true },
+              },
+            },
+          },
+        },
+      },
+      studentAnswers: {
+        select: {
+          examQuestionId: true,
+          selectedOptionIds: true,
+          draftSourceCode: true,
+          score: true,
+          isCorrect: true,
+        },
       },
       examSchedule: {
         select: {
