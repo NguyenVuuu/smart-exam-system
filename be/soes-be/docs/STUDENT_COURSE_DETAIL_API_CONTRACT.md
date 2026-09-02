@@ -1008,7 +1008,7 @@ Lấy thông tin bài kiểm tra.
 | `remainingAttempts` | Số lượt còn lại | 
 | `attemptId` | ID lần làm bài hiện tại. Chỉ trả về khi sinh viên đang làm bài chưa submit. | 
 | `canResume` | Chỉ trả về khi status = AVAILABLE. FE dùng để hiển thị nút "Tiếp tục". | 
-| `remainingSeconds` | Snapshot thời gian còn lại từ thời điểm start exam (chỉ dùng cho countdown initialization). FE nên tính lại `remainingSeconds` từ `max(0, floor((attemptEndAt - now) / 1000))` nếu cần thời gian chính xác. Trả về null khi không có attempt đang diễn ra. | 
+| `remainingSeconds` | Snapshot thời gian còn lại từ thời điểm start exam (chỉ dùng cho countdown initialization). FE nên tính lại `remainingSeconds` từ `max(0, floor((deadlineAt - now) / 1000))` nếu cần thời gian chính xác. Trả về null khi không có attempt đang diễn ra. | 
 | `canStart` | FE dùng để bật/tắt nút "Vào làm bài" | 
 | `status` | Trạng thái của sinh viên đối với bài thi (NOT_STARTED, AVAILABLE, SUBMITTED, EXPIRED) | 
 

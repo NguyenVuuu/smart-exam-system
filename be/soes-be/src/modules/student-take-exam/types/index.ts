@@ -3,7 +3,7 @@ import type { SaveAnswerBody } from '../validators/student-take-exam.validator'
 export interface StartExamResult {
   attemptId: string
   startedAt: Date
-  attemptEndAt: Date
+  deadlineAt: Date
   remainingSeconds: number
 }
 
@@ -14,7 +14,7 @@ export interface ExamContentResult {
   title:            string
   durationMinutes:  number
   remainingSeconds: number
-  attemptEndAt:     Date
+  deadlineAt:      Date
   integritySettings: ExamIntegritySettings
   questions: Array<ExamContentQuestion>
 }
@@ -81,7 +81,7 @@ export interface AttemptStatusResult {
   attemptId:          string
   status:             string
   startedAt:          Date
-  attemptEndAt:       Date
+  deadlineAt:         Date
   submittedAt:        Date | null
   endedBy:            string | null
   remainingSeconds:   number

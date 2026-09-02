@@ -1,11 +1,11 @@
 # Student Take Exam API Contract
 
 ExamAttempt
-- attemptEndAt: authoritative deadline
+- deadlineAt: authoritative deadline
 - remainingSeconds: snapshot lúc start, chỉ phục vụ initialization/debug, không dùng để xác định deadline
 
 API response:
-remainingSeconds = max(0, floor((attemptEndAt - now) / 1000))
+remainingSeconds = max(0, floor((deadlineAt - now) / 1000))
 
 ## Overview
 
@@ -74,7 +74,7 @@ Khởi tạo một lần làm bài mới cho sinh viên.
   "data": {
     "attemptId": "uuid",
     "startedAt": "2026-08-01T10:00:00Z",
-    "attemptEndAt": "2026-08-01T11:00:00Z",
+    "deadlineAt": "2026-08-01T11:00:00Z",
     "remainingSeconds": 3600
   }
 }
@@ -87,7 +87,7 @@ Khởi tạo một lần làm bài mới cho sinh viên.
 | `attemptId` | ID lần làm bài |
 | `startedAt` | Thời điểm Student bắt đầu attempt |
 | `remainingSeconds` | Thời gian còn lại của attempt |
-| `attemptEndAt` | Thời điểm attempt thực tế kết thúc (authoritative deadline), được lưu trong DB khi start exam. Tính từ `min(startedAt + Exam.durationMinutes, Exam.endTime)` |
+| `deadlineAt` | Thời điểm attempt thực tế kết thúc (authoritative deadline), được lưu trong DB khi start exam. Tính từ `min(startedAt + Exam.durationMinutes, Exam.endTime)` |
 
 ## Status Codes
 
@@ -129,16 +129,16 @@ Khởi tạo một lần làm bài mới cho sinh viên.
   2. Set `startedAt = now`.
   3. Set `status = IN_PROGRESS`.
   4. Tính thời điểm kết thúc thực tế của attempt:
-     `attemptEndAt = min(startedAt + Exam.durationMinutes, Exam.endTime)`
+     `deadlineAt = min(startedAt + Exam.durationMinutes, Exam.endTime)`
   5. Tính thời gian còn lại:
-     `remainingSeconds = max(0, floor((attemptEndAt - now)/1000))`
-  6. `attemptEndAt` được tính và lưu trong DB là authoritative deadline.
+     `remainingSeconds = max(0, floor((deadlineAt - now)/1000))`
+  6. `deadlineAt` được tính và lưu trong DB là authoritative deadline.
   7. `remainingSeconds` được tính và lưu trong DB là snapshot cho countdown initialization.
   8. Set `lastSavedAt = now`.
   9. Không tạo duplicate attempt nếu có nhiều request start được gửi đồng thời.
   10. startedAt và now sử dụng cùng một timestamp được tạo tại thời điểm bắt đầu attempt.
-- `attemptEndAt` được lưu trong `ExamAttempt` và là authoritative deadline cho attempt.
-- attemptEndAt được khởi tạo khi Start Exam và KHÔNG được cập nhật trong quá trình attempt.
+- `deadlineAt` được lưu trong `ExamAttempt` và là authoritative deadline cho attempt.
+- deadlineAt được khởi tạo khi Start Exam và KHÔNG được cập nhật trong quá trình attempt.
 - `remainingSeconds` là giá trị được persist trong `ExamAttempt`. Giá trị này được khởi tạo khi Start Exam như một snapshot.
 - remainingSeconds là snapshot từ thời điểm start exam và KHÔNG được cập nhật bởi các API xử lý tiến độ/thời gian sau đó. Giá trị này chỉ dùng để khởi tạo countdown cho client. Clients phải tính lại remainingSeconds trên mỗi API call dựa trên thời gian hiện tại.
 - Hiện tại hệ thống chỉ hỗ trợ `maxAttempts = 1` cho mỗi Student trên mỗi Exam.
@@ -153,13 +153,13 @@ Exam:
 - `endTime = 12:00`
 - `durationMinutes = 60`
 Student starts at 10:30:
-- `attemptEndAt = 11:30`
+- `deadlineAt = 11:30`
 - `remainingSeconds = 3600`
 Student starts at 11:30:
-- `attemptEndAt = 12:00`
+- `deadlineAt = 12:00`
 - `remainingSeconds = 1800`
 Student starts at 11:50:
-- `attemptEndAt = 12:00`
+- `deadlineAt = 12:00`
 - `remainingSeconds = 600`
 
 ### Password
@@ -228,7 +228,7 @@ Authorization: Bearer {{studentToken}}
   "data": {
     "attemptId": "uuid",
     "startedAt": "2026-08-10T10:00:00.000Z",
-    "attemptEndAt": "2026-08-10T11:00:00.000Z",
+    "deadlineAt": "2026-08-10T11:00:00.000Z",
     "remainingSeconds": 3600
   }
 }
@@ -261,10 +261,10 @@ pm.test("data.startedAt exists and is an ISO string", () => {
   pm.expect(new Date(body.data.startedAt).getTime()).to.not.be.NaN;
 });
 
-pm.test("data.attemptEndAt exists and is an ISO string", () => {
+pm.test("data.deadlineAt exists and is an ISO string", () => {
   const body = pm.response.json();
-  pm.expect(body.data.attemptEndAt).to.be.a("string");
-  pm.expect(new Date(body.data.attemptEndAt).getTime()).to.not.be.NaN;
+  pm.expect(body.data.deadlineAt).to.be.a("string");
+  pm.expect(new Date(body.data.deadlineAt).getTime()).to.not.be.NaN;
 });
 
 pm.test("data.remainingSeconds is a non-negative number", () => {
@@ -273,18 +273,18 @@ pm.test("data.remainingSeconds is a non-negative number", () => {
   pm.expect(body.data.remainingSeconds).to.be.at.least(0);
 });
 
-pm.test("attemptEndAt >= startedAt", () => {
+pm.test("deadlineAt >= startedAt", () => {
   const body = pm.response.json();
   const startedAt    = new Date(body.data.startedAt).getTime();
-  const attemptEndAt = new Date(body.data.attemptEndAt).getTime();
-  pm.expect(attemptEndAt).to.be.at.least(startedAt);
+  const deadlineAt = new Date(body.data.deadlineAt).getTime();
+  pm.expect(deadlineAt).to.be.at.least(startedAt);
 });
 
-pm.test("remainingSeconds matches attemptEndAt - startedAt (floor)", () => {
+pm.test("remainingSeconds matches deadlineAt - startedAt (floor)", () => {
   const body = pm.response.json();
   const startedAt    = new Date(body.data.startedAt).getTime();
-  const attemptEndAt = new Date(body.data.attemptEndAt).getTime();
-  const expected     = Math.floor((attemptEndAt - startedAt) / 1000);
+  const deadlineAt = new Date(body.data.deadlineAt).getTime();
+  const expected     = Math.floor((deadlineAt - startedAt) / 1000);
   pm.expect(body.data.remainingSeconds).to.equal(expected);
 });
 
@@ -619,7 +619,7 @@ Authorization: Bearer {{studentToken}}
   "data": {
     "attemptId": "uuid",
     "startedAt": "2026-08-10T10:00:00.000Z",
-    "attemptEndAt": "2026-08-10T11:00:00.000Z",
+    "deadlineAt": "2026-08-10T11:00:00.000Z",
     "remainingSeconds": 3600
   }
 }
@@ -699,7 +699,7 @@ Verify the three time examples from the business rules:
 
 **Setup:** Use an exam with `startTime = T`, `endTime = T+2h`, `durationMinutes = 60`.
 
-| Student starts at | Expected `attemptEndAt` | Expected `remainingSeconds` |
+| Student starts at | Expected `deadlineAt` | Expected `remainingSeconds` |
 |-------------------|-------------------------|-----------------------------|
 | T + 30 min        | T + 90 min (T+1h30m)    | 3600                        |
 | T + 90 min        | T + 120 min (endTime)   | 1800                        |
@@ -712,15 +712,15 @@ const DURATION_MINUTES = 60;
 const body = pm.response.json();
 
 const startedAt    = new Date(body.data.startedAt).getTime();
-const attemptEndAt = new Date(body.data.attemptEndAt).getTime();
-const diffMinutes  = (attemptEndAt - startedAt) / 1000 / 60;
+const deadlineAt = new Date(body.data.deadlineAt).getTime();
+const diffMinutes  = (deadlineAt - startedAt) / 1000 / 60;
 
-pm.test("attemptEndAt is at most durationMinutes from startedAt", () => {
+pm.test("deadlineAt is at most durationMinutes from startedAt", () => {
   pm.expect(diffMinutes).to.be.at.most(DURATION_MINUTES);
 });
 
-pm.test("remainingSeconds equals floor((attemptEndAt - startedAt) / 1000)", () => {
-  const expected = Math.floor((attemptEndAt - startedAt) / 1000);
+pm.test("remainingSeconds equals floor((deadlineAt - startedAt) / 1000)", () => {
+  const expected = Math.floor((deadlineAt - startedAt) / 1000);
   pm.expect(body.data.remainingSeconds).to.equal(expected);
 });
 ```
@@ -761,7 +761,7 @@ Lấy nội dung bài thi để sinh viên làm bài.
     "title": "Giữa kỳ",
     "durationMinutes": 60,
     "remainingSeconds": 3000,
-    "attemptEndAt": "2026-08-10T11:00:00.000Z",
+    "deadlineAt": "2026-08-10T11:00:00.000Z",
     "questions": [
       {
         "id": "question-uuid-1",
@@ -796,7 +796,7 @@ Lấy nội dung bài thi để sinh viên làm bài.
     "title": "Giữa kỳ",
     "durationMinutes": 60,
     "remainingSeconds": 3000,
-    "attemptEndAt": "2026-08-10T11:00:00.000Z",
+    "deadlineAt": "2026-08-10T11:00:00.000Z",
     "questions": [
       {
         "id": "question-uuid-2",
@@ -818,8 +818,8 @@ Lấy nội dung bài thi để sinh viên làm bài.
 | `attemptId` | ID lần làm bài |
 | `title` | Tên bài thi |
 | `durationMinutes` | Thời lượng bài thi |
-| `remainingSeconds` | Thời gian còn lại, được tính realtime tại thời điểm response: max(0, floor((attemptEndAt - now) / 1000)). Không sử dụng giá trị remainingSeconds được lưu tại thời điểm start. |
-| `attemptEndAt` | Thời điểm kết thúc thực tế (authoritative deadline), được lưu trong DB khi tạo attempt |
+| `remainingSeconds` | Thời gian còn lại, được tính realtime tại thời điểm response: max(0, floor((deadlineAt - now) / 1000)). Không sử dụng giá trị remainingSeconds được lưu tại thời điểm start. |
+| `deadlineAt` | Thời điểm kết thúc thực tế (authoritative deadline), được lưu trong DB khi tạo attempt |
 | `questions` | Danh sách câu hỏi |
 | `questions[].id` | ID câu hỏi |
 | `questions[].orderIndex` | Thứ tự hiển thị (snapshot từ ExamAttemptQuestion) |
@@ -854,9 +854,9 @@ Lấy nội dung bài thi để sinh viên làm bài.
 - Chỉ trả về các câu hỏi thuộc attempt hiện tại.
 - Không trả về đáp án đúng hoặc dữ liệu phục vụ chấm điểm mà Student không cần biết.
 - Chỉ trả về các trường dữ liệu cần thiết cho giao diện làm bài.
-- `attemptEndAt` là authoritative deadline được lưu trong DB khi tạo attempt. Giá trị này được tính từ `min(startedAt + exam.durationMinutes, exam.endTime)` tại thời điểm start exam và KHÔNG được cập nhật sau đó.
-- `remainingSeconds` được tính realtime tại thời điểm response dựa trên attemptEndAt và now: max(0, floor((attemptEndAt - now) / 1000)). Không sử dụng giá trị remainingSeconds được lưu trong DB tại thời điểm start.
-- Nếu attempt đã hết thời gian (`now >= attemptEndAt`), Student không được tiếp tục làm bài.
+- `deadlineAt` là authoritative deadline được lưu trong DB khi tạo attempt. Giá trị này được tính từ `min(startedAt + exam.durationMinutes, exam.endTime)` tại thời điểm start exam và KHÔNG được cập nhật sau đó.
+- `remainingSeconds` được tính realtime tại thời điểm response dựa trên deadlineAt và now: max(0, floor((deadlineAt - now) / 1000)). Không sử dụng giá trị remainingSeconds được lưu trong DB tại thời điểm start.
+- Nếu attempt đã hết thời gian (`now >= deadlineAt`), Student không được tiếp tục làm bài.
 - Trả HTTP 409 với message: "Exam attempt has ended"
 - API 2 trả answer/draftSourceCode hiện tại để frontend khôi phục trạng thái khi reload trang.
 - answer cho choice questions là array selectedOptionIds. Rỗng nếu sinh viên chưa trả lời.
@@ -913,7 +913,7 @@ GET /api/student/exams/:examId/attempts/:attemptId
 | `{{attemptId}}` | `data.attemptId` saved from API 1 Success call |
 | `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
 | `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
-| `{{attemptId_expired}}` | attemptId whose attemptEndAt is in the past |
+| `{{attemptId_expired}}` | attemptId whose deadlineAt is in the past |
 ---
 ### Test Cases
 #### 1. Success – Lấy nội dung bài thi thành công
@@ -934,7 +934,7 @@ Authorization: Bearer {{studentToken}}
     "title": "Giữa kỳ",
     "durationMinutes": 60,
     "remainingSeconds": 3580,
-    "attemptEndAt": "2026-08-10T11:00:00.000Z",
+    "deadlineAt": "2026-08-10T11:00:00.000Z",
     "questions": [
       {
         "id": "question-uuid-1",
@@ -1229,9 +1229,9 @@ pm.test("success is false", () => {
 
 ---
 
-#### 10. Attempt expired – attemptEndAt đã qua → 409
+#### 10. Attempt expired – deadlineAt đã qua → 409
 
-**Description:** `now >= attemptEndAt` — Student không thể tiếp tục làm bài.
+**Description:** `now >= deadlineAt` — Student không thể tiếp tục làm bài.
 
 **Method:** `GET`
 **URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}`
@@ -1410,7 +1410,7 @@ PUT /api/student/exams/:examId/attempts/:attemptId/answers
 | Field | Description |
 |-------|------|
 | `questionId`       | Question vừa được lưu |
-| `remainingSeconds` | Thời gian còn lại được tính realtime từ `attemptEndAt` |
+| `remainingSeconds` | Thời gian còn lại được tính realtime từ `deadlineAt` |
 
 ## Status Codes
 | Code | Description |
@@ -1537,21 +1537,21 @@ Không được xử lý nó như optionId.
 - Database phải có unique constraint trên:(attemptId, questionId).
 - Việc create/update StudentAnswer phải được thực hiện theo cơ chế atomic/upsert để tránh duplicate khi có concurrent requests.
 ### Time Rules
-- attemptEndAt được lấy từ ExamAttempt và là authoritative deadline của attempt. API không được tính lại hoặc cập nhật attemptEndAt.
-- Tại thời điểm save answer: if now >= attemptEndAt → HTTP 409. Nếu chưa hết hạn thì cho phép lưu answer.
+- deadlineAt được lấy từ ExamAttempt và là authoritative deadline của attempt. API không được tính lại hoặc cập nhật deadlineAt.
+- Tại thời điểm save answer: if now >= deadlineAt → HTTP 409. Nếu chưa hết hạn thì cho phép lưu answer.
     1. Load attempt
     2. Validate ownership/exam/question
     3. Check status
-    4. Check attemptEndAt
-    5. Nếu now >= attemptEndAt: reject 409
+    4. Check deadlineAt
+    5. Nếu now >= deadlineAt: reject 409
     6. Nếu còn thời gian: save answer
     7. Update lastSavedAt
     8. Return remainingSeconds
     *Tuyệt đối không:save answer rồi sau đó mới check deadline
-- `remainingSeconds` là snapshot từ thời điểm start exam, không được cập nhật trong DB khi save answer. Clients phải tính lại `remainingSeconds` trên mỗi API call dựa trên thời gian hiện tại: `max(0, floor((attemptEndAt - now) / 1000))`.
+- `remainingSeconds` là snapshot từ thời điểm start exam, không được cập nhật trong DB khi save answer. Clients phải tính lại `remainingSeconds` trên mỗi API call dựa trên thời gian hiện tại: `max(0, floor((deadlineAt - now) / 1000))`.
 - Tại thời điểm save answer:
-  `attemptEndAt` vẫn là authoritative deadline.
-- Nếu `now >= attemptEndAt`:
+  `deadlineAt` vẫn là authoritative deadline.
+- Nếu `now >= deadlineAt`:
   - Không lưu answer.
   - Trả HTTP 409.
   - Message: `"Exam attempt has ended"`.
@@ -1559,7 +1559,7 @@ Không được xử lý nó như optionId.
 - Sau khi StudentAnswer được create/update thành công:
   -> Update ExamAttempt.lastSavedAt = now.
 - lastSavedAt không được dùng làm authoritative deadline.
-- attemptEndAt vẫn là authoritative deadline duy nhất.
+- deadlineAt vẫn là authoritative deadline duy nhất.
 ### Question Type Validation
 - SINGLE_CHOICE: answer phải là string. answer phải là optionId thuộc question.
 - MULTIPLE_CHOICE: 
@@ -1612,7 +1612,7 @@ PUT /api/student/exams/:examId/attempts/:attemptId/answers
 | `{{optionId_wrong}}` | An option ID that belongs to a different question |
 | `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
 | `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
-| `{{attemptId_expired}}` | attemptId whose attemptEndAt is in the past |
+| `{{attemptId_expired}}` | attemptId whose deadlineAt is in the past |
 | `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
 
 ---
@@ -2129,7 +2129,7 @@ pm.test("message indicates attempt ended", () => {
 ```
 ---
 #### 15. remainingSeconds is realtime
-**Description:** remainingSeconds phải được tính từ `attemptEndAt` và `now`.
+**Description:** remainingSeconds phải được tính từ `deadlineAt` và `now`.
 **Method:** `PUT`
 **URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
 **Headers:**
@@ -2207,7 +2207,7 @@ pm.test("success is false", () => {
 });
 ```
 ---
-#### 17. Attempt expired – attemptEndAt đã qua → 409
+#### 17. Attempt expired – deadlineAt đã qua → 409
 **Method:** `PUT`
 **URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}/answers`
 **Headers:**
@@ -2309,16 +2309,16 @@ Khi submit thành công:
 - status = SUBMITTED
 - submittedAt = server current time
 - endedBy = STUDENT
-- Không thay đổi attemptEndAt.
+- Không thay đổi deadlineAt.
 - Không thay đổi remainingSeconds.
 - Không thay đổi các StudentAnswer.
 ### 2. Deadline
-attemptEndAt là authoritative deadline duy nhất.
-API không được tính lại hoặc cập nhật attemptEndAt.
-Nếu status = IN_PROGRESS nhưng now >= attemptEndAt, API không cho phép manual submit và trả HTTP 409 với message "Exam attempt has ended". Việc chuyển trạng thái IN_PROGRESS → EXPIRED được xử lý bởi cơ chế timeout riêng của hệ thống (nếu có).
+deadlineAt là authoritative deadline duy nhất.
+API không được tính lại hoặc cập nhật deadlineAt.
+Nếu status = IN_PROGRESS nhưng now >= deadlineAt, API không cho phép manual submit và trả HTTP 409 với message "Exam attempt has ended". Việc chuyển trạng thái IN_PROGRESS → EXPIRED được xử lý bởi cơ chế timeout riêng của hệ thống (nếu có).
 Tại thời điểm submit: 
-- if now < attemptEndAt:cho phép submit.
-- if now >= attemptEndAt:
+- if now < deadlineAt:cho phép submit.
+- if now >= deadlineAt:
     không cho phép manual submit.
     Attempt được xử lý là hết hạn.
     Trả HTTP 409.
@@ -2348,8 +2348,8 @@ Message:"Exam attempt has ended"
 - API 4 không thực hiện grading.
 - API 4 không tạo ProgrammingSubmission.
 - API 4 chỉ kết thúc ExamAttempt.
-- Nếu now >= attemptEndAt và attempt vẫn đang IN_PROGRESS, API không cho phép manual submit và trả HTTP 409. 
-- Nếu status = IN_PROGRESS nhưng now >= attemptEndAt:
+- Nếu now >= deadlineAt và attempt vẫn đang IN_PROGRESS, API không cho phép manual submit và trả HTTP 409. 
+- Nếu status = IN_PROGRESS nhưng now >= deadlineAt:
   - Không cho phép manual submit.
   - Trả HTTP 409.
   - Message: "Exam attempt has ended".
@@ -2364,7 +2364,7 @@ Message:"Exam attempt has ended"
 - Hai request submit đồng thời cho cùng một attempt không được tạo ra hai lần submit.
 - Chỉ một request được phép transition:IN_PROGRESS → SUBMITTED
 - Các request còn lại phải nhận HTTP 409.
-- Việc transition IN_PROGRESS → SUBMITTED và ghi submittedAt phải được thực hiện atomically trong database transaction/conditional update. Điều kiện update phải đảm bảo status = IN_PROGRESS và attemptEndAt > now. Chỉ request update thành công mới được xem là submit thành công. Các request đồng thời còn lại phải nhận HTTP 409.
+- Việc transition IN_PROGRESS → SUBMITTED và ghi submittedAt phải được thực hiện atomically trong database transaction/conditional update. Điều kiện update phải đảm bảo status = IN_PROGRESS và deadlineAt > now. Chỉ request update thành công mới được xem là submit thành công. Các request đồng thời còn lại phải nhận HTTP 409.
 ### 9. Attempt ownership
 - Student A không được submit attempt của Student B.
 - Nếu attempt không thuộc Student hiện tại:
@@ -2398,7 +2398,7 @@ POST /api/student/exams/:examId/attempts/:attemptId/submit
 | `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
 | `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
 | `{{attemptId_expired}}` | attemptId with status EXPIRED |
-| `{{attemptId_deadlinePassed}}` | attemptId (IN_PROGRESS) whose attemptEndAt is in the past |
+| `{{attemptId_deadlinePassed}}` | attemptId (IN_PROGRESS) whose deadlineAt is in the past |
 
 ---
 
@@ -2707,9 +2707,9 @@ pm.test("message is 'Exam attempt has ended'", () => {
 
 ---
 
-#### 9. Deadline reached – now >= attemptEndAt với status IN_PROGRESS → 409
+#### 9. Deadline reached – now >= deadlineAt với status IN_PROGRESS → 409
 
-**Description:** Attempt vẫn IN_PROGRESS nhưng attemptEndAt đã qua — không được manual submit.
+**Description:** Attempt vẫn IN_PROGRESS nhưng deadlineAt đã qua — không được manual submit.
 
 **Method:** `POST`
 **URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_deadlinePassed}}/submit`
@@ -2926,7 +2926,7 @@ Lấy trạng thái hiện tại của ExamAttempt để:
     "attemptId": "uuid",
     "status": "IN_PROGRESS",
     "startedAt": "2026-08-22T03:00:00.000Z",
-    "attemptEndAt": "2026-08-22T04:00:00.000Z",
+    "deadlineAt": "2026-08-22T04:00:00.000Z",
     "submittedAt": null,
     "endedBy": null,
     "remainingSeconds": 1200,
@@ -2945,10 +2945,10 @@ Lấy trạng thái hiện tại của ExamAttempt để:
 | `attemptId` | ID lần làm bài |
 | `status` | Trạng thái bài làm(IN_PROGRESS, SUBMITTED, EXPIRED) |
 | `startedAt` | Thời điểm bắt đầu làm bài (ISO 8601) |
-| `attemptEndAt` | Authoritative deadline — không đổi sau khi tạo attempt |
+| `deadlineAt` | Authoritative deadline — không đổi sau khi tạo attempt |
 | `submittedAt` | Thời điểm nộp bài. null nếu chưa nộp |
 | `endedBy` | STUDENT, TIMEOUT, SYSTEM, hoặc null |
-| `remainingSeconds` | max(0, floor((attemptEndAt - now) / 1000)). Tính realtime tại thời điểm gọi API |
+| `remainingSeconds` | max(0, floor((deadlineAt - now) / 1000)). Tính realtime tại thời điểm gọi API |
 | `lastSavedAt` | Thời điểm lần cuối tiến độ được lưu (từ ExamAttempt.lastSavedAt) |
 | `isOnline` | Trạng thái kết nối tính toán realtime từ ExamSession.lastHeartbeat theo BR-6. false nếu chưa có session hoặc đã quá HEARTBEAT_TIMEOUT |
 | `answeredCount` | Số câu hỏi đã có StudentAnswer cho attempt này |
@@ -2982,19 +2982,19 @@ Lấy trạng thái hiện tại của ExamAttempt để:
   - IN_PROGRESS → EXPIRED
 - Việc chuyển IN_PROGRESS → SUBMITTED được thực hiện bởi API Submit Exam.
 - Việc chuyển IN_PROGRESS → EXPIRED do cơ chế timeout/expiry riêng của hệ thống xử lý.
-- Nếu `status = IN_PROGRESS` nhưng `now >= attemptEndAt` và cơ chế expiry chưa kịp cập nhật status, API 5 vẫn trả `status = IN_PROGRESS` và `remainingSeconds = 0`.
+- Nếu `status = IN_PROGRESS` nhưng `now >= deadlineAt` và cơ chế expiry chưa kịp cập nhật status, API 5 vẫn trả `status = IN_PROGRESS` và `remainingSeconds = 0`.
 - API 5 không tự chuyển status.
 ### 3. remainingSeconds
-- Nếu status = IN_PROGRESS:remainingSeconds=max(0, floor((attemptEndAt - now) / 1000))
+- Nếu status = IN_PROGRESS:remainingSeconds=max(0, floor((deadlineAt - now) / 1000))
 - Nếu status = SUBMITTED:  remainingSeconds = 0
 - Nếu status = EXPIRED:  remainingSeconds = 0
     + remainingSeconds = 0 khi attempt đã kết thúc,
-    + bất kể attemptEndAt vẫn còn thời gian.
+    + bất kể deadlineAt vẫn còn thời gian.
     + `remainingSeconds` chỉ là giá trị phục vụ UI/countdown.
-    + `attemptEndAt` mới là authoritative deadline.
-- attemptEndAt là authoritative deadline.
+    + `deadlineAt` mới là authoritative deadline.
+- deadlineAt là authoritative deadline.
 - Không sử dụng remainingSeconds được lưu tại thời điểm start.
-- API không cập nhật attemptEndAt.
+- API không cập nhật deadlineAt.
 - API không lưu remainingSeconds vào database.
 - API không thay đổi ExamAttempt.status.
 ### 4. Completed attempts
@@ -3010,7 +3010,7 @@ Không được:
 - submit attempt
 - grading
 - tạo ProgrammingSubmission
-- thay đổi attemptEndAt
+- thay đổi deadlineAt
 - thay đổi submittedAt
 - thay đổi status
 - cập nhật remainingSeconds vào database
@@ -3057,7 +3057,7 @@ GET /api/student/exams/:examId/attempts/:attemptId/status
 | `{{teacherToken}}` | Valid Teacher JWT access token |
 | `{{examId}}` | ID of the exam used in API 1 |
 | `{{attemptId}}` | `data.attemptId` saved from API 1 Success call (IN_PROGRESS, còn thời gian) |
-| `{{attemptId_inprogress_overtime}}` | attemptId IN_PROGRESS but attemptEndAt has passed (DB status not yet EXPIRED) |
+| `{{attemptId_inprogress_overtime}}` | attemptId IN_PROGRESS but deadlineAt has passed (DB status not yet EXPIRED) |
 | `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
 | `{{attemptId_expired}}` | attemptId with status EXPIRED |
 | `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
@@ -3089,7 +3089,7 @@ Authorization: Bearer {{studentToken}}
     "attemptId": "uuid",
     "status": "IN_PROGRESS",
     "startedAt": "2026-08-22T03:00:00.000Z",
-    "attemptEndAt": "2026-08-22T04:00:00.000Z",
+    "deadlineAt": "2026-08-22T04:00:00.000Z",
     "submittedAt": null,
     "endedBy": null,
     "remainingSeconds": 1200,
@@ -3133,8 +3133,8 @@ pm.test("data.startedAt is a valid ISO string", () => {
   pm.expect(new Date(body.startedAt).getTime()).to.not.be.NaN;
 });
 
-pm.test("data.attemptEndAt is a valid ISO string", () => {
-  pm.expect(new Date(body.attemptEndAt).getTime()).to.not.be.NaN;
+pm.test("data.deadlineAt is a valid ISO string", () => {
+  pm.expect(new Date(body.deadlineAt).getTime()).to.not.be.NaN;
 });
 
 pm.test("data.submittedAt is null for IN_PROGRESS", () => {
@@ -3164,7 +3164,7 @@ pm.test("data.isOnline is a boolean", () => {
 
 ---
 
-#### 2. Success – IN_PROGRESS nhưng attemptEndAt đã qua → 200, status=IN_PROGRESS, remainingSeconds=0
+#### 2. Success – IN_PROGRESS nhưng deadlineAt đã qua → 200, status=IN_PROGRESS, remainingSeconds=0
 
 **Description:** Attempt vẫn IN_PROGRESS trong DB nhưng deadline đã qua. API 5 phải trả status từ DB, không tự đổi.
 
@@ -3606,7 +3606,7 @@ pm.test("Status code is 200", () => {
 // Save values before calling API 5 again
 const body = pm.response.json().data;
 pm.collectionVariables.set("before_status",       body.status);
-pm.collectionVariables.set("before_attemptEndAt", body.attemptEndAt);
+pm.collectionVariables.set("before_deadlineAt", body.deadlineAt);
 pm.collectionVariables.set("before_lastSavedAt",  body.lastSavedAt ?? "null");
 ```
 
@@ -3624,8 +3624,8 @@ pm.test("status is unchanged after calling API 5", () => {
   pm.expect(body.status).to.equal(pm.collectionVariables.get("before_status"));
 });
 
-pm.test("attemptEndAt is unchanged after calling API 5", () => {
-  pm.expect(body.attemptEndAt).to.equal(pm.collectionVariables.get("before_attemptEndAt"));
+pm.test("deadlineAt is unchanged after calling API 5", () => {
+  pm.expect(body.deadlineAt).to.equal(pm.collectionVariables.get("before_deadlineAt"));
 });
 
 pm.test("lastSavedAt is unchanged after calling API 5 (read-only)", () => {
@@ -3702,7 +3702,7 @@ Không có request body.
 
 | Field | Description |
 |-------|------|
-| `remainingSeconds` | `remainingSeconds` là giá trị được server tính realtime tại thời điểm heartbeat:`max(0, floor((attemptEndAt - now) / 1000))`Không sử dụng giá trị `remainingSeconds` được lưu tại thời điểm start. `attemptEndAt` là authoritative deadline. |
+| `remainingSeconds` | `remainingSeconds` là giá trị được server tính realtime tại thời điểm heartbeat:`max(0, floor((deadlineAt - now) / 1000))`Không sử dụng giá trị `remainingSeconds` được lưu tại thời điểm start. `deadlineAt` là authoritative deadline. |
 | `isOnline` | Trạng thái kết nối |
 
 ## Status Codes
@@ -3724,7 +3724,7 @@ Không có request body.
 # 2. Status & Deadline check
 - Chỉ cho phép heartbeat khi ExamAttempt.status = IN_PROGRESS.
 - Tại thời điểm nhận heartbeat:
-    + Nếu now >= attemptEndAt → HTTP 409, message: "Exam attempt has ended"
+    + Nếu now >= deadlineAt → HTTP 409, message: "Exam attempt has ended"
     + Nếu status = SUBMITTED → HTTP 409, message: "Exam attempt has already been submitted"
     + Nếu status = EXPIRED → HTTP 409, message: "Exam attempt has ended"
 - API 6 KHÔNG tự động chuyển IN_PROGRESS → EXPIRED. Việc chuyển status do cơ chế expiry/timeout riêng của hệ thống xử lý (đồng bộ với API 5).
@@ -3734,13 +3734,13 @@ Không có request body.
 - isOnline trong response trả về true (vì sinh viên vừa active).
 - API 6 KHÔNG cập nhật ExamAttempt.lastSavedAt — việc này thuộc về API 3 (Save Answer).
 # 4. remainingSeconds
-- Tính realtime: max(0, floor((attemptEndAt - now) / 1000)).
+- Tính realtime: max(0, floor((deadlineAt - now) / 1000)).
 - Không lưu remainingSeconds vào database.
-- attemptEndAt là authoritative deadline, không được tính lại hay cập nhật.
+- deadlineAt là authoritative deadline, không được tính lại hay cập nhật.
 # 5. Read-only đối với attempt
 - API 6 không thay đổi ExamAttempt.status.
 - API 6 không thay đổi ExamAttempt.submittedAt.
-- API 6 không thay đổi ExamAttempt.attemptEndAt.
+- API 6 không thay đổi ExamAttempt.deadlineAt.
 - API 6 không tạo/cập nhật StudentAnswer.
 - API 6 không thực hiện grading.
 - API 6 không tạo ProgrammingSubmission.
@@ -3862,7 +3862,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
 | Field | Description |
 |-------|------|
 | `questionId` | ID câu hỏi đang chạy thử |
-| `remainingSeconds` | max(0, floor((attemptEndAt - now) / 1000)). Tính realtime tại thời điểm response. |
+| `remainingSeconds` | max(0, floor((deadlineAt - now) / 1000)). Tính realtime tại thời điểm response. |
 | `isOnline` | true nếu now - ExamSession.lastHeartbeat <= HEARTBEAT_TIMEOUT. false nếu không có session hoặc đã timeout. |
 | `compilationStatus` | COMPILED hoặc COMPILE_ERROR |
 | `compilerOutput` | Output từ trình biên dịch. Có giá trị khi COMPILE_ERROR. |
@@ -3891,7 +3891,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
 | 401 | Không đăng nhập |
 | 403 | Không có quyền |
 | 404 | Attemp not found |
-| 409 | Attempt đã kết thúc (SUBMITTED/EXPIRED) hoặc đã hết thời gian (now >= attemptEndAt) |
+| 409 | Attempt đã kết thúc (SUBMITTED/EXPIRED) hoặc đã hết thời gian (now >= deadlineAt) |
 | 422 | questionId không phải loại PROGRAMMING |
 
 ## Business Rules
@@ -3906,7 +3906,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
 # 2. Trạng thái & Deadline
 - Chỉ cho phép chạy code khi ExamAttempt.status = IN_PROGRESS.
 - Tại thời điểm nhận request:
-    + Nếu now >= attemptEndAt → HTTP 409, message: "Exam attempt has ended".
+    + Nếu now >= deadlineAt → HTTP 409, message: "Exam attempt has ended".
     + Nếu status = SUBMITTED → HTTP 409, message: "Exam attempt has already been submitted".
     + Nếu status = EXPIRED → HTTP 409, message: "Exam attempt has ended".
 - API không tự động chuyển IN_PROGRESS → EXPIRED.
@@ -3953,7 +3953,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
     + Student chủ động Submit Exam (API 4), hoặc
     + Hệ thống tự động nộp bài khi hết giờ (expiry mechanism), lúc đó lấy draftSourceCode từ StudentAnswer để tạo.
 # 8. remainingSeconds & isOnline
-- remainingSeconds tính realtime: max(0, floor((attemptEndAt - now) / 1000)).
+- remainingSeconds tính realtime: max(0, floor((deadlineAt - now) / 1000)).
 - isOnline tính từ ExamSession.lastHeartbeat như API 5.
 - API 7 không cập nhật ExamSession.lastHeartbeat — student vẫn phải gửi heartbeat định kỳ qua API 6.
 # 9. Concurrency & Rate Limiting

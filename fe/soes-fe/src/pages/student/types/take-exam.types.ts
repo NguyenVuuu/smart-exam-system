@@ -31,7 +31,7 @@ export interface TakeExamSession {
   title: string
   durationMinutes: number
   remainingSeconds: number
-  attemptEndAt: string
+  deadlineAt: string
   integritySettings: TakeExamIntegritySettings
   questions: TakeExamQuestion[]
 }

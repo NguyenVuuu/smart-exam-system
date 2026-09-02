@@ -32,7 +32,7 @@ async function runInBatches<T, R>(
 const JUDGE0_RUN_BATCH_SIZE = 5
 
 type RunCodeAttempt = {
-  attemptEndAt: Date
+  deadlineAt: Date
   examSession: { lastHeartbeat: Date } | null
 }
 
@@ -104,7 +104,7 @@ function buildEmptyRunCodeResult(
 ): RunCodeResult {
   return {
     questionId,
-    remainingSeconds: remainingSecondsUntil(attempt.attemptEndAt, now),
+    remainingSeconds: remainingSecondsUntil(attempt.deadlineAt, now),
     isOnline: isAttemptOnline(attempt, now),
     compilationStatus: 'COMPILED',
     compilerOutput: null,
@@ -165,7 +165,7 @@ function buildRunCodeResult(
 
   return {
     questionId,
-    remainingSeconds: remainingSecondsUntil(attempt.attemptEndAt, now),
+    remainingSeconds: remainingSecondsUntil(attempt.deadlineAt, now),
     isOnline: isAttemptOnline(attempt, now),
     compilationStatus,
     compilerOutput,
@@ -230,7 +230,7 @@ export async function startExam(
     return {
       attemptId: activeAttempt.id,
       startedAt: activeAttempt.startedAt,
-      attemptEndAt: activeAttempt.deadlineAt,
+      deadlineAt: activeAttempt.deadlineAt,
       remainingSeconds: Math.floor((activeAttempt.deadlineAt.getTime() - now.getTime()) / 1000),
     };
   }
@@ -255,26 +255,25 @@ export async function startExam(
   }
 
   // Use a single timestamp for all calculations so there are no clock skew
-  // issues between startedAt, attemptEndAt, and remainingSeconds.
+  // issues between startedAt, deadlineAt, and remainingSeconds.
   const startedAt = now;
 
   const durationEndAt = new Date(
     startedAt.getTime() + schedule.durationMinutes * 60 * 1000,
   );
-  const attemptEndAt =
+  const deadlineAt =
     durationEndAt < schedule.endTime ? durationEndAt : schedule.endTime;
 
   const remainingSeconds = Math.max(
     0,
-    Math.floor((attemptEndAt.getTime() - startedAt.getTime()) / 1000),
+    Math.floor((deadlineAt.getTime() - startedAt.getTime()) / 1000),
   );
 
   // ── 9. Create attempt (safe against concurrent duplicate requests) ─────────
   let attempt: { id: string; startedAt: Date; deadlineAt: Date };
 
-  // Note: attemptEndAt is stored as authoritative deadline in DB.
-  // remainingSeconds is stored as a snapshot for countdown initialization only.
-  // Both values are computed from startedAt + exam.durationMinutes, not updated later.
+  // deadlineAt is stored as the authoritative deadline in DB.
+  // remainingSeconds is computed for the response only.
   try {
     attempt = await repo.createAttemptSafe({
       scheduleId,
@@ -282,7 +281,7 @@ export async function startExam(
       courseOfferingId: enrollment.courseOfferingId,
       studentId,
       startedAt,
-      deadlineAt: attemptEndAt,
+      deadlineAt,
       attemptNo: attemptCount + 1,
       shuffleQuestions: ['SHUFFLE_QUESTIONS', 'SHUFFLE_QUESTIONS_AND_OPTIONS', 'RANDOM_SUBSET'].includes(schedule.distributionMode),
       shuffleOptions: ['SHUFFLE_OPTIONS', 'SHUFFLE_QUESTIONS_AND_OPTIONS'].includes(schedule.distributionMode),
@@ -308,7 +307,7 @@ export async function startExam(
   return {
     attemptId: attempt.id,
     startedAt: attempt.startedAt,
-    attemptEndAt,
+    deadlineAt,
     remainingSeconds,
   };
 }
@@ -332,13 +331,13 @@ export async function getExamContent(
 
   const { attempt, pointsMap, answerMap } = result;
 
-  // ── 2. Check expiry using attemptEndAt from DB ─────────────────────────────
+  // ── 2. Check expiry using deadlineAt from DB ─────────────────────────────
   const now = new Date();
   if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
     throw new ConflictError("Exam attempt has ended");
   }
 
-  // ── 3. Compute remainingSeconds realtime from attemptEndAt ────────────────
+  // ── 3. Compute remainingSeconds realtime from deadlineAt ────────────────
   const remainingSeconds = Math.max(
     0,
     Math.floor((attempt.deadlineAt.getTime() - now.getTime()) / 1000),
@@ -392,7 +391,7 @@ export async function getExamContent(
     title:           attempt.examSchedule.title,
     durationMinutes: attempt.examSchedule.durationMinutes,
     remainingSeconds,
-    attemptEndAt:    attempt.deadlineAt,
+    deadlineAt:       attempt.deadlineAt,
     integritySettings: {
       enableWebcam: attempt.examSchedule.enableWebcam,
       blockCopyPaste: attempt.examSchedule.blockCopyPaste,
@@ -423,7 +422,7 @@ export async function saveAnswer(
     throw new ConflictError("Exam attempt has ended");
   }
 
-  // ── 3. Check attemptEndAt ──────────────────────────────────────────────────
+  // ── 3. Check deadlineAt ──────────────────────────────────────────────────
   const now = new Date();
   if (now >= attempt.deadlineAt) {
     throw new ConflictError("Exam attempt has ended");
@@ -514,7 +513,7 @@ export async function submitExam(
   //     AND examId = examId          (exam ownership)
   //     AND studentId = studentId    (student ownership)
   //     AND status = IN_PROGRESS     (only transition from IN_PROGRESS)
-  //     AND attemptEndAt > now       (deadline not yet reached)
+  //     AND deadlineAt > now       (deadline not yet reached)
   //
   // Prisma's updateMany returns a count. If count === 0 we know the update
   // did not match, and we run a separate lookup to determine the correct
@@ -561,7 +560,7 @@ export async function submitExam(
     throw new ConflictError('Exam attempt has ended');
   }
 
-  // Catch-all: IN_PROGRESS but now >= attemptEndAt, or any other terminal state
+  // Catch-all: IN_PROGRESS but now >= deadlineAt, or any other terminal state
   throw new ConflictError('Exam attempt has ended');
 }
 
@@ -578,7 +577,7 @@ export async function getAttemptStatus(
     throw new NotFoundError('Attempt not found')
   }
 
-  // ── 2. Compute remainingSeconds realtime from attemptEndAt ────────────────
+  // ── 2. Compute remainingSeconds realtime from deadlineAt ────────────────
   // Contract: IN_PROGRESS → realtime calc; SUBMITTED / EXPIRED → 0
   const now = new Date()
 
@@ -596,7 +595,7 @@ export async function getAttemptStatus(
     attemptId:          data.id,
     status:             data.status,
     startedAt:          data.startedAt,
-    attemptEndAt:       data.deadlineAt,
+    deadlineAt:         data.deadlineAt,
     submittedAt:        data.submittedAt,
     endedBy:            data.endedBy,
     remainingSeconds,
@@ -666,7 +665,7 @@ export async function sendHeartbeat(
     throw new ConflictError("Exam attempt has ended") // EXPIRED or other terminal state
   }
 
-  // ── 3. Check deadline (attemptEndAt) ───────────────────────────────────────
+  // ── 3. Check deadline (deadlineAt) ───────────────────────────────────────
   if (now >= attemptData.deadlineAt) {
     throw new ConflictError("Exam attempt has ended")
   }
@@ -755,7 +754,7 @@ export async function runCode(
     throw new ConflictError("Exam attempt has ended")
   }
 
-  if (now >= attempt.attemptEndAt) {
+  if (now >= attempt.deadlineAt) {
     throw new ConflictError("Exam attempt has ended")
   }
 

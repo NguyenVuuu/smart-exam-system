@@ -84,7 +84,7 @@ export async function findProgrammingQuestionWithTestCases(
     attempt: {
       id: attempt.id,
       status: attempt.status,
-      attemptEndAt: attempt.deadlineAt,
+      deadlineAt: attempt.deadlineAt,
       examSession: attempt.examSession,
     },
     question: question.type === 'PROGRAMMING'
