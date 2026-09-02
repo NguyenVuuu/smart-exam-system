@@ -24,6 +24,7 @@ import { hasAnswer } from './components/take-exam/take-exam.utils'
 import { useDebounce } from 'use-debounce'
 import {
   cancelScheduledExamWebcamStop,
+  captureExamWebcamSnapshot,
   scheduleExamWebcamStop,
 } from './utils/exam-webcam'
 
@@ -117,7 +118,16 @@ export default function StudentTakeExamPage() {
 
   const handleViolationDetected = useCallback((payload: RecordViolationPayload) => {
     if (!scheduleId || !attemptId) return
-    recordViolation({ scheduleId, attemptId, data: payload })
+    void captureExamWebcamSnapshot().then((evidenceFile) => {
+      recordViolation({
+        scheduleId,
+        attemptId,
+        data: {
+          ...payload,
+          evidenceFiles: evidenceFile ? [evidenceFile] : undefined,
+        },
+      })
+    })
   }, [attemptId, recordViolation, scheduleId])
 
   const {
