@@ -42,6 +42,22 @@ export interface AttemptResult {
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
 }
 
+export type ExamViolationType =
+  | 'TAB_SWITCH'
+  | 'FULLSCREEN_EXIT'
+  | 'INACTIVITY'
+  | 'COPY_PASTE'
+  | 'CAMERA_BLOCKED'
+
+export type ExamViolationSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
+
+export interface RecordViolationPayload {
+  violationType: ExamViolationType
+  severity: ExamViolationSeverity
+  description?: string
+  detectedAt?: string
+}
+
 // ─── Run code (programming questions) ────────────────────────────────────────
 
 export interface RunCodeTestCase {
@@ -177,6 +193,10 @@ export const takeExamApi = {
 
   sendHeartbeat: async (scheduleId: string, attemptId: string): Promise<void> => {
     await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/heartbeat`)
+  },
+
+  recordViolation: async (scheduleId: string, attemptId: string, data: RecordViolationPayload): Promise<void> => {
+    await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/violations`, data)
   },
 
   getAttemptStatus: async (scheduleId: string, attemptId: string): Promise<AttemptStatus> => {

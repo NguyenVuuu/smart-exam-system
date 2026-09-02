@@ -109,6 +109,13 @@ export interface SendHeartbeatResult {
   isOnline: boolean
 }
 
+export interface RecordViolationResult {
+  id: string
+  violationType: string
+  severity: string
+  detectedAt: Date
+}
+
 // ─── API 7: Run Code ───────────────────────────────────────────────────────────
 
 export interface RunCodeResult {

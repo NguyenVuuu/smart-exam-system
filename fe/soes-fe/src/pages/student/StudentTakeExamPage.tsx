@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Save, Send } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Maximize2, Save, Send, ShieldAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -13,12 +13,13 @@ import './components/take-exam/take-exam.css'
 import { useExamIntegrityGuard } from './hooks/take-exam/useExamIntegrityGuard'
 import { useExamWebcam } from './hooks/take-exam/useExamWebcam'
 import { useTakeExam } from './hooks/take-exam/useTakeExam'
-import { useGetExamAttempt, useRunCodeMutation } from './hooks/take-exam/useTakeExamApi'
+import { useGetExamAttempt, useRecordViolationMutation, useRunCodeMutation } from './hooks/take-exam/useTakeExamApi'
 import type {
   QuestionAnswer,
   TakeExamAnswers,
 } from './types/take-exam.types'
 import type { RunCodeResponse } from './api/student-take-exam.api'
+import type { RecordViolationPayload } from './api/student-take-exam.api'
 import { hasAnswer } from './components/take-exam/take-exam.utils'
 import { useDebounce } from 'use-debounce'
 import {
@@ -47,6 +48,7 @@ export default function StudentTakeExamPage() {
 
   const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId)
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
+  const { mutate: recordViolation } = useRecordViolationMutation()
   const {
     stream: webcamStream,
     status: webcamStatus,
@@ -113,10 +115,20 @@ export default function StudentTakeExamPage() {
     onSubmitted: handleSubmitted
   })
 
-  useExamIntegrityGuard({
+  const handleViolationDetected = useCallback((payload: RecordViolationPayload) => {
+    if (!scheduleId || !attemptId) return
+    recordViolation({ scheduleId, attemptId, data: payload })
+  }, [attemptId, recordViolation, scheduleId])
+
+  const {
+    isFullscreenActive,
+    requestFullscreen,
+  } = useExamIntegrityGuard({
     enabled: phase === 'IN_PROGRESS' && Boolean(session),
     blockCopyPaste: session?.integritySettings.blockCopyPaste ?? false,
     blockRightClick: session?.integritySettings.blockRightClick ?? false,
+    requireFullscreen: true,
+    onViolation: handleViolationDetected,
   })
 
   // Auto-save when answers change
@@ -243,6 +255,21 @@ export default function StudentTakeExamPage() {
         errorMessage={webcamErrorMessage}
         onEnableCamera={handleEnableExamCamera}
       />
+      {!isFullscreenActive && phase === 'IN_PROGRESS' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-5 backdrop-blur-md" role="alertdialog" aria-modal="true" aria-labelledby="fullscreen-required-title">
+          <div className="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-2xl">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <ShieldAlert size={32} />
+            </div>
+            <h2 id="fullscreen-required-title" className="mt-5 text-xl font-bold text-slate-900">Cần bật toàn màn hình</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Nội dung bài thi tạm khóa vì kỳ thi yêu cầu chế độ toàn màn hình.</p>
+            <button type="button" onClick={() => void requestFullscreen()} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700">
+              <Maximize2 size={18} />
+              Bật toàn màn hình
+            </button>
+          </div>
+        </div>
+      )}
       <main className="take-exam-page relative h-full overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
         <div className="relative mx-auto w-full max-w-[1180px] space-y-4">
             <TakeExamHeader

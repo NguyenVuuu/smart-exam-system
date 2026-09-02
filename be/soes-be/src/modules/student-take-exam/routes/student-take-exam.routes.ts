@@ -60,6 +60,14 @@ router.post(
   takeExamController.sendHeartbeat,
 )
 
+// POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/violations
+router.post(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/violations',
+  authenticate,
+  requireStudent(),
+  takeExamController.recordViolation,
+)
+
 // POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run
 router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run',

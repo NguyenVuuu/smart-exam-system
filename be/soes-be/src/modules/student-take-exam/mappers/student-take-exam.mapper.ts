@@ -1,5 +1,5 @@
-import type { StartExamResult, ExamContentResult, ExamContentQuestion, SubmitExamResult, AttemptStatusResult, AttemptResult, SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
-import type { StartExamResponseDto, GetExamContentResponseDto, ExamContentQuestionDto, SaveAnswerResponseDto, SubmitExamResponseDto, GetAttemptStatusResponseDto, GetAttemptResultResponseDto, SendHeartbeatResponseDto, RunCodeResponseDto, RunCodeTestCaseDto} from '../dtos/student-take-exam.dto'
+import type { StartExamResult, ExamContentResult, ExamContentQuestion, SubmitExamResult, AttemptStatusResult, AttemptResult, SendHeartbeatResult, RecordViolationResult, RunCodeResult, RunCodeTestCase } from '../types'
+import type { StartExamResponseDto, GetExamContentResponseDto, ExamContentQuestionDto, SaveAnswerResponseDto, SubmitExamResponseDto, GetAttemptStatusResponseDto, GetAttemptResultResponseDto, SendHeartbeatResponseDto, RecordViolationResponseDto, RunCodeResponseDto, RunCodeTestCaseDto} from '../dtos/student-take-exam.dto'
 
 export function toStartExamResponseDto(result: StartExamResult): StartExamResponseDto {
   return {
@@ -101,6 +101,15 @@ export function toSendHeartbeatResponseDto(result: SendHeartbeatResult): SendHea
   return {
     remainingSeconds: result.remainingSeconds,
     isOnline: result.isOnline,
+  }
+}
+
+export function toRecordViolationResponseDto(result: RecordViolationResult): RecordViolationResponseDto {
+  return {
+    id: result.id,
+    violationType: result.violationType,
+    severity: result.severity,
+    detectedAt: result.detectedAt.toISOString(),
   }
 }
 

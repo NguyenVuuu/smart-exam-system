@@ -1,7 +1,8 @@
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import bcrypt from 'bcrypt'
+import type { SeverityLevel, ViolationType } from '@prisma/client'
 import { examConfig } from "../../../config";
-import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult } from "../types";
+import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
 import { judge0Service, Judge0Service } from '../../../lib/judge0'
 import type { Judge0Submission, Judge0SubmissionResult } from '../../../lib/judge0'
@@ -688,6 +689,41 @@ export async function sendHeartbeat(
 
 // ─── API 7: Run Code ─────────────────────────────────────────────────────────
 
+
+export async function recordViolation(
+  scheduleId: string,
+  attemptId: string,
+  studentId: string,
+  input: {
+    violationType: string
+    severity: string
+    description?: string
+    detectedAt?: string
+  },
+): Promise<RecordViolationResult> {
+  const attempt = await repo.findAttemptForViolation(attemptId, scheduleId, studentId)
+  if (!attempt) {
+    throw new NotFoundError('Attempt not found')
+  }
+
+  const now = new Date()
+  if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
+    throw new ConflictError('Exam attempt has ended')
+  }
+
+  const detectedAt = input.detectedAt ? new Date(input.detectedAt) : now
+  if (Number.isNaN(detectedAt.getTime())) {
+    throw new ValidationError('Invalid detectedAt')
+  }
+
+  return repo.createViolation({
+    attemptId,
+    violationType: input.violationType as ViolationType,
+    severity: input.severity as SeverityLevel,
+    description: input.description,
+    detectedAt,
+  })
+}
 
 export async function runCode(
   scheduleId: string,
