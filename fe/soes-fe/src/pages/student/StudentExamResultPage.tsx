@@ -10,6 +10,7 @@ import { useGetExamAttemptResult, useGetExamAttemptStatus } from './hooks/take-e
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
 import ExamScorePanel from './components/exam-result/ExamScorePanel'
+import ExamReviewPanel from './components/exam-result/ExamReviewPanel'
 import {
   getAttemptEndedByLabel,
   getAttemptStatusLabel,
@@ -115,6 +116,7 @@ export default function StudentExamResultPage() {
           {status && (
             <>
               {result && <ExamScorePanel result={result} />}
+              {result && <ExamReviewPanel result={result} />}
               {/* Banner Header */}
               <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>

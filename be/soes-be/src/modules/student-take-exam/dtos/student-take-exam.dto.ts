@@ -55,6 +55,7 @@ export interface GetExamContentResponseDto {
 
 export interface ExamIntegritySettingsDto {
   enableWebcam: boolean
+  requireFullscreen: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
 }
@@ -97,6 +98,28 @@ export interface GetAttemptResultResponseDto {
   maxScore: number | null
   reviewPolicy: string | null
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
+  reviewItems: AttemptReviewItemDto[]
+}
+
+export interface AttemptReviewOptionDto {
+  id: string
+  content: string
+  isCorrect?: boolean
+}
+
+export interface AttemptReviewItemDto {
+  questionId: string
+  orderIndex: number
+  type: string
+  content: string
+  points: number
+  score: number | null
+  isCorrect: boolean | null
+  selectedOptionIds?: string[]
+  draftSourceCode?: string | null
+  options?: AttemptReviewOptionDto[]
+  correctOptionIds?: string[]
+  explanation?: string | null
 }
 
 

@@ -38,6 +38,7 @@ export interface TakeExamSession {
 
 export interface TakeExamIntegritySettings {
   enableWebcam: boolean
+  requireFullscreen: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
 }

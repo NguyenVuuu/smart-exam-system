@@ -13,7 +13,7 @@ import './components/take-exam/take-exam.css'
 import { useExamIntegrityGuard } from './hooks/take-exam/useExamIntegrityGuard'
 import { useExamWebcam } from './hooks/take-exam/useExamWebcam'
 import { useTakeExam } from './hooks/take-exam/useTakeExam'
-import { useGetExamAttempt, useRecordViolationMutation, useRunCodeMutation } from './hooks/take-exam/useTakeExamApi'
+import { useGetExamAttempt, useRecordViolationMutation, useRunCodeMutation, useSendHeartbeatMutation } from './hooks/take-exam/useTakeExamApi'
 import type {
   QuestionAnswer,
   TakeExamAnswers,
@@ -49,6 +49,7 @@ export default function StudentTakeExamPage() {
 
   const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId)
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
+  const { mutate: sendHeartbeat } = useSendHeartbeatMutation()
   const { mutate: recordViolation } = useRecordViolationMutation()
   const {
     stream: webcamStream,
@@ -137,9 +138,20 @@ export default function StudentTakeExamPage() {
     enabled: phase === 'IN_PROGRESS' && Boolean(session),
     blockCopyPaste: session?.integritySettings.blockCopyPaste ?? false,
     blockRightClick: session?.integritySettings.blockRightClick ?? false,
-    requireFullscreen: true,
+    requireFullscreen: session?.integritySettings.requireFullscreen ?? false,
     onViolation: handleViolationDetected,
   })
+
+  useEffect(() => {
+    if (!scheduleId || !attemptId || phase !== 'IN_PROGRESS' || !session) return
+
+    sendHeartbeat({ scheduleId, attemptId })
+    const intervalId = window.setInterval(() => {
+      sendHeartbeat({ scheduleId, attemptId })
+    }, 10_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [attemptId, phase, scheduleId, sendHeartbeat, session])
 
   // Auto-save when answers change
   useEffect(() => {
