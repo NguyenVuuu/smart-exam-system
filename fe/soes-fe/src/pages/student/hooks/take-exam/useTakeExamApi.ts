@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import type {
+  RecordViolationPayload,
   SaveAnswerPayload,
   StartExamRequest,
 } from '../../api/student-take-exam.api'
@@ -54,6 +55,20 @@ export function useSendHeartbeatMutation() {
   return useMutation({
     mutationFn: ({ scheduleId, attemptId }: { scheduleId: string; attemptId: string }) =>
       takeExamApi.sendHeartbeat(scheduleId, attemptId),
+  })
+}
+
+export function useRecordViolationMutation() {
+  return useMutation({
+    mutationFn: ({
+      scheduleId,
+      attemptId,
+      data,
+    }: {
+      scheduleId: string
+      attemptId: string
+      data: RecordViolationPayload
+    }) => takeExamApi.recordViolation(scheduleId, attemptId, data),
   })
 }
 

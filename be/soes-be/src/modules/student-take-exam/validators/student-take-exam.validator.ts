@@ -53,6 +53,25 @@ export const sendHeartbeatParamsSchema = z.object({
 
 export type SendHeartbeatParams = z.infer<typeof sendHeartbeatParamsSchema>
 
+export const violationTypeSchema = z.enum([
+  'TAB_SWITCH',
+  'FULLSCREEN_EXIT',
+  'INACTIVITY',
+  'COPY_PASTE',
+  'CAMERA_BLOCKED',
+])
+
+export const severityLevelSchema = z.enum(['LOW', 'MEDIUM', 'HIGH'])
+
+export const recordViolationBodySchema = z.object({
+  violationType: violationTypeSchema,
+  severity: severityLevelSchema,
+  description: z.string().trim().max(500).optional(),
+  detectedAt: z.string().datetime().optional(),
+})
+
+export type RecordViolationBody = z.infer<typeof recordViolationBodySchema>
+
 // ─── API 7: Run Code ───────────────────────────────────────────────────────────
 
 export const runCodeParamsSchema = z.object({
