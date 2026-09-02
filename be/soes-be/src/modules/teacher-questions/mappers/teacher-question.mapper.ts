@@ -26,6 +26,8 @@ export function toTeacherQuestionDto(row: QuestionRow): TeacherQuestionDto {
     sharedBank: bank ? {
       itemId: bank.id, status: bank.status, rejectionReason: bank.rejectionReason,
       removedAt: bank.removedAt, reviewedAt: bank.reviewedAt,
+      removalReason: bank.removalReason,
+      removedByName: bank.removedByTeacher?.user.fullName ?? bank.removedByAdmin?.user.fullName ?? null,
     } : null,
     createdAt: row.createdAt, updatedAt: row.updatedAt, archivedAt: row.archivedAt,
   }

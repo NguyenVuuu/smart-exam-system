@@ -49,3 +49,71 @@ export const archiveQuestion = (id: string) => postAction(`/teacher/questions/${
 export const restoreQuestion = (id: string) => postAction(`/teacher/questions/${id}/restore`)
 export const removeSharedQuestion = (itemId: string, reason: string) =>
   postAction(`/teacher/question-approvals/${itemId}/remove`, { reason })
+export async function uploadQuestionImage(file: Blob, fileName: string) {
+  const form = new FormData()
+  form.append('file', file, fileName)
+  const response = await apiClient.post<ApiResponse<{ location: string }>>('/teacher/question-images', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data.data.location
+}
+
+export async function uploadImagesInHtml(html: string): Promise<string> {
+  if (!html) return html
+
+  const document = new DOMParser().parseFromString(html, 'text/html')
+  const images = Array.from(document.body.querySelectorAll<HTMLImageElement>('img[src^="data:image/"]'))
+  const sources = [...new Set(images.map((image) => image.getAttribute('src')).filter((source): source is string => Boolean(source)))]
+
+  try {
+    const uploadedSources = await Promise.all(sources.map(async (dataUri) => {
+      const res = await fetch(dataUri)
+      const blob = await res.blob()
+      const ext = blob.type.split('/')[1] || 'png'
+      const fileName = `question-img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+      const location = await uploadQuestionImage(blob, fileName)
+      return [dataUri, location] as const
+    }))
+
+    const locations = new Map(uploadedSources)
+    images.forEach((image) => {
+      const source = image.getAttribute('src')
+      const location = source ? locations.get(source) : undefined
+      if (location) image.setAttribute('src', location)
+    })
+
+    document.body.querySelectorAll<HTMLParagraphElement>('p').forEach((paragraph) => {
+      const children = Array.from(paragraph.children)
+      const containsOnlyImage = !paragraph.textContent?.trim()
+        && children.length === 1
+        && children[0] instanceof HTMLImageElement
+
+      if (containsOnlyImage) {
+        paragraph.style.display = 'inline-block'
+        paragraph.style.margin = '0 12px 12px 0'
+        paragraph.style.verticalAlign = 'top'
+      }
+    })
+
+    return document.body.innerHTML
+  } catch (err) {
+    console.error('Error uploading image to Supabase:', err)
+    throw new Error('Không thể tải hình ảnh trong đề bài lên hệ thống lưu trữ. Vui lòng thử lại.')
+  }
+}
+
+export async function uploadAiSourceFiles(subjectId: string, files: File[]) {
+  const form = new FormData()
+  form.set('subjectId', subjectId)
+  files.forEach((file) => form.append('files', file))
+  const response = await apiClient.post<ApiResponse<Array<{
+    fileName: string
+    storagePath: string
+    fileSize: number
+    contentType: string
+    checksum: string
+  }>>>('/teacher/ai-source-files', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data.data
+}

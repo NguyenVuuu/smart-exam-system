@@ -1,8 +1,9 @@
-import { Clock, Database, Plus, Sparkles } from 'lucide-react'
+import { Archive, Clock, Database, Plus, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuthStore } from '../../store/authStore'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTablePanel from './components/TeacherTablePanel'
@@ -58,6 +59,8 @@ export default function TeacherQuestionBankPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [removingSharedQuestion, setRemovingSharedQuestion] = useState<Question | null>(null)
   const [removeReason, setRemoveReason] = useState('Gỡ khỏi ngân hàng chung để xử lý vấn đề chuyên môn.')
+  const [archivingQuestion, setArchivingQuestion] = useState<Question | null>(null)
+  const [isArchiving, setIsArchiving] = useState(false)
 
   const handleResetFilters = () => {
     setSearchQuery('')
@@ -83,7 +86,6 @@ export default function TeacherQuestionBankPage() {
       if (selectedStatus === 'PENDING_REVIEW' && q.reviewStatus !== 'PENDING_REVIEW') return false
       if (selectedStatus === 'PRIVATE' && q.reviewStatus && q.reviewStatus !== 'PRIVATE') return false
       if (selectedStatus === 'REJECTED' && q.reviewStatus !== 'REJECTED') return false
-      if (selectedStatus === 'REMOVED' && q.reviewStatus !== 'REMOVED') return false
     }
 
     const matchesSubject = selectedSubject === 'ALL' || q.subjectId === selectedSubject
@@ -98,17 +100,12 @@ export default function TeacherQuestionBankPage() {
   })
 
   const handleSaveQuestion = async (savedQuestionData: Partial<Question>) => {
-    try {
-      if (questionApi.questions.length > 0 || !editingQuestion) {
-        await questionApi.save(savedQuestionData, editingQuestion?.id)
-        toast.success(editingQuestion ? 'Đã cập nhật câu hỏi.' : 'Đã thêm câu hỏi vào ngân hàng cá nhân.')
-      } else {
-        upsertStoreQuestion({ ...editingQuestion, ...savedQuestionData } as Question)
-        toast.success('Đã cập nhật câu hỏi.')
-      }
-    } catch {
+    if (questionApi.questions.length > 0 || !editingQuestion) {
+      await questionApi.save(savedQuestionData, editingQuestion?.id)
+      toast.success(editingQuestion ? 'Đã cập nhật câu hỏi.' : 'Đã thêm câu hỏi vào ngân hàng cá nhân.')
+    } else {
       upsertStoreQuestion({ ...editingQuestion, ...savedQuestionData } as Question)
-      toast.success('Đã lưu câu hỏi vào bộ nhớ.')
+      toast.success('Đã cập nhật câu hỏi.')
     }
     setEditingQuestion(null)
   }
@@ -126,17 +123,18 @@ export default function TeacherQuestionBankPage() {
     }
   }
 
-  const handleArchiveQuestion = async (q: Question) => {
-    const confirmed = window.confirm(
-      'Lưu trữ câu hỏi này? Câu hỏi sẽ ẩn khỏi danh sách mặc định và không dùng để chọn vào đề mới.',
-    )
-    if (!confirmed) return
+  const confirmArchiveQuestion = async () => {
+    if (!archivingQuestion) return
+    setIsArchiving(true)
     try {
-      await questionApi.archive(q.id)
+      await questionApi.archive(archivingQuestion.id)
       toast.success('Đã lưu trữ câu hỏi.')
     } catch {
-      archiveStoreQuestion(q.id)
+      archiveStoreQuestion(archivingQuestion.id)
       toast.success('Đã lưu trữ câu hỏi.')
+    } finally {
+      setIsArchiving(false)
+      setArchivingQuestion(null)
     }
   }
 
@@ -257,7 +255,7 @@ export default function TeacherQuestionBankPage() {
                 setEditingQuestion(q)
                 setIsEditorOpen(true)
               }}
-              onArchive={handleArchiveQuestion}
+              onArchive={setArchivingQuestion}
               onRestore={async (q) => {
                 try {
                   await questionApi.restore(q.id)
@@ -293,6 +291,22 @@ export default function TeacherQuestionBankPage() {
       />
 
       <AIGenerationHistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} />
+
+      <ConfirmDialog
+        open={Boolean(archivingQuestion)}
+        title="Lưu trữ câu hỏi"
+        description={(
+          <>
+            Câu hỏi <strong className="text-slate-900">{archivingQuestion?.title}</strong> sẽ ẩn khỏi danh sách mặc định
+            và không được dùng để chọn vào đề mới. Bạn vẫn có thể khôi phục câu hỏi sau này.
+          </>
+        )}
+        confirmLabel="Lưu trữ"
+        icon={<Archive size={19} className="text-amber-600" />}
+        pending={isArchiving}
+        onClose={() => setArchivingQuestion(null)}
+        onConfirm={() => void confirmArchiveQuestion()}
+      />
 
       <RemoveSharedQuestionDialog
         question={removingSharedQuestion}

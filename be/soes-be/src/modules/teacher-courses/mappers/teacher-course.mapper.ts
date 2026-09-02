@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client'
+﻿import type { Material, Prisma } from '@prisma/client'
 import type { ProctorAssignmentDto, TeacherCourseDetailDto, TeacherCourseDto, TeacherCoursePostDto } from '../dtos/teacher-course.dto'
 import type { proctorAssignmentSelect, teacherCourseDetailInclude, teacherCourseInclude } from '../repositories/teacher-courses.repository'
 import type { postInclude } from '../repositories/teacher-course-post.repository'
@@ -16,6 +16,17 @@ export const toPostDto = (post: PostRow): TeacherCoursePostDto => ({
   attachments: post.attachments.map(({ id, fileName, fileSize }) => ({ id, fileName, fileSize })),
 })
 
+export const toCourseMaterialDto = (material: Material): TeacherCourseDetailDto['materials'][number] => ({
+  id: material.id,
+  title: material.title,
+  fileName: material.fileName,
+  fileSize: material.fileSize,
+  contentType: material.contentType,
+  checksum: material.checksum,
+  storageProvider: material.storageProvider,
+  aiEnabled: material.aiEnabled,
+  createdAt: material.createdAt,
+})
 export function toTeacherCourseDto(row: TeacherCourseRow): TeacherCourseDto {
   return {
     id: row.id, code: row.code, status: row.status, semester: row.semester, subject: row.subject,
@@ -32,11 +43,7 @@ export function toTeacherCourseDetailDto(row: TeacherCourseDetailRow): TeacherCo
     maxCapacity: row.maxCapacity,
     teacher: { id: row.teacher.id, fullName: row.teacher.user.fullName },
     students: [],
-    materials: row.materials.map((material) => ({
-      id: material.id, title: material.title, fileName: material.fileName, fileSize: material.fileSize,
-      contentType: material.contentType, checksum: material.checksum,
-      storageProvider: material.storageProvider, aiEnabled: material.aiEnabled, createdAt: material.createdAt,
-    })),
+    materials: row.materials.map(toCourseMaterialDto),
     posts: row.posts.map(toPostDto),
     exams: [],
   }

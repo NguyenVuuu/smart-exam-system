@@ -8,7 +8,18 @@ export const questionInclude = {
   options: { orderBy: { orderIndex: 'asc' as const } },
   programmingConfig: true,
   programmingTests: { orderBy: { orderIndex: 'asc' as const } },
-  questionBankItem: { select: { id: true, status: true, rejectionReason: true, removedAt: true, reviewedAt: true } },
+  questionBankItem: {
+    select: {
+      id: true,
+      status: true,
+      rejectionReason: true,
+      removedAt: true,
+      reviewedAt: true,
+      removalReason: true,
+      removedByTeacher: { select: { user: { select: { fullName: true } } } },
+      removedByAdmin: { select: { user: { select: { fullName: true } } } },
+    },
+  },
 }
 
 export const approvalInclude = { question: { include: questionInclude } }
@@ -99,7 +110,13 @@ export function createQuestion(ownerId: string, data: QuestionBody) {
   })
 }
 
-export function updateQuestion(id: string, ownerId: string, expectedUpdatedAt: Date, data: QuestionBody) {
+export function updateQuestion(
+  id: string,
+  ownerId: string,
+  expectedUpdatedAt: Date,
+  data: QuestionBody,
+  autoApprove: boolean,
+) {
   const { options, testCases, timeLimitMs, memoryLimitMb, maxCodeSizeKb, ...question } = data
   const programming = question.type === 'PROGRAMMING'
   return prisma.$transaction(async (tx) => {
@@ -110,6 +127,30 @@ export function updateQuestion(id: string, ownerId: string, expectedUpdatedAt: D
     await tx.questionOption.deleteMany({ where: { questionId: id } })
     await tx.questionProgrammingTestCase.deleteMany({ where: { questionId: id } })
     await tx.questionProgrammingConfig.deleteMany({ where: { questionId: id } })
+
+    const sharedItem = await tx.questionBankItem.findUnique({
+      where: { questionId: id },
+      select: { id: true, status: true, removedAt: true },
+    })
+    if (sharedItem && !sharedItem.removedAt && ['PENDING', 'APPROVED'].includes(sharedItem.status)) {
+      const bank = await tx.questionBank.upsert({
+        where: { subjectId: data.subjectId },
+        update: {},
+        create: { subjectId: data.subjectId },
+      })
+      await tx.questionBankItem.update({
+        where: { id: sharedItem.id },
+        data: {
+          questionBankId: bank.id,
+          status: autoApprove ? 'APPROVED' : 'PENDING',
+          reviewedAt: autoApprove ? new Date() : null,
+          reviewedByTeacherId: autoApprove ? ownerId : null,
+          reviewedById: null,
+          rejectionReason: null,
+        },
+      })
+    }
+
     return tx.question.update({
       where: { id }, data: {
         ...question, options: { create: optionsWithOrder(options) },

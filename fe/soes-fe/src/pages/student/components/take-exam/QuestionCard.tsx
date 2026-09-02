@@ -1,4 +1,5 @@
 import { Flag } from 'lucide-react'
+import HtmlContent from '../../../../components/common/HtmlContent'
 import type {
   QuestionAnswer,
   TakeExamQuestion,
@@ -66,9 +67,20 @@ export default function QuestionCard({
         </button>
       </div>
 
-      <h2 className="mt-6 max-w-3xl text-base font-semibold leading-relaxed text-slate-900 sm:text-lg">
-        {question.content}
-      </h2>
+      {question.type === 'CODING' ? (
+        <div className="mt-6 space-y-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Mô tả bài toán
+          </span>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm font-medium leading-7 text-slate-900">
+            <HtmlContent content={question.content} />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 max-w-3xl text-base font-semibold leading-relaxed text-slate-900 sm:text-lg">
+          <HtmlContent content={question.content} />
+        </div>
+      )}
 
       <div className="mt-6">
         {question.type === 'CODING' ? (

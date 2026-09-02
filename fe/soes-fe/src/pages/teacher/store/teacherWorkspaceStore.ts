@@ -67,10 +67,10 @@ export const useTeacherWorkspaceStore = create<TeacherWorkspaceState>((set) => (
     questions: state.questions.map((question) => question.id === questionId
       ? {
           ...question,
-          bankScope: 'SHARED',
-          reviewStatus: 'REMOVED',
+          bankScope: 'PERSONAL',
+          reviewStatus: 'PRIVATE',
           removedByName: actorName,
-          removedAt: 'Vừa xong',
+          removedAt: new Date().toISOString(),
           removalReason: reason || 'Gỡ khỏi ngân hàng chung để xử lý vấn đề chuyên môn.',
         }
       : question),

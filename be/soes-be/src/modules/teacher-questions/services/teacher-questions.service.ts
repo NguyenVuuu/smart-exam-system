@@ -3,6 +3,8 @@ import { toPagination } from '../../../utils/pagination'
 import * as repo from '../repositories/teacher-questions.repository'
 import type { ApprovalQuery, QuestionBody, QuestionsQuery } from '../validators/teacher-questions.validator'
 import { toQuestionApprovalDto, toTeacherQuestionDto } from '../mappers/teacher-question.mapper'
+import { supabaseBuckets } from '../../../lib/supabase'
+import { uploadBufferToBucket } from '../../../services/storage.service'
 
 async function requireTeacher(teacherId: string) {
   const teacher = await repo.teacherDepartment(teacherId)
@@ -53,14 +55,17 @@ export async function create(teacherId: string, data: QuestionBody) {
 export async function update(teacherId: string, id: string, data: QuestionBody) {
   const question = await repo.findOwnedQuestion(id, teacherId)
   if (!question) throw new NotFoundError('Question not found')
-  if (question.questionBankItem && ['PENDING', 'APPROVED'].includes(question.questionBankItem.status) && !question.questionBankItem.removedAt) {
-    throw new ConflictError('Pending or active shared questions cannot be edited')
-  }
   validateQuestion(data)
   const teacher = await requireTeacher(teacherId)
   const subjectAllowed = await repo.findSubjectInDepartment(data.subjectId, teacher.departmentId!)
   if (!subjectAllowed) throw new ForbiddenError('Subject is outside teacher department')
-  const updated = await repo.updateQuestion(id, teacherId, question.updatedAt, data)
+  const updated = await repo.updateQuestion(
+    id,
+    teacherId,
+    question.updatedAt,
+    data,
+    teacher.position === 'DEPARTMENT_HEAD',
+  )
   if (!updated) throw new ConflictError('Question changed in another session; reload and try again')
   return toTeacherQuestionDto(updated)
 }
@@ -135,4 +140,44 @@ export async function remove(teacherId: string, itemId: string, reason: string) 
   if (item.status !== 'APPROVED' || item.removedAt) throw new ConflictError('Question is not active in shared bank')
   if (!await repo.removeBankItem(itemId, teacherId, teacher.userId, reason)) throw new ConflictError('Question is not active in shared bank')
   return { id: itemId, removed: true }
+}
+export async function uploadQuestionImage(teacherId: string, file?: Express.Multer.File) {
+  if (!file) throw new ValidationError('Image file is required')
+  await requireTeacher(teacherId)
+  const stored = await uploadBufferToBucket(
+    supabaseBuckets.questionImages,
+    file,
+    `teachers/${teacherId}/question-images`,
+    { publicUrl: true },
+  )
+  return {
+    location: stored.publicUrl,
+    fileName: stored.originalName,
+    storagePath: stored.storagePath,
+    fileSize: stored.fileSize,
+    contentType: stored.contentType,
+  }
+}
+
+export async function uploadAiSourceFiles(teacherId: string, subjectId: string, files: Express.Multer.File[]) {
+  if (!files.length) throw new ValidationError('At least one source file is required')
+  const teacher = await requireTeacher(teacherId)
+  const subjectAllowed = await repo.findSubjectInDepartment(subjectId, teacher.departmentId!)
+  if (!subjectAllowed) throw new ForbiddenError('Subject is outside teacher department')
+
+  const storedFiles = await Promise.all(
+    files.map((file) => uploadBufferToBucket(
+      supabaseBuckets.aiSourceFiles,
+      file,
+      `teachers/${teacherId}/subjects/${subjectId}/ai-source-files`,
+    )),
+  )
+
+  return storedFiles.map((file) => ({
+    fileName: file.originalName,
+    storagePath: file.storagePath,
+    fileSize: file.fileSize,
+    contentType: file.contentType,
+    checksum: file.checksum,
+  }))
 }

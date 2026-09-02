@@ -19,6 +19,8 @@ export interface TeacherQuestionDto {
     status: 'PENDING' | 'APPROVED' | 'REJECTED'
     rejectionReason: string | null
     removedAt: string | null
+    removalReason: string | null
+    removedByName: string | null
   } | null
   createdAt: string
   archivedAt: string | null

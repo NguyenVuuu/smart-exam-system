@@ -1,6 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
-import { createCoursePost, deleteCoursePost, downloadCoursePostAttachment, getTeacherCourseDetail, pinCoursePost, updateCoursePost } from '../api/teacher-courses.api'
-import { toTeacherCourseDetail } from '../mappers/teacher-course.mapper'
+﻿import { useCallback, useEffect, useState } from 'react'
+import {
+  createCoursePost,
+  deleteCourseMaterial,
+  deleteCoursePost,
+  downloadCourseMaterial,
+  downloadCoursePostAttachment,
+  getTeacherCourseDetail,
+  pinCoursePost,
+  updateCoursePost,
+  uploadCourseMaterials,
+  type PostPayload,
+} from '../api/teacher-courses.api'
+import { toCourseMaterial, toTeacherCourseDetail } from '../mappers/teacher-course.mapper'
 import type { TeacherCourseDetail } from '../types/teacher-course.types'
 
 export function useTeacherCourseDetail(id?: string) {
@@ -9,23 +20,57 @@ export function useTeacherCourseDetail(id?: string) {
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!id) { setLoading(false); return }
+    if (!id) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
-    try { setData(toTeacherCourseDetail(await getTeacherCourseDetail(id))) }
-    catch { setData(null); setError('Không thể tải chi tiết lớp học phần.') }
-    finally { setLoading(false) }
+    try {
+      setData(toTeacherCourseDetail(await getTeacherCourseDetail(id)))
+    } catch {
+      setData(null)
+      setError('Không thể tải chi tiết lớp học phần.')
+    } finally {
+      setLoading(false)
+    }
   }, [id])
 
   useEffect(() => { void load() }, [load])
-  const mutatePost = async (operation: () => Promise<unknown>) => { await operation(); await load() }
+
+  const mutatePost = async (operation: () => Promise<unknown>) => {
+    await operation()
+    await load()
+  }
+
   return {
-    data, loading, error, retry: load,
-    createPost: (payload: { title: string; content: string; attachments?: File[] }) => mutatePost(() => createCoursePost(id!, payload)),
-    updatePost: (postId: string, payload: { title: string; content: string; attachments?: File[] }) => mutatePost(() => updateCoursePost(id!, postId, payload)),
+    data,
+    loading,
+    error,
+    retry: load,
+    createPost: (payload: PostPayload) => mutatePost(() => createCoursePost(id!, payload)),
+    updatePost: (postId: string, payload: PostPayload) => mutatePost(() => updateCoursePost(id!, postId, payload)),
     pinPost: (postId: string, pinned: boolean) => mutatePost(() => pinCoursePost(id!, postId, pinned)),
     deletePost: (postId: string) => mutatePost(() => deleteCoursePost(id!, postId)),
     downloadAttachment: (postId: string, attachmentId: string, fileName: string) =>
       downloadCoursePostAttachment(id!, postId, attachmentId, fileName),
+    downloadMaterial: (materialId: string, fileName: string) =>
+      downloadCourseMaterial(id!, materialId, fileName),
+    removeMaterial: (materialId: string) => deleteCourseMaterial(id!, materialId),
+    uploadMaterials: async (files: File[]) => {
+      if (!id || !data) return []
+      const uploaded = await uploadCourseMaterials(id, files)
+      const mapped = uploaded.map((material) => toCourseMaterial(material, {
+        id: data.course.id,
+        code: data.course.courseCode,
+        subject: {
+          id: data.course.subjectId,
+          code: data.course.subjectCode,
+          name: data.course.subjectName,
+        },
+      }))
+      return mapped
+    },
   }
 }

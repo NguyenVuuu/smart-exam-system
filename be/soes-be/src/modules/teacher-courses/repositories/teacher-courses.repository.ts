@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma'
+import type { Prisma } from '@prisma/client'
 import type { CourseCollectionQuery, TeacherCoursesQuery } from '../validators/teacher-courses.validator'
 
 export const teacherCourseInclude = {
@@ -157,4 +158,41 @@ export async function getCourseGradebook(
     orderBy: { attemptNo: 'desc' },
   }) : []
   return { total, enrollments, schedules, attempts }
+}
+export function findTeacherCourseScope(teacherId: string, courseOfferingId: string) {
+  return prisma.courseOffering.findFirst({
+    where: { id: courseOfferingId, teacherId },
+    select: { id: true, subjectId: true },
+  })
+}
+
+export function findCourseMaterialsByNames(courseOfferingId: string, fileNames: string[]) {
+  return prisma.material.findMany({
+    where: { courseOfferingId, fileName: { in: fileNames } },
+    select: { fileName: true },
+  })
+}
+
+export function createCourseMaterials(data: Prisma.MaterialUncheckedCreateInput[]) {
+  return prisma.$transaction(data.map((material) => prisma.material.create({ data: material })))
+}
+
+export function findTeacherCourseMaterial(teacherId: string, courseOfferingId: string, materialId: string) {
+  return prisma.material.findFirst({
+    where: { id: materialId, courseOfferingId, courseOffering: { teacherId } },
+    select: {
+      id: true,
+      fileName: true,
+      contentType: true,
+      storagePath: true,
+      storageProvider: true,
+    },
+  })
+}
+
+export function deleteCourseMaterial(materialId: string) {
+  return prisma.$transaction([
+    prisma.aIGenerationMaterial.deleteMany({ where: { materialId } }),
+    prisma.material.delete({ where: { id: materialId } }),
+  ])
 }

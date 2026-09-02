@@ -2,9 +2,12 @@ import { toPagination } from '../../../utils/pagination'
 import * as repo from '../repositories/teacher-courses.repository'
 import type { CourseCollectionQuery, TeacherCoursesQuery } from '../validators/teacher-courses.validator'
 import { toProctorAssignmentDto, toTeacherCourseDto } from '../mappers/teacher-course.mapper'
-import { NotFoundError } from '../../../errors/AppError'
+import { ConflictError, NotFoundError, ValidationError } from '../../../errors/AppError'
 import { toTeacherCourseDetailDto } from '../mappers/teacher-course.mapper'
 import { computeScheduleStatus } from '../../exam-schedules/mappers/exam-schedule.mapper'
+import { supabaseBuckets } from '../../../lib/supabase'
+import { downloadBufferFromBucket, removeObjectsFromBucket, uploadBufferToBucket } from '../../../services/storage.service'
+import { toCourseMaterialDto } from '../mappers/teacher-course.mapper'
 
 export async function list(teacherId: string, query: TeacherCoursesQuery) {
   const [[total, items], semesters] = await Promise.all([
@@ -86,4 +89,85 @@ export async function getGradebook(teacherId: string, courseOfferingId: string, 
     students,
     pagination: toPagination(query.page, query.pageSize, data.total),
   }
+}
+const materialTitle = (fileName: string) => fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || fileName
+
+export async function uploadMaterials(
+  teacherId: string,
+  courseOfferingId: string,
+  files: Express.Multer.File[],
+) {
+  if (!files.length) throw new ValidationError('At least one material file is required')
+
+  const course = await repo.findTeacherCourseScope(teacherId, courseOfferingId)
+  if (!course) throw new NotFoundError('Course offering not found')
+
+  const fileNames = files.map((file) => file.originalname.trim())
+  const uniqueNames = new Set(fileNames.map((fileName) => fileName.toLowerCase()))
+  if (uniqueNames.size !== fileNames.length) throw new ConflictError('Duplicated file names in upload request')
+
+  const existing = await repo.findCourseMaterialsByNames(courseOfferingId, fileNames)
+  if (existing.length) throw new ConflictError(`Material already exists: ${existing[0].fileName}`)
+
+  const storedFiles = await Promise.all(
+    files.map((file) => uploadBufferToBucket(
+      supabaseBuckets.courseMaterials,
+      file,
+      `course-offerings/${courseOfferingId}/materials`,
+    )),
+  )
+
+  try {
+    const materials = await repo.createCourseMaterials(storedFiles.map((file) => ({
+      title: materialTitle(file.originalName),
+      fileName: file.originalName,
+      objectName: file.objectName,
+      fileSize: file.fileSize,
+      contentType: file.contentType,
+      storagePath: file.storagePath,
+      checksum: file.checksum,
+      storageProvider: 'SUPABASE',
+      aiEnabled: false,
+      courseOfferingId,
+      uploaderId: teacherId,
+    })))
+
+    return materials.map(toCourseMaterialDto)
+  } catch (error) {
+    await removeObjectsFromBucket(
+      supabaseBuckets.courseMaterials,
+      storedFiles.map((f) => f.objectName),
+    ).catch(() => undefined)
+    throw error
+  }
+}
+
+async function requireCourseMaterial(teacherId: string, courseOfferingId: string, materialId: string) {
+  const material = await repo.findTeacherCourseMaterial(teacherId, courseOfferingId, materialId)
+  if (!material) throw new NotFoundError('Material not found')
+  return material
+}
+
+export async function downloadMaterial(teacherId: string, courseOfferingId: string, materialId: string) {
+  const material = await requireCourseMaterial(teacherId, courseOfferingId, materialId)
+  if (material.storageProvider !== 'SUPABASE') {
+    throw new NotFoundError('The stored file is not available for this local material')
+  }
+
+  return {
+    fileName: material.fileName,
+    contentType: material.contentType,
+    buffer: await downloadBufferFromBucket(supabaseBuckets.courseMaterials, material.storagePath),
+  }
+}
+
+export async function removeMaterial(teacherId: string, courseOfferingId: string, materialId: string) {
+  const material = await requireCourseMaterial(teacherId, courseOfferingId, materialId)
+
+  if (material.storageProvider === 'SUPABASE') {
+    await removeObjectsFromBucket(supabaseBuckets.courseMaterials, [material.storagePath])
+  }
+  await repo.deleteCourseMaterial(material.id)
+
+  return { id: material.id, removed: true }
 }

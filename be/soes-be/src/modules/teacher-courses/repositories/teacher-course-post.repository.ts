@@ -38,6 +38,19 @@ export const findAttachment = (teacherId: string, courseId: string, postId: stri
   prisma.postAttachment.findFirst({
     where: { id: attachmentId, postId, post: { courseOfferingId: courseId, courseOffering: { teacherId } } },
   })
+export const deleteAttachments = (postId: string, attachmentIds: string[]) => prisma.$transaction(async (tx) => {
+  const attachments = await tx.postAttachment.findMany({
+    where: { postId, id: { in: attachmentIds } },
+    select: { storagePath: true },
+  })
+  if (attachments.length) {
+    await tx.postAttachment.deleteMany({
+      where: { postId, id: { in: attachmentIds } },
+    })
+  }
+  return attachments
+})
+
 export const deletePost = (id: string) => prisma.$transaction(async (tx) => {
   const attachments = await tx.postAttachment.findMany({ where: { postId: id }, select: { storagePath: true } })
   await tx.postAttachment.deleteMany({ where: { postId: id } })

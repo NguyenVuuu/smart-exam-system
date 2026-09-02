@@ -85,7 +85,6 @@ export default function QuestionBankToolbar({
               { value: 'PENDING_REVIEW', label: 'Chờ duyệt' },
               { value: 'PRIVATE', label: 'Cá nhân' },
               { value: 'REJECTED', label: 'Bị từ chối' },
-              { value: 'REMOVED', label: 'Đã gỡ khỏi chung' },
               { value: 'ARCHIVED', label: 'Đã lưu trữ' },
             ]}
           />

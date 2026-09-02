@@ -1,5 +1,6 @@
 import { Check, Code, Eye, EyeOff, X } from 'lucide-react'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../constants/programmingLanguages'
+import HtmlContent from '../../../../components/common/HtmlContent'
 import type { Question, QuestionType } from '../../types/teacher-question-bank.types'
 
 interface QuestionDetailModalProps {
@@ -13,6 +14,22 @@ const questionTypeLabel: Record<QuestionType, string> = {
   MULTIPLE_CHOICE: 'Trắc nghiệm nhiều đáp án',
   TRUE_FALSE: 'Đúng / Sai',
   PROGRAMMING: 'Lập trình (Code)',
+}
+
+const vietnameseDateTime = new Intl.DateTimeFormat('vi-VN', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Ho_Chi_Minh',
+})
+
+function formatVietnameseDateTime(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : vietnameseDateTime.format(date)
 }
 
 export default function QuestionDetailModal({
@@ -65,9 +82,9 @@ export default function QuestionDetailModal({
               <span className="text-xs font-bold uppercase text-gray-400 tracking-wider block mb-1">
                 Mô tả bài toán
               </span>
-              <p className="whitespace-pre-wrap text-sm font-medium text-gray-900 leading-7 bg-gray-50/70 p-4 rounded-xl border border-gray-100">
-                {question.content}
-              </p>
+              <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-100 text-sm font-medium text-gray-900">
+                <HtmlContent content={question.content} />
+              </div>
             </div>
           )}
 
@@ -166,7 +183,7 @@ export default function QuestionDetailModal({
             </div>
           )}
 
-          {question.reviewStatus === 'REMOVED' && (
+          {question.removedAt && (
             <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl space-y-1">
               <span className="font-bold text-gray-800 block text-xs">
                 Trạng thái ngân hàng chung:
@@ -174,7 +191,7 @@ export default function QuestionDetailModal({
               <p className="text-gray-700 leading-relaxed">
                 Câu hỏi đã được gỡ khỏi ngân hàng chung
                 {question.removedByName ? ` bởi ${question.removedByName}` : ''}
-                {question.removedAt ? ` vào ${question.removedAt}` : ''}.
+                {question.removedAt ? ` vào ${formatVietnameseDateTime(question.removedAt)}` : ''}.
               </p>
               {question.removalReason && (
                 <p className="text-gray-500 leading-relaxed">Lý do: {question.removalReason}</p>

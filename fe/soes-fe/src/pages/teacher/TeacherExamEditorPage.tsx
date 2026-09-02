@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowLeft,
   Check,
   CheckCircle2,
@@ -514,6 +514,7 @@ export default function TeacherExamEditorPage() {
         onClose={() => setIsAiPdfOpen(false)}
         onApprovedAdd={addQuestions}
         examType={examType}
+        subjectId={selectedSubjectId}
       />
 
       <QuestionEditorModal
