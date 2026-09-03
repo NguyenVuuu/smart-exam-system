@@ -107,6 +107,7 @@ export interface RunCodeResponse {
     totalCount: number
     message: string
   }
+  hiddenTestCaseCount: number
   testCases: RunCodeTestCase[]
 }
 

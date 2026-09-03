@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronDown, LockKeyhole, XCircle } from 'lucide-react'
 import type { RunCodeResponse } from '../../../api/student-take-exam.api'
 
 interface CodeRunResultProps {
@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function CodeRunResult({ result }: CodeRunResultProps) {
   const isCompileError = result.compilationStatus === 'COMPILE_ERROR'
   const isAllPassed = result.summary.totalCount > 0 && result.summary.passedCount === result.summary.totalCount
+  const hiddenTestCaseCount = result.hiddenTestCaseCount ?? Math.max(0, result.summary.totalCount - result.testCases.length)
 
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
@@ -94,6 +95,17 @@ export default function CodeRunResult({ result }: CodeRunResultProps) {
               </li>
             )
           })}
+          {hiddenTestCaseCount > 0 && (
+            <li className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center">
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-600">
+                <LockKeyhole size={14} className="text-amber-500" aria-hidden="true" />
+                <span>{hiddenTestCaseCount} test ẩn</span>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">
+                Input, kỳ vọng và kết quả đã được ẩn để đảm bảo tính công bằng
+              </p>
+            </li>
+          )}
         </ul>
       )}
     </div>
