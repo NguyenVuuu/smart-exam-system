@@ -1,7 +1,7 @@
 import { Check, Code, Eye, EyeOff, X } from 'lucide-react'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../constants/programmingLanguages'
 import HtmlContent from '../../../../components/common/HtmlContent'
-import type { Question, QuestionType } from '../../types/teacher-question-bank.types'
+import type { DifficultyLevel, Question, QuestionType } from '../../types/teacher-question-bank.types'
 
 interface QuestionDetailModalProps {
   isOpen: boolean
@@ -14,6 +14,18 @@ const questionTypeLabel: Record<QuestionType, string> = {
   MULTIPLE_CHOICE: 'Trắc nghiệm nhiều đáp án',
   TRUE_FALSE: 'Đúng / Sai',
   PROGRAMMING: 'Lập trình (Code)',
+}
+
+const difficultyLabel: Record<DifficultyLevel, string> = {
+  EASY: 'Dễ',
+  MEDIUM: 'Trung bình',
+  HARD: 'Khó',
+}
+
+const difficultyTone: Record<DifficultyLevel, string> = {
+  EASY: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  MEDIUM: 'border-amber-200 bg-amber-50 text-amber-700',
+  HARD: 'border-rose-200 bg-rose-50 text-rose-700',
 }
 
 const vietnameseDateTime = new Intl.DateTimeFormat('vi-VN', {
@@ -49,16 +61,8 @@ export default function QuestionDetailModal({
               <span className="px-2.5 py-1 text-xs font-semibold bg-blue-50 text-blue-700 rounded-lg">
                 {question.subjectName || 'Chưa gán môn học'}
               </span>
-              <span
-                className={`px-2.5 py-0.5 text-xs font-bold rounded-full uppercase ${
-                  question.difficulty === 'EASY'
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : question.difficulty === 'MEDIUM'
-                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                    : 'bg-rose-50 text-rose-700 border border-rose-200'
-                }`}
-              >
-                {question.difficulty}
+              <span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${difficultyTone[question.difficulty]}`}>
+                {difficultyLabel[question.difficulty]}
               </span>
               <span className="px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-md">
                 {questionTypeLabel[question.type]}

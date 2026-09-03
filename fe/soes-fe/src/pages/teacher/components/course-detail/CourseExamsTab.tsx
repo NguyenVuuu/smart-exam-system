@@ -44,7 +44,7 @@ export default function CourseExamsTab({ courseOfferingId, exams, pagination, on
                 {exam.title}
               </h4>
               <p className="mt-1 text-xs text-gray-500">
-                {new Date(exam.startTime).toLocaleString('vi-VN')} • {exam.totalPoints} điểm
+                {exam.startTime ? new Date(exam.startTime).toLocaleString('vi-VN') : 'Chưa xếp lịch'} • {exam.totalPoints ?? 0} điểm
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -72,6 +72,7 @@ export default function CourseExamsTab({ courseOfferingId, exams, pagination, on
 }
 
 function canReviewSubmissions(exam: CourseExamSchedule) {
+  if (!exam) return false
   return exam.status === 'CLOSED'
-    || (!['DRAFT', 'CANCELLED'].includes(exam.status) && new Date(exam.endTime).getTime() <= Date.now())
+    || (!['DRAFT', 'CANCELLED'].includes(exam.status) && Boolean(exam.endTime) && new Date(exam.endTime).getTime() <= Date.now())
 }

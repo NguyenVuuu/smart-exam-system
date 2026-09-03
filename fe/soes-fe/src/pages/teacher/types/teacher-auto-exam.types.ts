@@ -1,3 +1,5 @@
+import type { TeacherExamDetailDto } from './teacher-exam-api.types'
+
 export interface GeneratedExamDraft {
   id: string
   easyCount: number
@@ -6,7 +8,8 @@ export interface GeneratedExamDraft {
   totalPoints: number
   questionPoints: number[]
   questionIds: string[]
+  exam: TeacherExamDetailDto
 }
 
 export type AutoExamPickMode = 'AUTO' | 'MANUAL'
-export type AutoExamDraftStatus = 'NOT_GENERATED' | 'GENERATED' | 'SAVED_DRAFT'
+export type AutoExamDraftStatus = 'NOT_GENERATED' | 'SAVED_DRAFT'

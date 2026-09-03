@@ -357,6 +357,7 @@ model AIGenerationHistory {
   sourceFilePath   String?
   sourceFileSize   Int?
   sourceMimeType   String?
+  sourceFiles      Json?
   questionCount    Int
   status           AIGenerationStatus     @default(PENDING)
   errorMessage     String?
