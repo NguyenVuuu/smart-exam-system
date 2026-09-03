@@ -197,8 +197,8 @@ POST /api/student/exam-schedules/:scheduleId/start
 | `{{studentToken}}` | Valid Student JWT access token |
 | `{{scheduleId}}` | ID of the target exam schedule |
 | `{{scheduleId_notFound}}` | A scheduleId that does not exist in DB |
-| `{{scheduleId_notPublished}}` | scheduleId of a DRAFT exam |
-| `{{scheduleId_nullPublishedAt}}` | scheduleId of a PUBLISHED exam where publishedAt = null |
+| `{{scheduleId_notPublished}}` | scheduleId của ExamSchedule chưa sẵn sàng cho student, ví dụ Exam.status = DRAFT/ARCHIVED |
+| `{{scheduleId_nullPublishedAt}}` | scheduleId của ExamSchedule có publishedAt = null |
 | `{{scheduleId_notStarted}}` | scheduleId of an exam where now < startTime |
 | `{{scheduleId_ended}}` | scheduleId of an exam where now >= endTime |
 | `{{scheduleId_alreadyAttempted}}` | scheduleId of an exam the student already attempted |
@@ -355,7 +355,7 @@ pm.test("success is false", () => {
 
 ---
 
-#### 4. Exam not published – status != PUBLISHED → 409
+#### 4. Exam not available – Exam.status not in READY/LOCKED → 409
 
 **Method:** `POST`
 **URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_notPublished}}/start`

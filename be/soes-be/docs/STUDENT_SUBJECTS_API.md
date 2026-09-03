@@ -84,7 +84,7 @@ Authorization: Bearer <accessToken>
 | `subjectName` | Tên môn học |
 | `teacherName` | Tên giảng viên phụ trách lớp |
 | `materialCount` | Số tài liệu đã tải lên trong lớp |
-| `examCount` | Số bài thi trong lớp |
+| `examCount` | Số bài thi trong lớp mà student được phép nhìn thấy |
 
 ### `pagination`
 
@@ -112,6 +112,7 @@ ID học kỳ đang được hiển thị. Là học kỳ được truyền qua 
 - Tìm kiếm `keyword` chỉ theo `subject.name`, không phân biệt hoa thường.
 - Kết quả sắp xếp A → Z theo tên môn học.
 - `semesterOptions` luôn trả về danh sách học kỳ thật — không hardcode.
+- `examCount` chỉ đếm ExamSchedule có `publishedAt != null`, `status in SCHEDULED/OPEN/CLOSED`, và Exam có `status in READY/LOCKED`.
 
 ---
 
