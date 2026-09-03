@@ -1,4 +1,4 @@
-# Student Take Exam API Contract
+﻿# Student Take Exam API Contract
 
 ExamAttempt
 - deadlineAt: authoritative deadline
@@ -10,13 +10,13 @@ remainingSeconds = max(0, floor((deadlineAt - now) / 1000))
 ## Overview
 
 Các API phục vụ chức năng sinh viên tham gia làm bài thi online:
-1. **Start Exam** (POST `/api/student/exams/:examId/start`): Khởi tạo bài thi
-2. **Get Exam Content** (GET `/api/student/exams/:examId/attempts/:attemptId`): Lấy nội dung bài thi
-3. **Save Answer** (PUT `/api/student/exams/:examId/attempts/:attemptId/answers`): Lưu câu trả lời
-4. **Submit Exam** (POST `/api/student/exams/:examId/attempts/:attemptId/submit`): Nộp bài
-5. **Get Attempt Status** (GET `/api/student/exams/:examId/attempts/:attemptId/status`): Xem trạng thái
-6. **Send Heartbeat** (POST `/api/student/exams/:examId/attempts/:attemptId/heartbeat`): Gửi heartbeat
-7. **Run Code** (POST `/api/student/exams/:examId/attempts/:attemptId/questions/:questionId/run`): Chạy code Programming
+1. **Start Exam** (POST `/api/student/exam-schedules/:scheduleId/start`): Khởi tạo bài thi
+2. **Get Exam Content** (GET `/api/student/exam-schedules/:scheduleId/attempts/:attemptId`): Lấy nội dung bài thi
+3. **Save Answer** (PUT `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/answers`): Lưu câu trả lời
+4. **Submit Exam** (POST `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/submit`): Nộp bài
+5. **Get Attempt Status** (GET `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/status`): Xem trạng thái
+6. **Send Heartbeat** (POST `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/heartbeat`): Gửi heartbeat
+7. **Run Code** (POST `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run`): Chạy code Programming
 
 ## Mục đích
 Cung cấp các API phục vụ chức năng sinh viên tham gia làm bài thi online.
@@ -30,7 +30,7 @@ Chức năng bao gồm:
 
 # Base URL
 ```
-/api/student/exams/:examId
+/api/student/exam-schedules/:scheduleId
 ```
 ---
 
@@ -38,7 +38,7 @@ Chức năng bao gồm:
 
 ## Endpoint
 ```
-POST /api/student/exams/:examId/start
+POST /api/student/exam-schedules/:scheduleId/start
 ```
 
 ## Mục đích
@@ -108,7 +108,7 @@ Khởi tạo một lần làm bài mới cho sinh viên.
 - Nếu Student đã có bất kỳ ExamAttempt nào cho Exam:
     → không tạo ExamAttempt mới.
     → trả 409.
-- Nếu Student đã tồn tại ExamAttempt cho Exam, bất kể trạng thái IN_PROGRESS, SUBMITTED, EXPIRED hoặc trạng thái kết thúc khác, hệ thống không tạo attempt mới và trả về 409.
+- Nếu Student đã tồn tại ExamAttempt cho Exam, bất kỳ trạng thái IN_PROGRESS, SUBMITTED, EXPIRED hoặc trạng thái kết thúc khác, hệ thống không tạo attempt mới và trả về 409.
 
 ## Business Rules
 
@@ -116,14 +116,14 @@ Khởi tạo một lần làm bài mới cho sinh viên.
 - Student chỉ được start Exam khi tất cả điều kiện sau đều thỏa mãn:
   1. Exam tồn tại.
   2. Exam thuộc một CourseOffering tồn tại.
-  3. Student thuộc CourseOffering của Exam.
-  4. Exam.status = PUBLISHED.
-  5. Exam.publishedAt != null.
-  6. Exam.startTime và Exam.endTime đều tồn tại.
-  7. startTime <= now < endTime.
-  8. Số attempt hiện tại của Student cho Exam chưa đạt maxAttempts.
-  9. Student không có active attempt cho Exam.
-  10. Nếu Exam.password != null, password trong request body phải khớp.
+  3. Student thuộc CourseOffering của ExamSchedule.
+  4. ExamSchedule.status in SCHEDULED/OPEN.
+  5. Exam.status in READY/LOCKED.
+  6. ExamSchedule.publishedAt != null.
+  7. schedule.startTime <= now < schedule.endTime, trừ trường hợp resume active attempt còn deadlineAt.
+  8. Số attempt hiện tại của Student cho schedule chưa đặt maxAttempts.
+  9. Nếu có active attempt và activeAttempt.deadlineAt > now thì trả về attempt đó để resume.
+  10. Nếu ExamSchedule.passwordHash != null, password trong request body phải khớp.
 - Khi start thành công:
   1. Tạo một ExamAttempt mới.
   2. Set `startedAt = now`.
@@ -186,7 +186,7 @@ Student starts at 11:50:
 ### Endpoint
 
 ```
-POST /api/student/exams/:examId/start
+POST /api/student/exam-schedules/:scheduleId/start
 ```
 
 ### Variables
@@ -195,15 +195,15 @@ POST /api/student/exams/:examId/start
 |----------|-------------|
 | `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
 | `{{studentToken}}` | Valid Student JWT access token |
-| `{{examId}}` | ID of the target exam |
-| `{{examId_notFound}}` | An examId that does not exist in DB |
-| `{{examId_notPublished}}` | examId of a DRAFT exam |
-| `{{examId_nullPublishedAt}}` | examId of a PUBLISHED exam where publishedAt = null |
-| `{{examId_notStarted}}` | examId of an exam where now < startTime |
-| `{{examId_ended}}` | examId of an exam where now >= endTime |
-| `{{examId_alreadyAttempted}}` | examId of an exam the student already attempted |
-| `{{examId_otherCourse}}` | examId of an exam the student is NOT enrolled in |
-| `{{examId_withPassword}}` | examId of an exam that requires a password |
+| `{{scheduleId}}` | ID of the target exam schedule |
+| `{{scheduleId_notFound}}` | A scheduleId that does not exist in DB |
+| `{{scheduleId_notPublished}}` | scheduleId of a DRAFT exam |
+| `{{scheduleId_nullPublishedAt}}` | scheduleId of a PUBLISHED exam where publishedAt = null |
+| `{{scheduleId_notStarted}}` | scheduleId of an exam where now < startTime |
+| `{{scheduleId_ended}}` | scheduleId of an exam where now >= endTime |
+| `{{scheduleId_alreadyAttempted}}` | scheduleId of an exam the student already attempted |
+| `{{scheduleId_otherCourse}}` | scheduleId of an exam the student is NOT enrolled in |
+| `{{scheduleId_withPassword}}` | scheduleId of an exam that requires a password |
 ---
 
 ### Test Cases
@@ -211,7 +211,7 @@ POST /api/student/exams/:examId/start
 #### 1. Success – Student đủ điều kiện → tạo ExamAttempt thành công
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/start`
 
 **Headers:**
 ```
@@ -296,7 +296,7 @@ pm.collectionVariables.set("attemptId", pm.response.json().data.attemptId);
 #### 2. Exam not found – examId không tồn tại → 404
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_notFound}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_notFound}}/start`
 
 **Headers:**
 ```
@@ -307,7 +307,7 @@ Authorization: Bearer {{studentToken}}
 ```json
 {
   "success": false,
-  "message": "Exam not found"
+  "message": "Exam schedule not found"
 }
 ```
 
@@ -327,7 +327,7 @@ pm.test("success is false", () => {
 #### 3. Student not enrolled – Student không thuộc CourseOffering → 404
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_otherCourse}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_otherCourse}}/start`
 
 **Headers:**
 ```
@@ -358,7 +358,7 @@ pm.test("success is false", () => {
 #### 4. Exam not published – status != PUBLISHED → 409
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_notPublished}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_notPublished}}/start`
 
 **Headers:**
 ```
@@ -389,7 +389,7 @@ pm.test("success is false", () => {
 #### 5. publishedAt null – publishedAt = null → 409
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_nullPublishedAt}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_nullPublishedAt}}/start`
 
 **Headers:**
 ```
@@ -419,7 +419,7 @@ pm.test("success is false", () => {
 #### 6. Before start time – now < startTime → 409
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_notStarted}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_notStarted}}/start`
 
 **Headers:**
 ```
@@ -449,7 +449,7 @@ pm.test("success is false", () => {
 #### 7. After end time – now >= endTime → 409
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_ended}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_ended}}/start`
 
 **Headers:**
 ```
@@ -482,7 +482,7 @@ pm.test("success is false", () => {
 **Pre-condition:** Call the Success test case (case 1) first to create an attempt.
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_alreadyAttempted}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_alreadyAttempted}}/start`
 
 **Headers:**
 ```
@@ -512,11 +512,11 @@ pm.test("success is false", () => {
 #### 9. Concurrent duplicate protection – không thể tạo duplicate attempt
 
 **Description:**
-Gửi hai request đồng thời với cùng `examId` + `studentId`.
-Request thứ hai phải bị từ chối với 409 — không được tạo duplicate `ExamAttempt` cho cùng `(examId, studentId, attemptNo)`.
+Gửi hai request đồng thời với cùng `scheduleId` + `studentId`.
+Request thứ hai phải bị từ chối với 409 — không được tạo duplicate `ExamAttempt` cho cùng `(scheduleId, studentId, attemptNo)`.
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/start` (2 requests simultaneously)
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/start` (2 requests simultaneously)
 
 **Headers:**
 ```
@@ -526,7 +526,7 @@ Authorization: Bearer {{studentToken}}
 **Expected Outcome:**
 - Chỉ một trong hai request trả về 200.
 - Request còn lại trả về 409.
-- Trong DB chỉ tồn tại đúng một `ExamAttempt` cho cặp `(examId, studentId)`.
+- Trong DB chỉ tồn tại đúng một `ExamAttempt` cho cặp `(scheduleId, studentId)`.
 
 **Postman Tests (on second call after first succeeds):**
 ```javascript
@@ -543,7 +543,7 @@ pm.test("success is false", () => {
 #### 10. Unauthorized – Không login → 401
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/start`
 
 **Headers:** *(No Authorization header)*
 
@@ -569,7 +569,7 @@ pm.test("success is false", () => {
 #### 11. Forbidden – Teacher gọi API → 403
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/start`
 
 **Headers:**
 ```
@@ -599,7 +599,7 @@ pm.test("success is false", () => {
 #### 12. Success with password – Exam có password đúng → 200
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_withPassword}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_withPassword}}/start`
 
 **Headers:**
 ```
@@ -638,7 +638,7 @@ pm.test("success is true", () => {
 #### 13. Wrong password – Exam có password sai → 403
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_withPassword}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_withPassword}}/start`
 
 **Headers:**
 ```
@@ -674,7 +674,7 @@ pm.test("message is 'Invalid exam password'", () => {
 #### 14. Missing password – Exam có password nhưng không gửi → 403
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId_withPassword}}/start`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId_withPassword}}/start`
 
 **Headers:**
 ```
@@ -730,7 +730,7 @@ pm.test("remainingSeconds equals floor((deadlineAt - startedAt) / 1000)", () => 
 
 ## Endpoint
 ```
-GET /api/student/exams/:examId/attempts/:attemptId
+GET /api/student/exam-schedules/:scheduleId/attempts/:attemptId
 ```
 
 ## Mục đích
@@ -844,7 +844,7 @@ Lấy nội dung bài thi để sinh viên làm bài.
 ## Business Rules
 - Chỉ Student được phép truy cập.
 - `attemptId` phải tồn tại.
-- `attemptId` phải thuộc `examId` được truyền trên URL.
+- `attemptId` phải thuộc `scheduleId` được truyền trên URL.
 - Attempt phải thuộc Student đang đăng nhập.
 - Student không được truy cập attempt của Student khác.
 - Danh sách câu hỏi phải được lấy từ `ExamAttemptQuestion` của attempt hiện tại.
@@ -891,7 +891,7 @@ Lấy nội dung bài thi để sinh viên làm bài.
 
 API 2 phụ thuộc vào API 1.
 
-1. Gọi `POST /api/student/exams/{{examId}}/start` trước để tạo attempt.
+1. Gọi `POST /api/student/exam-schedules/{{scheduleId}}/start` trước để tạo attempt.
 2. Lưu `data.attemptId` từ response vào collection variable `{{attemptId}}`.
 3. Dùng `{{attemptId}}` đó để gọi API 2.
 
@@ -901,7 +901,7 @@ pm.collectionVariables.set("attemptId", pm.response.json().data.attemptId);
 ```
 ### Endpoint
 ```
-GET /api/student/exams/:examId/attempts/:attemptId
+GET /api/student/exam-schedules/:scheduleId/attempts/:attemptId
 ```
 ### Variables
 | Variable | Description |
@@ -909,17 +909,17 @@ GET /api/student/exams/:examId/attempts/:attemptId
 | `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
 | `{{studentToken}}` | Valid Student JWT access token |
 | `{{teacherToken}}` | Valid Teacher JWT access token |
-| `{{examId}}` | ID of the exam used in API 1 |
+| `{{scheduleId}}` | ID of the exam schedule used in API 1 |
 | `{{attemptId}}` | `data.attemptId` saved from API 1 Success call |
 | `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
-| `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
+| `{{attemptId_wrongSchedule}}` | attemptId that belongs to a different scheduleId |
 | `{{attemptId_expired}}` | attemptId whose deadlineAt is in the past |
 ---
 ### Test Cases
 #### 1. Success – Lấy nội dung bài thi thành công
 **Pre-condition:** Call API 1 Start Exam first to get `{{attemptId}}`.
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -1081,7 +1081,7 @@ pm.test("remainingSeconds is not greater than durationMinutes * 60", () => {
 ---
 #### 5. Unauthorized – Không login → 401
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}`
 **Headers:** *(No Authorization header)*
 **Expected Response (401):**
 ```json
@@ -1104,7 +1104,7 @@ pm.test("success is false", () => {
 #### 6. Forbidden – Teacher gọi API → 403
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}`
 
 **Headers:**
 ```
@@ -1135,7 +1135,7 @@ pm.test("success is false", () => {
 #### 7. Attempt not found – attemptId không tồn tại → 404
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/non-existent-attempt-id`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/non-existent-attempt-id`
 
 **Headers:**
 ```
@@ -1168,7 +1168,7 @@ pm.test("success is false", () => {
 **Description:** Student A không được xem attempt của Student B. API trả 404 (không phải 403) để tránh leak thông tin.
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_otherStudent}}`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_otherStudent}}`
 
 **Headers:**
 ```
@@ -1196,12 +1196,12 @@ pm.test("success is false", () => {
 
 ---
 
-#### 9. Attempt does not belong to examId → 404
+#### 9. Attempt does not belong to scheduleId → 404
 
-**Description:** attemptId tồn tại nhưng thuộc một examId khác với URL.
+**Description:** attemptId tồn tại nhưng thuộc một scheduleId khác với URL.
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_wrongExam}}`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_wrongSchedule}}`
 
 **Headers:**
 ```
@@ -1234,7 +1234,7 @@ pm.test("success is false", () => {
 **Description:** `now >= deadlineAt` — Student không thể tiếp tục làm bài.
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_expired}}`
 
 **Headers:**
 ```
@@ -1352,7 +1352,7 @@ pm.test("Saved answer is restored in API 2 response", () => {
 
 ## Endpoint
 ```
-PUT /api/student/exams/:examId/attempts/:attemptId/answers
+PUT /api/student/exam-schedules/:scheduleId/attempts/:attemptId/answers
 ```
 ## Mục đích
 - Lưu hoặc cập nhật câu trả lời hiện tại của Student trong quá trình làm bài.
@@ -1373,7 +1373,7 @@ PUT /api/student/exams/:examId/attempts/:attemptId/answers
 ## Authorization
 - Role: STUDENT.
 - attemptId phải tồn tại.
-- attemptId phải thuộc examId trên URL.
+- attemptId phải thuộc scheduleId trên URL.
 - attempt.studentId phải bằng studentId của access token.
 - Student không được lưu answer vào attempt của Student khác.
 - Nếu attempt không tồn tại, không thuộc exam hoặc không thuộc Student hiện tại → trả 404.
@@ -1516,7 +1516,7 @@ Không được xử lý nó như optionId.
 
 - Chỉ Student được phép gọi API.
 - Student chỉ được save answer cho attempt của chính mình.
-- Attempt phải thuộc examId trên URL.
+- Attempt phải thuộc scheduleId trên URL.
 - Question phải thuộc Exam của attempt.
 - Question phải tồn tại trong ExamAttemptQuestion của attempt.
 - Không được save answer cho question nằm ngoài attempt.
@@ -1577,9 +1577,9 @@ Không được xử lý nó như optionId.
 ### Pre-condition
 API 3 phụ thuộc vào API 1 và API 2.
 
-1. Gọi `POST /api/student/exams/{{examId}}/start` để tạo attempt.
+1. Gọi `POST /api/student/exam-schedules/{{scheduleId}}/start` để tạo attempt.
 2. Lưu `data.attemptId` từ response vào collection variable `{{attemptId}}`.
-3. Gọi `GET /api/student/exams/{{examId}}/attempts/{{attemptId}}` để lấy nội dung bài thi.
+3. Gọi `GET /api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}` để lấy nội dung bài thi.
 4. Lưu `data.questions[0].id` của câu hỏi đầu tiên vào `{{questionId}}`.
 5. Dùng `{{attemptId}}` và `{{questionId}}` để gọi API 3.
 
@@ -1594,7 +1594,7 @@ if (questions.length > 0) {
 ### Endpoint
 
 ```
-PUT /api/student/exams/:examId/attempts/:attemptId/answers
+PUT /api/student/exam-schedules/:scheduleId/attempts/:attemptId/answers
 ```
 
 ### Variables
@@ -1604,14 +1604,14 @@ PUT /api/student/exams/:examId/attempts/:attemptId/answers
 | `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
 | `{{studentToken}}` | Valid Student JWT access token |
 | `{{teacherToken}}` | Valid Teacher JWT access token |
-| `{{examId}}` | ID of the exam used in API 1 |
+| `{{scheduleId}}` | ID of the exam schedule used in API 1 |
 | `{{attemptId}}` | `data.attemptId` saved from API 1 Success call |
 | `{{questionId}}` | `questions[0].id` saved from API 2 call |
 | `{{questionId_other}}` | questionId that belongs to another exam |
 | `{{optionId}}` | A valid option ID for the question |
 | `{{optionId_wrong}}` | An option ID that belongs to a different question |
 | `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
-| `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
+| `{{attemptId_wrongSchedule}}` | attemptId that belongs to a different scheduleId |
 | `{{attemptId_expired}}` | attemptId whose deadlineAt is in the past |
 | `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
 
@@ -1624,7 +1624,7 @@ PUT /api/student/exams/:examId/attempts/:attemptId/answers
 **Pre-condition:** Call API 1 and API 2 first. Use a SINGLE_CHOICE question.
 
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 
 **Headers:**
 ```
@@ -1688,7 +1688,7 @@ pm.collectionVariables.set("remainingSeconds", body.remainingSeconds);
 **Pre-condition:** Call API 1 and API 2 first. Use a MULTIPLE_CHOICE question.
 
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 
 **Headers:**
 ```
@@ -1734,7 +1734,7 @@ pm.test("success is true", () => {
 **Pre-condition:** Call API 1 and API 2 first. Use a PROGRAMMING question.
 
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 
 **Headers:**
 ```
@@ -1776,7 +1776,7 @@ pm.test("success is true", () => {
 #### 4. Success Update – Cập nhật answer đã tồn tại
 **Pre-condition:** Call the Success SINGLE_CHOICE test case first.
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -1812,7 +1812,7 @@ pm.test("success is true", () => {
 ---
 #### 5. Unauthorized – Không login → 401
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 *(No Authorization header)*
 **Expected Response (401):**
@@ -1834,7 +1834,7 @@ pm.test("success is false", () => {
 ---
 #### 6. Forbidden – Teacher gọi API → 403
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{teacherToken}}
@@ -1866,7 +1866,7 @@ pm.test("success is false", () => {
 ---
 #### 7. Attempt not found – attemptId không tồn tại → 404
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/non-existent-attempt-id/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/non-existent-attempt-id/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -1899,7 +1899,7 @@ pm.test("success is false", () => {
 #### 8. Attempt belongs to another student → 404
 **Description:** Student A không được save answer cho attempt của Student B.
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_otherStudent}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_otherStudent}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -1929,9 +1929,9 @@ pm.test("success is false", () => {
 });
 ```
 ---
-#### 9. Attempt does not belong to examId → 404
+#### 9. Attempt does not belong to scheduleId → 404
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_wrongExam}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_wrongSchedule}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -1964,7 +1964,7 @@ pm.test("success is false", () => {
 #### 10. Question not in attempt → 404
 **Description:** questionId không tồn tại trong ExamAttemptQuestion của attempt.
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -1997,7 +1997,7 @@ pm.test("success is false", () => {
 #### 11. Option from another question → 409
 **Description:** Student đang làm Q1 nhưng gửi option của Q2.
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -2029,7 +2029,7 @@ pm.test("success is false", () => {
 ---
 #### 12. MULTIPLE_CHOICE duplicate options → 409
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -2062,7 +2062,7 @@ pm.test("success is false", () => {
 #### 13. Invalid answer type → 400
 **Description:** Gửi string cho MULTIPLE_CHOICE hoặc array cho SINGLE_CHOICE.
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -2095,7 +2095,7 @@ pm.test("success is false", () => {
 #### 14. Attempt SUBMITTED → 409
 **Pre-condition:** Create an attempt and submit it (if API 4 is implemented).
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_submitted}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_submitted}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -2131,7 +2131,7 @@ pm.test("message indicates attempt ended", () => {
 #### 15. remainingSeconds is realtime
 **Description:** remainingSeconds phải được tính từ `deadlineAt` và `now`.
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -2152,7 +2152,7 @@ const firstRemaining = pm.collectionVariables.get("remainingSeconds");
 setTimeout(function() {
   pm.sendRequest({
     method: 'PUT',
-    url: '{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers',
+    url: '{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers',
     header: {
       'Authorization': 'Bearer {{studentToken}}',
       'Content-Type': 'application/json'
@@ -2177,7 +2177,7 @@ setTimeout(function() {
 ---
 #### 16. QuestionId validation – invalid UUID → 400
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -2209,7 +2209,7 @@ pm.test("success is false", () => {
 ---
 #### 17. Attempt expired – deadlineAt đã qua → 409
 **Method:** `PUT`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}/answers`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_expired}}/answers`
 **Headers:**
 ```
 Authorization: Bearer {{studentToken}}
@@ -2246,7 +2246,7 @@ pm.test("success is false", () => {
 
 ## Endpoint
 
-POST /api/student/exams/:examId/attempts/:attemptId/submit
+POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/submit
 
 ## Mục đích
 Cho phép Student nộp bài thi.
@@ -2263,7 +2263,7 @@ API không thực hiện grading và không tạo ProgrammingSubmission.
 
 - Role: STUDENT.
 - attemptId phải tồn tại.
-- attemptId phải thuộc examId trên URL.
+- attemptId phải thuộc scheduleId trên URL.
 - attempt.studentId phải bằng studentId của access token.
 - Student không được submit attempt của Student khác.
 - Nếu attempt không tồn tại, không thuộc exam hoặc không thuộc Student hiện tại → 404.
@@ -2303,20 +2303,19 @@ HTTP 200
 ## Business Rules
 
 ### 1. Status transition
-Chỉ cho phép submit khi: ExamAttempt.status = IN_PROGRESS
-Nếu submit thành công: IN_PROGRESS → SUBMITTED
-Khi submit thành công:
-- status = SUBMITTED
-- submittedAt = server current time
-- endedBy = STUDENT
-- Không thay đổi deadlineAt.
-- Không thay đổi remainingSeconds.
-- Không thay đổi các StudentAnswer.
+Chi cho phep submit khi ExamAttempt.status = IN_PROGRESS va now < deadlineAt.
+Khi submit thanh cong:
+- He thong atomically chuyen IN_PROGRESS -> SUBMITTED, set submittedAt = server current time, endedBy = STUDENT.
+- Sau do backend thuc hien grading dong bo trong cung request submit.
+- Sau grading, status co the chuyen tiep ngay sang GRADING hoac GRADED tuy theo ket qua cham.
+- Vi vay FE khong nen gia dinh status se dung lau o SUBMITTED sau khi API 4 tra 200.
+- Khong thay doi deadlineAt.
+- Khong thay doi cac StudentAnswer truoc khi cham.
 ### 2. Deadline
 deadlineAt là authoritative deadline duy nhất.
 API không được tính lại hoặc cập nhật deadlineAt.
 Nếu status = IN_PROGRESS nhưng now >= deadlineAt, API không cho phép manual submit và trả HTTP 409 với message "Exam attempt has ended". Việc chuyển trạng thái IN_PROGRESS → EXPIRED được xử lý bởi cơ chế timeout riêng của hệ thống (nếu có).
-Tại thời điểm submit: 
+Tại thời điểm submit:
 - if now < deadlineAt:cho phép submit.
 - if now >= deadlineAt:
     không cho phép manual submit.
@@ -2329,11 +2328,11 @@ Response:
   "message": "Exam attempt has ended"
 }
 ```
-### 3. Attempt đã SUBMITTED
-Nếu attempt.status = SUBMITTED:
-- Không submit lại.
-- Không thay đổi submittedAt.
-- Trả HTTP 409.
+### 3. Attempt da submitted/graded
+Neu attempt.status thuoc SUBMITTED, GRADING, GRADED hoac PUBLISHED:
+- Khong submit lai.
+- Khong thay doi submittedAt.
+- Tra HTTP 409.
 Message:"Exam attempt has already been submitted"
 ### 4. Attempt đã EXPIRED
 Nếu attempt.status = EXPIRED:
@@ -2345,15 +2344,11 @@ Message:"Exam attempt has ended"
 - Các câu hỏi chưa có StudentAnswer được xem là unanswered.
 - API không tự tạo StudentAnswer cho các câu chưa trả lời.
 ### 6. Grading
-- API 4 không thực hiện grading.
-- API 4 không tạo ProgrammingSubmission.
-- API 4 chỉ kết thúc ExamAttempt.
-- Nếu now >= deadlineAt và attempt vẫn đang IN_PROGRESS, API không cho phép manual submit và trả HTTP 409. 
-- Nếu status = IN_PROGRESS nhưng now >= deadlineAt:
-  - Không cho phép manual submit.
-  - Trả HTTP 409.
-  - Message: "Exam attempt has ended".
-- Việc chuyển:IN_PROGRESS → EXPIRED với: endedBy = TIMEOUT được xử lý bởi cơ chế expiry/timeout riêng của hệ thống (nếu có).
+- API 4 thuc hien grading dong bo sau khi transition submit thanh cong.
+- BAI lap trinh: he thong tao ProgrammingSubmission chinh thuc tu draftSourceCode hien tai va cham bang Judge0/test cases.
+- BAI trac nghiem: he thong cham tu dong theo dap an dung.
+- Sau grading, ExamAttempt.status co the la GRADED neu cham xong hoan toan, hoac GRADING neu con phan can xu ly/cham tiep.
+- Neu now >= deadlineAt va attempt van IN_PROGRESS, he thong xu ly nhu het gio/auto-submit theo co che timeout hien tai.
 ### 7. submittedAt
 - submittedAt phải được tạo bởi server.
 - Client không được truyền submittedAt.
@@ -2370,9 +2365,9 @@ Message:"Exam attempt has ended"
 - Nếu attempt không thuộc Student hiện tại:
   + HTTP 404, Message:"Attempt not found"
 ### 10. Exam ownership
-- attemptId phải thuộc examId trên URL.
+- attemptId phải thuộc scheduleId trên URL.
 - Không được chỉ kiểm tra attemptId tồn tại.
-- Phải kiểm tra: attempt.examId = examId
+- Phải kiểm tra: attempt.examScheduleId = scheduleId
 - Nếu không:HTTP 404, Message: "Attempt not found"
 
 ---
@@ -2381,21 +2376,21 @@ Message:"Exam attempt has ended"
 
 ### Pre-condition
 API 4 phụ thuộc vào API 1 (cần tạo attempt trước).
-1. Gọi `POST /api/student/exams/{{examId}}/start` để tạo attempt.
+1. Gọi `POST /api/student/exam-schedules/{{scheduleId}}/start` để tạo attempt.
 2. Lưu `data.attemptId` từ response vào collection variable `{{attemptId}}`.
 3. Dùng `{{attemptId}}` để gọi API 4.
 ### Endpoint
-POST /api/student/exams/:examId/attempts/:attemptId/submit
+POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/submit
 ### Variables
 | Variable | Description |
 |----------|-------------|
 | `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
 | `{{studentToken}}` | Valid Student JWT access token |
 | `{{teacherToken}}` | Valid Teacher JWT access token |
-| `{{examId}}` | ID of the exam used in API 1 |
+| `{{scheduleId}}` | ID of the exam schedule used in API 1 |
 | `{{attemptId}}` | `data.attemptId` saved from API 1 Success call |
 | `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
-| `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
+| `{{attemptId_wrongSchedule}}` | attemptId that belongs to a different scheduleId |
 | `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
 | `{{attemptId_expired}}` | attemptId with status EXPIRED |
 | `{{attemptId_deadlinePassed}}` | attemptId (IN_PROGRESS) whose deadlineAt is in the past |
@@ -2409,7 +2404,7 @@ POST /api/student/exams/:examId/attempts/:attemptId/submit
 **Pre-condition:** Call API 1 first to get `{{attemptId}}` with a valid IN_PROGRESS attempt.
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/submit`
 
 **Headers:**
 ```
@@ -2470,7 +2465,7 @@ pm.collectionVariables.set("submittedAt", body.submittedAt);
 #### 2. Unauthorized – Không login → 401
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/submit`
 
 **Headers:** *(No Authorization header)*
 
@@ -2498,7 +2493,7 @@ pm.test("success is false", () => {
 #### 3. Forbidden – Teacher gọi API → 403
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/submit`
 
 **Headers:**
 ```
@@ -2529,7 +2524,7 @@ pm.test("success is false", () => {
 #### 4. Attempt not found – attemptId không tồn tại → 404
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/non-existent-attempt-id/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/non-existent-attempt-id/submit`
 
 **Headers:**
 ```
@@ -2566,7 +2561,7 @@ pm.test("message is 'Attempt not found'", () => {
 **Description:** Student A không được submit attempt của Student B. API trả 404 (không phải 403) để tránh leak thông tin existence.
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_otherStudent}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_otherStudent}}/submit`
 
 **Headers:**
 ```
@@ -2598,12 +2593,12 @@ pm.test("message is 'Attempt not found'", () => {
 
 ---
 
-#### 6. Wrong exam – attempt thuộc examId khác → 404
+#### 6. Wrong schedule – attempt thuộc scheduleId khác → 404
 
-**Description:** attemptId tồn tại nhưng thuộc một examId khác với URL.
+**Description:** attemptId tồn tại nhưng thuộc một scheduleId khác với URL.
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_wrongExam}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_wrongSchedule}}/submit`
 
 **Headers:**
 ```
@@ -2640,7 +2635,7 @@ pm.test("message is 'Attempt not found'", () => {
 **Pre-condition:** Call the Success test case (case 1) first to submit the attempt.
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_submitted}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_submitted}}/submit`
 
 **Headers:**
 ```
@@ -2675,7 +2670,7 @@ pm.test("message is 'Exam attempt has already been submitted'", () => {
 #### 8. Expired – status = EXPIRED → 409
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_expired}}/submit`
 
 **Headers:**
 ```
@@ -2712,7 +2707,7 @@ pm.test("message is 'Exam attempt has ended'", () => {
 **Description:** Attempt vẫn IN_PROGRESS nhưng deadlineAt đã qua — không được manual submit.
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_deadlinePassed}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_deadlinePassed}}/submit`
 
 **Headers:**
 ```
@@ -2751,7 +2746,7 @@ pm.test("message is 'Exam attempt has ended'", () => {
 **Pre-condition:** Use a fresh attempt that has no StudentAnswer records (no calls to API 3 beforehand).
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/submit`
 
 **Headers:**
 ```
@@ -2841,7 +2836,7 @@ pm.test("data.attemptId is a non-empty string", () => {
 **Step 1 – First submit (should succeed):**
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/submit`
 
 **Headers:**
 ```
@@ -2865,7 +2860,7 @@ pm.collectionVariables.set("firstSubmittedAt", pm.response.json().data.submitted
 **Step 2 – Second submit on same attempt (should fail):**
 
 **Method:** `POST`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/submit`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/submit`
 
 **Headers:**
 ```
@@ -2891,7 +2886,7 @@ pm.test("message is 'Exam attempt has already been submitted'", () => {
 
 ## Endpoint
 ```
-GET /api/student/exams/:examId/attempts/:attemptId/status
+GET /api/student/exam-schedules/:scheduleId/attempts/:attemptId/status
 ```
 
 ## Mục đích
@@ -2913,7 +2908,7 @@ Lấy trạng thái hiện tại của ExamAttempt để:
 
 - Role: STUDENT.
 - attemptId phải tồn tại.
-- attemptId phải thuộc examId trên URL.
+- attemptId phải thuộc scheduleId trên URL.
 - attempt.studentId phải bằng studentId của access token.
 
 ## Response
@@ -2943,7 +2938,7 @@ Lấy trạng thái hiện tại của ExamAttempt để:
 | Field | Description |
 |-------|------|
 | `attemptId` | ID lần làm bài |
-| `status` | Trạng thái bài làm(IN_PROGRESS, SUBMITTED, EXPIRED) |
+| `status` | Trang thai bai lam hien tai trong DB: IN_PROGRESS, SUBMITTED, AUTO_SUBMITTED, GRADING, GRADED, PUBLISHED, INVALIDATED. |
 | `startedAt` | Thời điểm bắt đầu làm bài (ISO 8601) |
 | `deadlineAt` | Authoritative deadline — không đổi sau khi tạo attempt |
 | `submittedAt` | Thời điểm nộp bài. null nếu chưa nộp |
@@ -2969,25 +2964,20 @@ Lấy trạng thái hiện tại của ExamAttempt để:
 ### 1. Attempt ownership
 - Student chỉ được xem status của attempt thuộc chính mình.
 - attemptId phải tồn tại.
-- attemptId phải thuộc examId trên URL.
+- attemptId phải thuộc scheduleId trên URL.
 - attempt.studentId phải bằng studentId từ access token.
 - Nếu attempt không tồn tại, không thuộc exam hoặc không thuộc Student hiện tại:
   - HTTP 404
   - Message: "Attempt not found"
 ### 2. Status
-- API trả về ExamAttempt.status hiện tại được lưu trong database.
-- API không tự động thay đổi ExamAttempt.status.
-- API không thực hiện:
-  - IN_PROGRESS → SUBMITTED
-  - IN_PROGRESS → EXPIRED
-- Việc chuyển IN_PROGRESS → SUBMITTED được thực hiện bởi API Submit Exam.
-- Việc chuyển IN_PROGRESS → EXPIRED do cơ chế timeout/expiry riêng của hệ thống xử lý.
-- Nếu `status = IN_PROGRESS` nhưng `now >= deadlineAt` và cơ chế expiry chưa kịp cập nhật status, API 5 vẫn trả `status = IN_PROGRESS` và `remainingSeconds = 0`.
-- API 5 không tự chuyển status.
+- API tra ve ExamAttempt.status hien tai duoc luu trong database.
+- API Submit Exam chuyen IN_PROGRESS -> SUBMITTED, sau do grading dong bo co the chuyen tiep sang GRADING hoac GRADED ngay trong cung request.
+- Neu status = IN_PROGRESS nhung now >= deadlineAt, API 5 se kich hoat auto-submit hien tai, sau do tra status moi neu cap nhat thanh cong.
+- FE nen xem SUBMITTED, AUTO_SUBMITTED, GRADING, GRADED, PUBLISHED, INVALIDATED la cac trang thai khong con duoc tiep tuc lam bai.
 ### 3. remainingSeconds
 - Nếu status = IN_PROGRESS:remainingSeconds=max(0, floor((deadlineAt - now) / 1000))
-- Nếu status = SUBMITTED:  remainingSeconds = 0
-- Nếu status = EXPIRED:  remainingSeconds = 0
+- Neu status khac IN_PROGRESS: remainingSeconds = 0
+- DeadlineAt van la authoritative deadline; remainingSeconds chi phuc vu UI/countdown.
     + remainingSeconds = 0 khi attempt đã kết thúc,
     + bất kể deadlineAt vẫn còn thời gian.
     + `remainingSeconds` chỉ là giá trị phục vụ UI/countdown.
@@ -2996,14 +2986,14 @@ Lấy trạng thái hiện tại của ExamAttempt để:
 - Không sử dụng remainingSeconds được lưu tại thời điểm start.
 - API không cập nhật deadlineAt.
 - API không lưu remainingSeconds vào database.
-- API không thay đổi ExamAttempt.status.
+- API 5 chi co the cap nhat ExamAttempt.status trong truong hop auto-submit attempt IN_PROGRESS da qua deadlineAt; ngoai truong hop do khong doi status.
 ### 4. Completed attempts
-- Attempt có status SUBMITTED vẫn được phép gọi API 5.
-- Attempt có status EXPIRED vẫn được phép gọi API 5.
+- Attempt co status SUBMITTED, AUTO_SUBMITTED, GRADING, GRADED, PUBLISHED, INVALIDATED van duoc phep goi API 5.
+- API 5 tra HTTP 200 cho cac trang thai attempt hop le sau khi validate ownership.
 - API trả HTTP 200 cho các trạng thái hợp lệ của attempt.
-- API 5 không trả HTTP 409 chỉ vì attempt đã SUBMITTED hoặc EXPIRED.
+- API 5 khong tra HTTP 409 chi vi attempt da nop/cham xong/ket thuc.
 ### 5. Read-only
-API 5 chỉ đọc dữ liệu.
+API 5 khong cap nhat StudentAnswer/ExamSession. Rieng attempt IN_PROGRESS da qua deadlineAt co the duoc auto-submit de dong bo timeout.
 Không được:
 - tạo StudentAnswer
 - cập nhật StudentAnswer
@@ -3038,14 +3028,14 @@ Không được:
 
 API 5 phụ thuộc vào API 1 (cần tạo attempt trước).
 
-1. Gọi `POST /api/student/exams/{{examId}}/start` để tạo attempt.
+1. Gọi `POST /api/student/exam-schedules/{{scheduleId}}/start` để tạo attempt.
 2. Lưu `data.attemptId` từ response vào collection variable `{{attemptId}}`.
 3. Dùng `{{attemptId}}` để gọi API 5.
 
 ### Endpoint
 
 ```
-GET /api/student/exams/:examId/attempts/:attemptId/status
+GET /api/student/exam-schedules/:scheduleId/attempts/:attemptId/status
 ```
 
 ### Variables
@@ -3055,13 +3045,13 @@ GET /api/student/exams/:examId/attempts/:attemptId/status
 | `{{baseUrl}}` | Base URL, e.g. `http://localhost:3000` |
 | `{{studentToken}}` | Valid Student JWT access token |
 | `{{teacherToken}}` | Valid Teacher JWT access token |
-| `{{examId}}` | ID of the exam used in API 1 |
+| `{{scheduleId}}` | ID of the exam schedule used in API 1 |
 | `{{attemptId}}` | `data.attemptId` saved from API 1 Success call (IN_PROGRESS, còn thời gian) |
 | `{{attemptId_inprogress_overtime}}` | attemptId IN_PROGRESS but deadlineAt has passed (DB status not yet EXPIRED) |
 | `{{attemptId_submitted}}` | attemptId with status SUBMITTED |
 | `{{attemptId_expired}}` | attemptId with status EXPIRED |
 | `{{attemptId_otherStudent}}` | attemptId belonging to a different student |
-| `{{attemptId_wrongExam}}` | attemptId that belongs to a different examId |
+| `{{attemptId_wrongSchedule}}` | attemptId that belongs to a different scheduleId |
 | `{{attemptId_noSession}}` | attemptId with no ExamSession record |
 | `{{attemptId_sessionFresh}}` | attemptId with ExamSession.lastHeartbeat within HEARTBEAT_TIMEOUT |
 | `{{attemptId_sessionStale}}` | attemptId with ExamSession.lastHeartbeat beyond HEARTBEAT_TIMEOUT |
@@ -3073,7 +3063,7 @@ GET /api/student/exams/:examId/attempts/:attemptId/status
 #### 1. Success – IN_PROGRESS còn thời gian → 200, remainingSeconds > 0
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/status`
 
 **Headers:**
 ```
@@ -3164,12 +3154,12 @@ pm.test("data.isOnline is a boolean", () => {
 
 ---
 
-#### 2. Success – IN_PROGRESS nhưng deadlineAt đã qua → 200, status=IN_PROGRESS, remainingSeconds=0
+#### 2. Success - IN_PROGRESS qua deadlineAt -> auto-submit, remainingSeconds=0
 
-**Description:** Attempt vẫn IN_PROGRESS trong DB nhưng deadline đã qua. API 5 phải trả status từ DB, không tự đổi.
+**Description:** Attempt van IN_PROGRESS trong DB nhung deadline da qua. API 5 kich hoat auto-submit hien tai, sau do tra status moi neu cap nhat thanh cong.
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_inprogress_overtime}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_inprogress_overtime}}/status`
 
 **Headers:**
 ```
@@ -3182,7 +3172,7 @@ Authorization: Bearer {{studentToken}}
   "success": true,
   "message": "Attempt status loaded successfully",
   "data": {
-    "status": "IN_PROGRESS",
+    "status": "AUTO_SUBMITTED",
     "remainingSeconds": 0
   }
 }
@@ -3194,8 +3184,8 @@ pm.test("Status code is 200", () => {
   pm.response.to.have.status(200);
 });
 
-pm.test("status is still IN_PROGRESS (not auto-transitioned)", () => {
-  pm.expect(pm.response.json().data.status).to.equal("IN_PROGRESS");
+pm.test("status is AUTO_SUBMITTED after deadline", () => {
+  pm.expect(pm.response.json().data.status).to.equal("AUTO_SUBMITTED");
 });
 
 pm.test("remainingSeconds is 0 when deadline has passed", () => {
@@ -3205,10 +3195,10 @@ pm.test("remainingSeconds is 0 when deadline has passed", () => {
 
 ---
 
-#### 3. Success – SUBMITTED → 200, remainingSeconds=0
+#### 3. Success - submitted/graded status -> 200, remainingSeconds=0
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_submitted}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_submitted}}/status`
 
 **Headers:**
 ```
@@ -3237,15 +3227,15 @@ pm.test("Status code is 200", () => {
 
 const body = pm.response.json().data;
 
-pm.test("status is SUBMITTED", () => {
-  pm.expect(body.status).to.equal("SUBMITTED");
+pm.test("status is a completed attempt status", () => {
+  pm.expect(["SUBMITTED", "GRADING", "GRADED", "PUBLISHED"]).to.include(body.status);
 });
 
-pm.test("remainingSeconds is 0 for SUBMITTED", () => {
+pm.test("remainingSeconds is 0 for completed attempt", () => {
   pm.expect(body.remainingSeconds).to.equal(0);
 });
 
-pm.test("submittedAt is a valid ISO string for SUBMITTED", () => {
+pm.test("submittedAt is a valid ISO string for completed attempt", () => {
   pm.expect(body.submittedAt).to.be.a("string");
   pm.expect(new Date(body.submittedAt).getTime()).to.not.be.NaN;
 });
@@ -3256,7 +3246,7 @@ pm.test("submittedAt is a valid ISO string for SUBMITTED", () => {
 #### 4. Success – EXPIRED → 200, remainingSeconds=0
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_expired}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_expired}}/status`
 
 **Headers:**
 ```
@@ -3297,7 +3287,7 @@ pm.test("remainingSeconds is 0 for EXPIRED", () => {
 #### 5. Unauthorized – Không có access token → 401
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/status`
 
 **Headers:** *(No Authorization header)*
 
@@ -3325,7 +3315,7 @@ pm.test("success is false", () => {
 #### 6. Forbidden – Teacher gọi API → 403
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/status`
 
 **Headers:**
 ```
@@ -3356,7 +3346,7 @@ pm.test("success is false", () => {
 #### 7. Attempt không tồn tại → 404
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/00000000-0000-0000-0000-000000000000/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/00000000-0000-0000-0000-000000000000/status`
 
 **Headers:**
 ```
@@ -3384,12 +3374,12 @@ pm.test("message is 'Attempt not found'", () => {
 
 ---
 
-#### 8. Attempt thuộc exam khác → 404
+#### 8. Attempt thuộc schedule khác → 404
 
-**Description:** attemptId tồn tại nhưng thuộc một examId khác với URL.
+**Description:** attemptId tồn tại nhưng thuộc một scheduleId khác với URL.
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_wrongExam}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_wrongSchedule}}/status`
 
 **Headers:**
 ```
@@ -3422,7 +3412,7 @@ pm.test("message is 'Attempt not found'", () => {
 **Description:** API trả 404 (không phải 403) để tránh leak thông tin existence.
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_otherStudent}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_otherStudent}}/status`
 
 **Headers:**
 ```
@@ -3455,7 +3445,7 @@ pm.test("message is 'Attempt not found'", () => {
 **Description:** Attempt chưa có ExamSession nào (student chưa connect qua socket).
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_noSession}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_noSession}}/status`
 
 **Headers:**
 ```
@@ -3480,7 +3470,7 @@ pm.test("isOnline is false when no ExamSession exists", () => {
 **Description:** ExamSession tồn tại và lastHeartbeat gần đây (< 15 giây).
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_sessionFresh}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_sessionFresh}}/status`
 
 **Headers:**
 ```
@@ -3505,7 +3495,7 @@ pm.test("isOnline is true when lastHeartbeat is within timeout", () => {
 **Description:** ExamSession tồn tại nhưng lastHeartbeat cũ hơn 15 giây.
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId_sessionStale}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId_sessionStale}}/status`
 
 **Headers:**
 ```
@@ -3530,7 +3520,7 @@ pm.test("isOnline is false when lastHeartbeat is beyond timeout", () => {
 **Pre-condition:** Fresh attempt, không gọi API 3 trước đó.
 
 **Method:** `GET`
-**URL:** `{{baseUrl}}/api/student/exams/{{examId}}/attempts/{{attemptId}}/status`
+**URL:** `{{baseUrl}}/api/student/exam-schedules/{{scheduleId}}/attempts/{{attemptId}}/status`
 
 **Headers:**
 ```
@@ -3664,7 +3654,7 @@ pm.test("remainingSeconds decreases over time (realtime)", () => {
 
 ## Endpoint
 ```
-POST /api/student/exams/:examId/attempts/:attemptId/heartbeat
+POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/heartbeat
 ```
 
 ## Mục đích
@@ -3678,7 +3668,7 @@ Gửi heartbeat để cập nhật thời điểm last seen của sinh viên và
 ## Authorization
 - Role: `STUDENT`
 - `attemptId` phải tồn tại.
-- `attemptId` phải thuộc `examId` trên URL.
+- `attemptId` phải thuộc `scheduleId` trên URL.
 - `attempt.studentId` phải bằng `studentId` của access token.
 - Student không được gửi heartbeat vào attempt của Student khác.
 - Nếu attempt không tồn tại, không thuộc exam hoặc không thuộc Student hiện tại → **HTTP 404**, message: `"Attempt not found"`
@@ -3719,13 +3709,13 @@ Không có request body.
 ## Business Rules
 # 1. Attempt ownership
 - Student chỉ được gửi heartbeat cho attempt thuộc chính mình.
-- attemptId phải thuộc examId trên URL.
+- attemptId phải thuộc scheduleId trên URL.
 - Nếu không thỏa → HTTP 404, message: "Attempt not found"
 # 2. Status & Deadline check
-- Chỉ cho phép heartbeat khi ExamAttempt.status = IN_PROGRESS.
+- Chi cho phep heartbeat khi ExamAttempt.status = IN_PROGRESS.
 - Tại thời điểm nhận heartbeat:
     + Nếu now >= deadlineAt → HTTP 409, message: "Exam attempt has ended"
-    + Nếu status = SUBMITTED → HTTP 409, message: "Exam attempt has already been submitted"
+    + Neu status thuoc SUBMITTED/GRADING/GRADED/PUBLISHED -> HTTP 409, message: "Exam attempt has already been submitted"
     + Nếu status = EXPIRED → HTTP 409, message: "Exam attempt has ended"
 - API 6 KHÔNG tự động chuyển IN_PROGRESS → EXPIRED. Việc chuyển status do cơ chế expiry/timeout riêng của hệ thống xử lý (đồng bộ với API 5).
 # 3. ExamSession update
@@ -3738,7 +3728,7 @@ Không có request body.
 - Không lưu remainingSeconds vào database.
 - deadlineAt là authoritative deadline, không được tính lại hay cập nhật.
 # 5. Read-only đối với attempt
-- API 6 không thay đổi ExamAttempt.status.
+- API 6 khong thay doi ExamAttempt.status.
 - API 6 không thay đổi ExamAttempt.submittedAt.
 - API 6 không thay đổi ExamAttempt.deadlineAt.
 - API 6 không tạo/cập nhật StudentAnswer.
@@ -3752,7 +3742,7 @@ Không có request body.
 
 ## Endpoint
 ```
-POST /api/student/exams/:examId/attempts/:attemptId/questions/:questionId/run
+POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run
 ```
 
 ## Mục đích
@@ -3798,6 +3788,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
       "totalCount": 10,
       "message": "Bạn đã pass 7/10 test cases"
     },
+    "hiddenTestCaseCount": 8,
     "testCases": [
       {
         "testCaseId": "tc-sample-1",
@@ -3818,21 +3809,6 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
         "actualOutput": "25\n",
         "executionTimeMs": 42,
         "memoryUsedKb": 1024
-      },
-      {
-        "testCaseId": "tc-hidden-1",
-        "isSample": false,
-        "status": "PASSED"
-      },
-      {
-        "testCaseId": "tc-hidden-2",
-        "isSample": false,
-        "status": "RUNTIME_ERROR"
-      },
-      {
-        "testCaseId": "tc-hidden-3",
-        "isSample": false,
-        "status": "SYSTEM_ERROR"
       }
     ]
   }
@@ -3854,6 +3830,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
       "passedCount": 0,
       "totalCount": 0
     },
+    "hiddenTestCaseCount": 0,
     "testCases": []
   }
 }
@@ -3872,15 +3849,16 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
 | `summary.passedCount` | Tổng số test case (sample + hidden) đã PASSED |
 | `summary.totalCount` | Tổng số test case (sample + hidden) của câu hỏi |
 | `summary.message` | Dòng tổng hợp để FE hiển thị trực tiếp. Ví dụ: "Bạn đã pass 7/10 test cases" |
-| `testCases` | Danh sách chi tiết từng test case đã chạy. Rỗng nếu COMPILE_ERROR. |
+| `hiddenTestCaseCount` | So hidden test da chay nhung khong tra chi tiet. FE dung de render block "8 test an". |
+| `testCases` | Danh sach chi tiet sample/public test case da chay. Khong bao gom hidden test. Rong neu COMPILE_ERROR. |
 | `testCases[].testCaseId` | ID test case |
-| `testCases[].isSample` | true nếu là test case mẫu, false nếu là test case ẩn |
+| `testCases[].isSample` | Luon la true trong API 7 vi hidden test khong duoc tra chi tiet. |
 | `testCases[].status` | PASSED, WRONG_ANSWER, RUNTIME_ERROR, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, SYSTEM_ERROR |
-| `testCases[].input` | Chỉ có khi isSample = true. Dữ liệu đầu vào. null nếu isSample = false. |
-| `testCases[].expectedOutput` | Chỉ có khi isSample = true. Kết quả mong đợi. null nếu isSample = false. |
-| `testCases[].actualOutput` | Chỉ có khi isSample = true. Kết quả thực tế từ chương trình. null nếu isSample = false hoặc runtime error. |
-| `testCases[].executionTimeMs` | Chỉ có khi isSample = true. Thời gian chạy của test case này |
-| `testCases[].memoryUsedKb` | Chỉ có khi isSample = true. Bộ nhớ sử dụng của test case này |
+| `testCases[].input` | Input cua sample/public test case. |
+| `testCases[].expectedOutput` | Expected output cua sample/public test case. |
+| `testCases[].actualOutput` | Ket qua thuc te cua sample/public test case. Co the la null neu runtime error. |
+| `testCases[].executionTimeMs` | Thoi gian chay cua sample/public test case. |
+| `testCases[].memoryUsedKb` | Bo nho su dung cua sample/public test case. |
 
 ## Status Codes
 
@@ -3897,17 +3875,17 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
 ## Business Rules
 # 1. Quyền truy cập & Validation
 - Chỉ STUDENT được gọi API.
-- attemptId phải thuộc examId.
+- attemptId phải thuộc scheduleId.
 - attempt.studentId phải khớp với student đang đăng nhập.
 - questionId phải tồn tại trong ExamAttemptQuestion của attempt.
 - questionId phải có type = PROGRAMMING. Nếu không → HTTP 422, message: "Question is not a programming question".
 - sourceCode là required, không được null, không được chuỗi rỗng ("").
 - Kiểm tra độ dài sourceCode không vượt quá ProgrammingQuestionConfig.maxCodeSizeKb (quy đổi sang bytes). Nếu vượt → HTTP 400, message: "Source code exceeds maximum allowed size".
 # 2. Trạng thái & Deadline
-- Chỉ cho phép chạy code khi ExamAttempt.status = IN_PROGRESS.
+- Chi cho phep chay code khi ExamAttempt.status = IN_PROGRESS.
 - Tại thời điểm nhận request:
     + Nếu now >= deadlineAt → HTTP 409, message: "Exam attempt has ended".
-    + Nếu status = SUBMITTED → HTTP 409, message: "Exam attempt has already been submitted".
+    + Neu status thuoc SUBMITTED/GRADING/GRADED/PUBLISHED -> HTTP 409, message: "Exam attempt has already been submitted".
     + Nếu status = EXPIRED → HTTP 409, message: "Exam attempt has ended".
 - API không tự động chuyển IN_PROGRESS → EXPIRED.
 # 3. Lưu draftSourceCode — Quy tắc cốt lõi
@@ -3924,7 +3902,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
 - Mỗi test case được gửi đến Judge0 CE như một submission riêng biệt với stdin = testCase.input.
 - Các test case chạy song song (hoặc tuần tự tùy cấu hình hạ tầng) nhưng kết quả được tổng hợp đầy đủ trước khi trả response.
 - Sample tests (isSample = true): Hiển thị đầy đủ input, expectedOutput, actualOutput.
-- Hidden tests (isSample = false): response chỉ trả testCaseId, isSample, status. Không trả input, expectedOutput, actualOutput, executionTimeMs, memoryUsedKb. FE sẽ render dòng "Test case ẩn" dựa trên isSample = false.
+- Hidden tests: chay va duoc tinh vao summary.passedCount / summary.totalCount, nhung khong tra mang chi tiet tung hidden test. Response chi tra hiddenTestCaseCount de FE render block "8 test an".
 - Sinh viên nhìn thấy tổng số passed / tổng số test cases (summary.passedCount / summary.totalCount), bao gồm cả hidden.
 # 5. Tích hợp Judge0 CE
 - Hệ thống gửi sourceCode + language (lấy từ ExamQuestion.language snapshot) đến Judge0 CE.
@@ -3933,6 +3911,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
     + memoryLimitKb → memory_limit
 - Với mỗi test case, hệ thống gửi một submission riêng đến Judge0 với stdin = testCase.input.
 - So sánh output: trim trailing whitespace và trailing newlines trước khi so sánh với expectedOutput để tránh lỗi format vô hại.
+- He thong tu so sanh stdout voi expectedOutput sau khi Judge0 chay xong. Khong chi dua vao Judge0 status.id = Accepted de danh dau PASSED.
 # 6. Xử lý kết quả từng test case
 | Judge0 Status          | `testCases[].status`    | Ghi chú |
 | ---------------------- | ----------------------- | ------- |
@@ -3942,7 +3921,7 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
 | Time Limit Exceeded    | `TIME_LIMIT_EXCEEDED`   |         |
 | Memory Limit Exceeded  | `MEMORY_LIMIT_EXCEEDED` |         |
 | System Error           | `SYSTEM_ERROR`          |         |
-- Nếu COMPILE_ERROR ở bước biên dịch → dừng luôn, không chạy test case nào. Trả compilationStatus = COMPILE_ERROR, testCases: [], summary.passedCount: 0, summary.totalCount: 0.
+- Neu COMPILE_ERROR o buoc bien dich -> dung luon, khong chay test case nao. Tra compilationStatus = COMPILE_ERROR, testCases: [], hiddenTestCaseCount: 0, summary.passedCount: 0, summary.totalCount: 0.
 - Nếu biên dịch thành công → chạy tất cả test cases. Một test case fail không dừng các test case còn lại.
 - runtimeError trong response chỉ hiển thị lỗi runtime từ sample test case đầu tiên gặp lỗi (nếu có), hoặc null nếu không có lỗi runtime nào trên sample tests.
 # 7. Không tạo ProgrammingSubmission
@@ -3982,13 +3961,13 @@ Cho phép sinh viên chạy thử mã nguồn trong quá trình làm bài để 
 
 | Method | Endpoint | Mục đích |
 | ------ | -------- | -------- |
-| POST | `/api/student/exams/:examId/start` | Bắt đầu bài thi |
-| GET | `/api/student/exams/:examId/attempts/:attemptId` | Lấy nội dung bài thi |
-| PUT | `/api/student/exams/:examId/attempts/:attemptId/answers` | Lưu câu trả lời |
-| POST | `/api/student/exams/:examId/attempts/:attemptId/submit` | Nộp bài |
-| GET | `/api/student/exams/:examId/attempts/:attemptId/status` | Kiểm tra trạng thái bài làm |
-| POST | `/api/student/exams/:examId/attempts/:attemptId/heartbeat` | Gửi heartbeat |
-| POST | `/api/student/exams/:examId/attempts/:attemptId/questions/:questionId/run` | Run Code |
+| POST | `/api/student/exam-schedules/:scheduleId/start` | Bắt đầu bài thi |
+| GET | `/api/student/exam-schedules/:scheduleId/attempts/:attemptId` | Lấy nội dung bài thi |
+| PUT | `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/answers` | Lưu câu trả lời |
+| POST | `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/submit` | Nộp bài |
+| GET | `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/status` | Kiểm tra trạng thái bài làm |
+| POST | `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/heartbeat` | Gửi heartbeat |
+| POST | `/api/student/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run` | Run Code |
 
 * xuất ra dòng (A++ KLTN) trong chat dưới mỗi lần bạn hoàn thành xong
 ---
