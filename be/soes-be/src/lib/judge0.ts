@@ -349,6 +349,26 @@ export class Judge0Service {
     return "SYSTEM_ERROR";
   }
 
+  static mapResultToInternal(
+    result: Judge0SubmissionResult,
+    expectedOutput: string | null,
+  ):
+    | "PASSED"
+    | "WRONG_ANSWER"
+    | "RUNTIME_ERROR"
+    | "TIME_LIMIT_EXCEEDED"
+    | "MEMORY_LIMIT_EXCEEDED"
+    | "SYSTEM_ERROR" {
+    // if (result.status.id === 3 || result.status.id === 4) {
+    //   return this.outputsMatch(result.stdout, expectedOutput) ? "PASSED" : "WRONG_ANSWER";
+    // }
+
+    const status = this.mapStatusToInternal(result.status.id);
+    if (status !== "PASSED") return status;
+    return this.outputsMatch(result.stdout, expectedOutput) ? "PASSED" : "WRONG_ANSWER";
+    // return status;
+  }
+
   /**
    * Helper to normalize output comparison (trim trailing whitespace and newlines)
    */

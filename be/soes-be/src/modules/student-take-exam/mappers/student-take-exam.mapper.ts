@@ -139,6 +139,7 @@ export function toRunCodeResponseDto(result: RunCodeResult): RunCodeResponseDto 
     runtimeError: result.runtimeError,
     hasSystemError: result.hasSystemError,
     summary: result.summary,
+    hiddenTestCaseCount: result.hiddenTestCaseCount,
     testCases: result.testCases.map(toRunCodeTestCaseDto),
   }
 }

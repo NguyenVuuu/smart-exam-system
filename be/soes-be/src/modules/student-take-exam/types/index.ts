@@ -155,16 +155,31 @@ export interface RunCodeResult {
     totalCount: number
     message: string
   }
+  hiddenTestCaseCount: number
   testCases: RunCodeTestCase[]
 }
 
-export interface RunCodeTestCase {
+type RunCodeTestCaseStatus =
+  | 'PASSED'
+  | 'WRONG_ANSWER'
+  | 'RUNTIME_ERROR'
+  | 'TIME_LIMIT_EXCEEDED'
+  | 'MEMORY_LIMIT_EXCEEDED'
+  | 'SYSTEM_ERROR'
+
+interface RunCodeTestCaseBase {
   testCaseId: string
+  isSample: boolean
+  status: RunCodeTestCaseStatus
+}
+
+export interface RunCodeSampleTestCase extends RunCodeTestCaseBase {
   isSample: true
-  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
   input: string
   expectedOutput: string
   actualOutput: string | null
   executionTimeMs: number
   memoryUsedKb: number
 }
+
+export type RunCodeTestCase = RunCodeSampleTestCase
