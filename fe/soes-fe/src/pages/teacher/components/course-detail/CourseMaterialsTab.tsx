@@ -12,6 +12,7 @@ interface CourseMaterialsTabProps {
   onUpload: (files: File[]) => Promise<CourseMaterial[]>
   onDownload: (materialId: string, fileName: string) => Promise<void>
   onRemove: (materialId: string) => Promise<void>
+  onToggleAi?: (materialId: string, aiEnabled: boolean) => Promise<unknown>
 }
 
 export default function CourseMaterialsTab({
@@ -20,6 +21,7 @@ export default function CourseMaterialsTab({
   onUpload,
   onDownload,
   onRemove,
+  onToggleAi,
 }: CourseMaterialsTabProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
@@ -72,10 +74,26 @@ export default function CourseMaterialsTab({
     setSelectedFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))
   }
 
-  const toggleSelectForAI = (id: string) => {
+  const toggleSelectForAI = async (id: string) => {
+    const target = materials.find((m) => m.id === id)
+    if (!target) return
+    const nextState = !target.selectedForAI
+
     setMaterials((prev) =>
-      prev.map((material) => (material.id === id ? { ...material, selectedForAI: !material.selectedForAI } : material)),
+      prev.map((material) => (material.id === id ? { ...material, selectedForAI: nextState } : material)),
     )
+
+    if (onToggleAi) {
+      try {
+        await onToggleAi(id, nextState)
+        toast.success(nextState ? 'Đã bật quyền cho AI sử dụng tài liệu này.' : 'Đã tắt quyền AI cho tài liệu này.')
+      } catch (error) {
+        setMaterials((prev) =>
+          prev.map((material) => (material.id === id ? { ...material, selectedForAI: !nextState } : material)),
+        )
+        toast.error(getApiErrorMessage(error, 'Không thể cập nhật quyền AI cho tài liệu.'))
+      }
+    }
   }
 
   const handleDownload = async (material: CourseMaterial) => {
@@ -91,7 +109,7 @@ export default function CourseMaterialsTab({
 
   const confirmRemove = async () => {
     if (!materialToRemove) return
-    const targetName = materialToRemove.title ?? materialToRemove.fileName
+    const targetName = materialToRemove.fileName
     setBusyMaterialId(materialToRemove.id)
     try {
       await onRemove(materialToRemove.id)
@@ -171,10 +189,9 @@ export default function CourseMaterialsTab({
                     className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
                   />
                   <span className="truncate text-sm font-semibold text-gray-900 hover:text-blue-600">
-                    {material.title ?? material.fileName}
+                    {material.fileName}
                   </span>
                 </label>
-                <p className="mt-1 truncate pl-7 text-xs text-gray-400">{material.fileName}</p>
               </div>
 
               <div className="flex shrink-0 items-center gap-4 text-sm text-gray-500">
@@ -221,7 +238,7 @@ export default function CourseMaterialsTab({
               <p>
                 Bạn có chắc chắn muốn xóa tài liệu{' '}
                 <strong className="font-semibold text-slate-900">
-                  "{materialToRemove?.title ?? materialToRemove?.fileName}"
+                  "{materialToRemove?.fileName}"
                 </strong>{' '}
                 khỏi lớp học phần không?
               </p>

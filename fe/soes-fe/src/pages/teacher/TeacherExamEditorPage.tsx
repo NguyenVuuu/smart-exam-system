@@ -45,6 +45,41 @@ import { useTeacherExamDetail } from './hooks/useTeacherExamDetail'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import { useAuthStore } from '../../store/authStore'
 import * as examApi from './api/teacher-exams.api'
+import type { TeacherExamQuestionInput } from './api/teacher-exams.api'
+
+const toExamQuestionInput = (item: ExamQuestionItem): TeacherExamQuestionInput => {
+  const placement = { points: item.points, sectionId: item.sectionId }
+  if (item.sourceQuestionId) {
+    return { ...placement, source: 'QUESTION_BANK', questionId: item.sourceQuestionId }
+  }
+
+  const question = item.question
+  return {
+    ...placement,
+    source: 'INLINE',
+    question: {
+      title: question.title,
+      content: question.content || question.title,
+      explanation: question.explanation ?? null,
+      type: question.type,
+      difficulty: question.difficulty,
+      language: question.programmingLanguage ?? null,
+      options: (question.options ?? []).map(({ content, isCorrect }) => ({ content, isCorrect })),
+      programmingConfig: question.type === 'PROGRAMMING'
+        ? {
+            timeLimitMs: question.timeLimitMs ?? 2000,
+            memoryLimitMb: question.memoryLimitMb ?? 256,
+            maxCodeSizeKb: question.maxCodeSizeKb ?? 256,
+          }
+        : null,
+      testCases: (question.testCases ?? []).map(({ input, expectedOutput, isHidden }) => ({
+        input,
+        expectedOutput,
+        isHidden,
+      })),
+    },
+  }
+}
 
 export default function TeacherExamEditorPage() {
   const user = useAuthStore((state) => state.user)
@@ -183,11 +218,12 @@ export default function TeacherExamEditorPage() {
     })
   }
 
-  const addQuestions = (selectedList: Question[]) => {
+  const addQuestions = (selectedList: Question[], source: 'QUESTION_BANK' | 'INLINE') => {
     const allowedQuestions = selectedList.filter((q) => isQuestionAllowedForExam(q, examType))
     setQuestions((prev) => {
       const newItems: ExamQuestionItem[] = allowedQuestions.map((q, idx) => ({
         questionId: q.id,
+        sourceQuestionId: source === 'QUESTION_BANK' ? q.id : null,
         question: q,
         points: 0,
         order: prev.length + idx + 1,
@@ -211,6 +247,7 @@ export default function TeacherExamEditorPage() {
           item.questionId === editingQuestion.id
             ? {
                 ...item,
+                sourceQuestionId: null,
                 question: { ...item.question, ...savedQ } as Question,
                 sectionId: inferSectionId({ ...item.question, ...savedQ } as Question, sections),
               }
@@ -243,7 +280,7 @@ export default function TeacherExamEditorPage() {
       testCases: savedQ.testCases,
       createdAt: 'Vừa xong',
     }
-    addQuestions([newQuestion])
+    addQuestions([newQuestion], 'INLINE')
   }
 
   const handleAutoBalancePoints = () => {
@@ -301,9 +338,7 @@ export default function TeacherExamEditorPage() {
         ? await examApi.updateTeacherExam(sourceExam.id, payload)
         : await examApi.createTeacherExam(payload)
       const orderedQuestions = orderQuestionsBySection(questions, sections)
-      await examApi.replaceTeacherExamQuestions(saved.id, orderedQuestions.map(
-        ({ questionId, points, sectionId }) => ({ questionId, points, sectionId }),
-      ))
+      await examApi.replaceTeacherExamQuestions(saved.id, orderedQuestions.map(toExamQuestionInput))
       if (submit) await examApi.submitTeacherExam(saved.id)
       toast.success(
         submit
@@ -502,20 +537,21 @@ export default function TeacherExamEditorPage() {
       <BankQuestionPickerModal
         isOpen={isBankPickerOpen}
         onClose={() => setIsBankPickerOpen(false)}
-        onSelectQuestions={addQuestions}
+        onSelectQuestions={(selected) => addQuestions(selected, 'QUESTION_BANK')}
         existingQuestionIds={questions.map((q) => q.questionId)}
         examType={examType}
         questions={bankQuestions}
         targetSubjectId={selectedSubjectId}
       />
 
-      <AIPdfGeneratorModal
-        isOpen={isAiPdfOpen}
-        onClose={() => setIsAiPdfOpen(false)}
-        onApprovedAdd={addQuestions}
-        examType={examType}
-        subjectId={selectedSubjectId}
-      />
+      {isAiPdfOpen && (
+        <AIPdfGeneratorModal
+          onClose={() => setIsAiPdfOpen(false)}
+          onApprovedAdd={(selected) => addQuestions(selected, 'INLINE')}
+          examType={examType}
+          subjectId={selectedSubjectId}
+        />
+      )}
 
       <QuestionEditorModal
         isOpen={isEditorOpen}

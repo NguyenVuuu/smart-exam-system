@@ -47,6 +47,7 @@ export const toExamDetail = (dto: TeacherExamDetailDto): Exam => ({
   questions: dto.questions.map((item) => ({
     questionId: item.sourceQuestionId ?? item.id,
     snapshotQuestionId: item.id,
+    sourceQuestionId: item.sourceQuestionId,
     sectionId: item.sectionId ?? undefined,
     points: item.points,
     order: item.orderIndex,

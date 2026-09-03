@@ -18,7 +18,7 @@ export default function TeacherCourseDetailPage() {
   const { courseOfferingId } = useParams<{ courseOfferingId: string }>()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<CourseTab>('materials')
-  const { data, loading, error, retry, createPost, updatePost, pinPost, deletePost, downloadAttachment, uploadMaterials, downloadMaterial, removeMaterial } = useTeacherCourseDetail(courseOfferingId)
+  const { data, loading, error, retry, createPost, updatePost, pinPost, deletePost, downloadAttachment, uploadMaterials, downloadMaterial, removeMaterial, toggleMaterialAi } = useTeacherCourseDetail(courseOfferingId)
   const [materials, setMaterials] = useState<CourseMaterial[]>([])
   const collections = useTeacherCourseCollections(courseOfferingId)
 
@@ -70,6 +70,7 @@ export default function TeacherCourseDetailPage() {
               onUpload={uploadMaterials}
               onDownload={downloadMaterial}
               onRemove={removeMaterial}
+              onToggleAi={toggleMaterialAi}
             />
           )}
 

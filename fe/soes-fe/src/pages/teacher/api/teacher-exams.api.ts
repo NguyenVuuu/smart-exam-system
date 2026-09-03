@@ -5,6 +5,7 @@ import type {
   TeacherSubmissionPage,
 } from '../types/teacher-exam-api.types'
 import type { ViolationRecord } from '../types/teacher-exam.types'
+import type { Question } from '../types/teacher-question-bank.types'
 
 interface ApiResponse<T> { success: boolean; data: T }
 
@@ -32,15 +33,45 @@ export async function createTeacherExam(payload: TeacherExamPayload) {
   return response.data.data
 }
 
+export interface AutoGenerateTeacherExamPayload {
+  title: string
+  description?: string | null
+  subjectId: string
+  semesterId: string
+  type: TeacherExamPayload['type']
+  format: TeacherExamPayload['format']
+  defaultDurationMinutes: number
+  totalPoints: number
+  pickMode: 'AUTO' | 'MANUAL'
+  sourceScope: 'PERSONAL' | 'SHARED' | 'BOTH'
+  matrix: { easy: number; medium: number; hard: number }
+  selectedQuestionIds: string[]
+}
+
+export async function autoGenerateTeacherExam(payload: AutoGenerateTeacherExamPayload) {
+  const response = await apiClient.post<ApiResponse<TeacherExamDetailDto>>('/teacher/exams/auto-generate', payload)
+  return response.data.data
+}
+
 export async function updateTeacherExam(id: string, payload: TeacherExamPayload) {
   const response = await apiClient.put<ApiResponse<TeacherExamDto>>(`/teacher/exams/${id}`, payload)
   return response.data.data
 }
 
-export const replaceTeacherExamQuestions = (
-  id: string,
-  items: Array<{ questionId: string; points: number; sectionId?: string }>,
-) => apiClient.put(`/teacher/exams/${id}/questions`, { items })
+type ExamQuestionPlacement = { points: number; sectionId?: string }
+export type TeacherExamQuestionInput = ExamQuestionPlacement & (
+  | { source: 'QUESTION_BANK'; questionId: string }
+  | { source: 'INLINE'; question: {
+      title: string; content: string; explanation?: string | null
+      type: Question['type']; difficulty: Question['difficulty']
+      language?: Question['programmingLanguage'] | null
+      options: Array<{ content: string; isCorrect: boolean }>
+      programmingConfig?: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number } | null
+      testCases: Array<{ input: string; expectedOutput: string; isHidden: boolean }>
+    } }
+)
+export const replaceTeacherExamQuestions = (id: string, items: TeacherExamQuestionInput[]) =>
+  apiClient.put(`/teacher/exams/${id}/questions`, { items })
 
 export const submitTeacherExam = (id: string) => apiClient.post(`/teacher/exams/${id}/submit`)
 

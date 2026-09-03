@@ -51,6 +51,7 @@ export interface Question {
 
 export interface AIDraftQuestion extends Question {
   status: AIDraftStatus
+  generationId?: string
   aiConfidence?: number
   sourceMaterialName: string
 }

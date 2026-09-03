@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   createCoursePost,
   deleteCourseMaterial,
@@ -7,6 +7,7 @@ import {
   downloadCoursePostAttachment,
   getTeacherCourseDetail,
   pinCoursePost,
+  toggleCourseMaterialAi,
   updateCoursePost,
   uploadCourseMaterials,
   type PostPayload,
@@ -58,6 +59,8 @@ export function useTeacherCourseDetail(id?: string) {
     downloadMaterial: (materialId: string, fileName: string) =>
       downloadCourseMaterial(id!, materialId, fileName),
     removeMaterial: (materialId: string) => deleteCourseMaterial(id!, materialId),
+    toggleMaterialAi: (materialId: string, aiEnabled: boolean) =>
+      toggleCourseMaterialAi(id!, materialId, aiEnabled),
     uploadMaterials: async (files: File[]) => {
       if (!id || !data) return []
       const uploaded = await uploadCourseMaterials(id, files)

@@ -196,3 +196,15 @@ export function deleteCourseMaterial(materialId: string) {
     prisma.material.delete({ where: { id: materialId } }),
   ])
 }
+
+export function updateCourseMaterialAiEnabled(
+  teacherId: string,
+  courseOfferingId: string,
+  materialId: string,
+  aiEnabled: boolean,
+) {
+  return prisma.material.updateMany({
+    where: { id: materialId, courseOfferingId, courseOffering: { teacherId } },
+    data: { aiEnabled },
+  })
+}

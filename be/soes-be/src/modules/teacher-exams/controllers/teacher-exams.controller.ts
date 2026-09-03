@@ -5,7 +5,7 @@ import * as service from '../services/teacher-exams.service'
 import * as scheduleService from '../services/teacher-exam-schedule.service'
 import * as gradingService from '../services/teacher-exam-grading.service'
 import * as lifecycleService from '../services/teacher-exam-lifecycle.service'
-import { examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
+import { autoGenerateExamSchema, examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
 import { teacherExamScheduleBodySchema, teacherScheduleCancellationSchema } from '../validators/teacher-exam-schedule.validator'
 import { manualGradeSchema, resultReleaseSchema, submissionQuerySchema } from '../validators/teacher-exam-grading.validator'
 
@@ -16,6 +16,7 @@ export const extendTime = async (req: Request, res: Response) =>
 export const list = async (req: Request, res: Response) => send(res, await service.list(req.user!.profileId, examsQuerySchema.parse(req.query)))
 export const get = async (req: Request, res: Response) => send(res, await service.get(req.user!.profileId, idParam.parse(req.params).id))
 export const create = async (req: Request, res: Response) => send(res, await service.create(req.user!.profileId, examBodySchema.parse(req.body)), 201)
+export const autoGenerate = async (req: Request, res: Response) => send(res, await service.autoGenerate(req.user!.profileId, autoGenerateExamSchema.parse(req.body)), 201)
 export const update = async (req: Request, res: Response) => send(res, await service.update(req.user!.profileId, idParam.parse(req.params).id, examBodySchema.parse(req.body)))
 export const replaceQuestions = async (req: Request, res: Response) => send(res, await service.replaceQuestions(req.user!.profileId, idParam.parse(req.params).id, examQuestionsSchema.parse(req.body).items))
 export const submit = async (req: Request, res: Response) => send(res, await service.submit(req.user!.profileId, idParam.parse(req.params).id))

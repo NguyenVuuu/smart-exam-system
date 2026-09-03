@@ -98,7 +98,7 @@ export async function uploadImagesInHtml(html: string): Promise<string> {
     return document.body.innerHTML
   } catch (err) {
     console.error('Error uploading image to Supabase:', err)
-    throw new Error('Không thể tải hình ảnh trong đề bài lên hệ thống lưu trữ. Vui lòng thử lại.')
+    throw new Error('Không thể tải hình ảnh trong đề bài lên hệ thống lưu trữ. Vui lòng thử lại.', { cause: err })
   }
 }
 
@@ -115,5 +115,52 @@ export async function uploadAiSourceFiles(subjectId: string, files: File[]) {
   }>>>('/teacher/ai-source-files', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
+  return response.data.data
+}
+
+export async function getAiMaterials(subjectId: string) {
+  const response = await apiClient.get<ApiResponse<import('../types/teacher-question-api.types').AiMaterialDto[]>>(
+    '/teacher/ai-question-generation/materials',
+    { params: { subjectId } },
+  )
+  return response.data.data
+}
+
+export async function getAiGenerationHistories() {
+  const response = await apiClient.get<ApiResponse<
+    import('../types/teacher-question-api.types').AiGenerationHistoryDto[]
+  >>('/teacher/ai-question-generations')
+  return response.data.data
+}
+
+export interface GenerateAiQuestionsPayload {
+  subjectId: string
+  sourceType: 'COURSE_MATERIAL' | 'UPLOAD_FILE'
+  mode: 'GENERATE_FROM_MATERIAL' | 'EXTRACT_EXISTING_EXAM'
+  materialIds: string[]
+  sourceFiles: import('../types/teacher-question-api.types').AiSourceFileDto[]
+  prompt: string
+  questionCount?: number
+  difficulty: 'AUTO' | 'EASY' | 'MEDIUM' | 'HARD'
+}
+
+export async function generateAiQuestions(payload: GenerateAiQuestionsPayload) {
+  const response = await apiClient.post<ApiResponse<{
+    historyId: string
+    questions: import('../types/teacher-question-api.types').GeneratedQuestionDto[]
+  }>>('/teacher/ai-question-generations', payload)
+  return response.data.data
+}
+
+export async function saveApprovedAiQuestions(questions: Array<{
+  generationId: string
+  subjectId: string
+  question: Omit<import('../types/teacher-question-api.types').GeneratedQuestionDto,
+    'id' | 'status' | 'subjectId' | 'subjectName' | 'sourceMaterialName'>
+}>) {
+  const response = await apiClient.post<ApiResponse<{ count: number; questionIds: string[] }>>(
+    '/teacher/ai-question-generations/questions',
+    { questions },
+  )
   return response.data.data
 }

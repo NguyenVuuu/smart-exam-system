@@ -4,18 +4,22 @@ import type {
 } from './teacher-auto-exam.types'
 import type { ExamCategory } from './teacher-exam.types'
 import type { Question } from './teacher-question-bank.types'
+import type { TeacherSubjectOption } from './teacher-question-api.types'
 
 export interface AutoExamConfigPanelProps {
   examTitle: string
   setExamTitle: (value: string) => void
   examCategory: ExamCategory
   setExamCategory: (value: ExamCategory) => void
+  examFormat: 'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'
+  setExamFormat: (value: 'OBJECTIVE' | 'PROGRAMMING' | 'MIXED') => void
   durationMinutes: number
   setDurationMinutes: (value: number) => void
   targetTotalPoints: number
   setTargetTotalPoints: (value: number) => void
   selectedSubject: string
   onSubjectChange: (value: string) => void
+  subjectOptions: TeacherSubjectOption[]
   draftStatus: AutoExamDraftStatus
   eligibleQuestions: Question[]
   filteredEligibleQuestions: Question[]

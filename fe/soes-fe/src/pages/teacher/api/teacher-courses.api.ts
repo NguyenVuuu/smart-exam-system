@@ -124,3 +124,11 @@ export async function downloadCourseMaterial(courseId: string, materialId: strin
 export async function deleteCourseMaterial(courseId: string, materialId: string) {
   await apiClient.delete(`/teacher/course-offerings/${courseId}/materials/${materialId}`)
 }
+
+export async function toggleCourseMaterialAi(courseId: string, materialId: string, aiEnabled: boolean) {
+  const response = await apiClient.patch<{ data: { id: string; aiEnabled: boolean } }>(
+    `/teacher/course-offerings/${courseId}/materials/${materialId}/ai`,
+    { aiEnabled },
+  )
+  return response.data.data
+}

@@ -1,20 +1,32 @@
-﻿import { Eye, FileCheck, Send } from 'lucide-react'
+import { Eye, FileCheck, RefreshCw, Send, Trash2 } from 'lucide-react'
 import type { AutoExamDraftStatus, GeneratedExamDraft } from '../../../types/teacher-auto-exam.types'
 
 export default function GeneratedExamResults({
   generatedExams,
   draftStatus,
+  isGenerating,
   onSaveDraft,
   onPublish,
   onPreview,
+  onRegenerate,
+  onDeleteDraft,
 }: {
   generatedExams: GeneratedExamDraft[]
   draftStatus: AutoExamDraftStatus
+  isGenerating?: boolean
   onSaveDraft: () => void
   onPublish: () => void
   onPreview: (exam: GeneratedExamDraft) => void
+  onRegenerate: () => void
+  onDeleteDraft: () => void
 }) {
   if (generatedExams.length === 0) return null
+
+  const questionSummary = (exam: GeneratedExamDraft) => {
+    if (exam.exam.format === 'PROGRAMMING') return `Gồm ${exam.questionIds.length} bài lập trình.`
+    if (exam.exam.format === 'MIXED') return `Gồm ${exam.questionIds.length} câu hỏi hỗn hợp.`
+    return `Gồm ${exam.questionIds.length} câu trắc nghiệm.`
+  }
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
@@ -29,7 +41,7 @@ export default function GeneratedExamResults({
             onClick={onSaveDraft}
             className="px-5 py-2.5 bg-gray-900 hover:bg-black text-white font-semibold text-sm rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
           >
-            <FileCheck size={16} /> Lưu Nháp Đề
+            <FileCheck size={16} /> Mở bản nháp
           </button>
 
           <button
@@ -56,19 +68,37 @@ export default function GeneratedExamResults({
             </div>
 
             <p className="text-sm text-gray-700 font-medium">
-              Gồm {exam.questionIds.length} câu trắc nghiệm. Khi sinh viên vào thi, hệ thống sẽ random theo cấu hình ca thi.
+              {questionSummary(exam)} Khi sinh viên vào thi, hệ thống sẽ random theo cấu hình ca thi.
             </p>
 
             <p className="text-xs text-gray-500">
               Điểm được chia chính xác theo tổng mục tiêu; sai số làm tròn được bù vào câu cuối.
             </p>
 
-            <div className="flex items-center gap-2 pt-2 border-t border-gray-200/60">
+            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200/60">
               <button
                 onClick={() => onPreview(exam)}
-                className="flex-1 py-2 bg-white hover:bg-gray-100 border border-gray-200 text-gray-800 font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="flex-1 py-2 px-3 bg-white hover:bg-gray-100 border border-gray-200 text-gray-800 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
               >
-                <Eye size={15} /> Xem trước đề thi
+                <Eye size={14} /> Xem trước
+              </button>
+
+              <button
+                onClick={onRegenerate}
+                disabled={isGenerating}
+                className="py-2 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs disabled:opacity-50"
+                title="Xóa bản nháp hiện tại và sinh đề mới"
+              >
+                <RefreshCw size={14} className={isGenerating ? 'animate-spin' : ''} />
+                {isGenerating ? 'Đang sinh lại...' : 'Sinh lại đề mới'}
+              </button>
+
+              <button
+                onClick={onDeleteDraft}
+                className="py-2 px-3 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                title="Xóa hẳn bản nháp này khỏi hệ thống"
+              >
+                <Trash2 size={14} /> Xóa nháp
               </button>
             </div>
           </div>
@@ -77,3 +107,5 @@ export default function GeneratedExamResults({
     </div>
   )
 }
+
+

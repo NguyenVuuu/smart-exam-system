@@ -1,4 +1,4 @@
-﻿import type { AutoExamPickMode } from '../../types/teacher-auto-exam.types'
+import type { AutoExamPickMode } from '../../types/teacher-auto-exam.types'
 
 export default function AutoExamSummarySidebar({
   totalQuestions,
@@ -8,6 +8,7 @@ export default function AutoExamSummarySidebar({
   hardCount,
   selectedQuestionCount,
   targetTotalPoints,
+  examFormat = 'OBJECTIVE',
 }: {
   totalQuestions: number
   pickMode: AutoExamPickMode
@@ -16,8 +17,16 @@ export default function AutoExamSummarySidebar({
   hardCount: number
   selectedQuestionCount: number
   targetTotalPoints: number
+  examFormat?: 'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'
 }) {
   const pointsPerQuestion = totalQuestions > 0 ? Number((targetTotalPoints / totalQuestions).toFixed(2)) : 0
+
+  const formatLabel =
+    examFormat === 'PROGRAMMING'
+      ? 'Lập trình (Code)'
+      : examFormat === 'MIXED'
+      ? 'Hỗn hợp (Trắc nghiệm + Code)'
+      : 'Trắc nghiệm'
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 h-fit xl:sticky xl:top-6">
@@ -40,7 +49,7 @@ export default function AutoExamSummarySidebar({
         )}
         <SummaryLine label="Tổng điểm:" value={`${targetTotalPoints} điểm`} />
         <SummaryLine label="Điểm mỗi câu:" value={`${pointsPerQuestion} điểm`} />
-        <SummaryLine label="Loại câu hỏi:" value="Trắc nghiệm" />
+        <SummaryLine label="Hình thức đề:" value={formatLabel} />
       </div>
     </div>
   )

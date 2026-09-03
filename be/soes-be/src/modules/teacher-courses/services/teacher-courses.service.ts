@@ -90,8 +90,6 @@ export async function getGradebook(teacherId: string, courseOfferingId: string, 
     pagination: toPagination(query.page, query.pageSize, data.total),
   }
 }
-const materialTitle = (fileName: string) => fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || fileName
-
 export async function uploadMaterials(
   teacherId: string,
   courseOfferingId: string,
@@ -119,7 +117,7 @@ export async function uploadMaterials(
 
   try {
     const materials = await repo.createCourseMaterials(storedFiles.map((file) => ({
-      title: materialTitle(file.originalName),
+      title: file.originalName.trim(),
       fileName: file.originalName,
       objectName: file.objectName,
       fileSize: file.fileSize,
@@ -170,4 +168,15 @@ export async function removeMaterial(teacherId: string, courseOfferingId: string
   await repo.deleteCourseMaterial(material.id)
 
   return { id: material.id, removed: true }
+}
+
+export async function toggleMaterialAi(
+  teacherId: string,
+  courseOfferingId: string,
+  materialId: string,
+  aiEnabled: boolean,
+) {
+  await requireCourseMaterial(teacherId, courseOfferingId, materialId)
+  await repo.updateCourseMaterialAiEnabled(teacherId, courseOfferingId, materialId, aiEnabled)
+  return { id: materialId, aiEnabled }
 }

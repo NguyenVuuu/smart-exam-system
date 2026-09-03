@@ -89,6 +89,19 @@ export function splitPointsPrecisely(totalPoints: number, itemCount: number) {
   })
 }
 
+/**
+ * Thuật toán Fisher–Yates Shuffle xáo trộn ngẫu nhiên mảng
+ * Đảm bảo các câu hỏi được bốc ngẫu nhiên không trùng lặp và phân phối đều.
+ */
+export function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 export function balanceQuestionPointsBySection(
   questions: ExamQuestionItem[],
   sections: ExamSection[],

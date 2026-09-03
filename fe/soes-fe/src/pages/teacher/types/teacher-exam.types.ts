@@ -25,6 +25,7 @@ export type ExamDistributionMode =
 export interface ExamQuestionItem {
   questionId: string
   snapshotQuestionId?: string
+  sourceQuestionId?: string | null
   question: Question
   points: number
   order: number

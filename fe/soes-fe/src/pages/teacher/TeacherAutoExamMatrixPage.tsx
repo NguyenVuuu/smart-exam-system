@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
@@ -15,11 +16,11 @@ import type {
   AutoExamPickMode,
   GeneratedExamDraft,
 } from './types/teacher-auto-exam.types'
-import { splitPointsPrecisely } from './utils/ExamEditorUtils'
-import type { Exam, ExamCategory } from './types/teacher-exam.types'
-import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
-import { useAuthStore } from '../../store/authStore'
+import type { ExamCategory } from './types/teacher-exam.types'
 import { useTeacherCourses } from './hooks/useTeacherCourses'
+import { useTeacherQuestions } from './hooks/useTeacherQuestions'
+import { autoGenerateTeacherExam, createTeacherExamSchedule, deleteTeacherExam, submitTeacherExam } from './api/teacher-exams.api'
+import { toTeacherSchedulePayload } from './mappers/teacher-exam.mapper'
 
 const DEFAULT_SESSION_CONFIG = {
   maxAttempts: 1,
@@ -37,15 +38,12 @@ const DEFAULT_SESSION_CONFIG = {
 
 export default function TeacherAutoExamMatrixPage() {
   const navigate = useNavigate()
-  const questions = useTeacherWorkspaceStore((state) => state.questions)
-  const upsertExam = useTeacherWorkspaceStore((state) => state.upsertExam)
-  const replaceExamSchedules = useTeacherWorkspaceStore((state) => state.replaceExamSchedules)
-  const exams = useTeacherWorkspaceStore((state) => state.exams)
-  const currentUser = useAuthStore((state) => state.user)
+  const { questions, subjects } = useTeacherQuestions()
   const { courses } = useTeacherCourses()
-  const [selectedSubject, setSelectedSubject] = useState('sub-01')
+  const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [examTitle, setExamTitle] = useState('Đề thi Giữa Kỳ 1 • 2026')
   const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
+  const [examFormat, setExamFormat] = useState<'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'>('OBJECTIVE')
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [targetTotalPoints, setTargetTotalPoints] = useState(10)
   const [easyCount, setEasyCount] = useState(0)
@@ -60,12 +58,26 @@ export default function TeacherAutoExamMatrixPage() {
   const [previewExamCode, setPreviewExamCode] = useState<GeneratedExamDraft | null>(null)
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
 
+  const subjectOptions = useMemo(() => {
+    const subjectsFromCourses = courses.map((course) => ({ id: course.subjectId, name: `${course.subjectName} (${course.subjectCode})` }))
+    const combined = subjectsFromCourses.length ? subjectsFromCourses : subjects
+    return Array.from(new Map(combined.map((subject) => [subject.id, subject])).values())
+  }, [courses, subjects])
+
+  const selectedSubject = selectedSubjectId || subjectOptions[0]?.id || ''
+
   const configuredQuestionCount = easyCount + mediumCount + hardCount
-  const eligibleQuestions = questions.filter(
-    (question) =>
-      question.subjectId === selectedSubject &&
-      ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE'].includes(question.type),
-  )
+  const eligibleQuestions = questions.filter((question) => {
+    if (question.subjectId !== selectedSubject || question.archivedAt) return false
+    if (examFormat === 'OBJECTIVE') {
+      return ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE'].includes(question.type)
+    }
+    if (examFormat === 'PROGRAMMING') {
+      return question.type === 'PROGRAMMING'
+    }
+    return ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE', 'PROGRAMMING'].includes(question.type)
+  })
+
   const selectedQuestions = eligibleQuestions.filter((question) =>
     selectedQuestionIds.includes(question.id),
   )
@@ -77,7 +89,7 @@ export default function TeacherAutoExamMatrixPage() {
   )
 
   const handleSubjectChange = (value: string) => {
-    setSelectedSubject(value)
+    setSelectedSubjectId(value)
     setSelectedQuestionIds([])
     setGeneratedExams([])
     setDraftStatus('NOT_GENERATED')
@@ -89,61 +101,9 @@ export default function TeacherAutoExamMatrixPage() {
     )
   }
 
-  const pickAutoQuestionIds = () => {
-    const easyIds = eligibleQuestions.filter((q) => q.difficulty === 'EASY').slice(0, easyCount).map((q) => q.id)
-    const mediumIds = eligibleQuestions.filter((q) => q.difficulty === 'MEDIUM').slice(0, mediumCount).map((q) => q.id)
-    const hardIds = eligibleQuestions.filter((q) => q.difficulty === 'HARD').slice(0, hardCount).map((q) => q.id)
-
-    return [...easyIds, ...mediumIds, ...hardIds]
-  }
-
-  const handleGenerateExams = () => {
-    if (!examTitle.trim()) {
-      alert('Vui lòng nhập tên bài thi trước khi sinh đề.')
-      return
-    }
-
-    if (durationMinutes <= 0) {
-      alert('Thời lượng làm bài phải lớn hơn 0.')
-      return
-    }
-
-    if (targetTotalPoints <= 0) {
-      alert('Tổng điểm mục tiêu phải lớn hơn 0.')
-      return
-    }
-
-    if (pickMode === 'MANUAL' && selectedQuestionIds.length === 0) {
-      alert('Vui lòng chọn ít nhất một câu hỏi từ ngân hàng trước khi sinh đề.')
-      return
-    }
-
-    if (pickMode === 'AUTO' && !validateAutoQuestionCount()) return
-
-    setIsGenerating(true)
-    setTimeout(() => {
-      setIsGenerating(false)
-      const generatedQuestionIds = pickMode === 'MANUAL' ? selectedQuestionIds : pickAutoQuestionIds()
-      const questionPoints = splitPointsPrecisely(targetTotalPoints, generatedQuestionIds.length)
-      const generatedDrafts: GeneratedExamDraft[] = [
-        {
-          id: `generated-exam-${Date.now()}`,
-          easyCount,
-          mediumCount,
-          hardCount,
-          totalPoints: targetTotalPoints,
-          questionPoints,
-          questionIds: generatedQuestionIds,
-        },
-      ]
-      setGeneratedExams(generatedDrafts)
-      setDraftStatus('GENERATED')
-    }, 1000)
-  }
-
   const validateAutoQuestionCount = () => {
     if (configuredQuestionCount === 0) {
-      alert('Vui lòng cấu hình số lượng câu hỏi theo độ khó trước khi sinh đề tự động.')
+      toast.error('Vui lòng cấu hình số lượng câu hỏi theo độ khó trước khi sinh đề tự động.')
       return false
     }
 
@@ -152,65 +112,97 @@ export default function TeacherAutoExamMatrixPage() {
     const availableHard = eligibleQuestions.filter((q) => q.difficulty === 'HARD').length
 
     if (availableEasy < easyCount || availableMedium < mediumCount || availableHard < hardCount) {
-      alert('Ngân hàng câu hỏi chưa đủ số câu trắc nghiệm theo từng độ khó đã cấu hình. Vui lòng giảm số lượng hoặc bổ sung câu hỏi.')
+      toast.error('Ngân hàng câu hỏi chưa đủ số câu trắc nghiệm/lập trình theo từng độ khó đã cấu hình. Vui lòng giảm số lượng hoặc bổ sung câu hỏi.')
       return false
     }
 
     return true
   }
 
-  const handleSaveDraft = () => {
-    if (generatedExams.length === 0) {
-      alert('Vui lòng sinh đề trước khi lưu nháp.')
+  const handleGenerateExams = async () => {
+    if (!examTitle.trim()) {
+      toast.error('Vui lòng nhập tên bài thi trước khi sinh đề.')
       return
     }
 
-    const generated = generatedExams[0]
-    const selectedQuestions = generated.questionIds
-      .map((questionId) => questions.find((question) => question.id === questionId))
-      .filter((question): question is NonNullable<typeof question> => Boolean(question))
-    const subject = selectedQuestions[0] ?? questions.find((question) => question.subjectId === selectedSubject)
-    if (!subject) return
-    const subjectCourse = courses.find((course) => course.subjectId === subject.subjectId)
-
-    const exam: Exam = {
-      id: generated.id,
-      authorId: currentUser?.profileId ?? 'gv-01',
-      authorName: currentUser?.fullName ?? 'Nguyễn Văn An',
-      subjectId: subject.subjectId,
-      subjectCode: subjectCourse?.subjectCode ?? subject.subjectId.toUpperCase(),
-      subjectName: subject.subjectName,
-      semesterId: subjectCourse?.semesterId ?? '',
-      semesterCode: subjectCourse?.semesterCode ?? '',
-      semesterName: subjectCourse?.semesterName ?? 'Chưa xác định học kỳ',
-      title: examTitle.trim(),
-      description: 'Đề trắc nghiệm được sinh tự động từ ngân hàng câu hỏi và đã được giảng viên xem lại.',
-      category: examCategory,
-      type: 'MULTIPLE_CHOICE',
-      creationMethod: 'QUESTION_BANK',
-      status: 'DRAFT',
-      studentVisibility: 'HIDDEN',
-      defaultDurationMinutes: durationMinutes,
-      sections: [{ id: 'sec-objective', title: 'Phần 1: Trắc nghiệm', type: 'OBJECTIVE', targetPoints: targetTotalPoints, order: 1 }],
-      schedules: [],
-      questions: selectedQuestions.map((question, index) => ({
-        questionId: question.id,
-        question,
-        points: generated.questionPoints[index] ?? 0,
-        order: index + 1,
-        sectionId: 'sec-objective',
-      })),
-      totalPoints: targetTotalPoints,
-      createdAt: new Date().toISOString(),
+    if (durationMinutes <= 0) {
+      toast.error('Thời lượng làm bài phải lớn hơn 0.')
+      return
     }
-    upsertExam(exam)
-    setDraftStatus('SAVED_DRAFT')
-    toast.success('Đã lưu đề nháp vào Quản lý đề thi.')
+
+    if (targetTotalPoints <= 0) {
+      toast.error('Tổng điểm mục tiêu phải lớn hơn 0.')
+      return
+    }
+
+    const subjectCourse = courses.find((course) => course.subjectId === selectedSubject && course.semesterStatus === 'ACTIVE')
+      ?? courses.find((course) => course.subjectId === selectedSubject)
+    if (!selectedSubject || !subjectCourse?.semesterId) {
+      toast.error('Không tìm thấy học kỳ/lớp học phần cho môn đã chọn.')
+      return
+    }
+
+    if (pickMode === 'MANUAL' && selectedQuestionIds.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một câu hỏi từ ngân hàng trước khi sinh đề.')
+      return
+    }
+
+    if (pickMode === 'AUTO' && !validateAutoQuestionCount()) return
+
+    setIsGenerating(true)
+    try {
+      const exam = await autoGenerateTeacherExam({
+        title: examTitle.trim(),
+        description:
+          examFormat === 'PROGRAMMING'
+            ? 'Đề bài lập trình được sinh tự động từ ngân hàng câu hỏi.'
+            : examFormat === 'MIXED'
+            ? 'Đề thi hỗn hợp (trắc nghiệm và lập trình) được sinh tự động từ ngân hàng câu hỏi.'
+            : 'Đề trắc nghiệm được sinh tự động từ ngân hàng câu hỏi và đã được giảng viên xem lại.',
+        subjectId: selectedSubject,
+        semesterId: subjectCourse.semesterId,
+        type: examCategory,
+        format: examFormat,
+        defaultDurationMinutes: durationMinutes,
+        totalPoints: targetTotalPoints,
+        pickMode,
+        sourceScope: 'BOTH',
+        matrix: { easy: easyCount, medium: mediumCount, hard: hardCount },
+        selectedQuestionIds: pickMode === 'MANUAL' ? selectedQuestionIds : [],
+      })
+      setGeneratedExams([{
+        id: exam.id,
+        easyCount: exam.questions.filter((question) => question.difficulty === 'EASY').length,
+        mediumCount: exam.questions.filter((question) => question.difficulty === 'MEDIUM').length,
+        hardCount: exam.questions.filter((question) => question.difficulty === 'HARD').length,
+        totalPoints: exam.totalPoints,
+        questionPoints: exam.questions.map((question) => question.points),
+        questionIds: exam.questions.map((question) => question.sourceQuestionId ?? question.id),
+        exam,
+      }])
+      setDraftStatus('SAVED_DRAFT')
+      toast.success('Đã sinh và lưu đề nháp vào Quản lý đề thi.')
+    } catch (error) {
+      const message = isAxiosError(error)
+        ? (error.response?.data as { message?: string })?.message || error.message
+        : error instanceof Error ? error.message : 'Không thể sinh đề tự động. Vui lòng thử lại.'
+      toast.error(message)
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
-  const handleOpenPublishModal = () => {
+  const handleSaveDraft = () => {
+    if (generatedExams.length === 0) {
+      toast.error('Vui lòng sinh đề trước khi mở bản nháp.')
+      return
+    }
+    navigate(`/teacher/exams/${generatedExams[0].id}/edit`)
+  }
+
+  const handleOpenPublishModal = async () => {
     if (draftStatus !== 'SAVED_DRAFT') {
-      alert('Vui lòng lưu nháp đề trước khi tạo ca thi.')
+      toast.error('Vui lòng sinh đề nháp trước khi tạo ca thi.')
       return
     }
 
@@ -220,9 +212,37 @@ export default function TeacherAutoExamMatrixPage() {
       return
     }
 
-    const savedExam = exams.find((exam) => exam.id === generatedExams[0].id)
-    if (savedExam) upsertExam({ ...savedExam, status: 'PUBLISHED', studentVisibility: 'VISIBLE' })
-    setIsAssignModalOpen(true)
+    try {
+      await submitTeacherExam(generatedExams[0].id)
+      setIsAssignModalOpen(true)
+    } catch {
+      toast.error('Không thể công bố đề. Vui lòng mở bản nháp để kiểm tra lại.')
+    }
+  }
+
+  const handleDeleteDraft = async () => {
+    if (generatedExams.length === 0) return
+    const draftId = generatedExams[0].id
+    try {
+      await deleteTeacherExam(draftId)
+      setGeneratedExams([])
+      setDraftStatus('NOT_GENERATED')
+      toast.success('Đã xóa đề nháp vừa sinh.')
+    } catch {
+      toast.error('Không thể xóa đề nháp. Vui lòng thử lại.')
+    }
+  }
+
+  const handleRegenerateExams = async () => {
+    if (generatedExams.length > 0) {
+      try {
+        await deleteTeacherExam(generatedExams[0].id)
+      } catch {
+        toast.error('Không thể xóa đề nháp hiện tại để sinh lại. Vui lòng thử lại.')
+        return
+      }
+    }
+    await handleGenerateExams()
   }
 
   return (
@@ -242,12 +262,15 @@ export default function TeacherAutoExamMatrixPage() {
                 setExamTitle={setExamTitle}
                 examCategory={examCategory}
                 setExamCategory={setExamCategory}
+                examFormat={examFormat}
+                setExamFormat={setExamFormat}
                 durationMinutes={durationMinutes}
                 setDurationMinutes={setDurationMinutes}
                 targetTotalPoints={targetTotalPoints}
                 setTargetTotalPoints={setTargetTotalPoints}
                 selectedSubject={selectedSubject}
                 onSubjectChange={handleSubjectChange}
+                subjectOptions={subjectOptions}
                 draftStatus={draftStatus}
                 eligibleQuestions={eligibleQuestions}
                 filteredEligibleQuestions={filteredEligibleQuestions}
@@ -278,15 +301,19 @@ export default function TeacherAutoExamMatrixPage() {
               hardCount={hardCount}
               selectedQuestionCount={selectedQuestions.length}
               targetTotalPoints={targetTotalPoints}
+              examFormat={examFormat}
             />
           </TeacherTwoColumnLayout>
 
           <GeneratedExamResults
             generatedExams={generatedExams}
             draftStatus={draftStatus}
+            isGenerating={isGenerating}
             onSaveDraft={handleSaveDraft}
             onPublish={handleOpenPublishModal}
             onPreview={setPreviewExamCode}
+            onRegenerate={handleRegenerateExams}
+            onDeleteDraft={handleDeleteDraft}
           />
         </main>
       </div>
@@ -294,7 +321,7 @@ export default function TeacherAutoExamMatrixPage() {
       <AssignExamToCourseModal
         isOpen={isAssignModalOpen}
         examId={generatedExams[0]?.id ?? 'generated-exam-draft'}
-        subjectName={eligibleQuestions[0]?.subjectName ?? ''}
+        subjectName={generatedExams[0]?.exam.subject.name ?? eligibleQuestions[0]?.subjectName ?? ''}
         courses={courses.filter(({ subjectId }) => subjectId === selectedSubject)}
         onClose={() => setIsAssignModalOpen(false)}
         examTitle={examTitle}
@@ -303,7 +330,18 @@ export default function TeacherAutoExamMatrixPage() {
           ...DEFAULT_SESSION_CONFIG,
           distributionMode: 'SHUFFLE_QUESTIONS_AND_OPTIONS',
         }}
-        onCreateSessions={(schedules) => replaceExamSchedules(generatedExams[0].id, schedules)}
+        onCreateSessions={async (sessions) => {
+          try {
+            await Promise.all(sessions.map((session) =>
+              createTeacherExamSchedule(generatedExams[0].id, toTeacherSchedulePayload(session)),
+            ))
+            toast.success('Đã tạo ca thi cho đề vừa sinh.')
+            navigate(`/teacher/exams/${generatedExams[0].id}`)
+          } catch {
+            toast.error('Không thể tạo ca thi. Vui lòng kiểm tra thời gian, lớp và trạng thái đề.')
+            throw new Error('Schedule save failed')
+          }
+        }}
       />
 
       <GeneratedExamPreviewModal

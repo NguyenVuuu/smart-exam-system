@@ -2,6 +2,8 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   FileText,
   HardDrive,
   Loader2,
@@ -11,19 +13,25 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import AppSelect from '../../components/common/AppSelect'
+import { getApiErrorMessage } from '../../api/errors'
 import FileSelectionList from './components/FileSelectionList'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
-import { uploadAiSourceFiles } from './api/teacher-questions.api'
+import { QuestionProgrammingEditor } from './components/question-bank/editor/QuestionProgrammingEditor'
+import {
+  generateAiQuestions,
+  getAiMaterials,
+  saveApprovedAiQuestions,
+  uploadAiSourceFiles,
+} from './api/teacher-questions.api'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
-import { MOCK_COURSE_MATERIALS, MOCK_TEACHER_COURSES } from './mock/teacher-course.mock'
-import { MOCK_AI_DRAFT_QUESTIONS } from './mock/teacher-question-bank.mock'
 import type { AIDraftQuestion, DifficultyLevel } from './types/teacher-question-bank.types'
+import type { AiMaterialDto } from './types/teacher-question-api.types'
 
 type SourceMode = 'COURSE_MATERIAL' | 'UPLOAD_FILE'
 type AiMode = 'GENERATE_FROM_MATERIAL' | 'EXTRACT_EXISTING_EXAM'
@@ -68,65 +76,119 @@ const difficultyLabel: Record<DifficultyLevel, string> = {
   HARD: 'Khó',
 }
 
+const difficultyTone: Record<DifficultyLevel, string> = {
+  EASY: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  MEDIUM: 'border-amber-200 bg-amber-50 text-amber-700',
+  HARD: 'border-rose-200 bg-rose-50 text-rose-700',
+}
+
 const statusLabel: Record<AIDraftQuestion['status'], string> = {
   PENDING_REVIEW: 'Chờ duyệt',
   APPROVED: 'Đã chấp nhận',
   REJECTED: 'Đã từ chối',
 }
 
-const displayMaterialName = (material: (typeof MOCK_COURSE_MATERIALS)[number]) =>
-  material.title?.trim() || material.fileName
+const questionTypeLabel: Record<string, string> = {
+  SINGLE_CHOICE: 'Một đáp án',
+  MULTIPLE_CHOICE: 'Nhiều đáp án',
+  TRUE_FALSE: 'Đúng / Sai',
+  PROGRAMMING: 'Lập trình',
+}
+
+const formatFileSize = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`
+
+const aiDraftStorageKey = 'teacher-ai-question-drafts'
+
+function loadStoredDraftQuestions() {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const value = window.sessionStorage.getItem(aiDraftStorageKey)
+    return value ? (JSON.parse(value) as AIDraftQuestion[]) : []
+  } catch {
+    return []
+  }
+}
 
 export default function TeacherAiQuestionGeneratorPage() {
   const navigate = useNavigate()
   const { subjects } = useTeacherQuestions()
-  const fallbackSubjectOptions = Array.from(
-    new Map(
-      MOCK_TEACHER_COURSES.map((course) => [
-        course.subjectId,
-        { value: course.subjectId, label: `${course.subjectCode} - ${course.subjectName}` },
-      ]),
-    ).values(),
-  )
-  const subjectOptions =
-    subjects.length > 0
-      ? subjects.map((subject) => ({ value: subject.id, label: subject.name }))
-      : fallbackSubjectOptions
+  const subjectOptions = subjects.map((subject) => ({ value: subject.id, label: subject.name }))
   const [sourceMode, setSourceMode] = useState<SourceMode>('COURSE_MATERIAL')
   const [aiMode, setAiMode] = useState<AiMode>('GENERATE_FROM_MATERIAL')
-  const [subjectId, setSubjectId] = useState(subjectOptions[0]?.value ?? '')
-  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([
-    'mat-01',
-    'mat-02',
-  ])
+  const [subjectId, setSubjectId] = useState('')
+  const [materials, setMaterials] = useState<AiMaterialDto[]>([])
+  const [materialsLoading, setMaterialsLoading] = useState(false)
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [questionCount, setQuestionCount] = useState(5)
   const [desiredDifficulty, setDesiredDifficulty] = useState<DesiredDifficulty>('AUTO')
-  const [promptInput, setPromptInput] = useState(
-    'Sinh câu hỏi Java OOP tập trung vào tính đóng gói, kế thừa và đa hình.',
-  )
+  const [promptInput, setPromptInput] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [draftQuestions, setDraftQuestions] = useState<AIDraftQuestion[]>([])
-  const courseById = useMemo(
-    () => new Map(MOCK_TEACHER_COURSES.map((course) => [course.id, course])),
-    [],
-  )
-  const materialDuplicateCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const material of MOCK_COURSE_MATERIALS) {
-      if (material.checksum) counts.set(material.checksum, (counts.get(material.checksum) ?? 0) + 1)
+  const [isSaving, setIsSaving] = useState(false)
+  const [draftQuestions, setDraftQuestions] = useState<AIDraftQuestion[]>(loadStoredDraftQuestions)
+  const [collapsedDraftQuestionIds, setCollapsedDraftQuestionIds] = useState<string[]>([])
+  const [expandedDraftTestCaseIds, setExpandedDraftTestCaseIds] = useState<Record<string, string[]>>({})
+  const configSectionRef = useRef<HTMLElement>(null)
+  const [draftPanelHeight, setDraftPanelHeight] = useState<number | undefined>()
+  const selectedSubjectId = subjectId || subjects[0]?.id || ''
+  const selectedCourseMaterials = materials.filter((material) => selectedMaterials.includes(material.id))
+
+  useEffect(() => {
+    if (draftQuestions.length === 0) {
+      window.sessionStorage.removeItem(aiDraftStorageKey)
+      return
     }
-    return counts
-  }, [])
-  const filteredMaterials = useMemo(
-    () =>
-      MOCK_COURSE_MATERIALS.filter((material) => {
-        const course = courseById.get(material.courseOfferingId)
-        return (material.subjectId ?? course?.subjectId) === subjectId
-      }),
-    [courseById, subjectId],
-  )
-  const selectedCourseMaterials = filteredMaterials.filter((material) => selectedMaterials.includes(material.id))
+
+    window.sessionStorage.setItem(aiDraftStorageKey, JSON.stringify(draftQuestions))
+  }, [draftQuestions])
+
+  useEffect(() => {
+    const element = configSectionRef.current
+    if (!element) return
+
+    const updateHeight = () => {
+      setDraftPanelHeight(
+        window.matchMedia('(min-width: 1280px)').matches
+          ? Math.ceil(element.getBoundingClientRect().height)
+          : undefined,
+      )
+    }
+    const observer = new ResizeObserver(updateHeight)
+
+    updateHeight()
+    observer.observe(element)
+    window.addEventListener('resize', updateHeight)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateHeight)
+    }
+  }, [sourceMode, aiMode, uploadedFiles.length, materials.length])
+
+  useEffect(() => {
+    if (!selectedSubjectId) return
+    let active = true
+    getAiMaterials(selectedSubjectId)
+      .then((items) => {
+        if (active) setMaterials(items)
+      })
+      .catch((error) => {
+        if (active) {
+          setMaterials([])
+          toast.error(getApiErrorMessage(error, 'Không thể tải tài liệu lớp học.'))
+        }
+      })
+      .finally(() => {
+        if (active) setMaterialsLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [selectedSubjectId])
 
   const removeUploadedFile = (index: number) => {
     setUploadedFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))
@@ -139,7 +201,7 @@ export default function TeacherAiQuestionGeneratorPage() {
   }
 
   const handleGenerate = async () => {
-    if (!subjectId) {
+    if (!selectedSubjectId) {
       toast.error('Vui lòng chọn môn học để AI gán câu hỏi đúng ngân hàng.')
       return
     }
@@ -155,29 +217,52 @@ export default function TeacherAiQuestionGeneratorPage() {
     setIsGenerating(true)
     try {
       const uploadedSources = sourceMode === 'UPLOAD_FILE'
-        ? await uploadAiSourceFiles(subjectId, uploadedFiles)
+        ? await uploadAiSourceFiles(selectedSubjectId, uploadedFiles)
         : []
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      const generatedAt = Date.now()
-      const sourceMaterialName =
-        sourceMode === 'COURSE_MATERIAL'
-          ? selectedCourseMaterials.map(displayMaterialName).join(', ')
-          : uploadedSources.map((file) => file.fileName).join(', ')
-      const generatedQuestions = MOCK_AI_DRAFT_QUESTIONS.map((question, index) => ({
-        ...question,
-        id: `${question.id}-${generatedAt}-${index}`,
-        difficulty:
-          aiMode === 'GENERATE_FROM_MATERIAL' && desiredDifficulty !== 'AUTO'
-            ? desiredDifficulty
-            : question.difficulty,
-        status: 'PENDING_REVIEW' as const,
-        sourceMaterialName,
+      const result = await generateAiQuestions({
+        subjectId: selectedSubjectId,
+        sourceType: sourceMode,
+        mode: aiMode,
+        materialIds: sourceMode === 'COURSE_MATERIAL' ? selectedMaterials : [],
+        sourceFiles: uploadedSources,
+        prompt: promptInput,
+        questionCount,
+        difficulty: desiredDifficulty,
+      })
+      const generatedQuestions: AIDraftQuestion[] = result.questions.map((question) => ({
+        id: question.id,
+        generationId: result.historyId,
+        subjectId: question.subjectId,
+        subjectName: question.subjectName,
+        teacherId: '',
+        teacherName: 'AI',
+        type: question.type,
+        difficulty: question.difficulty,
+        aiDifficultyReason: question.difficultyReason,
+        title: question.title,
+        content: question.content,
+        explanation: question.explanation,
+        options: question.options.map((option, index) => ({
+          ...option,
+          id: `${question.id}-option-${index}`,
+        })),
+        programmingLanguage: question.language ?? undefined,
+        timeLimitMs: question.timeLimitMs,
+        memoryLimitMb: question.memoryLimitMb,
+        maxCodeSizeKb: question.maxCodeSizeKb,
+        testCases: question.testCases.map((testCase, index) => ({
+          ...testCase,
+          id: `${question.id}-test-${index}`,
+        })),
+        status: 'PENDING_REVIEW',
+        sourceMaterialName: question.sourceMaterialName,
+        createdAt: new Date().toISOString(),
       }))
 
       setDraftQuestions((prev) => [...prev, ...generatedQuestions])
       toast.success(draftQuestions.length > 0 ? 'Đã thêm câu hỏi mới vào danh sách nháp.' : 'AI đã tạo danh sách câu hỏi nháp.')
-    } catch {
-      toast.error('Không thể tải file nguồn AI lên Supabase. Vui lòng kiểm tra cấu hình và thử lại.')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'AI không thể xử lý tài liệu đã chọn.'))
     } finally {
       setIsGenerating(false)
     }
@@ -230,6 +315,44 @@ export default function TeacherAiQuestionGeneratorPage() {
     )
   }
 
+  const updateDraftTestCases = (
+    questionId: string,
+    testCases: NonNullable<AIDraftQuestion['testCases']>,
+  ) => {
+    setDraftQuestions((prev) =>
+      prev.map((item) =>
+        item.id === questionId
+          ? { ...item, testCases }
+          : item,
+      ),
+    )
+  }
+
+  const toggleDraftTestCase = (questionId: string, testCaseId: string) => {
+    setExpandedDraftTestCaseIds((current) => {
+      const ids = current[questionId] ?? []
+      return {
+        ...current,
+        [questionId]: ids.includes(testCaseId)
+          ? ids.filter((id) => id !== testCaseId)
+          : [...ids, testCaseId],
+      }
+    })
+  }
+
+  const toggleDraftQuestionCollapse = (questionId: string) => {
+    setCollapsedDraftQuestionIds((current) =>
+      current.includes(questionId)
+        ? current.filter((id) => id !== questionId)
+        : [...current, questionId],
+    )
+  }
+
+  const clearDraftQuestions = () => {
+    setDraftQuestions([])
+    window.sessionStorage.removeItem(aiDraftStorageKey)
+  }
+
   const handleApproveAllAvailable = () => {
     const approvableCount = draftQuestions.filter((item) => item.status !== 'REJECTED').length
     if (!approvableCount) {
@@ -243,14 +366,44 @@ export default function TeacherAiQuestionGeneratorPage() {
     toast.success(`Đã chấp nhận ${approvableCount} câu nháp, bỏ qua các câu đã từ chối.`)
   }
 
-  const handleSaveApproved = () => {
-    const approvedCount = draftQuestions.filter((item) => item.status === 'APPROVED').length
-    if (!approvedCount) {
+  const handleSaveApproved = async () => {
+    const approved = draftQuestions.filter((item) => item.status === 'APPROVED' && item.generationId)
+    if (!approved.length) {
       toast.error('Vui lòng duyệt ít nhất một câu hỏi trước khi lưu.')
       return
     }
-    toast.success(`Đã lưu ${approvedCount} câu hỏi AI vào ngân hàng cá nhân.`)
-    navigate('/teacher/question-bank')
+    setIsSaving(true)
+    try {
+      const result = await saveApprovedAiQuestions(approved.map((item) => ({
+        generationId: item.generationId!,
+        subjectId: item.subjectId,
+        question: {
+          title: item.type === 'PROGRAMMING' ? item.title : item.content,
+          content: item.type === 'PROGRAMMING' ? item.content : item.content,
+          explanation: item.explanation ?? '',
+          type: item.type,
+          difficulty: item.difficulty,
+          difficultyReason: item.aiDifficultyReason ?? 'Giảng viên đã rà soát mức độ khó.',
+          language: item.type === 'PROGRAMMING' ? item.programmingLanguage ?? null : null,
+          options: (item.options ?? []).map(({ content, isCorrect }) => ({ content, isCorrect })),
+          timeLimitMs: item.timeLimitMs ?? 2000,
+          memoryLimitMb: item.memoryLimitMb ?? 256,
+          maxCodeSizeKb: item.maxCodeSizeKb ?? 256,
+          testCases: (item.testCases ?? []).map(({ input, expectedOutput, isHidden }) => ({
+            input,
+            expectedOutput,
+            isHidden,
+          })),
+        },
+      })))
+      toast.success(`Đã lưu ${result.count} câu hỏi AI vào ngân hàng cá nhân.`)
+      window.sessionStorage.removeItem(aiDraftStorageKey)
+      navigate('/teacher/question-bank')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Không thể lưu câu hỏi AI đã duyệt.'))
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -278,17 +431,17 @@ export default function TeacherAiQuestionGeneratorPage() {
               <button
                 type="button"
                 onClick={handleSaveApproved}
-                disabled={draftQuestions.length === 0}
+                disabled={draftQuestions.length === 0 || isSaving}
                 className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
               >
-                <Save size={15} />
-                Lưu câu đã duyệt
+                {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                {isSaving ? 'Đang lưu...' : 'Lưu câu đã duyệt'}
               </button>
             }
           />
 
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[480px_minmax(0,1fr)]">
-            <section className="space-y-5 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[480px_minmax(0,1fr)]">
+            <section ref={configSectionRef} className="space-y-5 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
               <div>
                 <h2 className="text-sm font-bold text-gray-950">Cấu hình AI</h2>
                 <p className="mt-1 text-xs text-gray-500">
@@ -299,10 +452,11 @@ export default function TeacherAiQuestionGeneratorPage() {
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-gray-900">Môn học</label>
                 <AppSelect
-                  value={subjectId}
+                  value={selectedSubjectId}
                   onChange={(value) => {
                     setSubjectId(value)
                     setSelectedMaterials([])
+                    setMaterialsLoading(true)
                   }}
                   buttonClassName="bg-white"
                   options={subjectOptions}
@@ -338,16 +492,17 @@ export default function TeacherAiQuestionGeneratorPage() {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-900">Tài liệu lớp học</label>
                     <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
-                      {filteredMaterials.length === 0 ? (
+                      {materialsLoading ? (
+                        <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 p-5 text-xs text-gray-500">
+                          <Loader2 size={15} className="animate-spin" />
+                          Đang tải tài liệu...
+                        </div>
+                      ) : materials.length === 0 ? (
                         <div className="rounded-xl border border-dashed border-gray-200 p-5 text-center text-xs text-gray-500">
                           Chưa có tài liệu nào thuộc môn đã chọn.
                         </div>
-                      ) : filteredMaterials.map((material) => {
+                      ) : materials.map((material) => {
                         const checked = selectedMaterials.includes(material.id)
-                        const course = courseById.get(material.courseOfferingId)
-                        const duplicated = Boolean(
-                          material.checksum && (materialDuplicateCounts.get(material.checksum) ?? 0) > 1,
-                        )
                         return (
                           <label
                             key={material.id}
@@ -364,12 +519,12 @@ export default function TeacherAiQuestionGeneratorPage() {
                             <FileText size={16} className="text-blue-600" />
                             <span className="min-w-0">
                               <span className="block truncate text-xs font-semibold text-gray-900">
-                                {displayMaterialName(material)}
+                                {material.fileName}
                               </span>
                               <span className="block truncate text-xs text-gray-400">
-                                {course?.courseCode ?? material.courseCode} - {material.fileSize} - {material.fileType}
+                                {material.courseCode} - {formatFileSize(material.fileSize)} - {material.contentType}
                               </span>
-                              {duplicated && (
+                              {material.duplicated && (
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-700">
                                   Trùng nội dung
                                 </span>
@@ -389,7 +544,7 @@ export default function TeacherAiQuestionGeneratorPage() {
                   <label className="block cursor-pointer rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/30 p-6 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/60">
                     <input
                       type="file"
-                      accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                      accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"
                       multiple
                       className="hidden"
                       onChange={(event) => {
@@ -492,7 +647,10 @@ export default function TeacherAiQuestionGeneratorPage() {
               </button>
             </section>
 
-            <section className="min-h-[620px] rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+            <section
+              className="flex min-h-[620px] flex-col overflow-hidden rounded-xl border border-gray-100 bg-white p-5 shadow-sm xl:min-h-0"
+              style={draftPanelHeight ? { height: draftPanelHeight } : undefined}
+            >
               <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-4">
                 <div>
                   <h2 className="text-sm font-bold text-gray-950">Câu hỏi nháp</h2>
@@ -513,7 +671,7 @@ export default function TeacherAiQuestionGeneratorPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setDraftQuestions([])}
+                        onClick={clearDraftQuestions}
                         className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                       >
                         <Trash2 size={14} />
@@ -528,7 +686,7 @@ export default function TeacherAiQuestionGeneratorPage() {
               </div>
 
               {draftQuestions.length === 0 ? (
-                <div className="flex min-h-[460px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 text-center">
+                <div className="flex min-h-[460px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 text-center">
                   <Sparkles size={28} className="text-blue-500" />
                   <p className="mt-3 text-sm font-bold text-gray-950">Chưa có câu hỏi nháp</p>
                   <p className="mt-1 max-w-sm text-xs text-gray-500">
@@ -536,33 +694,60 @@ export default function TeacherAiQuestionGeneratorPage() {
                   </p>
                 </div>
               ) : (
-                <div className="mt-4 max-h-[560px] space-y-3 overflow-y-auto pr-1">
-                  {draftQuestions.map((question, index) => (
+                <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                  {draftQuestions.map((question, index) => {
+                    const isCollapsed = collapsedDraftQuestionIds.includes(question.id)
+                    return (
                     <article key={question.id} className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-blue-700">
-                            Câu nháp #{index + 1} - {question.type === 'SINGLE_CHOICE' ? 'Một đáp án' : 'Nhiều đáp án'}
-                          </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold text-blue-700">
+                              Câu nháp #{index + 1}
+                            </span>
+                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-600">
+                              {questionTypeLabel[question.type] || question.type}
+                            </span>
+                            <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-bold ${difficultyTone[question.difficulty]}`}>
                               {difficultyLabel[question.difficulty]}
                             </span>
                           </div>
+                          {isCollapsed && (
+                            <p className="mt-1.5 truncate text-sm font-semibold text-gray-950">
+                              {question.title || question.content || 'Chưa có tiêu đề'}
+                            </p>
+                          )}
                         </div>
-                        <span
-                          className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${
-                            question.status === 'APPROVED'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : question.status === 'REJECTED'
-                                ? 'bg-rose-50 text-rose-700'
-                                : 'bg-amber-50 text-amber-700'
-                          }`}
-                        >
-                          {statusLabel[question.status]}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
+                              question.status === 'APPROVED'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : question.status === 'REJECTED'
+                                  ? 'bg-rose-50 text-rose-700'
+                                  : 'bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            {statusLabel[question.status]}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleDraftQuestionCollapse(question.id)}
+                            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 cursor-pointer"
+                            title={isCollapsed ? 'Mở câu hỏi' : 'Thu gọn câu hỏi'}
+                          >
+                            {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                          </button>
+                        </div>
                       </div>
 
+                      {!isCollapsed && (
+                        <>
+                      {question.aiDifficultyReason && (
+                        <p className="mt-3 text-xs leading-5 text-gray-500">
+                          <span className="font-semibold text-gray-600">Lý do xếp độ khó:</span> {question.aiDifficultyReason}
+                        </p>
+                      )}
                       {question.type === 'PROGRAMMING' ? (
                         <>
                           <div className="mt-3">
@@ -582,6 +767,22 @@ export default function TeacherAiQuestionGeneratorPage() {
                               className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm leading-6 text-gray-800 outline-none focus:border-blue-500"
                             />
                           </div>
+                          <div className="mt-3">
+                            <QuestionProgrammingEditor
+                              programmingLanguage={question.programmingLanguage ?? 'JAVA'}
+                              onLanguageChange={(value) => updateDraftField(question.id, 'programmingLanguage', value)}
+                              timeLimitMs={question.timeLimitMs ?? 2000}
+                              onTimeLimitChange={(value) => updateDraftField(question.id, 'timeLimitMs', value)}
+                              memoryLimitMb={question.memoryLimitMb ?? 256}
+                              onMemoryLimitChange={(value) => updateDraftField(question.id, 'memoryLimitMb', value)}
+                              maxCodeSizeKb={question.maxCodeSizeKb ?? 256}
+                              onMaxCodeSizeChange={(value) => updateDraftField(question.id, 'maxCodeSizeKb', value)}
+                              testCases={question.testCases ?? []}
+                              onTestCasesChange={(testCases) => updateDraftTestCases(question.id, testCases)}
+                              expandedTcIds={expandedDraftTestCaseIds[question.id] ?? []}
+                              onToggleExpandTc={(testCaseId) => toggleDraftTestCase(question.id, testCaseId)}
+                            />
+                          </div>
                         </>
                       ) : (
                         <div className="mt-3">
@@ -589,7 +790,10 @@ export default function TeacherAiQuestionGeneratorPage() {
                           <textarea
                             rows={2}
                             value={question.content || question.title}
-                            onChange={(event) => updateDraftField(question.id, 'content', event.target.value)}
+                            onChange={(event) => {
+                              updateDraftField(question.id, 'content', event.target.value)
+                              updateDraftField(question.id, 'title', event.target.value)
+                            }}
                             className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold leading-6 text-gray-950 outline-none focus:border-blue-500"
                           />
                         </div>
@@ -661,8 +865,11 @@ export default function TeacherAiQuestionGeneratorPage() {
                           </button>
                         </div>
                       </div>
+                        </>
+                      )}
                     </article>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </section>

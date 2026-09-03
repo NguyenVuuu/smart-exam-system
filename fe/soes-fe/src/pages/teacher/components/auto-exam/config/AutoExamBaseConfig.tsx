@@ -9,7 +9,6 @@ export default function AutoExamBaseConfig(props: AutoExamConfigPanelProps) {
         Cấu Hình Đề Thi
       </h3>
 
-      {/* Border Container matching the difficulty rows style */}
       <div className="border border-gray-100 rounded-2xl p-5 bg-white space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -44,23 +43,22 @@ export default function AutoExamBaseConfig(props: AutoExamConfigPanelProps) {
               value={props.selectedSubject}
               onChange={props.onSubjectChange}
               buttonClassName="bg-gray-50/70 py-2.5 text-sm rounded-xl border border-gray-200 shadow-2xs"
-              options={[
-                { value: 'sub-01', label: 'Lập trình Java căn bản (CS101)' },
-                { value: 'sub-02', label: 'Cấu trúc dữ liệu & Giải thuật (CS102)' },
-                { value: 'sub-03', label: 'Lập trình C++ (CS103)' },
-              ]}
+              options={props.subjectOptions.map((subject) => ({ value: subject.id, label: subject.name }))}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-gray-700">Trạng Thái Bộ Đề:</label>
-            <div className="w-full bg-gray-50/70 border border-gray-200 text-sm font-medium rounded-xl px-3.5 py-2.5 text-gray-700 shadow-2xs">
-              {props.draftStatus === 'SAVED_DRAFT'
-                ? 'Đã lưu nháp (DRAFT)'
-                : props.draftStatus === 'GENERATED'
-                ? 'Đã sinh đề - chưa lưu'
-                : 'Chưa sinh đề'}
-            </div>
+            <label className="text-sm font-semibold text-gray-700">Hình Thức Đề Thi:</label>
+            <AppSelect
+              value={props.examFormat}
+              onChange={props.setExamFormat}
+              buttonClassName="bg-gray-50/70 py-2.5 text-sm rounded-xl border border-gray-200 shadow-2xs"
+              options={[
+                { value: 'OBJECTIVE', label: 'Trắc nghiệm (1 đáp án, nhiều đáp án, đúng/sai)' },
+                { value: 'PROGRAMMING', label: 'Lập trình (Code / TestCase)' },
+                { value: 'MIXED', label: 'Hỗn hợp (Trắc nghiệm + Lập trình)' },
+              ]}
+            />
           </div>
         </div>
 

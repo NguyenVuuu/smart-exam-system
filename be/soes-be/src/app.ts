@@ -14,6 +14,7 @@ import { teacherQuestionsRoutes } from './modules/teacher-questions'
 import { teacherExamsRoutes } from './modules/teacher-exams'
 import { examScheduleRoutes } from './modules/exam-schedules'
 import { adminContentRoutes } from './modules/admin-content'
+import { aiQuestionGenerationRoutes } from './modules/ai-question-generation'
 import { corsConfig } from './config'
 
 const app = express()
@@ -51,6 +52,7 @@ app.use('/api/admin', adminContentRoutes)
 app.use('/api/teacher', teacherCoursesRoutes)
 app.use('/api/teacher', teacherQuestionsRoutes)
 app.use('/api/teacher', teacherExamsRoutes)
+app.use('/api/teacher', aiQuestionGenerationRoutes)
 
 // ── Health check ──────────────────────────────────────────
 app.get('/health', (_req, res) => {
