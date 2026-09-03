@@ -1008,7 +1008,7 @@ Lấy thông tin bài kiểm tra.
 | `remainingAttempts` | Số lượt còn lại | 
 | `attemptId` | ID lần làm bài hiện tại. Chỉ trả về khi sinh viên đang làm bài chưa submit. | 
 | `canResume` | Chỉ trả về khi status = AVAILABLE. FE dùng để hiển thị nút "Tiếp tục". | 
-| `remainingSeconds` | Snapshot thời gian còn lại từ thời điểm start exam (chỉ dùng cho countdown initialization). FE nên tính lại `remainingSeconds` từ `max(0, floor((deadlineAt - now) / 1000))` nếu cần thời gian chính xác. Trả về null khi không có attempt đang diễn ra. | 
+| `remainingSeconds` | Thoi gian con lai server tinh tai thoi diem response. Neu co attempt IN_PROGRESS thi tinh theo attempt.deadlineAt. Neu chua co attempt va dang trong lich thi thi la min(durationMinutes * 60, schedule.endTime - now). Tra null khi khong con/khong co phien lam bai dang mo. |
 | `canStart` | FE dùng để bật/tắt nút "Vào làm bài" | 
 | `status` | Trạng thái của sinh viên đối với bài thi (NOT_STARTED, AVAILABLE, SUBMITTED, EXPIRED) | 
 
@@ -1033,14 +1033,17 @@ Lấy thông tin bài kiểm tra.
 
 ## Status (Status của sinh viên với bài thi, không phải của Exam "Student Exam Status")
 
-Status được xác định theo thứ tự ưu tiên:
+Status duoc xac dinh theo thu tu uu tien:
 
-1. Nếu Student đã SUBMITTED -> SUBMITTED
-2. Ngược lại nếu now < startTime -> NOT_STARTED
-3. Ngược lại nếu startTime <= now < endTime -> AVAILABLE
-4. Ngược lại -> EXPIRED
+1. Neu co attempt IN_PROGRESS va now < attempt.deadlineAt -> AVAILABLE, canResume = true.
+2. Neu co attempt IN_PROGRESS va now >= attempt.deadlineAt nhung schedule con mo va remainingAttempts > 0 -> AVAILABLE de tao luot moi.
+3. Neu co attempt IN_PROGRESS va now >= attempt.deadlineAt nhung khong con dieu kien lam tiep -> EXPIRED, canStart = false.
+4. Neu attempt gan nhat da ket thuc va khong con remainingAttempts -> SUBMITTED.
+5. Neu now < schedule.startTime -> NOT_STARTED.
+6. Neu now >= schedule.endTime -> SUBMITTED neu da co attempt, nguoc lai EXPIRED.
+7. Neu con trong schedule window va con remainingAttempts -> AVAILABLE.
 
-Status được xác định như sau:
+Status duoc xac dinh nhu sau:
 
 - NOT_STARTED:
   Chưa đến thời gian bắt đầu bài thi.
@@ -1089,9 +1092,9 @@ Chỉ cho phép xem Exam khi:
 - Exam.publishedAt != null
 Nếu không thỏa mãn thì trả về 404.
 
-- Hiện tại hệ thống chỉ hỗ trợ maxAttempts = 1.
+- He thong tinh attemptUsed theo tong so attempt cua sinh vien trong schedule. maxAttempts > 1 duoc phan anh qua remainingAttempts/canStart.
 - Các trường attemptUsed và remainingAttempts vẫn được giữ để tương thích khi mở rộng nhiều lần thi trong tương lai.
-- Nếu sinh viên đang làm bài khi hết thời gian thi, hệ thống tự động nộp bài và trạng thái chuyển thành SUBMITTED.
+- Neu sinh vien dang lam bai, quyen tiep tuc lam bai duoc quyet dinh bang attempt.deadlineAt, ke ca khi khac schedule.endTime do extra time/cau hinh rieng.
 - Nếu sinh viên chưa từng bắt đầu làm bài trước khi hết thời gian thi, hệ thống ghi nhận bài thi với 0 điểm và trạng thái EXPIRED.
 - Chỉ cho phép xem Exam có status = PUBLISHED.
 - Nếu Exam có status khác PUBLISHED thì trả về 404.
@@ -1105,10 +1108,10 @@ Nếu không thỏa mãn thì trả về 404.
 - FE chỉ dựa vào canStart để hiển thị nút "Vào làm bài".
 - remainingSeconds = thời gian còn lại sinh viên được phép làm bài.
   - Nếu chưa bắt đầu:
-    remainingSeconds = durationMinutes * 60
+    remainingSeconds = min(durationMinutes * 60, schedule.endTime - now)
   - Nếu đang làm:
-    remainingSeconds = submitDeadline - now
-  - Nếu đã submit hoặc expired: không trả về trường này.
+    remainingSeconds = attempt.deadlineAt - now
+  - Neu da submit hoac expired: remainingSeconds = null, rieng attempt IN_PROGRESS vua qua deadline co the tra 0.
 - canResume không lưu trong database.
 Backend tính động theo:
   - attempt tồn tại
