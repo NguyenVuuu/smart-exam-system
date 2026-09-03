@@ -16,16 +16,21 @@ async function runBatched<T, R>(items: T[], run: (item: T) => Promise<R>) {
   return results
 }
 
-const testStatus = (result: Judge0SubmissionResult): ProgrammingTestResultStatus =>
-  Judge0Service.mapStatusToInternal(result.status.id)
+const testStatus = (
+  result: Judge0SubmissionResult,
+  expectedOutput: string | null,
+): ProgrammingTestResultStatus =>
+  Judge0Service.mapResultToInternal(result, expectedOutput)
 
-function submissionStatus(results: Judge0SubmissionResult[]): ProgrammingSubmissionStatus {
+function submissionStatus(
+  results: Judge0SubmissionResult[],
+  tests: Array<{ expectedOutput: string | null }>,
+): ProgrammingSubmissionStatus {
   if (results.some(({ status }) => status.id === 13)) return 'SYSTEM_ERROR'
   if (results.some(({ status }) => status.id === 6)) return 'COMPILE_ERROR'
-  if (results.every(({ status }) => status.id === 3)) return 'ACCEPTED'
-  const firstFailure = results.find(({ status }) => status.id !== 3)!
-  const mapped = testStatus(firstFailure)
-  return mapped === 'PASSED' ? 'ACCEPTED' : mapped
+  const statuses = results.map((result, index) => testStatus(result, tests[index]?.expectedOutput ?? null))
+  if (statuses.every((status) => status === 'PASSED')) return 'ACCEPTED'
+  return statuses.find((status) => status !== 'PASSED')!
 }
 
 export async function gradeProgrammingAnswers(attemptId: string) {
@@ -77,8 +82,9 @@ export async function gradeProgrammingAnswers(attemptId: string) {
         }
       }
     })
-    const status = submissionStatus(results)
-    const passed = results.filter(({ status: resultStatus }) => resultStatus.id === 3).length
+    const status = submissionStatus(results, tests)
+    const perTestStatuses = results.map((result, index) => testStatus(result, tests[index]?.expectedOutput ?? null))
+    const passed = perTestStatuses.filter((resultStatus) => resultStatus === 'PASSED').length
     const score = status === 'SYSTEM_ERROR'
       ? null
       : status === 'ACCEPTED' ? Number(examQuestion.points) : 0
@@ -90,7 +96,7 @@ export async function gradeProgrammingAnswers(attemptId: string) {
       runtimeError: results.find(({ stderr }) => stderr)?.stderr ?? null,
       testResults: results.map((result, index) => ({
         testCaseId: tests[index].id,
-        status: testStatus(result),
+        status: perTestStatuses[index],
         actualOutput: result.stdout,
         executionTimeMs: result.time ? Math.round(Number(result.time) * 1000) : null,
         memoryUsedKb: result.memory,
