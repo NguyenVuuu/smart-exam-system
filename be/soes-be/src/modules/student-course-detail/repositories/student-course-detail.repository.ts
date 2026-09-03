@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
+import { studentVisibleScheduleWhere } from '../../student-common/exam-visibility.policy'
 import { MemberRole } from '../types/student-course-detail.types'
 import { NotFoundError } from '../../../errors/AppError'
 import { PostStatus, AttemptStatus } from '@prisma/client'
@@ -110,9 +111,8 @@ export class StudentCourseDetailRepository {
 
     const schedules = await prisma.examSchedule.findMany({
       where: {
+        ...studentVisibleScheduleWhere(),
         scheduleCourses: { some: { courseOfferingId } },
-        status: { in: ['SCHEDULED', 'OPEN', 'CLOSED'] },
-        publishedAt: { not: null },
       },
       select: {
         id: true,
@@ -222,10 +222,9 @@ export class StudentCourseDetailRepository {
 
     const schedule = await prisma.examSchedule.findFirst({
       where: {
+        ...studentVisibleScheduleWhere(),
         id: scheduleId,
         scheduleCourses: { some: { courseOfferingId } },
-        status: { in: ['SCHEDULED', 'OPEN', 'CLOSED'] },
-        publishedAt: { not: null },
       },
       select: {
         id: true,

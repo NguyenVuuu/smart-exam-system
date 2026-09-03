@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma'
+import { studentVisibleScheduleWhere } from '../../student-common/exam-visibility.policy'
 
 // Returns the active semester, falling back to the most recently started one
 export async function findCurrentSemester() {
@@ -73,10 +74,7 @@ export async function findStudentSubjects(params: SubjectQueryParams) {
             },
             scheduleCourses: {
               where: {
-                examSchedule: {
-                  publishedAt: { not: null },
-                  status: { in: ['SCHEDULED', 'OPEN', 'CLOSED'] },
-                },
+                examSchedule: studentVisibleScheduleWhere(),
               },
               select: { id: true },
             },

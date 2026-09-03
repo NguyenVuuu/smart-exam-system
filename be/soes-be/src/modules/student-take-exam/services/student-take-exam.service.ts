@@ -12,6 +12,10 @@ import * as repo from "../repositories/student-take-exam.repository";
 import { gradeObjectiveAnswers } from '../repositories/attempt-grading.repository'
 import { gradeProgrammingAnswers } from './programming-grading.service'
 import { isResultReleased } from '../../exam-schedules/utils/result-release'
+import {
+  STUDENT_STARTABLE_SCHEDULE_STATUSES,
+  STUDENT_VISIBLE_EXAM_STATUSES,
+} from '../../student-common/exam-visibility.policy'
 
 /**
  * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
@@ -32,7 +36,6 @@ async function runInBatches<T, R>(
 }
 
 const JUDGE0_RUN_BATCH_SIZE = 5
-const STARTABLE_EXAM_STATUSES = ['READY', 'LOCKED'] as const
 const ALREADY_SUBMITTED_STATUSES = ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] as const
 
 type RunCodeAttempt = {
@@ -317,12 +320,12 @@ export async function startExam(
     throw new NotFoundError("Not Found");
   }
 
-  // ── 4. Exam must be PUBLISHED ─────────────────────────────────────────────
-  if (!['SCHEDULED', 'OPEN'].includes(schedule.status)) {
+  // ── 4. Schedule and exam must be visible to students ─────────────────────
+  if (!STUDENT_STARTABLE_SCHEDULE_STATUSES.includes(schedule.status)) {
     throw new ConflictError("Exam schedule is not available");
   }
 
-  if (!STARTABLE_EXAM_STATUSES.includes(schedule.exam.status as typeof STARTABLE_EXAM_STATUSES[number])) {
+  if (!STUDENT_VISIBLE_EXAM_STATUSES.includes(schedule.exam.status)) {
     throw new ConflictError("Exam is not available");
   }
 

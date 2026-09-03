@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
+import { studentVisibleScheduleWhere } from '../../student-common/exam-visibility.policy'
 
 const releasedResultWhere = () => ({ examSchedule: releasedResultScheduleWhere() })
 
@@ -20,6 +21,9 @@ export async function findEnrollmentsWithSchedules(studentId: string) {
           subject: { select: { id: true, name: true } },
           semester: { select: { id: true, name: true } },
           scheduleCourses: {
+            where: {
+              examSchedule: studentVisibleScheduleWhere(),
+            },
             select: {
               examSchedule: {
                 select: {
