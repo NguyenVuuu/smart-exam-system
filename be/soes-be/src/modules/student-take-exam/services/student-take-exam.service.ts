@@ -4,7 +4,7 @@ import type { SeverityLevel, ViolationType } from '@prisma/client'
 import { examConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { uploadViolationEvidenceFiles } from '../../../lib/minio'
-import type { StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
+import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
 import { judge0Service, Judge0Service } from '../../../lib/judge0'
 import type { Judge0Submission, Judge0SubmissionResult } from '../../../lib/judge0'
@@ -12,6 +12,10 @@ import * as repo from "../repositories/student-take-exam.repository";
 import { gradeObjectiveAnswers } from '../repositories/attempt-grading.repository'
 import { gradeProgrammingAnswers } from './programming-grading.service'
 import { isResultReleased } from '../../exam-schedules/utils/result-release'
+import {
+  STUDENT_STARTABLE_SCHEDULE_STATUSES,
+  STUDENT_VISIBLE_EXAM_STATUSES,
+} from '../../student-common/exam-visibility.policy'
 
 /**
  * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
@@ -32,6 +36,7 @@ async function runInBatches<T, R>(
 }
 
 const JUDGE0_RUN_BATCH_SIZE = 5
+const ALREADY_SUBMITTED_STATUSES = ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] as const
 
 type RunCodeAttempt = {
   deadlineAt: Date
@@ -43,6 +48,7 @@ type RunCodeTest = {
   input: string
   expectedOutput: string
   isSample: boolean
+  isHidden: boolean
 }
 
 function remainingSecondsUntil(endAt: Date, now: Date) {
@@ -52,6 +58,108 @@ function remainingSecondsUntil(endAt: Date, now: Date) {
 function isAttemptOnline(attempt: RunCodeAttempt, now: Date) {
   return attempt.examSession !== null &&
     (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+}
+
+function isAlreadySubmittedStatus(status: string) {
+  return ALREADY_SUBMITTED_STATUSES.includes(status as typeof ALREADY_SUBMITTED_STATUSES[number])
+}
+
+async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
+  await gradeProgrammingAnswers(attemptId)
+  await gradeObjectiveAnswers(attemptId, { finalStatus: 'AUTO_SUBMITTED' })
+}
+
+export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date()): Promise<SubmitExamResult | null> {
+  const result = await repo.autoSubmitAttemptWithAudit(attemptId, now)
+  if (!result) return null
+
+  await gradeAutoSubmittedAttempt(attemptId)
+  logger.info('Exam attempt auto-submitted by timeout', {
+    attemptId,
+    submittedAt: now.toISOString(),
+  })
+
+  return result
+}
+
+export async function processExpiredAttempts(now = new Date(), limit = 50): Promise<number> {
+  const expiredAttempts = await repo.findExpiredInProgressAttemptIds(now, limit)
+  let processed = 0
+
+  for (const { id } of expiredAttempts) {
+    try {
+      const result = await autoSubmitExpiredAttempt(id, now)
+      if (result) processed++
+    } catch (error) {
+      logger.error('Failed to auto-submit expired exam attempt', {
+        attemptId: id,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  return processed
+}
+
+export async function markOfflineExamSessions(now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - examConfig.heartbeatTimeoutMs)
+  const result = await repo.markStaleExamSessionsOffline(cutoff)
+  if (result.count > 0) {
+    logger.info('Marked stale exam sessions offline', {
+      count: result.count,
+      cutoff: cutoff.toISOString(),
+    })
+  }
+  return result.count
+}
+
+function orderedReviewOptions(
+  options: Array<{ id: string; content: string; isCorrect: boolean }>,
+  shuffledOptionIds: string[],
+) {
+  if (shuffledOptionIds.length === 0) return options
+  const byId = new Map(options.map((option) => [option.id, option]))
+  return shuffledOptionIds.map((id) => byId.get(id)).filter((option): option is { id: string; content: string; isCorrect: boolean } => Boolean(option))
+}
+
+function buildReviewItems(
+  attempt: NonNullable<Awaited<ReturnType<typeof repo.findAttemptResult>>>,
+  includeAnswerKey: boolean,
+): AttemptReviewItem[] {
+  const answers = new Map(attempt.studentAnswers.map((answer) => [answer.examQuestionId, answer]))
+
+  return attempt.attemptQuestions.map((attemptQuestion) => {
+    const question = attemptQuestion.examQuestion
+    const answer = answers.get(question.id)
+    const isProgramming = question.type === 'PROGRAMMING'
+    const options = isProgramming
+      ? undefined
+      : orderedReviewOptions(question.options, attemptQuestion.shuffledOptionIds).map((option) => ({
+          id: option.id,
+          content: option.content,
+          ...(includeAnswerKey ? { isCorrect: option.isCorrect } : {}),
+        }))
+
+    return {
+      questionId: question.id,
+      orderIndex: attemptQuestion.displayOrder,
+      type: question.type,
+      content: question.content,
+      points: Number(question.points),
+      score: answer?.score === null || answer?.score === undefined ? null : Number(answer.score),
+      isCorrect: answer?.isCorrect ?? null,
+      ...(isProgramming
+        ? { draftSourceCode: answer?.draftSourceCode ?? null }
+        : {
+            selectedOptionIds: answer?.selectedOptionIds ?? [],
+            options,
+          }),
+      ...(includeAnswerKey && !isProgramming
+        ? { correctOptionIds: question.options.filter((option) => option.isCorrect).map((option) => option.id) }
+        : {}),
+      ...(includeAnswerKey ? { explanation: question.explanation } : {}),
+    }
+  })
 }
 
 function systemErrorResult(error: unknown): Judge0SubmissionResult {
@@ -117,6 +225,7 @@ function buildEmptyRunCodeResult(
       totalCount: 0,
       message: 'Không có test case nào để kiểm tra',
     },
+    hiddenTestCaseCount: 0,
     testCases: [],
   }
 }
@@ -133,6 +242,7 @@ function buildRunCodeResult(
   let runtimeError: string | null = null
   let passedCount = 0
   const testCases: RunCodeTestCase[] = []
+  const hiddenTestCaseCount = tests.filter((test) => !test.isSample || test.isHidden).length
 
   for (const [index, test] of tests.entries()) {
     const result = judge0Results[index]
@@ -142,22 +252,26 @@ function buildRunCodeResult(
       break
     }
 
-    const status = Judge0Service.mapStatusToInternal(result.status.id)
+    const status = Judge0Service.mapResultToInternal(result, test.expectedOutput)
     if (status === 'PASSED') passedCount++
     if (!runtimeError && test.isSample && ['RUNTIME_ERROR', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED'].includes(status)) {
       runtimeError = result.stderr || result.message || 'Runtime error occurred'
     }
 
-    testCases.push({
-      testCaseId: test.id,
-      isSample: true,
-      status,
-      input: test.input,
-      expectedOutput: test.expectedOutput,
-      actualOutput: result.stdout,
-      executionTimeMs: parseFloat(result.time || '0') * 1000,
-      memoryUsedKb: result.memory || 0,
-    })
+    const shouldRevealTestCase = test.isSample && !test.isHidden
+
+    if (shouldRevealTestCase) {
+      testCases.push({
+        testCaseId: test.id,
+        isSample: true,
+        status,
+        input: test.input,
+        expectedOutput: test.expectedOutput,
+        actualOutput: result.stdout,
+        executionTimeMs: parseFloat(result.time || '0') * 1000,
+        memoryUsedKb: result.memory || 0,
+      })
+    }
   }
 
   const hasSystemError =
@@ -180,6 +294,7 @@ function buildRunCodeResult(
         ? 'Biên dịch thất bại'
         : `Bạn đã pass ${passedCount}/${tests.length} test cases`,
     },
+    hiddenTestCaseCount: compilationStatus === 'COMPILE_ERROR' ? 0 : hiddenTestCaseCount,
     testCases,
   }
 }
@@ -205,9 +320,13 @@ export async function startExam(
     throw new NotFoundError("Not Found");
   }
 
-  // ── 4. Exam must be PUBLISHED ─────────────────────────────────────────────
-  if (!['SCHEDULED', 'OPEN'].includes(schedule.status)) {
+  // ── 4. Schedule and exam must be visible to students ─────────────────────
+  if (!STUDENT_STARTABLE_SCHEDULE_STATUSES.includes(schedule.status)) {
     throw new ConflictError("Exam schedule is not available");
+  }
+
+  if (!STUDENT_VISIBLE_EXAM_STATUSES.includes(schedule.exam.status)) {
+    throw new ConflictError("Exam is not available");
   }
 
   // ── 5. Exam must have publishedAt ─────────────────────────────────────────
@@ -396,6 +515,7 @@ export async function getExamContent(
     deadlineAt:       attempt.deadlineAt,
     integritySettings: {
       enableWebcam: attempt.examSchedule.enableWebcam,
+      requireFullscreen: attempt.examSchedule.requireFullscreen,
       blockCopyPaste: attempt.examSchedule.blockCopyPaste,
       blockRightClick: attempt.examSchedule.blockRightClick,
     },
@@ -553,11 +673,16 @@ export async function submitExam(
   }
 
   // 409 conditions
-  if (attempt.status === 'SUBMITTED') {
+  if (isAlreadySubmittedStatus(attempt.status)) {
     throw new ConflictError('Exam attempt has already been submitted');
   }
 
-  // EXPIRED, or still IN_PROGRESS but deadline has passed
+  if (attempt.status === 'IN_PROGRESS' && attempt.deadlineAt <= now) {
+    const result = await autoSubmitExpiredAttempt(attemptId, now)
+    if (result) return result
+  }
+
+  // AUTO_SUBMITTED, INVALIDATED, or still IN_PROGRESS but deadline has passed
   if (attempt.status === 'AUTO_SUBMITTED' || attempt.status === 'INVALIDATED') {
     throw new ConflictError('Exam attempt has ended');
   }
@@ -582,6 +707,16 @@ export async function getAttemptStatus(
   // ── 2. Compute remainingSeconds realtime from deadlineAt ────────────────
   // Contract: IN_PROGRESS → realtime calc; SUBMITTED / EXPIRED → 0
   const now = new Date()
+
+  if (data.status === 'IN_PROGRESS' && now >= data.deadlineAt) {
+    await autoSubmitExpiredAttempt(attemptId, now)
+    const refreshed = await repo.findAttemptStatus(attemptId, scheduleId, studentId)
+    if (!refreshed) throw new NotFoundError('Attempt not found')
+    data.status = refreshed.status
+    data.submittedAt = refreshed.submittedAt
+    data.endedBy = refreshed.endedBy
+    data.lastSavedAt = refreshed.lastSavedAt
+  }
 
   const remainingSeconds =
     data.status === 'IN_PROGRESS'
@@ -616,6 +751,14 @@ export async function getAttemptResult(
   const attempt = await repo.findAttemptResult(attemptId, scheduleId, studentId)
   if (!attempt) throw new NotFoundError('Attempt not found')
 
+  const now = new Date()
+  if (attempt.status === 'IN_PROGRESS' && now >= attempt.deadlineAt) {
+    await autoSubmitExpiredAttempt(attemptId, now)
+    const refreshed = await repo.findAttemptResult(attemptId, scheduleId, studentId)
+    if (!refreshed) throw new NotFoundError('Attempt not found')
+    return getAttemptResult(scheduleId, attemptId, studentId)
+  }
+
   const schedule = attempt.examSchedule
   const released = isResultReleased(schedule)
   const graded = attempt.totalScore !== null
@@ -633,6 +776,10 @@ export async function getAttemptResult(
         ? 'GRADING'
         : 'AVAILABLE'
 
+  const reviewItems = available && ['ANSWERS_NO_KEY', 'FULL_AFTER_RELEASE'].includes(schedule.reviewPolicy)
+    ? buildReviewItems(attempt, schedule.reviewPolicy === 'FULL_AFTER_RELEASE')
+    : []
+
   return {
     available,
     releaseMode: schedule.resultReleaseMode,
@@ -641,6 +788,7 @@ export async function getAttemptResult(
     maxScore: available ? maxScore : null,
     reviewPolicy: available ? schedule.reviewPolicy : null,
     reason,
+    reviewItems,
   }
 }
 
@@ -661,7 +809,7 @@ export async function sendHeartbeat(
 
   // ── 2. Check attempt status ────────────────────────────────────────────────
   if (attemptData.status !== "IN_PROGRESS") {
-    if (attemptData.status === "SUBMITTED") {
+    if (isAlreadySubmittedStatus(attemptData.status)) {
       throw new ConflictError("Exam attempt has already been submitted")
     }
     throw new ConflictError("Exam attempt has ended") // EXPIRED or other terminal state
@@ -768,7 +916,7 @@ export async function runCode(
   if (!question) throw new NotFoundError("Question not found in this attempt")
 
   if (attempt.status !== "IN_PROGRESS") {
-    if (attempt.status === "SUBMITTED") {
+    if (isAlreadySubmittedStatus(attempt.status)) {
       throw new ConflictError("Exam attempt has already been submitted")
     }
     throw new ConflictError("Exam attempt has ended")

@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
+import { studentVisibleScheduleWhere } from '../../student-common/exam-visibility.policy'
 import { MemberRole } from '../types/student-course-detail.types'
 import { NotFoundError } from '../../../errors/AppError'
 import { PostStatus, AttemptStatus } from '@prisma/client'
@@ -110,9 +111,8 @@ export class StudentCourseDetailRepository {
 
     const schedules = await prisma.examSchedule.findMany({
       where: {
+        ...studentVisibleScheduleWhere(),
         scheduleCourses: { some: { courseOfferingId } },
-        status: { in: ['SCHEDULED', 'OPEN', 'CLOSED'] },
-        publishedAt: { not: null },
       },
       select: {
         id: true,
@@ -222,10 +222,9 @@ export class StudentCourseDetailRepository {
 
     const schedule = await prisma.examSchedule.findFirst({
       where: {
+        ...studentVisibleScheduleWhere(),
         id: scheduleId,
         scheduleCourses: { some: { courseOfferingId } },
-        status: { in: ['SCHEDULED', 'OPEN', 'CLOSED'] },
-        publishedAt: { not: null },
       },
       select: {
         id: true,
@@ -252,72 +251,49 @@ export class StudentCourseDetailRepository {
 
     const now = new Date()
 
-    // Find the student's attempt (if any)
     const studentAttempt = schedule.attempts[0]
+    const attemptUsed = schedule.attempts.length
+    const remainingAttempts = Math.max(0, schedule.maxAttempts - attemptUsed)
 
-    // Determine status based on priority
     let status: string
     let canStart = false
-    let attemptUsed = 0
-    let remainingAttempts = schedule.maxAttempts
+    let canResume = false
+    let remainingSeconds: number | null = null
 
-    if (studentAttempt && studentAttempt.status !== AttemptStatus.IN_PROGRESS) {
-      // Student has submitted
+    if (studentAttempt?.status === AttemptStatus.IN_PROGRESS) {
+      if (now < studentAttempt.deadlineAt) {
+        status = 'AVAILABLE'
+        canStart = true
+        canResume = true
+        remainingSeconds = Math.floor((studentAttempt.deadlineAt.getTime() - now.getTime()) / 1000)
+      } else if (remainingAttempts > 0 && now >= schedule.startTime && now < schedule.endTime) {
+        status = 'AVAILABLE'
+        canStart = true
+        remainingSeconds = Math.min(
+          schedule.durationMinutes * 60,
+          Math.max(0, Math.floor((schedule.endTime.getTime() - now.getTime()) / 1000)),
+        )
+      } else {
+        status = 'EXPIRED'
+        remainingSeconds = 0
+      }
+    } else if (studentAttempt && remainingAttempts === 0) {
       status = 'SUBMITTED'
-      attemptUsed = 1
-      remainingAttempts = schedule.maxAttempts - attemptUsed
       canStart = false
     } else if (now < schedule.startTime) {
-      // Before start time
       status = 'NOT_STARTED'
-      attemptUsed = 0
-      remainingAttempts = schedule.maxAttempts
       canStart = false
     } else if (now >= schedule.endTime) {
-      // After end time
-      if (studentAttempt) {
-        // Student started but not submitted
-        status = 'EXPIRED'
-        attemptUsed = 1
-        remainingAttempts = 0
-      } else {
-        // Student never started
-        status = 'EXPIRED'
-        attemptUsed = 0
-        remainingAttempts = schedule.maxAttempts
-      }
+      status = studentAttempt ? 'SUBMITTED' : 'EXPIRED'
       canStart = false
     } else {
-      // During active exam window
-      if (studentAttempt && studentAttempt.status === AttemptStatus.IN_PROGRESS) {
-        // Student is currently working on the exam
-        status = 'AVAILABLE'
-        attemptUsed = 1
-        remainingAttempts = schedule.maxAttempts - attemptUsed
-        canStart = true
-      } else {
-        // Student hasn't started yet
-        status = 'AVAILABLE'
-        attemptUsed = 0
-        remainingAttempts = schedule.maxAttempts
-        canStart = true
-      }
+      status = 'AVAILABLE'
+      canStart = true
+      remainingSeconds = Math.min(
+        schedule.durationMinutes * 60,
+        Math.max(0, Math.floor((schedule.endTime.getTime() - now.getTime()) / 1000)),
+      )
     }
-
-    // Calculate remaining seconds
-    let remainingSeconds: number | null = null
-    if (status === 'AVAILABLE' && studentAttempt && studentAttempt.status === AttemptStatus.IN_PROGRESS) {
-      // Calculate remaining time based on deadline
-      // deadline = startedAt + durationMinutes
-      remainingSeconds = Math.floor((studentAttempt.deadlineAt.getTime() - now.getTime()) / 1000)
-      if (remainingSeconds < 0) remainingSeconds = 0
-    } else if (status === 'AVAILABLE' && !studentAttempt) {
-      // Student hasn't started yet - full time available
-      remainingSeconds = schedule.durationMinutes * 60
-    }
-
-    // Calculate canResume
-    const canResume = status === 'AVAILABLE' && studentAttempt && studentAttempt.status === AttemptStatus.IN_PROGRESS
 
     return {
       id: schedule.id,

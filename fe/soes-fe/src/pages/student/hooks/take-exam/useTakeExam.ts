@@ -41,49 +41,6 @@ export function useTakeExam({
     phaseRef.current = phase
   }, [phase])
 
-  // Initialize timer once session is loaded
-  useEffect(() => {
-    if (!session?.deadlineAt || sessionInitializedRef.current) return
-
-    const timeoutId = window.setTimeout(() => {
-      const endAt = new Date(session.deadlineAt).getTime()
-      if (isNaN(endAt)) return
-
-      const remaining = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
-      setSecondsRemaining(remaining)
-      sessionInitializedRef.current = true
-
-      if (remaining === 0) {
-        expirationHandledRef.current = true
-        setPhase('EXPIRED')
-        onTimeExpired?.()
-      }
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [onTimeExpired, session?.deadlineAt])
-
-  // Countdown timer — only runs after session is initialized
-  useEffect(() => {
-    if (phase !== 'IN_PROGRESS' || !session?.deadlineAt || !sessionInitializedRef.current) return
-
-    const endAt = new Date(session.deadlineAt).getTime()
-    if (isNaN(endAt)) return
-
-    const intervalId = window.setInterval(() => {
-      const actualRemaining = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
-      setSecondsRemaining(actualRemaining)
-
-      if (actualRemaining <= 0 && !expirationHandledRef.current) {
-        expirationHandledRef.current = true
-        setPhase('EXPIRED')
-        onTimeExpired?.()
-      }
-    }, 1000)
-
-    return () => window.clearInterval(intervalId)
-  }, [onTimeExpired, phase, session?.deadlineAt])
-
   const goToQuestion = useCallback(
     (questionId: string) => {
       const nextIndex = (session?.questions ?? []).findIndex((question) => question.id === questionId)
@@ -108,7 +65,7 @@ export function useTakeExam({
     )
   }, [])
 
-  const saveAnswersToServer = useCallback(async () => {
+  const saveAnswersToServer = useCallback(async (options?: { throwOnError?: boolean }) => {
     if (phaseRef.current !== 'IN_PROGRESS' || !session) return
 
     setSaveState('SAVING')
@@ -122,7 +79,6 @@ export function useTakeExam({
           return [{ questionId, answer: answerValue }]
         }
 
-        // SINGLE_CHOICE requires a plain string; MULTIPLE_CHOICE requires an array
         const requiresString = question.type === 'SINGLE_CHOICE'
         const normalized: string[] = Array.isArray(answerValue)
           ? answerValue
@@ -141,13 +97,14 @@ export function useTakeExam({
     } catch (error) {
       console.error('Failed to save answers', error)
       setSaveState('IDLE')
+      if (options?.throwOnError) throw error
     }
   }, [answers, attemptId, saveAnswersApi, scheduleId, session])
 
   const markSubmitted = useCallback(async () => {
     if (phaseRef.current !== 'IN_PROGRESS') return
     try {
-      await saveAnswersToServer()
+      await saveAnswersToServer({ throwOnError: true })
       await submitExamApi({ scheduleId, attemptId })
       setPhase('SUBMITTED')
       onSubmitted?.()
@@ -156,6 +113,63 @@ export function useTakeExam({
       throw error
     }
   }, [attemptId, onSubmitted, saveAnswersToServer, scheduleId, submitExamApi])
+
+  const autoSubmitExpiredAttempt = useCallback(async () => {
+    if (expirationHandledRef.current) return
+    expirationHandledRef.current = true
+
+    try {
+      await saveAnswersToServer()
+    } catch {
+      // Continue to submit after timeout even if the final autosave fails.
+    }
+
+    try {
+      await submitExamApi({ scheduleId, attemptId })
+    } catch {
+      // The backend timeout job may have already finalized this attempt.
+    }
+
+    setPhase('EXPIRED')
+    onTimeExpired?.()
+  }, [attemptId, onTimeExpired, saveAnswersToServer, scheduleId, submitExamApi])
+
+  useEffect(() => {
+    if (!session?.deadlineAt || sessionInitializedRef.current) return
+
+    const timeoutId = window.setTimeout(() => {
+      const endAt = new Date(session.deadlineAt).getTime()
+      if (isNaN(endAt)) return
+
+      const remaining = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
+      setSecondsRemaining(remaining)
+      sessionInitializedRef.current = true
+
+      if (remaining === 0) {
+        void autoSubmitExpiredAttempt()
+      }
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [autoSubmitExpiredAttempt, session?.deadlineAt])
+
+  useEffect(() => {
+    if (phase !== 'IN_PROGRESS' || !session?.deadlineAt || !sessionInitializedRef.current) return
+
+    const endAt = new Date(session.deadlineAt).getTime()
+    if (isNaN(endAt)) return
+
+    const intervalId = window.setInterval(() => {
+      const actualRemaining = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
+      setSecondsRemaining(actualRemaining)
+
+      if (actualRemaining <= 0) {
+        void autoSubmitExpiredAttempt()
+      }
+    }, 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [autoSubmitExpiredAttempt, phase, session?.deadlineAt])
 
   const currentQuestion = session?.questions[currentQuestionIndex] ?? null
 

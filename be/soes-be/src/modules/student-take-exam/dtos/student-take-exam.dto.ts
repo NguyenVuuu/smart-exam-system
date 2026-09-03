@@ -55,6 +55,7 @@ export interface GetExamContentResponseDto {
 
 export interface ExamIntegritySettingsDto {
   enableWebcam: boolean
+  requireFullscreen: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
 }
@@ -97,6 +98,28 @@ export interface GetAttemptResultResponseDto {
   maxScore: number | null
   reviewPolicy: string | null
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
+  reviewItems: AttemptReviewItemDto[]
+}
+
+export interface AttemptReviewOptionDto {
+  id: string
+  content: string
+  isCorrect?: boolean
+}
+
+export interface AttemptReviewItemDto {
+  questionId: string
+  orderIndex: number
+  type: string
+  content: string
+  points: number
+  score: number | null
+  isCorrect: boolean | null
+  selectedOptionIds?: string[]
+  draftSourceCode?: string | null
+  options?: AttemptReviewOptionDto[]
+  correctOptionIds?: string[]
+  explanation?: string | null
 }
 
 
@@ -117,16 +140,30 @@ export interface RecordViolationResponseDto {
 
 // ─── API 7: Run Code ───────────────────────────────────────────────────────────
 
-export interface RunCodeTestCaseDto {
+type RunCodeTestCaseStatusDto =
+  | 'PASSED'
+  | 'WRONG_ANSWER'
+  | 'RUNTIME_ERROR'
+  | 'TIME_LIMIT_EXCEEDED'
+  | 'MEMORY_LIMIT_EXCEEDED'
+  | 'SYSTEM_ERROR'
+
+interface RunCodeTestCaseBaseDto {
   testCaseId: string
+  isSample: boolean
+  status: RunCodeTestCaseStatusDto
+}
+
+export interface RunCodeSampleTestCaseDto extends RunCodeTestCaseBaseDto {
   isSample: true
-  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
   input: string
   expectedOutput: string
   actualOutput: string | null
   executionTimeMs: number
   memoryUsedKb: number
 }
+
+export type RunCodeTestCaseDto = RunCodeSampleTestCaseDto
 
 export interface RunCodeResponseDto {
   questionId: string
@@ -141,5 +178,6 @@ export interface RunCodeResponseDto {
     totalCount: number
     message: string
   }
+  hiddenTestCaseCount: number
   testCases: RunCodeTestCaseDto[]
 }

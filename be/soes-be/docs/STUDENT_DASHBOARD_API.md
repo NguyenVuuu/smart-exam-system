@@ -107,7 +107,7 @@ Không có request body hay query params.
 | `subjectCount` | number | Số môn học khác nhau student đã được ghi danh |
 | `examCount` | number | Tổng số bài thi thuộc các lớp học phần của student |
 | `gpa` | number \| null | GPA tính từ điểm các bài thi đã nộp, quy đổi về thang 10. `null` nếu chưa có bài thi nào được chấm |
-| `upcomingExamCount` | number | Số bài thi PUBLISHED có `startTime` trong tương lai |
+| `upcomingExamCount` | number | Số bài thi sắp diễn ra mà student được phép nhìn thấy |
 
 ### `analytics`
 
@@ -155,9 +155,9 @@ Trả về `[]` nếu không có thông báo.
 ## Business Rules
 
 - `subjectCount`: đếm số subject khác nhau từ tất cả enrollments của student.
-- `examCount`: đếm số exam id khác nhau từ tất cả course offerings student đã enrolled.
+- `examCount`: đếm số ExamSchedule student được phép nhìn thấy từ tất cả course offerings student đã enrolled.
 - `gpa`: tính bằng `(totalScore / tổng điểm tối đa của đề thi) * 10`, lấy trung bình tất cả bài thi đã nộp có `status = SUBMITTED`.
-- `upcomingExams`: chỉ lấy exam có `status = PUBLISHED` và `startTime > now`.
+- `upcomingExams`: chỉ lấy ExamSchedule có `publishedAt != null`, `status = SCHEDULED`, `startTime > now`, và Exam có `status in READY/LOCKED`.
 - `analytics.classAverage`: tính từ tất cả attempt SUBMITTED của tất cả sinh viên trong các lớp liên quan đến môn đó.
 - Dashboard luôn trả về `200 OK` dù student chưa có dữ liệu — các array rỗng `[]`, số về `0`, GPA về `null`.
 

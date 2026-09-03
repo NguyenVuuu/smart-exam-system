@@ -1,9 +1,10 @@
 import prisma from '../../../lib/prisma'
+import type { AttemptStatus } from '@prisma/client'
 
 const sameIds = (left: string[], right: string[]) =>
   left.length === right.length && [...left].sort().every((id, index) => id === [...right].sort()[index])
 
-export function gradeObjectiveAnswers(attemptId: string) {
+export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus?: AttemptStatus }) {
   return prisma.$transaction(async (tx) => {
     const attempt = await tx.examAttempt.findUniqueOrThrow({
       where: { id: attemptId },
@@ -38,7 +39,7 @@ export function gradeObjectiveAnswers(attemptId: string) {
       where: { id: attemptId },
       data: {
         autoScore, totalScore: autoScore,
-        status: requiresManualGrading ? 'GRADING' : 'GRADED',
+        status: options?.finalStatus ?? (requiresManualGrading ? 'GRADING' : 'GRADED'),
         version: { increment: 1 },
       },
     })
