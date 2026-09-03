@@ -140,16 +140,30 @@ export interface RecordViolationResponseDto {
 
 // ─── API 7: Run Code ───────────────────────────────────────────────────────────
 
-export interface RunCodeTestCaseDto {
+type RunCodeTestCaseStatusDto =
+  | 'PASSED'
+  | 'WRONG_ANSWER'
+  | 'RUNTIME_ERROR'
+  | 'TIME_LIMIT_EXCEEDED'
+  | 'MEMORY_LIMIT_EXCEEDED'
+  | 'SYSTEM_ERROR'
+
+interface RunCodeTestCaseBaseDto {
   testCaseId: string
+  isSample: boolean
+  status: RunCodeTestCaseStatusDto
+}
+
+export interface RunCodeSampleTestCaseDto extends RunCodeTestCaseBaseDto {
   isSample: true
-  status: 'PASSED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR'
   input: string
   expectedOutput: string
   actualOutput: string | null
   executionTimeMs: number
   memoryUsedKb: number
 }
+
+export type RunCodeTestCaseDto = RunCodeSampleTestCaseDto
 
 export interface RunCodeResponseDto {
   questionId: string
@@ -164,5 +178,6 @@ export interface RunCodeResponseDto {
     totalCount: number
     message: string
   }
+  hiddenTestCaseCount: number
   testCases: RunCodeTestCaseDto[]
 }

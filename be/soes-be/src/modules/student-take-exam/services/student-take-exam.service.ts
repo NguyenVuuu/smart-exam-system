@@ -32,6 +32,8 @@ async function runInBatches<T, R>(
 }
 
 const JUDGE0_RUN_BATCH_SIZE = 5
+const STARTABLE_EXAM_STATUSES = ['READY', 'LOCKED'] as const
+const ALREADY_SUBMITTED_STATUSES = ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] as const
 
 type RunCodeAttempt = {
   deadlineAt: Date
@@ -43,6 +45,7 @@ type RunCodeTest = {
   input: string
   expectedOutput: string
   isSample: boolean
+  isHidden: boolean
 }
 
 function remainingSecondsUntil(endAt: Date, now: Date) {
@@ -52,6 +55,10 @@ function remainingSecondsUntil(endAt: Date, now: Date) {
 function isAttemptOnline(attempt: RunCodeAttempt, now: Date) {
   return attempt.examSession !== null &&
     (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
+}
+
+function isAlreadySubmittedStatus(status: string) {
+  return ALREADY_SUBMITTED_STATUSES.includes(status as typeof ALREADY_SUBMITTED_STATUSES[number])
 }
 
 async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
@@ -215,6 +222,7 @@ function buildEmptyRunCodeResult(
       totalCount: 0,
       message: 'Không có test case nào để kiểm tra',
     },
+    hiddenTestCaseCount: 0,
     testCases: [],
   }
 }
@@ -231,6 +239,7 @@ function buildRunCodeResult(
   let runtimeError: string | null = null
   let passedCount = 0
   const testCases: RunCodeTestCase[] = []
+  const hiddenTestCaseCount = tests.filter((test) => !test.isSample || test.isHidden).length
 
   for (const [index, test] of tests.entries()) {
     const result = judge0Results[index]
@@ -240,22 +249,26 @@ function buildRunCodeResult(
       break
     }
 
-    const status = Judge0Service.mapStatusToInternal(result.status.id)
+    const status = Judge0Service.mapResultToInternal(result, test.expectedOutput)
     if (status === 'PASSED') passedCount++
     if (!runtimeError && test.isSample && ['RUNTIME_ERROR', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED'].includes(status)) {
       runtimeError = result.stderr || result.message || 'Runtime error occurred'
     }
 
-    testCases.push({
-      testCaseId: test.id,
-      isSample: true,
-      status,
-      input: test.input,
-      expectedOutput: test.expectedOutput,
-      actualOutput: result.stdout,
-      executionTimeMs: parseFloat(result.time || '0') * 1000,
-      memoryUsedKb: result.memory || 0,
-    })
+    const shouldRevealTestCase = test.isSample && !test.isHidden
+
+    if (shouldRevealTestCase) {
+      testCases.push({
+        testCaseId: test.id,
+        isSample: true,
+        status,
+        input: test.input,
+        expectedOutput: test.expectedOutput,
+        actualOutput: result.stdout,
+        executionTimeMs: parseFloat(result.time || '0') * 1000,
+        memoryUsedKb: result.memory || 0,
+      })
+    }
   }
 
   const hasSystemError =
@@ -278,6 +291,7 @@ function buildRunCodeResult(
         ? 'Biên dịch thất bại'
         : `Bạn đã pass ${passedCount}/${tests.length} test cases`,
     },
+    hiddenTestCaseCount: compilationStatus === 'COMPILE_ERROR' ? 0 : hiddenTestCaseCount,
     testCases,
   }
 }
@@ -306,6 +320,10 @@ export async function startExam(
   // ── 4. Exam must be PUBLISHED ─────────────────────────────────────────────
   if (!['SCHEDULED', 'OPEN'].includes(schedule.status)) {
     throw new ConflictError("Exam schedule is not available");
+  }
+
+  if (!STARTABLE_EXAM_STATUSES.includes(schedule.exam.status as typeof STARTABLE_EXAM_STATUSES[number])) {
+    throw new ConflictError("Exam is not available");
   }
 
   // ── 5. Exam must have publishedAt ─────────────────────────────────────────
@@ -652,7 +670,7 @@ export async function submitExam(
   }
 
   // 409 conditions
-  if (attempt.status === 'SUBMITTED') {
+  if (isAlreadySubmittedStatus(attempt.status)) {
     throw new ConflictError('Exam attempt has already been submitted');
   }
 
@@ -788,7 +806,7 @@ export async function sendHeartbeat(
 
   // ── 2. Check attempt status ────────────────────────────────────────────────
   if (attemptData.status !== "IN_PROGRESS") {
-    if (attemptData.status === "SUBMITTED") {
+    if (isAlreadySubmittedStatus(attemptData.status)) {
       throw new ConflictError("Exam attempt has already been submitted")
     }
     throw new ConflictError("Exam attempt has ended") // EXPIRED or other terminal state
@@ -895,7 +913,7 @@ export async function runCode(
   if (!question) throw new NotFoundError("Question not found in this attempt")
 
   if (attempt.status !== "IN_PROGRESS") {
-    if (attempt.status === "SUBMITTED") {
+    if (isAlreadySubmittedStatus(attempt.status)) {
       throw new ConflictError("Exam attempt has already been submitted")
     }
     throw new ConflictError("Exam attempt has ended")
