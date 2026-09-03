@@ -282,16 +282,18 @@ Lấy danh sách hoạt động (Timeline) của lớp học phần, bao gồm b
 ## Business Rules
 
 - Chỉ hiển thị Post có status = PUBLISHED.
-- Chỉ hiển thị Exam có status = PUBLISHED.
-- Không hiển thị DRAFT.
-- Không hiển thị ARCHIVED.
+- Chỉ hiển thị ExamSchedule đã công khai cho student: `ExamSchedule.publishedAt != null`.
+- Chỉ hiển thị ExamSchedule có `status` thuộc `SCHEDULED`, `OPEN`, `CLOSED`.
+- Chỉ hiển thị Exam có `status` thuộc `READY`, `LOCKED`.
+- Không hiển thị Exam có `status` là `DRAFT` hoặc `ARCHIVED`.
 - Sort theo publishedAt giảm dần (Sort theo publishedAt DESC).
 - Sau này có thể mở rộng Assignment.
 - Timeline gồm các item có type là POST và EXAM.
 - Tất cả item được hợp nhất thành một danh sách và sắp xếp theo publishedAt DESC.
 EXAM chỉ hiển thị khi:
-- status = PUBLISHED
-- publishedAt != null
+- `ExamSchedule.publishedAt != null`
+- `ExamSchedule.status in SCHEDULED/OPEN/CLOSED`
+- `Exam.status in READY/LOCKED`
 - Pagination áp dụng sau khi merge và sort.
 
 ---
@@ -1088,16 +1090,17 @@ Status duoc xac dinh nhu sau:
 ## Business Rules
 
 Chỉ cho phép xem Exam khi:
-- Exam.status = PUBLISHED
-- Exam.publishedAt != null
+- ExamSchedule.publishedAt != null
+- ExamSchedule.status in SCHEDULED/OPEN/CLOSED
+- Exam.status in READY/LOCKED
 Nếu không thỏa mãn thì trả về 404.
 
 - He thong tinh attemptUsed theo tong so attempt cua sinh vien trong schedule. maxAttempts > 1 duoc phan anh qua remainingAttempts/canStart.
 - Các trường attemptUsed và remainingAttempts vẫn được giữ để tương thích khi mở rộng nhiều lần thi trong tương lai.
 - Neu sinh vien dang lam bai, quyen tiep tuc lam bai duoc quyet dinh bang attempt.deadlineAt, ke ca khi khac schedule.endTime do extra time/cau hinh rieng.
 - Nếu sinh viên chưa từng bắt đầu làm bài trước khi hết thời gian thi, hệ thống ghi nhận bài thi với 0 điểm và trạng thái EXPIRED.
-- Chỉ cho phép xem Exam có status = PUBLISHED.
-- Nếu Exam có status khác PUBLISHED thì trả về 404.
+- Chỉ cho phép xem ExamSchedule đã công khai và trỏ tới Exam có status READY/LOCKED.
+- Nếu ExamSchedule chưa công khai, status không phù hợp, hoặc Exam có status DRAFT/ARCHIVED thì trả về 404.
 - Exam phải thuộc Course Offering.
 - Nếu Exam không thuộc Course Offering thì trả về 404.
 - Student phải thuộc Course Offering.
