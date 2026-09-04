@@ -14,6 +14,8 @@ import 'tinymce/plugins/table'
 import 'tinymce/skins/ui/oxide/skin.min.css'
 import contentUiCss from 'tinymce/skins/ui/oxide/content.min.css?raw'
 import contentDefaultCss from 'tinymce/skins/content/default/content.min.css?raw'
+import { useMemo } from 'react'
+import { formatPlainTextToHtml } from '../../../utils/formatHtml.utils'
 import type { Editor as TinyMCEEditor } from 'tinymce'
 
 interface RichTextEditorProps {
@@ -29,15 +31,17 @@ export default function RichTextEditor({
   value,
   onChange,
   placeholder,
-  minHeight = 320,
-  height = 360,
+  minHeight = 240,
+  height = 280,
   onInit,
 }: RichTextEditorProps) {
+  const normalizedValue = useMemo(() => formatPlainTextToHtml(value), [value])
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:border-blue-500">
       <Editor
         licenseKey="gpl"
-        value={value}
+        value={normalizedValue}
         onEditorChange={onChange}
         onInit={(_, editor) => onInit?.(editor)}
         init={{

@@ -14,6 +14,7 @@ import { QuestionOptionsEditor } from './editor/QuestionOptionsEditor'
 import { QuestionProgrammingEditor } from './editor/QuestionProgrammingEditor'
 import { uploadImagesInHtml } from '../../api/teacher-questions.api'
 import { getApiErrorMessage } from '../../../../api/errors'
+import { formatPlainTextToHtml } from '../../utils/formatHtml.utils'
 
 interface QuestionEditorModalProps {
   isOpen: boolean
@@ -56,7 +57,7 @@ function QuestionEditorContent({
     return 'SINGLE_CHOICE'
   })
   const [title, setTitle] = useState(initialQuestion?.title || '')
-  const [content, setContent] = useState(initialQuestion?.content || '')
+  const [content, setContent] = useState(() => formatPlainTextToHtml(initialQuestion?.content || ''))
   const contentEditorRef = useRef<TinyMCEEditor | null>(null)
   const [explanation, setExplanation] = useState(initialQuestion?.explanation || '')
   const [difficulty, setDifficulty] = useState<Question['difficulty']>(initialQuestion?.difficulty || 'EASY')
