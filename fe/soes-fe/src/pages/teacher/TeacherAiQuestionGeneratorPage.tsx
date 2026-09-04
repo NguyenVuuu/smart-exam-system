@@ -23,6 +23,8 @@ import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { QuestionProgrammingEditor } from './components/question-bank/editor/QuestionProgrammingEditor'
+import RichTextEditor from './components/question-bank/editor/RichTextEditor'
+import { formatPlainTextToHtml } from './utils/formatHtml.utils'
 import {
   generateAiQuestions,
   getAiMaterials,
@@ -36,6 +38,13 @@ import type { AiMaterialDto } from './types/teacher-question-api.types'
 type SourceMode = 'COURSE_MATERIAL' | 'UPLOAD_FILE'
 type AiMode = 'GENERATE_FROM_MATERIAL' | 'EXTRACT_EXISTING_EXAM'
 type DesiredDifficulty = DifficultyLevel | 'AUTO'
+type TargetQuestionType = 'ALL' | 'MULTIPLE_CHOICE' | 'PROGRAMMING'
+
+const questionTypeFilterOptions: Array<{ value: TargetQuestionType; label: string }> = [
+  { value: 'ALL', label: 'Tất cả (Tự động)' },
+  { value: 'MULTIPLE_CHOICE', label: 'Chỉ Trắc nghiệm' },
+  { value: 'PROGRAMMING', label: 'Chỉ Lập trình' },
+]
 
 const sourceOptions: Array<{ value: SourceMode; title: string; description: string }> = [
   {
@@ -126,6 +135,7 @@ export default function TeacherAiQuestionGeneratorPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [questionCount, setQuestionCount] = useState(5)
   const [desiredDifficulty, setDesiredDifficulty] = useState<DesiredDifficulty>('AUTO')
+  const [targetQuestionType, setTargetQuestionType] = useState<TargetQuestionType>('ALL')
   const [promptInput, setPromptInput] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -219,13 +229,19 @@ export default function TeacherAiQuestionGeneratorPage() {
       const uploadedSources = sourceMode === 'UPLOAD_FILE'
         ? await uploadAiSourceFiles(selectedSubjectId, uploadedFiles)
         : []
+      const typeConstraint = {
+        ALL: '',
+        MULTIPLE_CHOICE: 'Chỉ tạo câu hỏi trắc nghiệm (SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE). Tuyệt đối không tạo bài tập lập trình PROGRAMMING.',
+        PROGRAMMING: 'Chỉ tạo bài tập lập trình console (PROGRAMMING) yêu cầu sinh viên tự viết code giải thuật hoàn chỉnh với luồng stdin/stdout và testCases tự động. Tuyệt đối không tạo câu hỏi trắc nghiệm hay câu hỏi đọc hiểu đoạn code có sẵn.',
+      }[targetQuestionType]
+      const combinedPrompt = [typeConstraint, promptInput.trim()].filter(Boolean).join('\n')
       const result = await generateAiQuestions({
         subjectId: selectedSubjectId,
         sourceType: sourceMode,
         mode: aiMode,
         materialIds: sourceMode === 'COURSE_MATERIAL' ? selectedMaterials : [],
         sourceFiles: uploadedSources,
-        prompt: promptInput,
+        prompt: combinedPrompt,
         questionCount,
         difficulty: desiredDifficulty,
       })
@@ -240,7 +256,7 @@ export default function TeacherAiQuestionGeneratorPage() {
         difficulty: question.difficulty,
         aiDifficultyReason: question.difficultyReason,
         title: question.title,
-        content: question.content,
+        content: question.type === 'PROGRAMMING' ? formatPlainTextToHtml(question.content) : question.content,
         explanation: question.explanation,
         options: question.options.map((option, index) => ({
           ...option,
@@ -379,7 +395,7 @@ export default function TeacherAiQuestionGeneratorPage() {
         subjectId: item.subjectId,
         question: {
           title: item.type === 'PROGRAMMING' ? item.title : item.content,
-          content: item.type === 'PROGRAMMING' ? item.content : item.content,
+          content: item.type === 'PROGRAMMING' ? formatPlainTextToHtml(item.content) : item.content,
           explanation: item.explanation ?? '',
           type: item.type,
           difficulty: item.difficulty,
@@ -591,7 +607,27 @@ export default function TeacherAiQuestionGeneratorPage() {
 
               <div className="grid grid-cols-1 gap-3">
                 {aiMode === 'GENERATE_FROM_MATERIAL' ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-700">Dạng câu hỏi</label>
+                        <AppSelect
+                          value={targetQuestionType}
+                          onChange={(value) => setTargetQuestionType(value as TargetQuestionType)}
+                          buttonClassName="bg-gray-50"
+                          options={questionTypeFilterOptions}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-700">Độ khó</label>
+                        <AppSelect
+                          value={desiredDifficulty}
+                          onChange={(value) => setDesiredDifficulty(value as DesiredDifficulty)}
+                          buttonClassName="bg-gray-50"
+                          options={difficultyOptions}
+                        />
+                      </div>
+                    </div>
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-gray-700">Số câu muốn sinh</label>
                       <input
@@ -603,16 +639,7 @@ export default function TeacherAiQuestionGeneratorPage() {
                         className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-blue-500"
                       />
                     </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-700">Độ khó</label>
-                      <AppSelect
-                        value={desiredDifficulty}
-                        onChange={(value) => setDesiredDifficulty(value as DesiredDifficulty)}
-                        buttonClassName="bg-gray-50"
-                        options={difficultyOptions}
-                      />
-                    </div>
-                  </div>
+                  </>
                 ) : (
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-gray-700">Cách lấy số câu</label>
@@ -631,6 +658,9 @@ export default function TeacherAiQuestionGeneratorPage() {
                   rows={7}
                   value={promptInput}
                   onChange={(event) => setPromptInput(event.target.value)}
+                  spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
                   placeholder="Ví dụ: tạo đáp án nhiễu hợp lý, tránh câu hỏi mẹo, ưu tiên kiến thức chương kế thừa..."
                   className="min-h-40 w-full resize-y rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none focus:border-blue-500"
                 />
@@ -685,7 +715,25 @@ export default function TeacherAiQuestionGeneratorPage() {
                 </div>
               </div>
 
-              {draftQuestions.length === 0 ? (
+              {isGenerating ? (
+                <div className="flex min-h-[460px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-blue-200 bg-blue-50/20 text-center">
+                  {/* AI Sparkles icon nhấp nhô & gợn sóng */}
+                  <div className="relative flex items-center justify-center">
+                    <span className="absolute h-16 w-16 rounded-full bg-blue-400/20 animate-ping opacity-75" style={{ animationDuration: '1.8s' }} />
+                    <span className="absolute h-10 w-10 rounded-full bg-blue-500/30 animate-ping opacity-90" style={{ animationDuration: '1.2s' }} />
+                    <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-blue-500/25">
+                      <Sparkles size={24} className="text-amber-300 animate-bounce" style={{ animationDuration: '1s' }} />
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-sm font-bold text-gray-950">
+                    {aiMode === 'EXTRACT_EXISTING_EXAM' ? 'AI đang bóc tách câu hỏi...' : 'AI đang sinh câu hỏi...'}
+                  </p>
+                  <p className="mt-1 max-w-xs text-xs text-gray-500">
+                    Đang phân tích tài liệu và cấu trúc câu hỏi, vui lòng đợi trong giây lát.
+                  </p>
+                </div>
+              ) : draftQuestions.length === 0 ? (
                 <div className="flex min-h-[460px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 text-center">
                   <Sparkles size={28} className="text-blue-500" />
                   <p className="mt-3 text-sm font-bold text-gray-950">Chưa có câu hỏi nháp</p>
@@ -760,11 +808,12 @@ export default function TeacherAiQuestionGeneratorPage() {
                           </div>
                           <div className="mt-3">
                             <label className="mb-1 block text-xs font-semibold text-gray-600">Mô tả bài toán</label>
-                            <textarea
-                              rows={4}
+                            <RichTextEditor
                               value={question.content}
-                              onChange={(event) => updateDraftField(question.id, 'content', event.target.value)}
-                              className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm leading-6 text-gray-800 outline-none focus:border-blue-500"
+                              onChange={(val) => updateDraftField(question.id, 'content', val)}
+                              placeholder="Nhập mô tả bài toán..."
+                              minHeight={200}
+                              height={240}
                             />
                           </div>
                           <div className="mt-3">
