@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import path from 'path'
 import { errorHandler } from './middlewares/errorHandler'
 import { authRoutes } from './modules/auth'
 import { studentDashboardRoutes } from './modules/student-dashboard'
@@ -36,6 +37,7 @@ app.use(
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
+app.use('/api/local-evidence', express.static(path.join(process.cwd(), 'uploads', 'evidence')))
 
 app.set('trust proxy', true)   // hoặc số lượng proxy hop, ví dụ: 1
 

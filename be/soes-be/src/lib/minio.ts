@@ -1,5 +1,7 @@
 import { randomUUID } from 'crypto'
 import { extname } from 'path'
+import { mkdir, writeFile } from 'fs/promises'
+import path from 'path'
 import { Client } from 'minio'
 import { minioConfig } from '../config'
 
@@ -43,9 +45,20 @@ function evidenceObjectName(input: {
   violationType: string
   detectedAt: Date
   originalName: string
+  storagePrefix?: string | null
+  violationId?: string
 }): string {
   const extension = extname(input.originalName).toLowerCase() || '.jpg'
   const timestamp = input.detectedAt.toISOString().replace(/[:.]/g, '-')
+
+  if (input.storagePrefix && input.violationId) {
+    return [
+      input.storagePrefix.replace(/\/+$/g, ''),
+      'webcam',
+      safePathPart(input.attemptId),
+      `${safePathPart(input.violationId)}${extension}`,
+    ].join('/')
+  }
 
   return [
     'violations',
@@ -60,6 +73,8 @@ export async function uploadViolationEvidenceFiles(input: {
   violationType: string
   detectedAt: Date
   files: Express.Multer.File[]
+  storagePrefix?: string | null
+  violationId?: string
 }): Promise<string[]> {
   if (input.files.length === 0) return []
 
@@ -73,6 +88,8 @@ export async function uploadViolationEvidenceFiles(input: {
       violationType: input.violationType,
       detectedAt: input.detectedAt,
       originalName: file.originalname,
+      storagePrefix: input.storagePrefix,
+      violationId: input.violationId,
     })
 
     await minio.putObject(
@@ -96,4 +113,37 @@ export async function getViolationEvidenceUrl(objectName: string): Promise<strin
     objectName,
     minioConfig.evidenceUrlExpirySeconds,
   )
+}
+
+export async function saveViolationEvidenceFilesLocal(input: {
+  attemptId: string
+  violationType: string
+  detectedAt: Date
+  files: Express.Multer.File[]
+  storagePrefix?: string | null
+  violationId?: string
+}): Promise<string[]> {
+  if (input.files.length === 0) return []
+
+  const uploadedObjectNames: string[] = []
+  for (const file of input.files) {
+    const objectName = evidenceObjectName({
+      attemptId: input.attemptId,
+      violationType: input.violationType,
+      detectedAt: input.detectedAt,
+      originalName: file.originalname,
+      storagePrefix: input.storagePrefix,
+      violationId: input.violationId,
+    })
+    const targetPath = path.join(process.cwd(), 'uploads', 'evidence', objectName)
+    await mkdir(path.dirname(targetPath), { recursive: true })
+    await writeFile(targetPath, file.buffer)
+    uploadedObjectNames.push(objectName)
+  }
+
+  return uploadedObjectNames
+}
+
+export function getLocalViolationEvidenceUrl(objectName: string): string {
+  return `/api/local-evidence/${objectName.split('/').map(encodeURIComponent).join('/')}`
 }
