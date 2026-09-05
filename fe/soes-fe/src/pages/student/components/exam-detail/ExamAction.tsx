@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { takeExamApi } from '../../api/student-take-exam.api'
 import { useExamWebcam } from '../../hooks/take-exam/useExamWebcam'
 import type { ExamDetail } from '../../types/exam-detail.types'
-import { hasActiveExamWebcam } from '../../utils/exam-webcam'
+import { hasActiveExamWebcam, isExamWebcamStreamLive } from '../../utils/exam-webcam'
 import WebcamCheckDialog from './WebcamCheckDialog'
 
 interface ExamActionProps {
@@ -53,8 +53,9 @@ export default function ExamAction({ data }: ExamActionProps) {
 
   const startOrResumeExam = async () => {
     const targetScheduleId = scheduleId ?? data.id
+    const hasValidWebcam = hasActiveExamWebcam() && isExamWebcamStreamLive(webcam.stream)
 
-    if (data.enableWebcam && !hasActiveExamWebcam()) {
+    if (data.enableWebcam && !hasValidWebcam) {
       toast.error('Camera chưa sẵn sàng', {
         description: 'Bạn phải bật camera trước khi vào làm bài.',
       })
@@ -70,7 +71,8 @@ export default function ExamAction({ data }: ExamActionProps) {
       setIsStarting(true)
       const result = await takeExamApi.startExam(targetScheduleId, {
         password: password || undefined,
-        webcamConfirmed: data.enableWebcam ? hasActiveExamWebcam() : undefined,
+        webcamConfirmed: data.enableWebcam ? hasValidWebcam : undefined,
+        webcamStatus: data.enableWebcam ? (hasValidWebcam ? 'ACTIVE' : 'PERMISSION_DENIED') : 'NOT_REQUIRED',
       })
       navigateToExam(targetScheduleId, result.attemptId)
     } catch (error: unknown) {

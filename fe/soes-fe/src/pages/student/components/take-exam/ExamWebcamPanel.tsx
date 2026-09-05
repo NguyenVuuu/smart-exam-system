@@ -1,6 +1,7 @@
 import { Camera, LoaderCircle, ShieldAlert } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type { ExamWebcamStatus } from '../../hooks/take-exam/useExamWebcam'
+import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
 
 interface ExamWebcamPanelProps {
   required: boolean
@@ -8,6 +9,14 @@ interface ExamWebcamPanelProps {
   status: ExamWebcamStatus
   errorMessage: string | null
   onEnableCamera: () => void
+}
+
+const webcamStatusLabels: Partial<Record<ExamWebcamStatus, string>> = {
+  DISCONNECTED: 'Camera đã tắt hoặc mất kết nối',
+  PERMISSION_DENIED: 'Quyền camera đã bị từ chối',
+  BLOCKED: 'Camera đang bị chặn hoặc không có khung hình mới',
+  UNAVAILABLE: 'Không tìm thấy camera',
+  ERROR: 'Camera chưa hoạt động ổn định',
 }
 
 export default function ExamWebcamPanel({ required, stream, status, errorMessage, onEnableCamera }: ExamWebcamPanelProps) {
@@ -19,25 +28,33 @@ export default function ExamWebcamPanel({ required, stream, status, errorMessage
 
   if (!required) return null
 
-  const isActive = status === 'ACTIVE' && Boolean(stream)
+  const isActive = status === 'ACTIVE' && isExamWebcamStreamLive(stream)
   const isRequesting = status === 'REQUESTING'
 
   if (!isActive) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-5 backdrop-blur-md" role="alertdialog" aria-modal="true" aria-labelledby="camera-required-title">
-        <div className="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-2xl">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-            <ShieldAlert size={32} />
+      <aside className="fixed right-4 top-4 z-40 w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-amber-200 bg-white p-4 shadow-xl" role="status" aria-live="polite">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+            <ShieldAlert size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-900">{webcamStatusLabels[status] ?? 'Camera chưa được bật'}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              {errorMessage ?? 'Ca thi yêu cầu camera hoạt động trong suốt thời gian làm bài. Sự kiện này đã được ghi nhận.'}
+            </p>
+            <button
+              type="button"
+              onClick={onEnableCamera}
+              disabled={isRequesting}
+              className="mt-3 inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {isRequesting ? <LoaderCircle className="animate-spin" size={16} /> : <Camera size={16} />}
+              {isRequesting ? 'Đang mở camera...' : 'Mở lại camera'}
+            </button>
           </div>
-          <h2 id="camera-required-title" className="mt-5 text-xl font-bold text-slate-900">Camera phải được bật</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">Nội dung bài thi tạm khóa vì kỳ thi này yêu cầu camera hoạt động. Thời gian làm bài vẫn đang được tính.</p>
-          {errorMessage && <p className="mt-4 rounded-xl bg-rose-50 p-3 text-xs font-medium leading-5 text-rose-700">{errorMessage}</p>}
-          <button type="button" onClick={onEnableCamera} disabled={isRequesting} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60">
-            {isRequesting ? <LoaderCircle className="animate-spin" size={18} /> : <Camera size={18} />}
-            {isRequesting ? 'Đang mở camera...' : 'Mở lại camera'}
-          </button>
         </div>
-      </div>
+      </aside>
     )
   }
 

@@ -1,12 +1,12 @@
 let activeStream: MediaStream | null = null
 let scheduledStopId: number | null = null
 
-function hasLiveVideoTrack(stream: MediaStream | null): boolean {
+export function isExamWebcamStreamLive(stream: MediaStream | null): boolean {
   return Boolean(stream?.getVideoTracks().some((track) => track.readyState === 'live' && track.enabled))
 }
 
 export function getActiveExamWebcam(): MediaStream | null {
-  if (hasLiveVideoTrack(activeStream)) return activeStream
+  if (isExamWebcamStreamLive(activeStream)) return activeStream
   activeStream = null
   return null
 }
@@ -15,8 +15,8 @@ export function hasActiveExamWebcam(): boolean {
   return getActiveExamWebcam() !== null
 }
 
-function waitForVideoMetadata(video: HTMLVideoElement): Promise<void> {
-  if (video.readyState >= HTMLMediaElement.HAVE_METADATA && video.videoWidth > 0) {
+function waitForVideoMetadata(video: HTMLVideoElement, timeoutMs = 1500): Promise<void> {
+  if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
     return Promise.resolve()
   }
 
@@ -24,15 +24,17 @@ function waitForVideoMetadata(video: HTMLVideoElement): Promise<void> {
     const timeoutId = window.setTimeout(() => {
       cleanup()
       reject(new Error('WEBCAM_METADATA_TIMEOUT'))
-    }, 1500)
+    }, timeoutMs)
 
     function cleanup() {
       window.clearTimeout(timeoutId)
       video.removeEventListener('loadedmetadata', handleLoaded)
+      video.removeEventListener('canplay', handleLoaded)
       video.removeEventListener('error', handleError)
     }
 
     function handleLoaded() {
+      if (video.videoWidth <= 0 || video.videoHeight <= 0) return
       cleanup()
       resolve()
     }
@@ -43,8 +45,32 @@ function waitForVideoMetadata(video: HTMLVideoElement): Promise<void> {
     }
 
     video.addEventListener('loadedmetadata', handleLoaded)
+    video.addEventListener('canplay', handleLoaded)
     video.addEventListener('error', handleError)
   })
+}
+
+export async function verifyExamWebcamStream(stream: MediaStream): Promise<void> {
+  if (!isExamWebcamStreamLive(stream)) {
+    throw new Error('WEBCAM_NOT_ACTIVE')
+  }
+
+  const video = document.createElement('video')
+  video.muted = true
+  video.playsInline = true
+  video.srcObject = stream
+
+  try {
+    await video.play().catch(() => undefined)
+    await waitForVideoMetadata(video, 2500)
+  } finally {
+    video.pause()
+    video.srcObject = null
+  }
+
+  if (!isExamWebcamStreamLive(stream)) {
+    throw new Error('WEBCAM_NOT_ACTIVE')
+  }
 }
 
 export async function captureExamWebcamSnapshot(): Promise<File | null> {
@@ -102,9 +128,11 @@ export async function requestExamWebcam(): Promise<MediaStream> {
     },
   })
 
-  if (!hasLiveVideoTrack(stream)) {
+  try {
+    await verifyExamWebcamStream(stream)
+  } catch (error) {
     stream.getTracks().forEach((track) => track.stop())
-    throw new Error('WEBCAM_NOT_ACTIVE')
+    throw error
   }
 
   activeStream = stream

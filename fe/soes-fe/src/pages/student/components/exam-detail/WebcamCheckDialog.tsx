@@ -1,6 +1,7 @@
 import { Camera, CameraOff, Eye, EyeOff, KeyRound, LoaderCircle, ShieldCheck, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ExamWebcamStatus } from '../../hooks/take-exam/useExamWebcam'
+import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
 
 interface WebcamCheckDialogProps {
   isOpen: boolean
@@ -41,7 +42,7 @@ export default function WebcamCheckDialog({
   if (!isOpen) return null
 
   const isRequesting = status === 'REQUESTING'
-  const isReady = !requiresWebcam || (status === 'ACTIVE' && Boolean(stream))
+  const isReady = !requiresWebcam || (status === 'ACTIVE' && isExamWebcamStreamLive(stream))
   const canContinue = isReady && (!requiresPassword || password.trim().length > 0)
 
   return (

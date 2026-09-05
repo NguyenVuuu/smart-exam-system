@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   getActiveExamWebcam,
+  isExamWebcamStreamLive,
   requestExamWebcam,
   stopExamWebcam,
 } from '../../utils/exam-webcam'
 
-export type ExamWebcamStatus = 'IDLE' | 'REQUESTING' | 'ACTIVE' | 'DENIED' | 'UNAVAILABLE' | 'ERROR'
+export type ExamWebcamStatus =
+  | 'IDLE'
+  | 'REQUESTING'
+  | 'ACTIVE'
+  | 'DISCONNECTED'
+  | 'PERMISSION_DENIED'
+  | 'BLOCKED'
+  | 'UNAVAILABLE'
+  | 'ERROR'
+
+const FRAME_STALE_MS = 5_000
+const FRAME_CHECK_INTERVAL_MS = 1_000
 
 function getWebcamErrorMessage(error: unknown): string {
   if (error instanceof DOMException) {
@@ -20,6 +32,10 @@ function getWebcamErrorMessage(error: unknown): string {
     }
   }
 
+  if (error instanceof Error && ['WEBCAM_METADATA_TIMEOUT', 'WEBCAM_VIDEO_ERROR', 'WEBCAM_NOT_ACTIVE'].includes(error.message)) {
+    return 'Camera đã được cấp quyền nhưng chưa có hình ảnh thật. Hãy kiểm tra camera rồi thử lại.'
+  }
+
   if (error instanceof Error && error.message === 'WEBCAM_UNSUPPORTED') {
     return 'Trình duyệt này không hỗ trợ truy cập camera.'
   }
@@ -29,7 +45,10 @@ function getWebcamErrorMessage(error: unknown): string {
 
 function getWebcamErrorStatus(error: unknown): ExamWebcamStatus {
   if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
-    return 'DENIED'
+    return 'PERMISSION_DENIED'
+  }
+  if (error instanceof DOMException && (error.name === 'NotReadableError' || error.name === 'TrackStartError')) {
+    return 'BLOCKED'
   }
   if (error instanceof DOMException && (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError')) {
     return 'UNAVAILABLE'
@@ -71,19 +90,126 @@ export function useExamWebcam(required: boolean) {
     const videoTracks = stream.getVideoTracks()
     const handleTrackEnded = () => {
       setStream(null)
-      setStatus('ERROR')
-      setErrorMessage('Camera đã bị tắt. Bạn phải mở lại camera để tiếp tục làm bài.')
+      setStatus('DISCONNECTED')
+      setErrorMessage('Camera đã bị tắt trong lúc thi. Hệ thống đã ghi nhận sự kiện này.')
+    }
+    const handleTrackMuted = () => {
+      setStatus('BLOCKED')
+      setErrorMessage('Camera đang bị chặn hoặc không gửi được hình ảnh. Hệ thống đã ghi nhận sự kiện này.')
+    }
+    const handleTrackUnmuted = () => {
+      if (!isExamWebcamStreamLive(stream)) return
+      setStatus('ACTIVE')
+      setErrorMessage(null)
     }
 
     videoTracks.forEach((track) => track.addEventListener('ended', handleTrackEnded))
-    return () => videoTracks.forEach((track) => track.removeEventListener('ended', handleTrackEnded))
+    videoTracks.forEach((track) => track.addEventListener('mute', handleTrackMuted))
+    videoTracks.forEach((track) => track.addEventListener('unmute', handleTrackUnmuted))
+
+    return () => {
+      videoTracks.forEach((track) => track.removeEventListener('ended', handleTrackEnded))
+      videoTracks.forEach((track) => track.removeEventListener('mute', handleTrackMuted))
+      videoTracks.forEach((track) => track.removeEventListener('unmute', handleTrackUnmuted))
+    }
+  }, [required, stream])
+
+  useEffect(() => {
+    if (!required || !stream || !navigator.permissions?.query) return
+
+    let permissionStatus: PermissionStatus | null = null
+    let handlePermissionChange: (() => void) | null = null
+    let cancelled = false
+
+    navigator.permissions.query({ name: 'camera' as PermissionName })
+      .then((result) => {
+        if (cancelled) return
+        permissionStatus = result
+        handlePermissionChange = () => {
+          if (result.state !== 'denied') return
+          setStream(null)
+          setStatus('PERMISSION_DENIED')
+          setErrorMessage('Quyền camera đã bị từ chối trong lúc thi. Hệ thống đã ghi nhận sự kiện này.')
+        }
+        result.addEventListener('change', handlePermissionChange)
+        handlePermissionChange()
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+      if (permissionStatus && handlePermissionChange) {
+        permissionStatus.removeEventListener('change', handlePermissionChange)
+      }
+    }
+  }, [required, stream])
+
+  useEffect(() => {
+    if (!required || !stream) return
+
+    const video = document.createElement('video')
+    let frameCallbackId: number | null = null
+    let intervalId: number | null = null
+    let lastFrameAt = Date.now()
+    let lastCurrentTime = 0
+    let cancelled = false
+
+    video.muted = true
+    video.playsInline = true
+    video.srcObject = stream
+
+    const markFrame = () => {
+      lastFrameAt = Date.now()
+      if (!cancelled && isExamWebcamStreamLive(stream)) {
+        setStatus('ACTIVE')
+        setErrorMessage(null)
+      }
+    }
+
+    const scheduleFrameCheck = () => {
+      if (typeof video.requestVideoFrameCallback !== 'function') return
+      frameCallbackId = video.requestVideoFrameCallback(() => {
+        markFrame()
+        scheduleFrameCheck()
+      })
+    }
+
+    void video.play().then(scheduleFrameCheck).catch(() => undefined)
+
+    intervalId = window.setInterval(() => {
+      if (!isExamWebcamStreamLive(stream)) {
+        setStream(null)
+        setStatus('DISCONNECTED')
+        setErrorMessage('Camera đã mất kết nối trong lúc thi. Hệ thống đã ghi nhận sự kiện này.')
+        return
+      }
+
+      if (typeof video.requestVideoFrameCallback !== 'function' && video.currentTime !== lastCurrentTime) {
+        lastCurrentTime = video.currentTime
+        markFrame()
+      }
+
+      if (Date.now() - lastFrameAt <= FRAME_STALE_MS) return
+      setStatus('BLOCKED')
+      setErrorMessage('Camera đang bị chặn hoặc không có khung hình mới. Hệ thống đã ghi nhận sự kiện này.')
+    }, FRAME_CHECK_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      if (frameCallbackId !== null && typeof video.cancelVideoFrameCallback === 'function') {
+        video.cancelVideoFrameCallback(frameCallbackId)
+      }
+      if (intervalId !== null) window.clearInterval(intervalId)
+      video.pause()
+      video.srcObject = null
+    }
   }, [required, stream])
 
   return {
     stream,
     status,
     errorMessage,
-    isActive: !required || status === 'ACTIVE',
+    isActive: !required || (status === 'ACTIVE' && isExamWebcamStreamLive(stream)),
     start,
     stop,
   }

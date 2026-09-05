@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Maximize2, Save, Send, ShieldAlert } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -12,21 +12,32 @@ import TakeExamProgress from './components/take-exam/TakeExamProgress'
 import './components/take-exam/take-exam.css'
 import { useExamIntegrityGuard } from './hooks/take-exam/useExamIntegrityGuard'
 import { useExamWebcam } from './hooks/take-exam/useExamWebcam'
+import { useWebcamViolationMonitor } from './hooks/take-exam/useWebcamViolationMonitor'
+import { useStudentLiveCameraPublisher } from './hooks/take-exam/useStudentLiveCameraPublisher'
 import { useTakeExam } from './hooks/take-exam/useTakeExam'
 import { useGetExamAttempt, useRecordViolationMutation, useRunCodeMutation, useSendHeartbeatMutation } from './hooks/take-exam/useTakeExamApi'
 import type {
   QuestionAnswer,
   TakeExamAnswers,
 } from './types/take-exam.types'
-import type { RunCodeResponse } from './api/student-take-exam.api'
+import type { ExamSessionWebcamStatus, RunCodeResponse } from './api/student-take-exam.api'
 import type { RecordViolationPayload } from './api/student-take-exam.api'
 import { hasAnswer } from './components/take-exam/take-exam.utils'
 import { useDebounce } from 'use-debounce'
 import {
   cancelScheduledExamWebcamStop,
-  captureExamWebcamSnapshot,
+  isExamWebcamStreamLive,
   scheduleExamWebcamStop,
 } from './utils/exam-webcam'
+import type { ExamWebcamStatus } from './hooks/take-exam/useExamWebcam'
+
+function toSessionWebcamStatus(status: ExamWebcamStatus, stream: MediaStream | null, required: boolean): ExamSessionWebcamStatus {
+  if (!required) return 'NOT_REQUIRED'
+  if (status === 'ACTIVE' && isExamWebcamStreamLive(stream)) return 'ACTIVE'
+  if (status === 'PERMISSION_DENIED') return 'PERMISSION_DENIED'
+  if (status === 'BLOCKED') return 'BLOCKED'
+  return 'DISCONNECTED'
+}
 
 export default function StudentTakeExamPage() {
   const { courseOfferingId, scheduleId } = useParams<{
@@ -46,6 +57,7 @@ export default function StudentTakeExamPage() {
   const [runCodeResult, setRunCodeResult] = useState<RunCodeResponse | null>(null)
   const [runCodeError, setRunCodeError] = useState<string | null>(null)
   const [runCodeErrorQuestionId, setRunCodeErrorQuestionId] = useState<string | null>(null)
+  const previousWebcamStatusRef = useRef<ExamSessionWebcamStatus | null>(null)
 
   const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId)
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
@@ -119,15 +131,10 @@ export default function StudentTakeExamPage() {
 
   const handleViolationDetected = useCallback((payload: RecordViolationPayload) => {
     if (!scheduleId || !attemptId) return
-    void captureExamWebcamSnapshot().then((evidenceFile) => {
-      recordViolation({
-        scheduleId,
-        attemptId,
-        data: {
-          ...payload,
-          evidenceFiles: evidenceFile ? [evidenceFile] : undefined,
-        },
-      })
+    recordViolation({
+      scheduleId,
+      attemptId,
+      data: payload,
     })
   }, [attemptId, recordViolation, scheduleId])
 
@@ -142,16 +149,62 @@ export default function StudentTakeExamPage() {
     onViolation: handleViolationDetected,
   })
 
+  useWebcamViolationMonitor({
+    enabled: phase === 'IN_PROGRESS' && Boolean(session?.integritySettings.enableWebcam),
+    scheduleId: scheduleId ?? '',
+    attemptId: attemptId ?? '',
+    stream: webcamStream,
+    webcamStatus,
+  })
+
+  useStudentLiveCameraPublisher({
+    enabled: phase === 'IN_PROGRESS' && Boolean(session?.integritySettings.enableWebcam),
+    scheduleId: scheduleId ?? '',
+    attemptId: attemptId ?? '',
+    stream: webcamStream,
+  })
+
   useEffect(() => {
     if (!scheduleId || !attemptId || phase !== 'IN_PROGRESS' || !session) return
 
-    sendHeartbeat({ scheduleId, attemptId })
+    const webcamHeartbeatStatus = toSessionWebcamStatus(webcamStatus, webcamStream, session.integritySettings.enableWebcam)
+
+    sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: webcamHeartbeatStatus } })
     const intervalId = window.setInterval(() => {
-      sendHeartbeat({ scheduleId, attemptId })
+      const nextWebcamHeartbeatStatus = toSessionWebcamStatus(webcamStatus, webcamStream, session.integritySettings.enableWebcam)
+      sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: nextWebcamHeartbeatStatus } })
     }, 10_000)
 
     return () => window.clearInterval(intervalId)
-  }, [attemptId, phase, scheduleId, sendHeartbeat, session])
+  }, [attemptId, phase, scheduleId, sendHeartbeat, session, webcamStatus, webcamStream])
+
+  useEffect(() => {
+    if (phase !== 'IN_PROGRESS' || !session?.integritySettings.enableWebcam) return
+
+    const currentStatus = toSessionWebcamStatus(webcamStatus, webcamStream, true)
+    const previousStatus = previousWebcamStatusRef.current
+    previousWebcamStatusRef.current = currentStatus
+
+    if (previousStatus === currentStatus) return
+    if (currentStatus === 'ACTIVE') {
+      if (previousStatus && previousStatus !== 'ACTIVE') {
+        toast.success('Camera đã hoạt động lại', {
+          description: 'Hệ thống đã ghi nhận thời điểm camera được khôi phục.',
+        })
+      }
+      return
+    }
+
+    const title = currentStatus === 'PERMISSION_DENIED'
+      ? 'Quyền camera bị từ chối'
+      : currentStatus === 'BLOCKED'
+        ? 'Camera không gửi được hình ảnh'
+        : 'Camera đã tắt hoặc mất kết nối'
+
+    toast.warning(title, {
+      description: 'Bạn cần mở lại camera. Sự kiện này đã được ghi nhận để giảng viên xem xét.',
+    })
+  }, [phase, session?.integritySettings.enableWebcam, webcamStatus, webcamStream])
 
   // Auto-save when answers change
   useEffect(() => {
