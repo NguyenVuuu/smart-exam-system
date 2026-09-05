@@ -39,6 +39,21 @@ function getStartOffset(exam: Exam): number {
   return exam.type === ExamType.MIDTERM ? 16 : 60
 }
 
+function safePathPart(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function buildProctoringStoragePath(exam: Exam, scheduleId: string, startTime: Date): string {
+  const academicYear = safePathPart(exam.semesterId)
+  const subject = safePathPart(exam.subjectId)
+  const timestamp = startTime.toISOString().slice(0, 16).replace(/[-:T]/g, '')
+  return `proctoring/${academicYear}/${subject}/ca-${timestamp}/${safePathPart(scheduleId)}`
+}
+
 export async function seedExamSchedules(
   prisma: PrismaClient,
   { exams, courseOfferings, teachers }: ExamScheduleSeedInput,
@@ -57,6 +72,9 @@ export async function seedExamSchedules(
     const status = getScheduleStatus(exam)
     const creator = teachers.find((teacher) => teacher.id === exam.createdById) ?? teachers[0]
     const scheduleId = `schedule-${exam.id}`
+    const enableWebcam = exam.type === ExamType.FINAL
+    const enableScreenMonitoring = exam.type === ExamType.FINAL || exam.type === ExamType.MIDTERM
+    const proctoringStoragePath = buildProctoringStoragePath(exam, scheduleId, startTime)
     const schedule = await prisma.examSchedule.upsert({
       where: { id: scheduleId },
       update: {
@@ -64,6 +82,9 @@ export async function seedExamSchedules(
         startTime,
         endTime,
         durationMinutes: exam.defaultDurationMinutes,
+        enableWebcam,
+        enableScreenMonitoring,
+        proctoringStoragePath,
         status,
       },
       create: {
@@ -77,9 +98,11 @@ export async function seedExamSchedules(
         enableTabLock: true,
         maxTabSwitches: 3,
         requireFullscreen: true,
-        enableWebcam: exam.type === ExamType.FINAL,
+        enableWebcam,
+        enableScreenMonitoring,
         blockCopyPaste: true,
         blockRightClick: true,
+        proctoringStoragePath,
         distributionMode: 'SHUFFLE_QUESTIONS_AND_OPTIONS',
         resultReleaseMode: status === ExamScheduleStatus.CLOSED ? 'IMMEDIATE' : 'MANUAL',
         reviewPolicy: status === ExamScheduleStatus.CLOSED ? 'SCORE_ONLY' : 'NONE',
