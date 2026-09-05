@@ -76,6 +76,7 @@ The design follows a **Modular Monolithic Architecture** and is optimized for ex
 ### Monitoring & Security
 
 - Violation
+- ViolationEvidence
 - ProgrammingSubmission (includes programming submissions and test results)
 - ProgrammingTestCase
 - ProgrammingQuestionConfig
@@ -337,8 +338,10 @@ IMPORTED:
 | creation_method            | ENUM               |
 | require_fullscreen         | BOOLEAN            |
 | enable_webcam              | BOOLEAN            |
+| enable_screen_monitoring   | BOOLEAN            |
 | block_copy_paste           | BOOLEAN            |
 | block_right_click          | BOOLEAN            |
+| proctoring_storage_path    | TEXT               |
 | published_at               | TIMESTAMP          |
 | created_at                 | TIMESTAMP          |
 | updated_at                 | TIMESTAMP          |
@@ -436,6 +439,9 @@ Constraint:
 | total_score       | DECIMAL   |
 | auto_score        | DECIMAL   |
 | manual_score      | DECIMAL   |
+| invalidated_at    | TIMESTAMP |
+| invalidated_by_id | UUID      |
+| invalidation_reason | TEXT    |
 
 Constraint:
 
@@ -447,6 +453,7 @@ Constraint:
 - `remaining_seconds` là snapshot từ thời điểm start exam, không được cập nhật sau đó. Clients phải tính lại `remaining_seconds` dựa trên thời gian hiện tại: `max(0, floor((attempt_end_at - now) / 1000))`.
 - `shuffled_option_ids` trong `ExamAttemptQuestion` lưu thứ tự đã xáo trộn của các option ID cho từng câu hỏi trong từng attempt.
 - Không có field `is_published` trong ExamAttempt. Kết quả được kiểm tra qua `Exam.result_published`.
+- Khi giảng viên dừng bài do vi phạm, attempt chuyển sang `INVALIDATED`, `ended_by = PROCTOR`, điểm được ghi nhận 0 và thông tin invalidation được lưu để đối soát.
 
 ---
 
@@ -463,6 +470,10 @@ Stores runtime session information during examination.
 | device_info    | TEXT      |
 | last_heartbeat | TIMESTAMP |
 | is_online      | BOOLEAN   |
+| webcam_status  | ENUM      |
+| screen_share_status | ENUM |
+| last_webcam_heartbeat_at | TIMESTAMP |
+| last_screen_heartbeat_at | TIMESTAMP |
 | created_at     | TIMESTAMP |
 | updated_at     | TIMESTAMP |
 
@@ -499,15 +510,63 @@ Constraint:
 
 ## Violation
 
-| Field          | Type      |
-| -------------- | --------- |
-| id             | UUID      |
-| attempt_id     | UUID      |
-| violation_type | ENUM      |
-| severity       | ENUM      |
-| evidence_urls  | JSONB     |
-| description    | TEXT      |
-| detected_at    | TIMESTAMP |
+| Field            | Type      |
+| ---------------- | --------- |
+| id               | UUID      |
+| attempt_id       | UUID      |
+| violation_type   | ENUM      |
+| source           | ENUM      |
+| severity         | ENUM      |
+| detected_by      | ENUM      |
+| review_status    | ENUM      |
+| evidence_urls    | JSONB     |
+| description      | TEXT      |
+| detected_at      | TIMESTAMP |
+| ended_at         | TIMESTAMP |
+| duration_seconds | INT       |
+| detected_by_id   | UUID      |
+| reviewed_by_id   | UUID      |
+| reviewed_at      | TIMESTAMP |
+| review_note      | TEXT      |
+
+### Notes
+
+- `Violation` represents a suspicious event or policy violation, not an automatic final cheating verdict.
+- Events such as camera off, screen sharing stopped, tab switch, and fullscreen exit can store duration using `detected_at`, `ended_at`, and `duration_seconds`.
+- `review_status` lets teachers confirm or dismiss a detected event after reviewing evidence.
+- Evidence files are stored separately in `ViolationEvidence`; binary files are not stored in PostgreSQL.
+- `evidence_urls` is a nullable legacy field retained to avoid losing existing violation rows during migration. New evidence should be stored in `ViolationEvidence`.
+
+---
+
+## ViolationEvidence
+
+| Field            | Type      |
+| ---------------- | --------- |
+| id               | UUID      |
+| violation_id     | UUID      |
+| evidence_type    | ENUM      |
+| storage_provider | ENUM      |
+| bucket           | VARCHAR   |
+| object_name      | TEXT      |
+| storage_path     | TEXT      |
+| file_name        | VARCHAR   |
+| content_type     | VARCHAR   |
+| file_size        | INT       |
+| captured_at      | TIMESTAMP |
+| captured_by_id   | UUID      |
+
+### Notes
+
+- Proctoring evidence is stored in MinIO.
+- Supabase is reserved for learning materials and is not used for cheating evidence.
+- `storage_path` should use the `ExamSchedule.proctoringStoragePath` prefix generated when the schedule is created.
+- Recommended object layout:
+
+```text
+proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/webcam/{attemptId}/{violationId}.jpg
+proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/screen/{attemptId}/{violationId}.jpg
+```
 
 ---
 
@@ -609,6 +668,7 @@ Example:
 - STUDENT
 - TIMEOUT
 - SYSTEM
+- PROCTOR
 
 ## ViolationType
 
@@ -617,6 +677,61 @@ Example:
 - NO_FACE
 - MULTIPLE_FACES
 - INACTIVITY
+- LOOKING_AWAY
+- COPY_PASTE
+- CAMERA_BLOCKED
+- CAMERA_DISCONNECTED
+- CAMERA_PERMISSION_DENIED
+- SCREEN_SHARE_STOPPED
+- SCREEN_PERMISSION_DENIED
+- PROCTOR_WEBCAM_CAPTURE
+- PROCTOR_SCREEN_CAPTURE
+
+## WebcamStatus
+
+- NOT_REQUIRED
+- PENDING_PERMISSION
+- ACTIVE
+- DISCONNECTED
+- PERMISSION_DENIED
+- BLOCKED
+
+## ScreenShareStatus
+
+- NOT_REQUIRED
+- PENDING_PERMISSION
+- ACTIVE
+- STOPPED
+- PERMISSION_DENIED
+
+## ViolationSource
+
+- WEBCAM
+- SCREEN
+- BROWSER
+- PROCTOR
+
+## ViolationDetectedBy
+
+- SYSTEM
+- PROCTOR
+
+## ViolationReviewStatus
+
+- PENDING
+- CONFIRMED
+- DISMISSED
+
+## ViolationEvidenceType
+
+- WEBCAM_IMAGE
+- SCREEN_IMAGE
+
+## FileStorageProvider
+
+- LOCAL
+- SUPABASE
+- MINIO
 
 ## SeverityLevel
 
@@ -648,6 +763,10 @@ Question 1 -> N QuestionOption
 Question 1 -> N ProgrammingTestCase
 ExamAttempt 1 -> N ExamSession
 ExamAttempt 1 -> N Violation
+Violation 1 -> N ViolationEvidence
+User 1 -> N ExamAttempt as invalidator
+User 1 -> N Violation as detector/reviewer
+User 1 -> N ViolationEvidence as capturer
 User 1 -> N Notification
 User 1 -> N AuditLog
 

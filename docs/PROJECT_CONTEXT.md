@@ -128,7 +128,7 @@ Mỗi đề thi lưu:
 - Loại đề thi (QUIZ/MIDTERM/FINAL).
 - Phương thức tạo đề (MANUAL/QUESTION_BANK/AI_GENERATED/MIXED).
 - Trạng thái công bố điểm (`result_published`).
-- Cấu hình chống gian lận (full-screen, webcam, block copy-paste, right-click).
+- Cấu hình chống gian lận (full-screen, webcam, screen monitoring, block copy-paste, right-click).
 
 ### Thi lập trình
 
@@ -168,10 +168,21 @@ Hệ thống cung cấp nhiều cơ chế chống gian lận.
 
 - Phát hiện không có khuôn mặt.
 - Phát hiện nhiều khuôn mặt.
+- Phát hiện camera bị che, mất kết nối hoặc bị tắt trong lúc thi.
 - Tự động chụp ảnh webcam khi phát hiện hành vi đáng ngờ.
-- Ghi nhận các sự kiện gian lận.
+- Cho phép giảng viên xem live webcam từng sinh viên theo nhu cầu.
+- Cho phép giảng viên chụp bằng chứng thủ công từ live webcam.
+- Ghi nhận các sự kiện nghi vấn/vi phạm để giảng viên xem xét.
+
+**Giám sát màn hình:**
+
+- Yêu cầu sinh viên chia sẻ màn hình khi ca thi bật `enableScreenMonitoring`.
+- Cho phép giảng viên xem live màn hình của từng sinh viên để biết sinh viên đang thao tác gì trong lúc thi.
+- Ghi nhận chuyển tab, thoát fullscreen, dừng chia sẻ màn hình và các sự kiện trình duyệt liên quan.
+- Cho phép hệ thống hoặc giảng viên chụp bằng chứng màn hình khi phát hiện hành vi đáng ngờ.
 
 Mọi hành vi đáng ngờ đều được ghi lại để giảng viên xem xét.
+Hệ thống không tự động cưỡng chế nộp bài vì gian lận; giảng viên là người quyết định xử lý, bao gồm quyền dừng bài thi và ghi nhận điểm 0.
 
 ### Giám sát thời gian thực
 
@@ -180,6 +191,8 @@ Giảng viên có thể:
 - Theo dõi tiến trình làm bài theo thời gian thực.
 - Nhận cảnh báo khi phát hiện gian lận.
 - Xem bằng chứng và lịch sử các sự kiện vi phạm.
+- Chọn xem live webcam hoặc live màn hình của một sinh viên trong cùng ca thi, nhưng không xem đồng thời cả hai stream của cùng một sinh viên.
+- Chuyển nhanh giữa các sinh viên để giám sát thủ công.
 
 ### Quản lý kết quả
 
@@ -238,14 +251,16 @@ Hiện tại hệ thống hỗ trợ ba vai trò:
 
 ### Chống gian lận
 
-- WebRTC (getUserMedia API)
+- WebRTC
+- MediaDevices API (`getUserMedia`, `getDisplayMedia`)
 - Giám sát sự kiện trình duyệt
 - MediaPipe Face Detection
 - Socket.IO
 
 ### Lưu trữ
 
-- MinIO
+- MinIO cho bằng chứng gian lận/proctoring evidence
+- Supabase cho tài liệu học tập/materials
 
 ### Thực thi mã nguồn
 
