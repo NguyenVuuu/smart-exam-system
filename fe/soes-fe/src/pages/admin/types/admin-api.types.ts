@@ -82,7 +82,8 @@ export interface ReadyFinalExamApiDto {
 export interface ExamScheduleApiDto {
   id: string; title: string; startTime: string; endTime: string; durationMinutes: number
   maxAttempts: number; status: string; locationMode: string; allowedIpRanges: string[]
-  distributionMode: string; resultReleaseMode: string; resultReleaseAt: string | null
+  distributionMode: string; randomQuestionCount: number | null
+  resultReleaseMode: string; resultReleaseAt: string | null
   reviewPolicy: string; hasPassword: boolean; requireFullscreen: boolean; enableWebcam: boolean
   blockCopyPaste: boolean; blockRightClick: boolean
   exam: { id: string; title: string; subject: { id: string; code: string; name: string; departmentId: string } }

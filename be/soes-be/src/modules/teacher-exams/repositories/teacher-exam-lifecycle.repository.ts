@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client'
+import type { ExamStudentVisibility, Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import { createExamQuestion, deleteExamQuestions } from './exam-question-snapshot.repository'
 import { examInclude } from './teacher-exams.repository'
@@ -58,6 +58,46 @@ export function setDistributionLock(
       },
     })
     return { changed: true, blocked: false }
+  })
+}
+
+export function setStudentVisibility(
+  examId: string,
+  teacherId: string,
+  userId: string,
+  visibility: ExamStudentVisibility,
+) {
+  return prisma.$transaction(async (tx) => {
+    const exam = await tx.exam.findFirst({
+      where: {
+        id: examId,
+        createdById: teacherId,
+        type: { not: 'FINAL' },
+        status: { in: ['READY', 'LOCKED'] },
+      },
+      select: { id: true, studentVisibility: true, updatedAt: true },
+    })
+    if (!exam || exam.studentVisibility === visibility) return Boolean(exam)
+
+    const changed = await tx.exam.updateMany({
+      where: {
+        id: exam.id,
+        updatedAt: exam.updatedAt,
+      },
+      data: { studentVisibility: visibility },
+    })
+    if (!changed.count) return false
+
+    await tx.auditLog.create({
+      data: {
+        userId,
+        action: 'UPDATE_EXAM_STUDENT_VISIBILITY',
+        entityType: 'Exam',
+        entityId: examId,
+        metadata: { from: exam.studentVisibility, to: visibility },
+      },
+    })
+    return true
   })
 }
 

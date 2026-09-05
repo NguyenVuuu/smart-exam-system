@@ -39,4 +39,6 @@ export interface AutoExamConfigPanelProps {
   isGenerating: boolean
   totalQuestions: number
   onGenerate: () => void
+  fieldErrors?: Record<string, string>
+  onFieldChange?: (field: string) => void
 }

@@ -1,4 +1,4 @@
-import { ClipboardList, Copy, Edit, Eye, Plus, Trash2 } from 'lucide-react'
+import { ClipboardList, Copy, Edit, Eye, Plus, Trash2, UserCheck, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ import { useTeacherExams } from './hooks/useTeacherExams'
 import type { Exam } from './types/teacher-exam.types'
 import { examStatusLabel, examStatusTone } from './constants/examStatus'
 import { useTeacherCourses } from './hooks/useTeacherCourses'
+import { getApiErrorMessage } from '../../api/errors'
 
 export default function TeacherExamsPage() {
   const navigate = useNavigate()
@@ -27,6 +28,7 @@ export default function TeacherExamsPage() {
   const [selectedSemester, setSelectedSemester] = useState<string | null>(null)
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false)
   const [deletingExam, setDeletingExam] = useState<Exam | null>(null)
+  const [visibilitySavingIds, setVisibilitySavingIds] = useState<Set<string>>(() => new Set())
 
   const effectiveSemester = selectedSemester ?? currentSemesterId ?? 'ALL'
 
@@ -58,6 +60,26 @@ export default function TeacherExamsPage() {
       toast.success('Đã sao chép đề thành bản nháp mới.')
       navigate(`/teacher/exams/${copied.id}/edit`)
     } catch { toast.error('Không thể sao chép đề thi.') }
+  }
+
+  const handleToggleStudentVisibility = async (exam: Exam, event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (visibilitySavingIds.has(exam.id)) return
+
+    const visibility = exam.studentVisibility === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN'
+    setVisibilitySavingIds((current) => new Set(current).add(exam.id))
+    try {
+      await examApi.setStudentVisibility(exam.id, visibility)
+      toast.success(visibility === 'HIDDEN' ? 'Đã ẩn đề khỏi sinh viên.' : 'Đã hiện đề cho sinh viên.')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Không thể cập nhật trạng thái hiển thị của đề thi.'))
+    } finally {
+      setVisibilitySavingIds((current) => {
+        const next = new Set(current)
+        next.delete(exam.id)
+        return next
+      })
+    }
   }
 
   // Columns definition
@@ -114,12 +136,15 @@ export default function TeacherExamsPage() {
     {
       header: 'Trạng Thái',
       width: '150px',
-      align: 'center',
-      render: (e) => <AppBadge tone={examStatusTone[e.status]} className="whitespace-nowrap">{examStatusLabel[e.status]}</AppBadge>,
+      render: (e) => (
+        <AppBadge tone={examStatusTone[e.status]} className="whitespace-nowrap">
+          {examStatusLabel[e.status]}
+        </AppBadge>
+      ),
     },
     {
       header: 'Thao Tác',
-      width: '130px',
+      width: '160px',
       align: 'right',
       render: (e) => (
         <div className="flex items-center justify-end gap-1">
@@ -143,6 +168,23 @@ export default function TeacherExamsPage() {
               title="Sửa cấu hình đề thi nháp"
             >
               <Edit size={16} />
+            </button>
+          )}
+          {e.capabilities?.canToggleStudentVisibility && (
+            <button
+              type="button"
+              onClick={(event) => void handleToggleStudentVisibility(e, event)}
+              disabled={visibilitySavingIds.has(e.id)}
+              aria-busy={visibilitySavingIds.has(e.id)}
+              aria-label={e.studentVisibility === 'HIDDEN' ? 'Hiện đề cho sinh viên' : 'Ẩn đề khỏi sinh viên'}
+              className={`rounded-lg p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                e.studentVisibility === 'HIDDEN'
+                  ? 'text-emerald-600 hover:bg-emerald-50'
+                  : 'text-amber-600 hover:bg-amber-50'
+              }`}
+              title={e.studentVisibility === 'HIDDEN' ? 'Hiện đề cho sinh viên' : 'Ẩn đề khỏi sinh viên'}
+            >
+              {e.studentVisibility === 'HIDDEN' ? <UserCheck size={16} /> : <UserX size={16} />}
             </button>
           )}
           {e.capabilities?.canCopy && <button

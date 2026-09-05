@@ -15,7 +15,7 @@ export async function findScheduleById(scheduleId: string) {
       enableWebcam: true,
       distributionMode: true,
       randomQuestionCount: true,
-      exam: { select: { id: true, status: true } },
+      exam: { select: { id: true, status: true, studentVisibility: true } },
     },
   })
 }

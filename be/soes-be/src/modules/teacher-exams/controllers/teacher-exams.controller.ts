@@ -5,7 +5,7 @@ import * as service from '../services/teacher-exams.service'
 import * as scheduleService from '../services/teacher-exam-schedule.service'
 import * as gradingService from '../services/teacher-exam-grading.service'
 import * as lifecycleService from '../services/teacher-exam-lifecycle.service'
-import { autoGenerateExamSchema, examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
+import { autoGenerateExamSchema, examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, examStudentVisibilitySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
 import { teacherExamScheduleBodySchema, teacherScheduleCancellationSchema } from '../validators/teacher-exam-schedule.validator'
 import { invalidateAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
 
@@ -33,6 +33,15 @@ export const lockDistribution = async (req: Request, res: Response) => send(
 )
 export const unlockDistribution = async (req: Request, res: Response) => send(
   res, await lifecycleService.unlockDistribution(req.user!.profileId, req.user!.id, idParam.parse(req.params).id),
+)
+export const updateStudentVisibility = async (req: Request, res: Response) => send(
+  res,
+  await lifecycleService.updateStudentVisibility(
+    req.user!.profileId,
+    req.user!.id,
+    idParam.parse(req.params).id,
+    examStudentVisibilitySchema.parse(req.body).visibility,
+  ),
 )
 export const listApprovals = async (req: Request, res: Response) => send(res, await service.listApprovals(req.user!.profileId, examApprovalQuerySchema.parse(req.query)))
 export const approve = async (req: Request, res: Response) => send(res, await service.approve(req.user!.profileId, idParam.parse(req.params).id))

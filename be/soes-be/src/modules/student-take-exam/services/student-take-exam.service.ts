@@ -13,8 +13,8 @@ import { gradeObjectiveAnswers } from '../repositories/attempt-grading.repositor
 import { gradeProgrammingAnswers } from './programming-grading.service'
 import { isResultReleased } from '../../exam-schedules/utils/result-release'
 import {
+  isExamVisibleToStudents,
   STUDENT_STARTABLE_SCHEDULE_STATUSES,
-  STUDENT_VISIBLE_EXAM_STATUSES,
 } from '../../student-common/exam-visibility.policy'
 import * as live from '../../proctoring-live/proctoring-live.service'
 
@@ -327,10 +327,6 @@ export async function startExam(
     throw new ConflictError("Exam schedule is not available");
   }
 
-  if (!STUDENT_VISIBLE_EXAM_STATUSES.includes(schedule.exam.status)) {
-    throw new ConflictError("Exam is not available");
-  }
-
   // ── 5. Exam must have publishedAt ─────────────────────────────────────────
   if (!schedule.publishedAt) {
     throw new ConflictError("Exam schedule has not been published yet");
@@ -357,6 +353,10 @@ export async function startExam(
       deadlineAt: activeAttempt.deadlineAt,
       remainingSeconds: Math.floor((activeAttempt.deadlineAt.getTime() - now.getTime()) / 1000),
     };
+  }
+
+  if (!isExamVisibleToStudents(schedule.exam)) {
+    throw new ConflictError("Exam is hidden from students");
   }
 
   if (now >= schedule.endTime) {

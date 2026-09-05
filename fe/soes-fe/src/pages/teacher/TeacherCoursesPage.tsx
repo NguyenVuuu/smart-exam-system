@@ -1,5 +1,5 @@
 import { BookOpen, ChevronRight, RotateCcw, Search, Users, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppBadge from '../../components/common/AppBadge'
 import AppSelect from '../../components/common/AppSelect'
@@ -11,22 +11,19 @@ import { useTeacherCourses } from './hooks/useTeacherCourses'
 export default function TeacherCoursesPage() {
   const navigate = useNavigate()
   const { courses, semesterOptions, currentSemesterId, loading, error, retry } = useTeacherCourses()
-  const [selectedSemester, setSelectedSemester] = useState<string>('ALL')
+  const [selectedSemester, setSelectedSemester] = useState<string | null>(null)
   const [selectedSubject, setSelectedSubject] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState<string>('')
-
-  useEffect(() => {
-    if (currentSemesterId) setSelectedSemester(currentSemesterId)
-  }, [currentSemesterId])
+  const effectiveSemester = selectedSemester ?? currentSemesterId ?? 'ALL'
 
   const handleResetFilters = () => {
-    setSelectedSemester(currentSemesterId ?? 'ALL')
+    setSelectedSemester(null)
     setSelectedSubject('ALL')
     setSearchQuery('')
   }
 
   const filteredCourses = courses.filter((course) => {
-    const matchSemester = selectedSemester === 'ALL' || course.semesterId === selectedSemester
+    const matchSemester = effectiveSemester === 'ALL' || course.semesterId === effectiveSemester
     const matchSubject = selectedSubject === 'ALL' || course.subjectId === selectedSubject
     const matchSearch =
       course.subjectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -53,7 +50,7 @@ export default function TeacherCoursesPage() {
             <div className="flex items-center gap-3 shrink-0">
               {/* Semester Filter */}
               <AppSelect
-                value={selectedSemester}
+                value={effectiveSemester}
                 onChange={setSelectedSemester}
                 className="w-72"
                 buttonClassName="bg-gray-50 border-gray-200 py-2 text-sm text-gray-700 font-medium rounded-xl whitespace-nowrap"
@@ -104,16 +101,16 @@ export default function TeacherCoursesPage() {
               <p>{error}</p><button type="button" className="mt-2 text-blue-600 underline" onClick={retry}>Thử lại</button>
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),360px))] items-start gap-4">
             {filteredCourses.map((course) => (
               <div
                 key={course.id}
                 onClick={() => navigate(`/teacher/courses/${course.id}`)}
-                className="bg-white border border-gray-100 hover:border-blue-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+                className="group flex min-h-[190px] cursor-pointer flex-col gap-4 rounded-xl border border-gray-100 bg-white p-[18px] shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-xs">
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[13px] font-bold text-blue-600">
                       {course.subjectCode.substring(0, 3)}
                     </div>
                     <AppBadge tone={course.status === 'ACTIVE' ? 'emerald' : 'gray'}>
@@ -121,18 +118,20 @@ export default function TeacherCoursesPage() {
                     </AppBadge>
                   </div>
 
-                  <div>
-                    <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
+                  <div className="min-w-0">
+                    <span className="block truncate text-[13px] font-semibold uppercase text-blue-600" title={`Mã lớp: ${course.courseCode}`}>
                       Mã lớp: {course.courseCode}
                     </span>
-                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mt-0.5">
+                    <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900 transition-colors group-hover:text-blue-600">
                       {course.subjectName}
                     </h3>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{course.description}</p>
+                    {course.description && (
+                      <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-gray-500">{course.description}</p>
+                    )}
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-gray-50 flex items-center justify-between text-xs text-gray-500">
+                <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-3 text-[13px] text-gray-500">
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                       <Users size={14} className="text-gray-400" />

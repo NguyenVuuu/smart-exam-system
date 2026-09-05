@@ -31,6 +31,7 @@ export function ExamDetailHeader({
   onToggleStudentVisibility,
   onLockDistribution,
   onUnlockDistribution,
+  visibilitySaving = false,
   contentOnly = false,
 }: {
   exam: Exam
@@ -41,6 +42,7 @@ export function ExamDetailHeader({
   onToggleStudentVisibility: () => void
   onLockDistribution: () => void
   onUnlockDistribution: () => void
+  visibilitySaving?: boolean
   contentOnly?: boolean
 }) {
   const capabilities = getExamCapabilities(exam)
@@ -51,11 +53,11 @@ export function ExamDetailHeader({
           <AppBadge tone="blue" shape="rounded" className="text-xs font-semibold px-2.5 py-1">
             Môn học: {exam.subjectName}
           </AppBadge>
-          <AppBadge tone={examStatusTone[exam.status]} className="text-xs font-semibold px-2.5 py-1">
-            {examStatusLabel[exam.status]}
-          </AppBadge>
           <AppBadge className="text-xs font-semibold px-2.5 py-1">
             {exam.semesterCode}
+          </AppBadge>
+          <AppBadge tone={examStatusTone[exam.status]} className="text-xs font-semibold px-2.5 py-1">
+            {examStatusLabel[exam.status]}
           </AppBadge>
           {exam.status !== 'DRAFT' && exam.studentVisibility === 'HIDDEN' && (
             <AppBadge className="text-xs font-semibold px-2.5 py-1">
@@ -83,10 +85,12 @@ export function ExamDetailHeader({
         {!contentOnly && capabilities.canToggleStudentVisibility && (
           <button
             onClick={onToggleStudentVisibility}
+            disabled={visibilitySaving}
+            aria-busy={visibilitySaving}
             className={
-              exam.studentVisibility === 'HIDDEN'
+              `${exam.studentVisibility === 'HIDDEN'
                 ? emeraldButtonClassName
-                : amberButtonClassName
+                : amberButtonClassName} disabled:cursor-not-allowed disabled:opacity-60`
             }
           >
             {exam.studentVisibility === 'HIDDEN' ? (

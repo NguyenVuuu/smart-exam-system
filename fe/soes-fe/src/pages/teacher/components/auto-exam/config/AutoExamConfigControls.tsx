@@ -1,4 +1,4 @@
-﻿import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import AppNumberInput from '../../../../../components/common/AppNumberInput'
 
@@ -7,16 +7,27 @@ export function NumberField({
   value,
   onChange,
   suffix,
+  placeholder,
+  error,
 }: {
   label: string
-  value: number
+  value: number | ''
   onChange: (value: number) => void
   suffix?: string
+  placeholder?: string
+  error?: string
 }) {
   return (
     <div className="space-y-1.5">
       <label className="text-sm font-semibold text-gray-700">{label}</label>
-      <AppNumberInput value={value} onChange={onChange} suffix={suffix} className="bg-white p-2.5 text-sm rounded-xl" />
+      <AppNumberInput
+        value={value}
+        onChange={onChange}
+        suffix={suffix}
+        placeholder={placeholder}
+        className="bg-white p-2.5 text-sm rounded-xl"
+      />
+      {error && <p className="text-xs text-rose-600 mt-1">{error}</p>}
     </div>
   )
 }

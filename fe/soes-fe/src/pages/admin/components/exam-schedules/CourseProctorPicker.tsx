@@ -10,6 +10,7 @@ interface CourseProctorPickerProps {
   proctorsByCourse: Record<string, string[]>
   teachers: AdminUser[]
   selectedExam: boolean
+  error?: string
   getAssignmentIssue: (courseId: string) => string | null
   getTeacherUnavailableReason: (courseId: string, teacher: AdminUser) => string | null
   onToggleCourse: (courseId: string) => void
@@ -22,6 +23,7 @@ export default function CourseProctorPicker({
   proctorsByCourse,
   teachers,
   selectedExam,
+  error,
   getAssignmentIssue,
   getTeacherUnavailableReason,
   onToggleCourse,
@@ -40,6 +42,8 @@ export default function CourseProctorPicker({
         </div>
         <span className="shrink-0 text-xs text-slate-500">Đã chọn {selectedCourseIds.length} lớp</span>
       </div>
+
+      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
 
       <CourseListState selectedExam={selectedExam} courses={courses}>
         <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">

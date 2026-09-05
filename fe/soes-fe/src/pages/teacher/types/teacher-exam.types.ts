@@ -65,6 +65,7 @@ export interface ExamSchedule {
   ipMode?: ExamIpMode
   allowedIpRange?: string
   distributionMode?: ExamDistributionMode
+  randomQuestionCount?: number | null
   resultsPublished?: boolean
   proctorIds?: string[]
   status: 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED' | 'CANCELLED'

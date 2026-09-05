@@ -20,6 +20,10 @@ export default function AutoExamDifficultyCountConfig(props: AutoExamConfigPanel
         </span>
       </div>
 
+      {props.fieldErrors?.matrix && (
+        <p className="text-xs text-rose-600 font-medium">{props.fieldErrors.matrix}</p>
+      )}
+
       {/* Rows Container */}
       <div className="space-y-3">
         <DifficultyRow
@@ -28,7 +32,10 @@ export default function AutoExamDifficultyCountConfig(props: AutoExamConfigPanel
           badgeClass="bg-emerald-50 text-emerald-700 border-emerald-200"
           value={props.easyCount}
           max={easyAvailable || 40}
-          onChange={props.setEasyCount}
+          onChange={(val) => {
+            props.onFieldChange?.('matrix')
+            props.setEasyCount(val)
+          }}
         />
 
         <DifficultyRow
@@ -37,7 +44,10 @@ export default function AutoExamDifficultyCountConfig(props: AutoExamConfigPanel
           badgeClass="bg-amber-50 text-amber-700 border-amber-200"
           value={props.mediumCount}
           max={mediumAvailable || 40}
-          onChange={props.setMediumCount}
+          onChange={(val) => {
+            props.onFieldChange?.('matrix')
+            props.setMediumCount(val)
+          }}
         />
 
         <DifficultyRow
@@ -46,7 +56,10 @@ export default function AutoExamDifficultyCountConfig(props: AutoExamConfigPanel
           badgeClass="bg-rose-50 text-rose-700 border-rose-200"
           value={props.hardCount}
           max={hardAvailable || 20}
-          onChange={props.setHardCount}
+          onChange={(val) => {
+            props.onFieldChange?.('matrix')
+            props.setHardCount(val)
+          }}
         />
       </div>
     </div>

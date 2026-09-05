@@ -21,7 +21,6 @@ import type {
   Exam,
   ExamSchedule,
   ExamSubmission,
-  ExamStudentVisibility,
   ResultReleaseMode,
   ViolationRecord,
 } from './types/teacher-exam.types'
@@ -33,6 +32,7 @@ import { useTeacherExamSubmissions } from './hooks/useTeacherExamSubmissions'
 import { useTeacherProctoringSessions } from './hooks/useTeacherProctoringSessions'
 import ExamDistributionLockDialog from './components/exam-detail/ExamDistributionLockDialog'
 import { useExamDistributionLock } from './hooks/useExamDistributionLock'
+import { useExamStudentVisibility } from './hooks/useExamStudentVisibility'
 import { Eye, FileCheck, ShieldAlert } from 'lucide-react'
 
 type CourseReviewTab = 'submissions' | 'violations'
@@ -70,7 +70,6 @@ function TeacherExamDetailContent({
     save: saveSchedule,
     cancel: cancelSchedule,
   } = useTeacherExamSchedules(exam.id, exam.subjectId)
-  const [studentVisibility, setStudentVisibility] = useState<ExamStudentVisibility>(exam.studentVisibility)
   const [requestedSessionId, setSelectedSessionId] = useState(
     searchParams.get('scheduleId') ?? searchParams.get('scheduledId') ?? (exam.schedules ?? [])[0]?.id ?? '',
   )
@@ -115,6 +114,7 @@ function TeacherExamDetailContent({
   const [viewingSession, setViewingSession] = useState<ExamSchedule | null>(null)
   const [cancellingSession, setCancellingSession] = useState<ExamSchedule | null>(null)
   const distributionLock = useExamDistributionLock(exam.id, onRefresh)
+  const studentVisibility = useExamStudentVisibility(exam.id, onRefresh)
 
   const resultReleaseText =
     resultReleaseMode === 'IMMEDIATE'
@@ -124,8 +124,6 @@ function TeacherExamDetailContent({
       : isResultsPublished
       ? 'Đã công bố điểm thủ công cho sinh viên'
       : 'Đang ẩn điểm, giảng viên sẽ công bố sau'
-
-  const displayExam = { ...exam, studentVisibility }
 
   const openScoreOverride = (submission: ExamSubmission) => {
     setSelectedSubmission(submission)
@@ -173,17 +171,18 @@ function TeacherExamDetailContent({
     switch (activeTab) {
       case 'sessions': {
         const isFinalExam = exam.category === 'FINAL'
+        const canManageSchedules = !isFinalExam && Boolean(exam.capabilities?.canSchedule)
         return (
           <ExamSessionsTab
             sessions={sessions}
-            canCreate={!isFinalExam && Boolean(exam.capabilities?.canSchedule)}
+            canCreate={canManageSchedules}
             onCreateSession={() => {
               setEditingSession(null)
               setIsAssignModalOpen(true)
             }}
             onViewSession={setViewingSession}
             onEditSession={
-              !isFinalExam
+              canManageSchedules
                 ? (session) => {
                     setEditingSession(session)
                     setIsAssignModalOpen(true)
@@ -191,7 +190,7 @@ function TeacherExamDetailContent({
                 : undefined
             }
             onDeleteSession={
-              !isFinalExam
+              canManageSchedules
                 ? (sessionId) => setCancellingSession(sessions.find(({ id }) => id === sessionId) ?? null)
                 : undefined
             }
@@ -236,7 +235,7 @@ function TeacherExamDetailContent({
           />
         )
       case 'overview':
-        return <ExamOverviewTab exam={displayExam} resultReleaseText={resultReleaseText} />
+        return <ExamOverviewTab exam={exam} resultReleaseText={resultReleaseText} />
       default:
         return null
     }
@@ -257,7 +256,7 @@ function TeacherExamDetailContent({
           {isCourseSubmissionView ? (
             <>
               <CourseSubmissionHeader
-                exam={displayExam}
+                exam={exam}
                 courseCode={selectedCourseCode ?? selectedSession?.courseCode}
               />
               <CourseReviewTabs activeTab={courseReviewTab} onChange={setCourseReviewTab} />
@@ -265,7 +264,7 @@ function TeacherExamDetailContent({
           ) : (
             <>
               <ExamDetailHeader
-                exam={displayExam}
+                exam={exam}
                 onEdit={() => navigate(`/teacher/exams/${exam.id}/edit`)}
                 onPublish={() => {
                   setEditingSession(null)
@@ -273,9 +272,10 @@ function TeacherExamDetailContent({
                 }}
                 onPreview={() => setIsPreviewOpen(true)}
                 onCopy={() => navigate(`/teacher/exams/create?copyFrom=${exam.id}`)}
-                onToggleStudentVisibility={() =>
-                  setStudentVisibility((current) => (current === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN'))
-                }
+                onToggleStudentVisibility={() => void studentVisibility.update(
+                  exam.studentVisibility === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN',
+                )}
+                visibilitySaving={studentVisibility.saving}
                 onLockDistribution={distributionLock.requestLock}
                 onUnlockDistribution={distributionLock.requestUnlock}
                 contentOnly={isFinalManagementView}
@@ -299,7 +299,7 @@ function TeacherExamDetailContent({
       />
       <EvidenceImageModal imageUrl={selectedEvidenceUrl} onClose={() => setSelectedEvidenceUrl(null)} />
       <StudentSubmissionReviewModal
-        exam={displayExam}
+        exam={exam}
         submission={viewingSubmission}
         onClose={() => setViewingSubmission(null)}
         onEditScore={(submission) => {
@@ -308,7 +308,7 @@ function TeacherExamDetailContent({
         }}
       />
       <ExamPreviewModal
-        exam={displayExam}
+        exam={exam}
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
       />
@@ -342,16 +342,11 @@ function TeacherExamDetailContent({
         initialSessions={editingSession ? [editingSession] : undefined}
         initialEditingSessionId={editingSession?.id}
         onCreateSessions={async (newSessions) => {
-          try {
-            const saved = await Promise.all(newSessions.map((session) => saveSchedule(session, editingSession?.id)))
-            await onRefresh()
-            setSelectedSessionId((current) => current || saved[0]?.id || '')
-            setActiveTab('sessions')
-            toast.success(editingSession ? 'Đã cập nhật ca thi.' : 'Đã tạo ca thi.')
-          } catch {
-            toast.error('Không thể lưu ca thi. Vui lòng kiểm tra thời gian, lớp và trạng thái đề.')
-            throw new Error('Schedule save failed')
-          }
+          const saved = await Promise.all(newSessions.map((session) => saveSchedule(session, editingSession?.id)))
+          await onRefresh()
+          setSelectedSessionId((current) => current || saved[0]?.id || '')
+          setActiveTab('sessions')
+          toast.success(editingSession ? 'Đã cập nhật ca thi.' : 'Đã tạo ca thi.')
         }}
       />
       <ExamSessionDetailModal

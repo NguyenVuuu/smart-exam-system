@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import type { ExamQuestionItem, ExamSection, ExamType } from '../../../types/teacher-exam.types'
 import { balanceQuestionPointsBySection, createExamSectionId } from '../../../utils/ExamEditorUtils'
 import { StepCard } from '../ExamEditorPrimitives'
+import type { ApiFieldErrors } from '../../../../../api/errors'
 
 export function StepSections({
   examType,
@@ -12,6 +13,8 @@ export function StepSections({
   setActiveSectionId,
   questions,
   setQuestions,
+  fieldErrors = {},
+  onFieldChange,
 }: {
   examType: ExamType
   sections: ExamSection[]
@@ -20,6 +23,8 @@ export function StepSections({
   setActiveSectionId: (value: string) => void
   questions: ExamQuestionItem[]
   setQuestions: (value: ExamQuestionItem[]) => void
+  fieldErrors?: ApiFieldErrors
+  onFieldChange?: (field: string) => void
 }) {
   const sectionTypeLabel = {
     OBJECTIVE: 'Trắc nghiệm',
@@ -75,6 +80,7 @@ export function StepSections({
   }
 
   const updateSectionPoints = (sectionId: string, targetPoints: number) => {
+    onFieldChange?.('sections')
     const nextSections = sections.map((section) =>
       section.id === sectionId ? { ...section, targetPoints: Math.max(0, targetPoints) } : section,
     )
@@ -89,6 +95,7 @@ export function StepSections({
       icon={<Layers size={18} className="text-blue-600" />}
     >
       <div className="space-y-4">
+        {fieldErrors.sections && <p className="text-xs text-rose-600">{fieldErrors.sections}</p>}
         <div className="flex flex-wrap items-center gap-2">
           {examType !== 'PROGRAMMING' && (
             <button
@@ -112,7 +119,7 @@ export function StepSections({
         </div>
 
         <div className="space-y-3">
-          {sections.map((section) => {
+          {sections.map((section, index) => {
             const count = questions.filter((item) => item.sectionId === section.id).length
             const isSelected = section.id === activeSectionId
 
@@ -149,6 +156,11 @@ export function StepSections({
                         className="h-8 w-20 rounded-lg border border-gray-200 bg-white px-2 text-right text-sm font-normal text-gray-800 outline-none focus:border-blue-500"
                         aria-label={`Điểm mục tiêu ${section.title}`}
                       />
+                      {fieldErrors[`sections.${index}.targetPoints`] && (
+                        <span className="text-xs text-rose-600">
+                          {fieldErrors[`sections.${index}.targetPoints`]}
+                        </span>
+                      )}
                     </label>
                     <span className="text-xs text-gray-500 font-medium">{count} câu hỏi</span>
                     {sections.length > 1 && (

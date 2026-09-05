@@ -2,15 +2,18 @@ import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'rea
 
 export function AdminField({
   label,
+  error,
   children,
 }: {
   label: string
+  error?: string
   children: ReactNode
 }) {
   return (
     <label className="block space-y-1.5">
       <span className="text-sm font-semibold text-slate-700">{label}</span>
       {children}
+      {error && <span className="block text-xs text-rose-600">{error}</span>}
     </label>
   )
 }

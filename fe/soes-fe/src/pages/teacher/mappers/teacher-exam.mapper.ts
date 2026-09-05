@@ -27,7 +27,7 @@ export const toExam = (dto: TeacherExamDto): Exam => ({
   type: formatOf(dto.format),
   creationMethod: dto.creationMethod,
   status: statusOf(dto),
-  studentVisibility: 'VISIBLE',
+  studentVisibility: dto.studentVisibility,
   defaultDurationMinutes: dto.defaultDurationMinutes,
   sections: dto.sections.map((section) => ({
     id: section.id, title: section.title, description: section.description ?? undefined,
@@ -88,6 +88,7 @@ export const toExamSchedule = (dto: TeacherExamScheduleDto): ExamSchedule => {
     blockRightClick: dto.blockRightClick, ipMode: dto.locationMode === 'CAMPUS' ? 'CAMPUS' : 'HOME',
     allowedIpRange: dto.allowedIpRanges.join(', '),
     distributionMode: dto.distributionMode === 'SHUFFLE_QUESTIONS' ? 'SHUFFLE_ORDER' : dto.distributionMode,
+    randomQuestionCount: dto.randomQuestionCount,
     proctorIds: course?.proctors.map(({ id }) => id) ?? [], status: dto.status,
   }
 }
@@ -102,6 +103,7 @@ export const toTeacherSchedulePayload = (schedule: ExamSchedule): TeacherExamSch
   locationMode: schedule.ipMode === 'CAMPUS' ? 'CAMPUS' : 'ONLINE',
   allowedIpRanges: schedule.ipMode === 'CAMPUS' && schedule.allowedIpRange ? [schedule.allowedIpRange] : [],
   distributionMode: schedule.distributionMode === 'SHUFFLE_ORDER' ? 'SHUFFLE_QUESTIONS' : schedule.distributionMode ?? 'FIXED_ORDER',
+  randomQuestionCount: schedule.distributionMode === 'RANDOM_SUBSET' ? schedule.randomQuestionCount : null,
   resultReleaseMode: schedule.resultReleaseMode ?? 'MANUAL',
   resultReleaseAt: schedule.resultReleaseMode === 'SCHEDULED' ? schedule.resultReleaseAt : null,
   allowStudentReview: schedule.allowStudentReview ?? false,

@@ -149,6 +149,10 @@ export async function update(
         scheduleId,
       );
       if (!current) throw new NotFoundError("Exam schedule not found");
+      if (current.exam.status === "LOCKED")
+        throw new ConflictError(
+          "Exam distribution is locked; reopen it before updating a schedule",
+        );
       const status = computeScheduleStatus(
         current.status,
         current.startTime,
@@ -183,6 +187,10 @@ export async function cancel(
         scheduleId,
       );
       if (!current) throw new NotFoundError("Exam schedule not found");
+      if (current.exam.status === "LOCKED")
+        throw new ConflictError(
+          "Exam distribution is locked; reopen it before cancelling a schedule",
+        );
       const status = computeScheduleStatus(
         current.status,
         current.startTime,

@@ -1,4 +1,5 @@
 import { AdminField, AdminInput } from '../AdminFormFields'
+import type { ApiFieldErrors } from '../../../../api/errors'
 import AdminSelect from '../AdminSelect'
 import ScheduleRulesPanel from './ScheduleRulesPanel'
 
@@ -18,6 +19,7 @@ interface FinalExamScheduleFieldsProps {
   ipRange: string
   password: string
   distributionMode: string
+  randomQuestionCount: number
   releaseMode: string
   releaseAt: string
   allowStudentReview: boolean
@@ -25,6 +27,7 @@ interface FinalExamScheduleFieldsProps {
   enableWebcam: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
+  fieldErrors: ApiFieldErrors
   departmentOptions: SelectOption[]
   subjectOptions: SelectOption[]
   examOptions: SelectOption[]
@@ -41,6 +44,7 @@ interface FinalExamScheduleFieldsProps {
   onIpRangeChange: (value: string) => void
   onPasswordChange: (value: string) => void
   onDistributionModeChange: (value: string) => void
+  onRandomQuestionCountChange: (value: number) => void
   onReleaseModeChange: (value: string) => void
   onReleaseAtChange: (value: string) => void
   onAllowStudentReviewChange: (checked: boolean) => void
@@ -61,6 +65,7 @@ export default function FinalExamScheduleFields({
   ipRange,
   password,
   distributionMode,
+  randomQuestionCount,
   releaseMode,
   releaseAt,
   allowStudentReview,
@@ -68,6 +73,7 @@ export default function FinalExamScheduleFields({
   enableWebcam,
   blockCopyPaste,
   blockRightClick,
+  fieldErrors,
   departmentOptions,
   subjectOptions,
   examOptions,
@@ -84,6 +90,7 @@ export default function FinalExamScheduleFields({
   onIpRangeChange,
   onPasswordChange,
   onDistributionModeChange,
+  onRandomQuestionCountChange,
   onReleaseModeChange,
   onReleaseAtChange,
   onAllowStudentReviewChange,
@@ -105,7 +112,7 @@ export default function FinalExamScheduleFields({
           options={subjectOptions}
         />
       </AdminField>
-      <AdminField label="Đề cuối kỳ đã duyệt">
+      <AdminField label="Đề cuối kỳ đã duyệt" error={fieldErrors.examId}>
         <AdminSelect value={examId} disabled={!subjectCode} onChange={onExamChange} options={examOptions} />
       </AdminField>
       <AdminField label="Hình thức thi">
@@ -113,33 +120,43 @@ export default function FinalExamScheduleFields({
       </AdminField>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:col-span-2">
-        <AdminField label="Ngày thi">
+        <AdminField label="Ngày thi" error={fieldErrors.examDate}>
           <AdminInput type="date" value={examDate} onChange={(event) => onExamDateChange(event.target.value)} />
         </AdminField>
-        <AdminField label="Giờ mở">
+        <AdminField label="Giờ mở" error={fieldErrors.startTime}>
           <AdminInput type="time" value={startTime} onChange={(event) => onStartTimeChange(event.target.value)} />
         </AdminField>
-        <AdminField label="Giờ kết thúc">
+        <AdminField label="Giờ kết thúc" error={fieldErrors.endTime}>
           <AdminInput type="time" value={endTime} onChange={(event) => onEndTimeChange(event.target.value)} />
         </AdminField>
       </div>
 
       {examMode === 'SCHOOL_IP' && (
-        <AdminField label="Dải IP được phép">
+        <AdminField label="Dải IP được phép" error={fieldErrors.ipRange}>
           <AdminInput value={ipRange} onChange={(event) => onIpRangeChange(event.target.value)} placeholder="VD: 10.10.0.0/16" />
         </AdminField>
       )}
-      <AdminField label="Mật khẩu vào thi (tùy chọn)">
+      <AdminField label="Mật khẩu vào thi (tùy chọn)" error={fieldErrors.password}>
         <AdminInput value={password} onChange={(event) => onPasswordChange(event.target.value)} placeholder="VD: JAVA0815" />
       </AdminField>
       <AdminField label="Cách phân phối đề">
         <AdminSelect value={distributionMode} onChange={onDistributionModeChange} options={distributionOptions} />
       </AdminField>
+      {distributionMode === 'RANDOM_SUBSET' && (
+        <AdminField label="Số câu hỏi ngẫu nhiên" error={fieldErrors.randomQuestionCount}>
+          <AdminInput
+            type="number"
+            min={1}
+            value={randomQuestionCount}
+            onChange={(event) => onRandomQuestionCountChange(Number(event.target.value))}
+          />
+        </AdminField>
+      )}
       <AdminField label="Công bố kết quả">
         <AdminSelect value={releaseMode} onChange={onReleaseModeChange} options={releaseOptions} />
       </AdminField>
       {releaseMode === 'SCHEDULED' && (
-        <AdminField label="Thời gian công bố kết quả">
+        <AdminField label="Thời gian công bố kết quả" error={fieldErrors.releaseAt}>
           <AdminInput type="datetime-local" value={releaseAt} onChange={(event) => onReleaseAtChange(event.target.value)} />
         </AdminField>
       )}
