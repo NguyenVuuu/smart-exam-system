@@ -30,6 +30,7 @@ import { useTeacherExamDetail } from './hooks/useTeacherExamDetail'
 import { useTeacherExamSchedules } from './hooks/useTeacherExamSchedules'
 import CancelTeacherScheduleDialog from './components/exam-detail/CancelTeacherScheduleDialog'
 import { useTeacherExamSubmissions } from './hooks/useTeacherExamSubmissions'
+import { useTeacherProctoringSessions } from './hooks/useTeacherProctoringSessions'
 import ExamDistributionLockDialog from './components/exam-detail/ExamDistributionLockDialog'
 import { useExamDistributionLock } from './hooks/useExamDistributionLock'
 import { Eye, FileCheck, ShieldAlert } from 'lucide-react'
@@ -92,6 +93,7 @@ function TeacherExamDetailContent({
     : selectedSession?.courseCode
   const selectedSessionClosed = isClosedSession(selectedSession)
   const submissionData = useTeacherExamSubmissions(exam.id, selectedSessionClosed ? selectedSessionId : '')
+  const proctoringData = useTeacherProctoringSessions(exam.id, selectedSessionId)
   const hasVisibleSession = visibleSessions.length > 0
   const reviewUnavailableTitle = schedulesLoading
     ? 'Đang tải ca thi'
@@ -200,6 +202,8 @@ function TeacherExamDetailContent({
         return (
           <ExamProctoringTab
             violations={submissionData.violations}
+            proctoringSessions={proctoringData.items}
+            isLoadingProctoringSessions={proctoringData.loading}
             sessions={sessions}
             selectedSessionId={selectedSessionId}
             onSessionChange={selectSession}
@@ -444,6 +448,12 @@ const violationTypeLabels: Record<ViolationRecord['type'], string> = {
   NO_FACE: 'Không nhận diện khuôn mặt',
   MULTIPLE_FACES: 'Phát hiện nhiều khuôn mặt',
   CAMERA_BLOCKED: 'Camera bị che hoặc chặn',
+  CAMERA_DISCONNECTED: 'Camera tắt hoặc mất kết nối',
+  CAMERA_PERMISSION_DENIED: 'Quyền camera bị từ chối',
+  SCREEN_SHARE_STOPPED: 'Dừng chia sẻ màn hình',
+  SCREEN_PERMISSION_DENIED: 'Từ chối chia sẻ màn hình',
+  PROCTOR_WEBCAM_CAPTURE: 'Giám thị chụp webcam',
+  PROCTOR_SCREEN_CAPTURE: 'Giám thị chụp màn hình',
   IP_CHANGED: 'Thay đổi địa chỉ IP',
   HEARTBEAT_MISSED: 'Mất kết nối giám sát',
   MULTIPLE_ACTIVE_SESSIONS: 'Nhiều phiên thi hoạt động',
@@ -488,13 +498,14 @@ function CourseViolationLog({
       ) : (
         <div className="divide-y divide-gray-100">
           {violations.map((violation) => (
-            <div key={violation.id} className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.3fr)_150px_110px_44px] md:items-center">
+            <div key={violation.id} className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.3fr)_150px_130px_110px_44px] md:items-center">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-gray-900">{violation.studentName}</p>
                 <p className="text-xs text-gray-500">{violation.studentCode}</p>
               </div>
               <p className="text-sm text-gray-700">{violationTypeLabels[violation.type]}</p>
               <p className="text-sm text-gray-500">{formatViolationTime(violation.timestamp)}</p>
+              <p className="text-sm text-gray-500">{formatViolationDuration(violation)}</p>
               <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${violationSeverityClasses[violation.severity]}`}>
                 {violationSeverityLabels[violation.severity]}
               </span>
@@ -524,6 +535,17 @@ function formatViolationTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value))
+}
+
+function formatViolationDuration(violation: ViolationRecord) {
+  if (violation.durationSeconds === null && violation.endedAt === null) return 'Đang diễn ra'
+  if (violation.durationSeconds === undefined || violation.durationSeconds === null) return '-'
+
+  if (violation.durationSeconds < 60) return `${violation.durationSeconds}s`
+
+  const minutes = Math.floor(violation.durationSeconds / 60)
+  const seconds = violation.durationSeconds % 60
+  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`
 }
 
 function isClosedSession(session?: ExamSchedule) {

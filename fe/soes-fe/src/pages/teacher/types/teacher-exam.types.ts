@@ -169,12 +169,60 @@ export interface ViolationRecord {
     | 'NO_FACE'
     | 'MULTIPLE_FACES'
     | 'CAMERA_BLOCKED'
+    | 'CAMERA_DISCONNECTED'
+    | 'CAMERA_PERMISSION_DENIED'
+    | 'SCREEN_SHARE_STOPPED'
+    | 'SCREEN_PERMISSION_DENIED'
+    | 'PROCTOR_WEBCAM_CAPTURE'
+    | 'PROCTOR_SCREEN_CAPTURE'
     | 'IP_CHANGED'
     | 'HEARTBEAT_MISSED'
     | 'MULTIPLE_ACTIVE_SESSIONS'
     | 'INACTIVITY'
   timestamp: string
+  endedAt?: string | null
+  durationSeconds?: number | null
   severity: 'LOW' | 'MEDIUM' | 'HIGH'
   evidenceImageUrl?: string
   note?: string
+}
+
+export interface ProctoringSessionRecord {
+  attemptId: string
+  scheduleId: string
+  studentId: string
+  studentCode: string
+  studentName: string
+  attemptStatus: 'IN_PROGRESS' | 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'INVALIDATED'
+  isOnline: boolean
+  ipAddress: string | null
+  webcamStatus: 'NOT_REQUIRED' | 'PENDING_PERMISSION' | 'ACTIVE' | 'DISCONNECTED' | 'PERMISSION_DENIED' | 'BLOCKED'
+  lastHeartbeatAt: string | null
+  lastWebcamHeartbeatAt: string | null
+  answeredCount: number
+  totalQuestionCount: number
+  violationCount: number
+  lastViolation: {
+    type: ViolationRecord['type']
+    detectedAt: string
+    endedAt: string | null
+    durationSeconds: number | null
+    description: string | null
+  } | null
+}
+
+export interface CameraReportRecord {
+  attemptId: string
+  studentCode: string
+  studentName: string
+  cameraDisconnectedCount: number
+  totalCameraDisconnectedSeconds: number
+  noFaceCount: number
+  multipleFacesCount: number
+  cameraBlockedCount: number
+  evidenceCount: number
+  confirmedCount: number
+  dismissedCount: number
+  pendingCount: number
+  riskSummary: 'NORMAL' | 'NEEDS_REVIEW' | 'SERIOUS'
 }
