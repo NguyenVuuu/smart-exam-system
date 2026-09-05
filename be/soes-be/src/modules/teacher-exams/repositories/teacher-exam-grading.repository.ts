@@ -68,6 +68,36 @@ export const findViolationScheduleAccess = (teacherId: string, examId: string, s
     },
   })
 
+export const findViolationScheduleAccessBySchedule = (teacherId: string, scheduleId: string) =>
+  prisma.examSchedule.findFirst({
+    where: { id: scheduleId, ...violationAccess(teacherId) },
+    select: {
+      id: true,
+      examId: true,
+      title: true,
+      startTime: true,
+      endTime: true,
+      scheduleCourses: {
+        where: violationScheduleCourseAccess(teacherId),
+        select: { courseOfferingId: true },
+      },
+    },
+  })
+
+export const findAttemptAccessForLiveProctoring = (teacherId: string, attemptId: string) =>
+  prisma.examAttempt.findFirst({
+    where: {
+      id: attemptId,
+      status: 'IN_PROGRESS',
+      examSchedule: violationAccess(teacherId),
+    },
+    select: {
+      id: true,
+      examScheduleId: true,
+      examSchedule: { select: { enableWebcam: true } },
+    },
+  })
+
 export function listSubmissions(scheduleId: string, courseOfferingIds: string[], page: number, pageSize: number) {
   const where: Prisma.ExamAttemptWhereInput = {
     examScheduleId: scheduleId,
@@ -92,11 +122,198 @@ export function listViolations(scheduleId: string, courseOfferingIds: string[], 
     prisma.violation.count({ where }),
     prisma.violation.findMany({
       where,
-      include: { attempt: { include: { student: { include: { user: { select: { fullName: true } } } } } } },
+      include: {
+        evidences: {
+          orderBy: { capturedAt: 'asc' },
+          take: 1,
+          select: { objectName: true, storageProvider: true },
+        },
+        attempt: { include: { student: { include: { user: { select: { fullName: true } } } } } },
+      },
       skip: (page - 1) * pageSize, take: pageSize,
       orderBy: { detectedAt: 'desc' },
     }),
   ])
+}
+
+export function listProctoringSessions(scheduleId: string, courseOfferingIds: string[]) {
+  return prisma.examAttempt.findMany({
+    where: {
+      examScheduleId: scheduleId,
+      courseOfferingId: { in: courseOfferingIds },
+    },
+    select: {
+      id: true,
+      status: true,
+      deadlineAt: true,
+      lastSavedAt: true,
+      student: {
+        select: {
+          id: true,
+          studentCode: true,
+          user: { select: { fullName: true } },
+        },
+      },
+      examSession: {
+        select: {
+          ipAddress: true,
+          lastHeartbeat: true,
+          isOnline: true,
+          webcamStatus: true,
+          lastWebcamHeartbeatAt: true,
+        },
+      },
+      _count: { select: { violations: true, studentAnswers: true, attemptQuestions: true } },
+      violations: {
+        orderBy: { detectedAt: 'desc' },
+        take: 1,
+        select: {
+          violationType: true,
+          detectedAt: true,
+          endedAt: true,
+          durationSeconds: true,
+          description: true,
+        },
+      },
+    },
+    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+  })
+}
+
+export function updateViolationReview(input: {
+  teacherId: string
+  userId: string
+  examId: string
+  scheduleId: string
+  violationId: string
+  reviewStatus: 'PENDING' | 'CONFIRMED' | 'DISMISSED'
+  reviewNote?: string | null
+}) {
+  return prisma.$transaction(async (tx) => {
+    const violation = await tx.violation.findFirst({
+      where: {
+        id: input.violationId,
+        attempt: {
+          examScheduleId: input.scheduleId,
+          examSchedule: { examId: input.examId, ...violationAccess(input.teacherId) },
+        },
+      },
+      select: { id: true, reviewStatus: true },
+    })
+    if (!violation) return null
+
+    const updated = await tx.violation.update({
+      where: { id: violation.id },
+      data: {
+        reviewStatus: input.reviewStatus,
+        reviewNote: input.reviewNote,
+        reviewedById: input.userId,
+        reviewedAt: new Date(),
+      },
+      select: {
+        id: true,
+        reviewStatus: true,
+        reviewNote: true,
+        reviewedAt: true,
+        reviewedById: true,
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        userId: input.userId,
+        action: 'REVIEW_PROCTORING_VIOLATION',
+        entityType: 'Violation',
+        entityId: violation.id,
+        metadata: { previousStatus: violation.reviewStatus, reviewStatus: input.reviewStatus },
+      },
+    })
+
+    return updated
+  })
+}
+
+export function invalidateAttempt(input: {
+  teacherId: string
+  userId: string
+  examId: string
+  scheduleId: string
+  attemptId: string
+  reason: string
+}) {
+  return prisma.$transaction(async (tx) => {
+    const attempt = await tx.examAttempt.findFirst({
+      where: {
+        id: input.attemptId,
+        examScheduleId: input.scheduleId,
+        examSchedule: { examId: input.examId, ...violationAccess(input.teacherId) },
+        status: 'IN_PROGRESS',
+      },
+      select: { id: true, status: true },
+    })
+    if (!attempt) return null
+
+    const now = new Date()
+    const updated = await tx.examAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        status: 'INVALIDATED',
+        endedBy: 'PROCTOR',
+        submittedAt: now,
+        totalScore: 0,
+        manualScore: 0,
+        invalidatedById: input.userId,
+        invalidatedAt: now,
+        invalidationReason: input.reason,
+        version: { increment: 1 },
+      },
+      select: {
+        id: true,
+        status: true,
+        submittedAt: true,
+        invalidatedAt: true,
+        invalidationReason: true,
+      },
+    })
+
+    await tx.examSession.updateMany({
+      where: { attemptId: attempt.id },
+      data: { isOnline: false },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        userId: input.userId,
+        action: 'INVALIDATE_EXAM_ATTEMPT_BY_PROCTOR',
+        entityType: 'ExamAttempt',
+        entityId: attempt.id,
+        metadata: { reason: input.reason, examScheduleId: input.scheduleId },
+      },
+    })
+
+    return updated
+  })
+}
+
+export function listCameraReport(scheduleId: string, courseOfferingIds: string[]) {
+  return prisma.examAttempt.findMany({
+    where: { examScheduleId: scheduleId, courseOfferingId: { in: courseOfferingIds } },
+    select: {
+      id: true,
+      student: { select: { studentCode: true, user: { select: { fullName: true } } } },
+      violations: {
+        where: { source: { in: ['WEBCAM', 'PROCTOR'] } },
+        select: {
+          violationType: true,
+          severity: true,
+          reviewStatus: true,
+          durationSeconds: true,
+          evidences: { select: { id: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  })
 }
 
 export function overrideScore(

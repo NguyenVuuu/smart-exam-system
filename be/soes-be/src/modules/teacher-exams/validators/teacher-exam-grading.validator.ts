@@ -12,6 +12,17 @@ export const resultReleaseSchema = z.object({
   published: z.boolean().default(false),
 })
 
+export const violationReviewSchema = z.object({
+  reviewStatus: z.enum(['PENDING', 'CONFIRMED', 'DISMISSED']),
+  reviewNote: z.string().trim().max(1000).optional().nullable(),
+})
+
+export const invalidateAttemptSchema = z.object({
+  reason: z.string().trim().min(5).max(1000),
+})
+
 export type SubmissionQuery = z.infer<typeof submissionQuerySchema>
 export type ManualGradeBody = z.infer<typeof manualGradeSchema>
 export type ResultReleaseBody = z.infer<typeof resultReleaseSchema>
+export type ViolationReviewBody = z.infer<typeof violationReviewSchema>
+export type InvalidateAttemptBody = z.infer<typeof invalidateAttemptSchema>
