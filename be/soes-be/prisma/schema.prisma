@@ -8,19 +8,23 @@ datasource db {
 }
 
 model User {
-  id                   String         @id @default(uuid())
-  email                String?
-  phoneNumber          String?
-  fullName             String
-  avatarUrl            String?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  admin                Admin?
-  auditLogs            AuditLog[]
-  notifications        Notification[]
-  student              Student?
-  teacher              Teacher?
-  createdExamSchedules ExamSchedule[] @relation("ScheduleCreator")
+  id                         String              @id @default(uuid())
+  email                      String?
+  phoneNumber                String?
+  fullName                   String
+  avatarUrl                  String?
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+  admin                      Admin?
+  auditLogs                  AuditLog[]
+  notifications              Notification[]
+  student                    Student?
+  teacher                    Teacher?
+  createdExamSchedules       ExamSchedule[]      @relation("ScheduleCreator")
+  invalidatedExamAttempts    ExamAttempt[]       @relation("AttemptInvalidator")
+  detectedViolations         Violation[]         @relation("ViolationDetector")
+  reviewedViolations         Violation[]         @relation("ViolationReviewer")
+  capturedViolationEvidences ViolationEvidence[] @relation("EvidenceCapturer")
 }
 
 model Student {
@@ -440,41 +444,43 @@ model ExamSection {
 }
 
 model ExamSchedule {
-  id                  String               @id @default(uuid())
-  title               String
-  examId              String
-  startTime           DateTime
-  endTime             DateTime
-  durationMinutes     Int
-  maxAttempts         Int                  @default(1)
-  passwordHash        String?
-  enableTabLock       Boolean              @default(true)
-  maxTabSwitches      Int?
-  requireFullscreen   Boolean              @default(false)
-  enableWebcam        Boolean              @default(false)
-  blockCopyPaste      Boolean              @default(true)
-  blockRightClick     Boolean              @default(true)
-  locationMode        ExamLocationMode     @default(ONLINE)
-  allowedIpRanges     String[]             @default([])
-  distributionMode    ExamDistributionMode @default(FIXED_ORDER)
-  randomQuestionCount Int?
-  resultReleaseMode   ResultReleaseMode    @default(MANUAL)
-  resultReleaseAt     DateTime?
-  resultsPublishedAt  DateTime?
-  reviewPolicy        ReviewPolicy         @default(NONE)
-  reviewStartAt       DateTime?
-  reviewEndAt         DateTime?
-  status              ExamScheduleStatus   @default(DRAFT)
-  publishedAt         DateTime?
-  cancelledAt         DateTime?
-  cancellationReason  String?
-  createdById         String
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  exam                Exam                 @relation(fields: [examId], references: [id])
-  createdBy           User                 @relation("ScheduleCreator", fields: [createdById], references: [id])
-  scheduleCourses     ExamScheduleCourse[]
-  attempts            ExamAttempt[]
+  id                     String               @id @default(uuid())
+  title                  String
+  examId                 String
+  startTime              DateTime
+  endTime                DateTime
+  durationMinutes        Int
+  maxAttempts            Int                  @default(1)
+  passwordHash           String?
+  enableTabLock          Boolean              @default(true)
+  maxTabSwitches         Int?
+  requireFullscreen      Boolean              @default(false)
+  enableWebcam           Boolean              @default(false)
+  enableScreenMonitoring Boolean              @default(false)
+  blockCopyPaste         Boolean              @default(true)
+  blockRightClick        Boolean              @default(true)
+  proctoringStoragePath  String?
+  locationMode           ExamLocationMode     @default(ONLINE)
+  allowedIpRanges        String[]             @default([])
+  distributionMode       ExamDistributionMode @default(FIXED_ORDER)
+  randomQuestionCount    Int?
+  resultReleaseMode      ResultReleaseMode    @default(MANUAL)
+  resultReleaseAt        DateTime?
+  resultsPublishedAt     DateTime?
+  reviewPolicy           ReviewPolicy         @default(NONE)
+  reviewStartAt          DateTime?
+  reviewEndAt            DateTime?
+  status                 ExamScheduleStatus   @default(DRAFT)
+  publishedAt            DateTime?
+  cancelledAt            DateTime?
+  cancellationReason     String?
+  createdById            String
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  exam                   Exam                 @relation(fields: [examId], references: [id])
+  createdBy              User                 @relation("ScheduleCreator", fields: [createdById], references: [id])
+  scheduleCourses        ExamScheduleCourse[]
+  attempts               ExamAttempt[]
 
   @@index([examId])
   @@index([createdById])
@@ -562,6 +568,9 @@ model ExamAttempt {
   totalScore             Decimal?                @db.Decimal(5, 2)
   autoScore              Decimal?                @db.Decimal(5, 2)
   manualScore            Decimal?                @db.Decimal(5, 2)
+  invalidatedAt          DateTime?
+  invalidatedById        String?
+  invalidationReason     String?
   version                Int                     @default(1)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
@@ -570,6 +579,7 @@ model ExamAttempt {
   studentId              String
   examSchedule           ExamSchedule            @relation(fields: [examScheduleId], references: [id])
   courseOffering         CourseOffering          @relation(fields: [courseOfferingId], references: [id])
+  invalidatedBy          User?                   @relation("AttemptInvalidator", fields: [invalidatedById], references: [id])
   student                Student                 @relation("StudentExamAttempts", fields: [studentId], references: [id])
   attemptQuestions       ExamAttemptQuestion[]
   examSession            ExamSession?
@@ -581,6 +591,7 @@ model ExamAttempt {
   @@index([studentId])
   @@index([examScheduleId])
   @@index([courseOfferingId])
+  @@index([invalidatedById])
 }
 
 model ExamAttemptQuestion {
@@ -599,15 +610,19 @@ model ExamAttemptQuestion {
 }
 
 model ExamSession {
-  id            String      @id @default(uuid())
-  socketId      String?
-  ipAddress     String
-  deviceInfo    String
-  lastHeartbeat DateTime
-  isOnline      Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  attemptId     String      @unique
-  attempt       ExamAttempt @relation(fields: [attemptId], references: [id])
+  id                    String            @id @default(uuid())
+  socketId              String?
+  ipAddress             String
+  deviceInfo            String
+  lastHeartbeat         DateTime
+  isOnline              Boolean           @default(false)
+  webcamStatus          WebcamStatus      @default(NOT_REQUIRED)
+  screenShareStatus     ScreenShareStatus @default(NOT_REQUIRED)
+  lastWebcamHeartbeatAt DateTime?
+  lastScreenHeartbeatAt DateTime?
+  createdAt             DateTime          @default(now())
+  attemptId             String            @unique
+  attempt               ExamAttempt       @relation(fields: [attemptId], references: [id])
 }
 
 model StudentAnswer {
@@ -694,16 +709,55 @@ model ProgrammingQuestionConfig {
 }
 
 model Violation {
-  id            String        @id @default(uuid())
-  violationType ViolationType
-  severity      SeverityLevel
-  evidenceUrls  Json
-  description   String?
-  detectedAt    DateTime      @default(now())
-  attemptId     String
-  attempt       ExamAttempt   @relation(fields: [attemptId], references: [id])
+  id              String                @id @default(uuid())
+  violationType   ViolationType
+  source          ViolationSource       @default(BROWSER)
+  severity        SeverityLevel
+  detectedBy      ViolationDetectedBy   @default(SYSTEM)
+  reviewStatus    ViolationReviewStatus @default(PENDING)
+  evidenceUrls    Json?
+  description     String?
+  detectedAt      DateTime              @default(now())
+  endedAt         DateTime?
+  durationSeconds Int?
+  reviewedAt      DateTime?
+  reviewNote      String?
+  attemptId       String
+  detectedById    String?
+  reviewedById    String?
+  attempt         ExamAttempt           @relation(fields: [attemptId], references: [id])
+  detector        User?                 @relation("ViolationDetector", fields: [detectedById], references: [id])
+  reviewer        User?                 @relation("ViolationReviewer", fields: [reviewedById], references: [id])
+  evidences       ViolationEvidence[]
 
   @@index([attemptId])
+  @@index([violationType])
+  @@index([source, detectedAt])
+  @@index([reviewStatus])
+  @@index([detectedById])
+  @@index([reviewedById])
+}
+
+model ViolationEvidence {
+  id              String                @id @default(uuid())
+  evidenceType    ViolationEvidenceType
+  storageProvider FileStorageProvider
+  bucket          String
+  objectName      String
+  storagePath     String
+  fileName        String
+  contentType     String
+  fileSize        Int?
+  capturedAt      DateTime              @default(now())
+  violationId     String
+  capturedById    String?
+  violation       Violation             @relation(fields: [violationId], references: [id], onDelete: Cascade)
+  capturedBy      User?                 @relation("EvidenceCapturer", fields: [capturedById], references: [id])
+
+  @@index([violationId])
+  @@index([evidenceType])
+  @@index([capturedById])
+  @@index([storageProvider])
 }
 
 model Notification {
@@ -836,6 +890,7 @@ enum AIGenerationStatus {
 enum FileStorageProvider {
   LOCAL
   SUPABASE
+  MINIO
 }
 
 enum ProgrammingLanguage {
@@ -905,6 +960,7 @@ enum AttemptEndedBy {
   STUDENT
   TIMEOUT
   SYSTEM
+  PROCTOR
 }
 
 enum ExamDistributionMode {
@@ -951,6 +1007,12 @@ enum ViolationType {
   LOOKING_AWAY
   COPY_PASTE
   CAMERA_BLOCKED
+  CAMERA_DISCONNECTED
+  CAMERA_PERMISSION_DENIED
+  SCREEN_SHARE_STOPPED
+  SCREEN_PERMISSION_DENIED
+  PROCTOR_WEBCAM_CAPTURE
+  PROCTOR_SCREEN_CAPTURE
 }
 
 enum SeverityLevel {
@@ -962,4 +1024,44 @@ enum SeverityLevel {
 enum CourseOfferingStatus {
   ACTIVE
   CLOSED
+}
+
+enum WebcamStatus {
+  NOT_REQUIRED
+  PENDING_PERMISSION
+  ACTIVE
+  DISCONNECTED
+  PERMISSION_DENIED
+  BLOCKED
+}
+
+enum ScreenShareStatus {
+  NOT_REQUIRED
+  PENDING_PERMISSION
+  ACTIVE
+  STOPPED
+  PERMISSION_DENIED
+}
+
+enum ViolationSource {
+  WEBCAM
+  SCREEN
+  BROWSER
+  PROCTOR
+}
+
+enum ViolationDetectedBy {
+  SYSTEM
+  PROCTOR
+}
+
+enum ViolationReviewStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
+}
+
+enum ViolationEvidenceType {
+  WEBCAM_IMAGE
+  SCREEN_IMAGE
 }

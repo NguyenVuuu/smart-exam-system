@@ -715,3 +715,59 @@ Nhật ký hệ thống phải được lưu trữ để phục vụ công tác 
     Không hiển thị môn chưa có điểm đủ điều kiện hiển thị.
     Không hiển thị giá trị null/0 thay thế.
     Chỉ render dữ liệu có published score.
+
+---
+
+# 16. Quy tắc giám sát webcam và màn hình
+
+## BR-35: Cấu hình giám sát theo ca thi
+
+- `enableWebcam = true` nghĩa là ca thi bắt buộc sử dụng đầy đủ nghiệp vụ giám sát webcam.
+- Khi ca thi yêu cầu webcam, sinh viên phải cấp quyền camera trước khi bắt đầu làm bài.
+- Nếu sinh viên không cấp quyền webcam, hệ thống không cho phép vào thi.
+- Khi đã bật webcam, hệ thống tự động giám sát các dấu hiệu bất thường như không thấy mặt, nhiều khuôn mặt, camera bị che, camera mất kết nối.
+- Khi đã bật webcam, giảng viên được phép xem live webcam của từng sinh viên theo nhu cầu.
+- Khi đã bật webcam, hệ thống và giảng viên đều có thể tạo bằng chứng ảnh webcam cho các sự kiện nghi vấn.
+- `enableScreenMonitoring = true` nghĩa là ca thi bắt buộc sinh viên chia sẻ màn hình để phục vụ giám sát.
+- Nếu sinh viên không cấp quyền chia sẻ màn hình trong ca thi yêu cầu giám sát màn hình, hệ thống không cho phép vào thi.
+- Giám sát màn hình dùng để giảng viên xem sinh viên đang thao tác gì trong lúc thi, bao gồm màn hình hiện tại, nội dung đang nhập và hành vi chuyển sang môi trường khác.
+
+## BR-36: Ghi nhận vi phạm và bằng chứng
+
+- Hệ thống chỉ ghi nhận sự kiện nghi vấn/vi phạm và lưu bằng chứng, không tự kết luận gian lận cuối cùng.
+- Mỗi lần sinh viên tắt webcam, mất quyền webcam hoặc dừng chia sẻ màn hình trong lúc thi phải được ghi nhận thành một sự kiện vi phạm.
+- Với các sự kiện có thời lượng, hệ thống phải lưu thời điểm bắt đầu, thời điểm kết thúc và số giây kéo dài.
+- Mỗi lần tắt webcam phải hiển thị cảnh báo nhẹ cho sinh viên và đồng thời ghi nhận vi phạm ngay.
+- Các vi phạm như chuyển tab, thoát fullscreen, dừng chia sẻ màn hình hoặc giảng viên chụp thủ công có thể sinh bằng chứng ảnh màn hình.
+- Các vi phạm webcam như không thấy mặt, nhiều khuôn mặt, camera bị che hoặc giảng viên chụp thủ công có thể sinh bằng chứng ảnh webcam.
+- Bằng chứng gian lận phải được lưu trong MinIO; Supabase chỉ dùng cho tài liệu học tập/materials và không dùng cho bằng chứng gian lận.
+
+## BR-37: Giám sát realtime của giảng viên
+
+- Giảng viên có thể xem dashboard realtime của ca thi để theo dõi trạng thái online, webcam, chia sẻ màn hình và số lượng vi phạm của từng sinh viên.
+- Giảng viên có thể chọn một sinh viên để xem live webcam hoặc live màn hình.
+- Trong cùng một thời điểm, giảng viên không xem đồng thời webcam và màn hình của cùng một sinh viên; giảng viên chọn một loại stream đang cần giám sát.
+- Giảng viên có thể chuyển từ sinh viên này sang sinh viên khác trong cùng ca thi.
+- Khi đang xem live webcam hoặc live màn hình, giảng viên có thể chụp bằng chứng thủ công.
+- Các sự kiện vi phạm và bằng chứng mới phải được gửi realtime cho dashboard giảng viên.
+
+## BR-38: Xử lý bài thi khi có vi phạm
+
+- Hệ thống không tự động cưỡng chế nộp bài vì lý do gian lận.
+- Quyền dừng bài thi của một sinh viên thuộc về giảng viên được phân công giám sát hoặc người có quyền quản trị phù hợp.
+- Khi giảng viên dừng bài thi vì vi phạm, bài làm chuyển sang trạng thái `INVALIDATED`, thời điểm dừng và người dừng phải được ghi nhận.
+- Bài thi bị dừng do giảng viên xử lý vi phạm được ghi nhận điểm 0 theo nghiệp vụ của ca thi.
+- Lý do dừng bài phải được lưu để phục vụ đối soát và khiếu nại.
+
+## BR-39: Lưu trữ bằng chứng trong MinIO
+
+- Khi tạo ca thi, hệ thống tự sinh `proctoringStoragePath` để làm prefix lưu trữ bằng chứng gian lận.
+- Prefix lưu trữ phải đủ thông tin để tránh nhầm lẫn giữa học kỳ, môn học, ca thi và định danh ca thi.
+- Cấu trúc lưu trữ khuyến nghị:
+
+```text
+proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/webcam/{attemptId}/{violationId}.jpg
+proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/screen/{attemptId}/{violationId}.jpg
+```
+
+- Database chỉ lưu metadata và object key/path của bằng chứng; không lưu binary ảnh trực tiếp trong PostgreSQL.

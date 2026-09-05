@@ -1,466 +1,529 @@
-import {
-  AlertTriangle,
-  Lock,
-  MessageSquare,
-  Plus,
-  RefreshCw,
-  ShieldAlert,
-  ShieldCheck,
-} from 'lucide-react'
-import { useState } from 'react'
+import { AlertTriangle, Camera, Image, RefreshCw, ShieldAlert, Square, Video } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
-import AppSelect from '../../components/common/AppSelect'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTablePanel from './components/TeacherTablePanel'
 import TeacherToolbar from './components/TeacherToolbar'
 import TeacherTopBar from './components/TeacherTopBar'
-import SendWarningModal from './components/exam-detail/SendWarningModal'
+import {
+  addTeacherLiveCameraCandidate,
+  endTeacherLiveCamera,
+  getTeacherLiveCameraCandidates,
+  getTeacherLiveCameraSession,
+  getTeacherLiveProctoringSessions,
+  getTeacherLiveProctoringViolations,
+  startTeacherLiveCamera,
+  submitTeacherLiveCameraAnswer,
+} from './api/teacher-exams.api'
+import type { ProctoringSessionRecord, ViolationRecord } from './types/teacher-exam.types'
 
-interface StudentSession {
-  id: string
-  scheduleId: string
-  studentCode: string
-  studentName: string
-  status: 'ONLINE' | 'WARNING' | 'SUBMITTED' | 'OFFLINE'
-  ipAddress: string
-  progress: string
-  violationsCount: number
-  lastViolation?: string
-  integrityScore: number
-  extraTimeMinutes?: number
+type ProctoringTab = 'live' | 'violations'
+
+const REFRESH_MS = 10_000
+const SIGNAL_POLL_MS = 1_000
+const RTC_CONFIG: RTCConfiguration = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 }
 
-const MOCK_SESSIONS: StudentSession[] = [
-  {
-    id: 's-1',
-    scheduleId: 'schedule-01',
-    studentCode: 'SV2026001',
-    studentName: 'Trần Minh Nam',
-    status: 'WARNING',
-    ipAddress: '192.168.1.102',
-    progress: '18 / 30 câu (60%)',
-    violationsCount: 2,
-    lastViolation: 'Phát hiện chuyển tab (12 giây)',
-    integrityScore: 70,
-  },
-  {
-    id: 's-2',
-    scheduleId: 'schedule-01',
-    studentCode: 'SV2026003',
-    studentName: 'Phạm Đức Anh',
-    status: 'WARNING',
-    ipAddress: '192.168.1.105',
-    progress: '12 / 30 câu (40%)',
-    violationsCount: 3,
-    lastViolation: 'Webcam không phát hiện khuôn mặt',
-    integrityScore: 55,
-  },
-  {
-    id: 's-3',
-    scheduleId: 'schedule-01',
-    studentCode: 'SV2026002',
-    studentName: 'Lê Thị Thu Thảo',
-    status: 'SUBMITTED',
-    ipAddress: '192.168.1.104',
-    progress: '30 / 30 câu (100%)',
-    violationsCount: 0,
-    integrityScore: 100,
-  },
-  {
-    id: 's-4',
-    scheduleId: 'schedule-02',
-    studentCode: 'SV2026004',
-    studentName: 'Nguyễn Văn Hoàng',
-    status: 'ONLINE',
-    ipAddress: '192.168.1.110',
-    progress: '22 / 30 câu (73%)',
-    violationsCount: 0,
-    integrityScore: 100,
-  },
-  {
-    id: 's-5',
-    scheduleId: 'schedule-02',
-    studentCode: 'SV2026005',
-    studentName: 'Đặng Mai Phương',
-    status: 'ONLINE',
-    ipAddress: '192.168.1.115',
-    progress: '15 / 30 câu (50%)',
-    violationsCount: 0,
-    integrityScore: 100,
-  },
-]
+const webcamTone = {
+  NOT_REQUIRED: 'gray',
+  PENDING_PERMISSION: 'amber',
+  ACTIVE: 'emerald',
+  DISCONNECTED: 'rose',
+  PERMISSION_DENIED: 'rose',
+  BLOCKED: 'rose',
+} as const
 
-const sessionStatusTone = {
-  ONLINE: 'blue',
-  WARNING: 'rose',
-  SUBMITTED: 'emerald',
-  OFFLINE: 'gray',
+const webcamLabel = {
+  NOT_REQUIRED: 'Không yêu cầu',
+  PENDING_PERMISSION: 'Chờ quyền',
+  ACTIVE: 'Đang bật',
+  DISCONNECTED: 'Mất kết nối',
+  PERMISSION_DENIED: 'Mất quyền',
+  BLOCKED: 'Bị chặn',
+} as const
+
+const severityTone = {
+  LOW: 'blue',
+  MEDIUM: 'amber',
+  HIGH: 'rose',
 } as const
 
 export default function TeacherLiveProctorPage() {
-  const [sessions, setSessions] = useState<StudentSession[]>(MOCK_SESSIONS)
-  const [selectedScheduleId, setSelectedScheduleId] = useState('schedule-01')
+  const [params] = useSearchParams()
+  const scheduleId = params.get('scheduleId') ?? ''
+  const [activeTab, setActiveTab] = useState<ProctoringTab>('live')
+  const [sessions, setSessions] = useState<ProctoringSessionRecord[]>([])
+  const [violations, setViolations] = useState<ViolationRecord[]>([])
+  const [scheduleTitle, setScheduleTitle] = useState('Ca thi')
   const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null)
+  const [liveAttemptId, setLiveAttemptId] = useState<string | null>(null)
+  const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
+  const [liveStatus, setLiveStatus] = useState<'IDLE' | 'REQUESTING' | 'CONNECTING' | 'CONNECTED'>('IDLE')
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const peerRef = useRef<RTCPeerConnection | null>(null)
+  const liveSessionIdRef = useRef<string | null>(null)
+  const candidateCursorRef = useRef(0)
 
-  // State for Warning modal
-  const [warningTarget, setWarningTarget] = useState<StudentSession | null>(null)
-  const [actionTarget, setActionTarget] = useState<StudentSession | null>(null)
-  const [actionType, setActionType] = useState<'ADD_TIME' | 'FORCE_SUBMIT'>('ADD_TIME')
-  const [actionReason, setActionReason] = useState('')
-  const [extraMinutes, setExtraMinutes] = useState(5)
-
-  const sessionsInSchedule = sessions.filter((session) => session.scheduleId === selectedScheduleId)
-  const totalOnline = sessionsInSchedule.filter((session) => session.status === 'ONLINE').length
-  const totalWarning = sessionsInSchedule.filter((session) => session.status === 'WARNING').length
-  const totalSubmitted = sessionsInSchedule.filter((session) => session.status === 'SUBMITTED').length
-
-  const openAction = (session: StudentSession, type: 'ADD_TIME' | 'FORCE_SUBMIT') => {
-    setActionTarget(session)
-    setActionType(type)
-    setActionReason('')
-    setExtraMinutes(5)
-  }
-
-  const applyAction = () => {
-    if (!actionTarget || actionReason.trim().length < 3) return
-    if (actionType === 'FORCE_SUBMIT') {
-      setSessions((prev) =>
-        prev.map((session) => (session.id === actionTarget.id ? { ...session, status: 'SUBMITTED' } : session)),
-      )
-      toast.success(`Đã buộc nộp bài của ${actionTarget.studentName}.`)
-    } else {
-      setSessions((prev) =>
-        prev.map((session) =>
-          session.id === actionTarget.id
-            ? { ...session, extraTimeMinutes: (session.extraTimeMinutes ?? 0) + extraMinutes }
-            : session,
-        ),
-      )
-      toast.success(`Đã cộng ${extraMinutes} phút làm bài cho thí sinh ${actionTarget.studentName}.`)
+  const load = useCallback(async () => {
+    if (!scheduleId) return
+    setLoading(true)
+    try {
+      const [sessionData, violationItems] = await Promise.all([
+        getTeacherLiveProctoringSessions(scheduleId),
+        getTeacherLiveProctoringViolations(scheduleId),
+      ])
+      setScheduleTitle(sessionData.schedule.title)
+      setSessions(sessionData.items)
+      setViolations(violationItems)
+    } catch {
+      toast.error('Không thể tải dữ liệu giám sát ca thi.')
+    } finally {
+      setLoading(false)
     }
-    setActionTarget(null)
+  }, [scheduleId])
+
+  useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    if (!scheduleId) return
+    const intervalId = window.setInterval(() => void load(), REFRESH_MS)
+    return () => window.clearInterval(intervalId)
+  }, [load, scheduleId])
+
+  useEffect(() => {
+    if (!videoRef.current) return
+    videoRef.current.srcObject = remoteStream
+  }, [remoteStream])
+
+  const stopLive = useCallback(() => {
+    const sessionId = liveSessionIdRef.current
+    if (sessionId) void endTeacherLiveCamera(sessionId).catch(() => undefined)
+    peerRef.current?.close()
+    peerRef.current = null
+    liveSessionIdRef.current = null
+    candidateCursorRef.current = 0
+    setRemoteStream(null)
+    setLiveAttemptId(null)
+    setLiveSessionId(null)
+    setLiveStatus('IDLE')
+  }, [])
+
+  useEffect(() => () => {
+    const sessionId = liveSessionIdRef.current
+    if (sessionId) void endTeacherLiveCamera(sessionId).catch(() => undefined)
+    peerRef.current?.close()
+  }, [])
+
+  useEffect(() => {
+    if (!liveSessionId || !peerRef.current) return
+    let cancelled = false
+
+    const poll = async () => {
+      const peer = peerRef.current
+      if (cancelled || !peer) return
+
+      const session = await getTeacherLiveCameraSession(liveSessionId).catch(() => null)
+      if (!session || session.status === 'ENDED') {
+        stopLive()
+        return
+      }
+
+      if (session.offer && !peer.currentRemoteDescription) {
+        setLiveStatus('CONNECTING')
+        await peer.setRemoteDescription(session.offer)
+        const answer = await peer.createAnswer()
+        await peer.setLocalDescription(answer)
+        await submitTeacherLiveCameraAnswer(liveSessionId, answer)
+      }
+
+      const batch = await getTeacherLiveCameraCandidates(liveSessionId, candidateCursorRef.current).catch(() => null)
+      if (!batch) return
+      candidateCursorRef.current = batch.nextCursor
+      for (const candidate of batch.candidates) {
+        await peer.addIceCandidate(candidate).catch(() => undefined)
+      }
+    }
+
+    void poll()
+    const intervalId = window.setInterval(() => void poll(), SIGNAL_POLL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [liveSessionId, stopLive])
+
+  const startLive = async (session: ProctoringSessionRecord) => {
+    if (liveAttemptId && liveAttemptId !== session.attemptId) stopLive()
+    setActiveTab('live')
+    setLiveAttemptId(session.attemptId)
+    setLiveStatus('REQUESTING')
+    setRemoteStream(null)
+
+    const peer = new RTCPeerConnection(RTC_CONFIG)
+    peerRef.current = peer
+    candidateCursorRef.current = 0
+
+    peer.ontrack = (event) => {
+      setRemoteStream(event.streams[0] ?? new MediaStream([event.track]))
+      setLiveStatus('CONNECTED')
+    }
+    peer.onicecandidate = (event) => {
+      const sessionId = liveSessionIdRef.current
+      if (!event.candidate || !sessionId) return
+      void addTeacherLiveCameraCandidate(sessionId, event.candidate.toJSON()).catch(() => undefined)
+    }
+    peer.onconnectionstatechange = () => {
+      if (peer.connectionState === 'connected') setLiveStatus('CONNECTED')
+      if (['failed', 'closed'].includes(peer.connectionState)) stopLive()
+    }
+
+    try {
+      const liveSession = await startTeacherLiveCamera(session.attemptId)
+      liveSessionIdRef.current = liveSession.id
+      setLiveSessionId(liveSession.id)
+      toast.success(`Đang mở camera của ${session.studentName}.`)
+    } catch {
+      stopLive()
+      toast.error('Không thể mở camera sinh viên.')
+    }
   }
 
-  const handleSendWarning = (msg: string) => {
-    if (!warningTarget) return
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === warningTarget.id
-          ? {
-              ...s,
-              violationsCount: s.violationsCount + 1,
-              status: 'WARNING',
-              lastViolation: `Cảnh báo từ GV: ${msg.substring(0, 30)}...`,
-              integrityScore: Math.max(0, s.integrityScore - 10),
-            }
-          : s,
-      ),
-    )
-    toast.success(`Đã gửi cảnh báo tới ${warningTarget.studentName}.`)
-    setWarningTarget(null)
-  }
+  const filteredSessions = useMemo(() => sessions.filter((session) => {
+    const keyword = searchQuery.trim().toLocaleLowerCase('vi')
+    return !keyword ||
+      session.studentName.toLocaleLowerCase('vi').includes(keyword) ||
+      session.studentCode.toLocaleLowerCase('vi').includes(keyword)
+  }), [searchQuery, sessions])
 
-  const filteredSessions = sessionsInSchedule.filter(
-    (s) =>
-      s.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.studentCode.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const filteredViolations = useMemo(() => violations.filter((violation) => {
+    const keyword = searchQuery.trim().toLocaleLowerCase('vi')
+    return !keyword ||
+      violation.studentName.toLocaleLowerCase('vi').includes(keyword) ||
+      violation.studentCode.toLocaleLowerCase('vi').includes(keyword) ||
+      violation.type.toLocaleLowerCase('vi').includes(keyword)
+  }), [searchQuery, violations])
+
+  const liveStudent = sessions.find((session) => session.attemptId === liveAttemptId) ?? null
+  const onlineCount = sessions.filter((session) => session.isOnline).length
+  const cameraActiveCount = sessions.filter((session) => session.webcamStatus === 'ACTIVE').length
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
-
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
-
-        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
+        <main className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
           <TeacherPageHeader
-            title="Giám Sát Ca Thi Trực Tuyến"
-            description="Theo dõi phòng thi trực tiếp theo thời gian thực, nhận cảnh báo gian lận và can thiệp sự cố"
+            title="Giám sát ca thi"
+            description={scheduleId ? scheduleTitle : 'Chọn một ca thi từ lịch coi thi để mở phòng giám sát.'}
             icon={<ShieldAlert size={21} />}
-            titleContent={
-              <AppBadge tone="rose" className="text-xs font-bold uppercase animate-pulse">
-                ● LIVE
-              </AppBadge>
-            }
             actions={
-              <>
-              <AppSelect
-                value={selectedScheduleId}
-                onChange={setSelectedScheduleId}
-                className="w-72"
-                buttonClassName="text-gray-900"
-                options={[
-                  { value: 'schedule-01', label: 'Giữa kỳ Java • JAVA_01 • 08:00' },
-                  { value: 'schedule-02', label: 'Giữa kỳ Java • JAVA_02 • 13:00' },
-                ]}
-              />
-
               <button
-                onClick={() => alert('Đã làm mới dữ liệu ca thi')}
-                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                type="button"
+                onClick={() => void load()}
+                disabled={!scheduleId || loading}
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                <RefreshCw size={15} /> Làm Mới
+                <RefreshCw size={15} /> Làm mới
               </button>
-              </>
             }
           />
 
-          {/* Stat Overview Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-1">
-              <span className="text-xs font-semibold text-gray-500 block uppercase">Đang Làm Bài (Online)</span>
-              <p className="text-2xl font-bold text-blue-600">{totalOnline}</p>
-              <span className="text-xs text-gray-400">Kết nối ổn định</span>
+          {!scheduleId ? (
+            <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
+              Vào từ trang Lịch coi thi để hệ thống biết cần giám sát ca thi nào.
             </div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Metric label="Online" value={onlineCount} tone="text-blue-600" />
+                <Metric label="Camera đang bật" value={cameraActiveCount} tone="text-emerald-600" />
+                <Metric label="Vi phạm trong ca" value={violations.length} tone="text-rose-600" />
+              </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-1">
-              <span className="text-xs font-semibold text-gray-500 block uppercase">Cảnh Báo Vi Phạm</span>
-              <p className="text-2xl font-bold text-rose-600">{totalWarning}</p>
-              <span className="text-xs text-rose-600 font-medium">Chuyển tab / Mất webcam</span>
-            </div>
+              <div className="flex flex-wrap gap-2 border-b border-gray-200">
+                <TabButton active={activeTab === 'live'} onClick={() => setActiveTab('live')} icon={<Video size={16} />} label="Live camera" />
+                <TabButton active={activeTab === 'violations'} onClick={() => setActiveTab('violations')} icon={<AlertTriangle size={16} />} label={`Nhật ký vi phạm (${violations.length})`} />
+              </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-1">
-              <span className="text-xs font-semibold text-gray-500 block uppercase">Đã Nộp Bài</span>
-              <p className="text-2xl font-bold text-emerald-600">{totalSubmitted}</p>
-              <span className="text-xs text-gray-400">Hoàn thành bài thi</span>
-            </div>
+              {activeTab === 'live' ? (
+                <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
+                  <TeacherTablePanel>
+                    <TeacherToolbar
+                      filters={<h3 className="text-sm font-semibold text-slate-950">Sinh viên đang làm bài</h3>}
+                      searchValue={searchQuery}
+                      onSearchChange={setSearchQuery}
+                      searchPlaceholder="Tìm MSSV hoặc họ tên..."
+                      onReset={() => setSearchQuery('')}
+                    />
+                    <StudentLiveTable
+                      sessions={filteredSessions}
+                      liveAttemptId={liveAttemptId}
+                      onStartLive={startLive}
+                      onStopLive={stopLive}
+                    />
+                  </TeacherTablePanel>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-1">
-              <span className="text-xs font-semibold text-gray-500 block uppercase">Tổng Thí Sinh Ca Thi</span>
-              <p className="text-2xl font-bold text-gray-900">{sessions.length}</p>
-              <span className="text-xs text-gray-400">Phòng thi trực tuyến</span>
-            </div>
-          </div>
-
-          <TeacherTablePanel>
-            <TeacherToolbar
-              filters={<h3 className="text-sm font-semibold text-slate-950">Danh sách thí sinh trong phòng thi</h3>}
-              searchValue={searchQuery}
-              onSearchChange={setSearchQuery}
-              searchPlaceholder="Tìm MSSV hoặc họ tên thí sinh..."
-              onReset={() => setSearchQuery('')}
-            />
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="select-none border-b border-gray-100 bg-gray-50/80 text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                    <th className="px-6 py-4 whitespace-nowrap">Thí sinh</th>
-                    <th className="px-6 py-4 whitespace-nowrap">Trạng thái</th>
-                    <th className="px-6 py-4 whitespace-nowrap">Tiến độ</th>
-                    <th className="px-6 py-4 whitespace-nowrap">Độ tin cậy</th>
-                    <th className="px-6 py-4 whitespace-nowrap">Cảnh báo vi phạm</th>
-                    <th className="px-6 py-4 text-center whitespace-nowrap">Can thiệp sự cố</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredSessions.map((session) => (
-                    <tr key={session.id} className="transition-colors hover:bg-gray-50/60">
-                      <td className="px-6 py-4 align-middle">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <p className="font-semibold text-gray-900">{session.studentName}</p>
-                            {Boolean(session.extraTimeMinutes) && (
-                              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
-                                +{session.extraTimeMinutes}p
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-blue-600">MSSV: {session.studentCode}</p>
-                          <p className="text-xs text-gray-400">IP: {session.ipAddress}</p>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 align-middle">
-                        <AppBadge
-                          tone={sessionStatusTone[session.status]}
-                          className={session.status === 'WARNING' ? 'font-medium animate-pulse' : 'font-medium'}
-                        >
-                          ● {session.status}
-                        </AppBadge>
-                      </td>
-
-                      <td className="px-6 py-4 text-gray-700 align-middle">{session.progress}</td>
-
-                      <td className="px-6 py-4 align-middle">
-                        <div className="space-y-1">
-                          <span
-                            className={`text-xs font-medium ${
-                              session.integrityScore >= 80
-                                ? 'text-emerald-600'
-                                : session.integrityScore >= 60
-                                ? 'text-amber-600'
-                                : 'text-rose-600'
-                            }`}
-                          >
-                            {session.integrityScore}%
-                          </span>
-                          <div className="w-16 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className={`h-1.5 rounded-full ${
-                                session.integrityScore >= 80
-                                  ? 'bg-emerald-500'
-                                  : session.integrityScore >= 60
-                                  ? 'bg-amber-500'
-                                  : 'bg-rose-500'
-                              }`}
-                              style={{ width: `${session.integrityScore}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 align-middle">
-                        {session.violationsCount > 0 ? (
-                          <div className="space-y-0.5">
-                            <span className="text-xs font-medium text-rose-600 flex items-center gap-1">
-                              <AlertTriangle size={13} /> {session.violationsCount} vi phạm
-                            </span>
-                            <p className="text-xs text-gray-500">{session.lastViolation}</p>
-                          </div>
-                        ) : (
-                          <span className="text-emerald-600 text-xs font-medium flex items-center gap-1">
-                            <ShieldCheck size={14} /> Không có vi phạm
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-6 py-4 align-middle">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => setWarningTarget(session)}
-                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1 border border-rose-200"
-                            title="Gửi cảnh báo popup tới màn hình thí sinh"
-                          >
-                            <MessageSquare size={13} /> Cảnh báo
-                          </button>
-
-                          <button
-                            onClick={() => openAction(session, 'ADD_TIME')}
-                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1 border border-blue-200"
-                            title="Cộng thêm thời gian làm bài do sự cố"
-                          >
-                            <Plus size={13} /> Cộng giờ
-                          </button>
-
-                          {session.status !== 'SUBMITTED' && (
-                            <button
-                              onClick={() => openAction(session, 'FORCE_SUBMIT')}
-                              className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1"
-                              title="Buộc nộp bài ngay"
-                            >
-                              <Lock size={13} /> Buộc nộp
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </TeacherTablePanel>
+                  <LiveCameraPanel
+                    liveStudent={liveStudent}
+                    liveStatus={liveStatus}
+                    liveSessionId={liveSessionId}
+                    remoteStream={remoteStream}
+                    videoRef={videoRef}
+                  />
+                </div>
+              ) : (
+                <TeacherTablePanel>
+                  <TeacherToolbar
+                    filters={<h3 className="text-sm font-semibold text-slate-950">Nhật ký bằng chứng vi phạm</h3>}
+                    searchValue={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    searchPlaceholder="Tìm MSSV, họ tên hoặc loại vi phạm..."
+                    onReset={() => setSearchQuery('')}
+                  />
+                  <ViolationTable violations={filteredViolations} onViewEvidence={setEvidenceUrl} />
+                </TeacherTablePanel>
+              )}
+            </>
+          )}
         </main>
       </div>
 
-      {/* Send Warning Modal */}
-      {warningTarget && (
-        <SendWarningModal
-          isOpen={!!warningTarget}
-          studentName={warningTarget.studentName}
-          studentCode={warningTarget.studentCode}
-          onClose={() => setWarningTarget(null)}
-          onSend={handleSendWarning}
-        />
-      )}
-      {actionTarget && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
-            <div className="border-b border-gray-100 p-5">
-              <h2 className="text-base font-bold text-gray-900">
-                {actionType === 'ADD_TIME' ? 'Cộng thêm thời gian làm bài' : 'Buộc nộp bài ca thi'}
-              </h2>
-              <p className="mt-0.5 text-xs text-gray-500">
-                {actionTarget.studentName} • MSSV: {actionTarget.studentCode}
-              </p>
-            </div>
-            <div className="space-y-4 p-5 text-xs">
-              {actionType === 'ADD_TIME' && (
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1.5">Chọn nhanh số phút bù giờ</label>
-                  <div className="grid grid-cols-4 gap-2 mb-3">
-                    {[5, 10, 15, 30].map((mins) => (
-                      <button
-                        key={mins}
-                        type="button"
-                        onClick={() => setExtraMinutes(mins)}
-                        className={`py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                          extraMinutes === mins
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                        }`}
-                      >
-                        +{mins}p
-                      </button>
-                    ))}
-                  </div>
-                  <label className="block font-semibold text-gray-700">
-                    Số phút tùy chỉnh
-                    <input
-                      type="number"
-                      min={1}
-                      max={120}
-                      value={extraMinutes}
-                      onChange={(e) => setExtraMinutes(Math.max(1, Number(e.target.value)))}
-                      className="mt-1 w-full rounded-xl border border-gray-200 p-2.5 font-bold text-blue-600 focus:outline-none focus:border-blue-500"
-                    />
-                  </label>
-                </div>
-              )}
-              <div>
-                <label className="block font-semibold text-gray-700 mb-1.5">Lý do điều chỉnh / Ghi chú sự cố</label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {['Mất kết nối mạng', 'Sập nguồn / Khởi động lại máy', 'Lỗi thiết bị phòng thi'].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setActionReason(preset)}
-                      className="px-2 py-1 text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  rows={2}
-                  value={actionReason}
-                  onChange={(e) => setActionReason(e.target.value)}
-                  placeholder="Nhập lý do sự cố..."
-                  className="w-full rounded-xl border border-gray-200 p-2.5 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
-              <button
-                onClick={() => setActionTarget(null)}
-                className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
-              >
-                Hủy bỏ
+      {evidenceUrl && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-bold text-slate-900">Ảnh bằng chứng</h2>
+              <button type="button" onClick={() => setEvidenceUrl(null)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+                Đóng
               </button>
-              <button
-                disabled={actionReason.trim().length < 3 || (actionType === 'ADD_TIME' && extraMinutes < 1)}
-                onClick={applyAction}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 shadow-xs transition-colors disabled:opacity-50"
-              >
-                Xác nhận thực hiện
-              </button>
+            </div>
+            <div className="bg-slate-950 p-3">
+              <img src={evidenceUrl} alt="Ảnh bằng chứng vi phạm" className="mx-auto max-h-[72vh] rounded-lg object-contain" />
             </div>
           </div>
         </div>
       )}
     </div>
   )
+}
+
+function Metric({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
+      <p className={`mt-1 text-2xl font-bold ${tone}`}>{value}</p>
+    </div>
+  )
+}
+
+function TabButton({ active, icon, label, onClick }: { active: boolean; icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+        active ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-900'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
+
+function StudentLiveTable({
+  sessions,
+  liveAttemptId,
+  onStartLive,
+  onStopLive,
+}: {
+  sessions: ProctoringSessionRecord[]
+  liveAttemptId: string | null
+  onStartLive: (session: ProctoringSessionRecord) => void
+  onStopLive: () => void
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border-collapse text-left text-sm">
+        <thead className="border-y border-gray-100 bg-gray-50 text-[11px] font-semibold uppercase text-slate-500">
+          <tr>
+            <th className="whitespace-nowrap px-5 py-3">Sinh viên</th>
+            <th className="whitespace-nowrap px-5 py-3">Online</th>
+            <th className="whitespace-nowrap px-5 py-3">Camera</th>
+            <th className="whitespace-nowrap px-5 py-3">Tiến độ</th>
+            <th className="whitespace-nowrap px-5 py-3 text-right">Live</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {sessions.map((session) => (
+            <tr key={session.attemptId} className={liveAttemptId === session.attemptId ? 'bg-blue-50/60' : 'hover:bg-gray-50/70'}>
+              <td className="px-5 py-4">
+                <p className="font-semibold text-slate-900">{session.studentName}</p>
+                <p className="text-xs text-blue-600">MSSV: {session.studentCode}</p>
+              </td>
+              <td className="px-5 py-4">
+                <AppBadge tone={session.isOnline ? 'blue' : 'gray'}>{session.isOnline ? 'Online' : 'Offline'}</AppBadge>
+              </td>
+              <td className="px-5 py-4">
+                <AppBadge tone={webcamTone[session.webcamStatus]}>{webcamLabel[session.webcamStatus]}</AppBadge>
+              </td>
+              <td className="px-5 py-4 text-slate-600">{session.answeredCount}/{session.totalQuestionCount}</td>
+              <td className="px-5 py-4 text-right">
+                {liveAttemptId === session.attemptId ? (
+                  <button type="button" onClick={onStopLive} className="inline-flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100">
+                    <Square size={14} /> Ngắt
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onStartLive(session)}
+                    disabled={!session.isOnline || session.webcamStatus !== 'ACTIVE'}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Video size={14} /> Xem camera
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {sessions.length === 0 && <EmptyState text="Chưa có sinh viên phù hợp." />}
+    </div>
+  )
+}
+
+function LiveCameraPanel({
+  liveStudent,
+  liveStatus,
+  liveSessionId,
+  remoteStream,
+  videoRef,
+}: {
+  liveStudent: ProctoringSessionRecord | null
+  liveStatus: 'IDLE' | 'REQUESTING' | 'CONNECTING' | 'CONNECTED'
+  liveSessionId: string | null
+  remoteStream: MediaStream | null
+  videoRef: React.RefObject<HTMLVideoElement | null>
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="border-b border-gray-100 px-5 py-4">
+        <h2 className="text-sm font-bold text-slate-900">Camera đang xem</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          {liveStudent ? `${liveStudent.studentName} · ${liveStudent.studentCode}` : 'Chưa chọn sinh viên'}
+        </p>
+      </div>
+      <div className="aspect-video bg-slate-950">
+        {remoteStream ? (
+          <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-300">
+            <Camera size={34} />
+            <span className="text-sm">{liveStatus === 'IDLE' ? 'Chọn một sinh viên để xem live camera' : 'Đang mở camera sinh viên...'}</span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center justify-between px-5 py-4 text-xs text-slate-500">
+        <span>Trạng thái: {liveStatus}</span>
+        {liveSessionId && <span>Session: {liveSessionId.slice(0, 8)}</span>}
+      </div>
+    </section>
+  )
+}
+
+function ViolationTable({ violations, onViewEvidence }: { violations: ViolationRecord[]; onViewEvidence: (url: string) => void }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border-collapse text-left text-sm">
+        <thead className="border-y border-gray-100 bg-gray-50 text-[11px] font-semibold uppercase text-slate-500">
+          <tr>
+            <th className="whitespace-nowrap px-5 py-3">Thời gian</th>
+            <th className="whitespace-nowrap px-5 py-3">Sinh viên</th>
+            <th className="whitespace-nowrap px-5 py-3">Loại vi phạm</th>
+            <th className="whitespace-nowrap px-5 py-3">Mức độ</th>
+            <th className="whitespace-nowrap px-5 py-3">Thời lượng</th>
+            <th className="whitespace-nowrap px-5 py-3 text-right">Bằng chứng</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {violations.map((violation) => (
+            <tr key={violation.id} className="hover:bg-gray-50/70">
+              <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatDateTime(violation.timestamp)}</td>
+              <td className="px-5 py-4">
+                <p className="font-semibold text-slate-900">{violation.studentName}</p>
+                <p className="text-xs text-blue-600">MSSV: {violation.studentCode}</p>
+              </td>
+              <td className="px-5 py-4">
+                <AppBadge tone={violation.type === 'TAB_SWITCH' ? 'amber' : 'rose'}>{formatViolationType(violation.type)}</AppBadge>
+              </td>
+              <td className="px-5 py-4">
+                <AppBadge tone={severityTone[violation.severity]}>{violation.severity}</AppBadge>
+              </td>
+              <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatDuration(violation)}</td>
+              <td className="px-5 py-4 text-right">
+                {violation.evidenceImageUrl ? (
+                  <button type="button" onClick={() => onViewEvidence(violation.evidenceImageUrl!)} className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+                    <Image size={14} /> Xem ảnh
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400">Không có ảnh</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {violations.length === 0 && <EmptyState text="Chưa ghi nhận vi phạm nào trong ca thi này." />}
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="px-6 py-10 text-center text-sm text-gray-500">{text}</div>
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+  }).format(new Date(value))
+}
+
+function formatDuration(violation: ViolationRecord) {
+  if (violation.durationSeconds === null && violation.endedAt === null) return 'Đang diễn ra'
+  const seconds = violation.durationSeconds
+  if (seconds === undefined || seconds === null) return '-'
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return rest > 0 ? `${minutes}m ${rest}s` : `${minutes}m`
+}
+
+function formatViolationType(type: ViolationRecord['type']) {
+  const labels: Partial<Record<ViolationRecord['type'], string>> = {
+    TAB_SWITCH: 'Chuyển tab',
+    FULLSCREEN_EXIT: 'Thoát toàn màn hình',
+    COPY_PASTE: 'Sao chép/dán',
+    NO_FACE: 'Không thấy mặt',
+    MULTIPLE_FACES: 'Nhiều khuôn mặt',
+    CAMERA_BLOCKED: 'Camera bị chặn',
+    CAMERA_DISCONNECTED: 'Camera mất kết nối',
+    CAMERA_PERMISSION_DENIED: 'Mất quyền camera',
+    SCREEN_SHARE_STOPPED: 'Dừng chia sẻ màn hình',
+    SCREEN_PERMISSION_DENIED: 'Mất quyền màn hình',
+    INACTIVITY: 'Không hoạt động',
+  }
+  return labels[type] ?? type
 }

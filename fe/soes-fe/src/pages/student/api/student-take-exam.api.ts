@@ -14,6 +14,7 @@ interface BaseResponse<T> {
 export interface StartExamRequest {
   password?: string
   webcamConfirmed?: boolean
+  webcamStatus?: ExamSessionWebcamStatus
 }
 
 export interface StartExamResponse {
@@ -67,11 +68,26 @@ export interface AttemptReviewItem {
 export type ExamViolationType =
   | 'TAB_SWITCH'
   | 'FULLSCREEN_EXIT'
+  | 'NO_FACE'
+  | 'MULTIPLE_FACES'
   | 'INACTIVITY'
+  | 'LOOKING_AWAY'
   | 'COPY_PASTE'
   | 'CAMERA_BLOCKED'
+  | 'CAMERA_DISCONNECTED'
+  | 'CAMERA_PERMISSION_DENIED'
+  | 'SCREEN_SHARE_STOPPED'
+  | 'SCREEN_PERMISSION_DENIED'
+  | 'PROCTOR_WEBCAM_CAPTURE'
+  | 'PROCTOR_SCREEN_CAPTURE'
 
 export type ExamViolationSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
+
+export type ExamSessionWebcamStatus = 'NOT_REQUIRED' | 'PENDING_PERMISSION' | 'ACTIVE' | 'DISCONNECTED' | 'PERMISSION_DENIED' | 'BLOCKED'
+
+export interface SendHeartbeatPayload {
+  webcamStatus?: ExamSessionWebcamStatus
+}
 
 export interface RecordViolationPayload {
   violationType: ExamViolationType
@@ -79,6 +95,28 @@ export interface RecordViolationPayload {
   description?: string
   detectedAt?: string
   evidenceFiles?: File[]
+}
+
+export interface RecordViolationResponse {
+  id: string
+  violationType: ExamViolationType
+  severity: ExamViolationSeverity
+  detectedAt: string
+  endedAt?: string | null
+  durationSeconds?: number | null
+  evidenceUrls: string[]
+}
+
+export interface LiveCameraSession {
+  id: string
+  attemptId: string
+  scheduleId: string
+  status: 'REQUESTED' | 'OFFERED' | 'CONNECTED' | 'ENDED'
+  offer: RTCSessionDescriptionInit | null
+  answer: RTCSessionDescriptionInit | null
+  studentCandidateCount: number
+  teacherCandidateCount: number
+  updatedAt: string
 }
 
 // ─── Run code (programming questions) ────────────────────────────────────────
@@ -217,15 +255,15 @@ export const takeExamApi = {
     return response.data.data
   },
 
-  sendHeartbeat: async (scheduleId: string, attemptId: string): Promise<void> => {
-    await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/heartbeat`)
+  sendHeartbeat: async (scheduleId: string, attemptId: string, data?: SendHeartbeatPayload): Promise<void> => {
+    await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/heartbeat`, data ?? {})
   },
 
-  recordViolation: async (scheduleId: string, attemptId: string, data: RecordViolationPayload): Promise<void> => {
+  recordViolation: async (scheduleId: string, attemptId: string, data: RecordViolationPayload): Promise<RecordViolationResponse> => {
     const evidenceFiles = data.evidenceFiles ?? []
     if (evidenceFiles.length === 0) {
-      await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/violations`, data)
-      return
+      const response = await axios.post<BaseResponse<RecordViolationResponse>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/violations`, data)
+      return response.data.data
     }
 
     const formData = new FormData()
@@ -235,7 +273,20 @@ export const takeExamApi = {
     if (data.detectedAt) formData.append('detectedAt', data.detectedAt)
     evidenceFiles.forEach((file) => formData.append('evidence', file, file.name))
 
-    await axios.post<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/violations`, formData)
+    const response = await axios.post<BaseResponse<RecordViolationResponse>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/violations`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+    return response.data.data
+  },
+
+  endViolation: async (scheduleId: string, attemptId: string, violationId: string, endedAt?: string): Promise<RecordViolationResponse> => {
+    const response = await axios.patch<BaseResponse<RecordViolationResponse>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/violations/${violationId}/end`,
+      { endedAt },
+    )
+    return response.data.data
   },
 
   getAttemptStatus: async (scheduleId: string, attemptId: string): Promise<AttemptStatus> => {
@@ -256,5 +307,52 @@ export const takeExamApi = {
       { sourceCode },
     )
     return response.data.data
+  },
+
+  getPendingLiveCameraRequest: async (scheduleId: string, attemptId: string): Promise<LiveCameraSession | null> => {
+    const response = await axios.get<BaseResponse<LiveCameraSession | null>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/live/request`,
+    )
+    return response.data.data
+  },
+
+  getStudentLiveSession: async (scheduleId: string, attemptId: string, sessionId: string): Promise<LiveCameraSession> => {
+    const response = await axios.get<BaseResponse<LiveCameraSession>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/live/${sessionId}`,
+    )
+    return response.data.data
+  },
+
+  submitLiveCameraOffer: async (scheduleId: string, attemptId: string, sessionId: string, signal: RTCSessionDescriptionInit): Promise<void> => {
+    await axios.post<BaseResponse<LiveCameraSession>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/live/${sessionId}/offer`,
+      { signal },
+    )
+  },
+
+  addStudentLiveCandidate: async (scheduleId: string, attemptId: string, sessionId: string, candidate: RTCIceCandidateInit): Promise<void> => {
+    await axios.post<BaseResponse<{ ok: true }>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/live/${sessionId}/ice-candidates`,
+      { candidate },
+    )
+  },
+
+  getStudentLiveCandidates: async (
+    scheduleId: string,
+    attemptId: string,
+    sessionId: string,
+    from: number,
+  ): Promise<{ candidates: RTCIceCandidateInit[]; nextCursor: number }> => {
+    const response = await axios.get<BaseResponse<{ candidates: RTCIceCandidateInit[]; nextCursor: number }>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/live/${sessionId}/ice-candidates`,
+      { params: { from } },
+    )
+    return response.data.data
+  },
+
+  endStudentLiveSession: async (scheduleId: string, attemptId: string, sessionId: string): Promise<void> => {
+    await axios.delete<BaseResponse<LiveCameraSession>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/live/${sessionId}`,
+    )
   },
 }

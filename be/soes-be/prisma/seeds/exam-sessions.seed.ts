@@ -1,4 +1,4 @@
-import { PrismaClient, ExamSession, ExamAttempt } from '@prisma/client'
+import { PrismaClient, ExamSession, ExamAttempt, ScreenShareStatus, WebcamStatus } from '@prisma/client'
 
 export async function seedExamSessions(prisma: PrismaClient): Promise<ExamSession[]> {
   console.log('Seeding Exam Sessions...')
@@ -16,6 +16,7 @@ export async function seedExamSessions(prisma: PrismaClient): Promise<ExamSessio
         }
       ]
     },
+    include: { examSchedule: true },
     take: 15, // Seed sessions for first 15 attempts
   })
 
@@ -43,6 +44,16 @@ export async function seedExamSessions(prisma: PrismaClient): Promise<ExamSessio
 
     const deviceInfo = devices[Math.floor(Math.random() * devices.length)]
     const isOnline = attempt.status === 'IN_PROGRESS'
+    const webcamStatus: WebcamStatus = attempt.examSchedule.enableWebcam
+      ? isOnline
+        ? 'ACTIVE'
+        : 'DISCONNECTED'
+      : 'NOT_REQUIRED'
+    const screenShareStatus: ScreenShareStatus = attempt.examSchedule.enableScreenMonitoring
+      ? isOnline
+        ? 'ACTIVE'
+        : 'STOPPED'
+      : 'NOT_REQUIRED'
     
     // Calculate last heartbeat (within last 5 minutes if online, older if not)
     const lastHeartbeat = new Date()
@@ -59,6 +70,10 @@ export async function seedExamSessions(prisma: PrismaClient): Promise<ExamSessio
         deviceInfo,
         lastHeartbeat,
         isOnline,
+        webcamStatus,
+        screenShareStatus,
+        lastWebcamHeartbeatAt: webcamStatus === 'NOT_REQUIRED' ? null : lastHeartbeat,
+        lastScreenHeartbeatAt: screenShareStatus === 'NOT_REQUIRED' ? null : lastHeartbeat,
         attemptId: attempt.id,
       },
     })

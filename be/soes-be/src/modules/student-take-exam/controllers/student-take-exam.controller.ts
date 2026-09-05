@@ -1,12 +1,20 @@
 import { NextFunction, Request, Response } from 'express'
-import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema, sendHeartbeatParamsSchema, recordViolationBodySchema, runCodeParamsSchema, runCodeBodySchema } from '../validators/student-take-exam.validator'
+import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAnswerBodySchema, saveAnswerParamsSchema, sendHeartbeatParamsSchema, sendHeartbeatBodySchema, recordViolationBodySchema, endViolationBodySchema, endViolationParamsSchema, runCodeParamsSchema, runCodeBodySchema } from '../validators/student-take-exam.validator'
 import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto, toGetAttemptResultResponseDto, toSendHeartbeatResponseDto, toRecordViolationResponseDto, toRunCodeResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
+import { z } from 'zod'
+
+const liveSessionParamsSchema = examAttemptParamsSchema.extend({
+  sessionId: z.string().uuid({ message: 'sessionId must be a valid UUID' }),
+})
+const liveSignalBodySchema = z.object({ signal: z.record(z.string(), z.unknown()) })
+const liveCandidateBodySchema = z.object({ candidate: z.record(z.string(), z.unknown()) })
+const liveCandidateQuerySchema = z.object({ from: z.coerce.number().int().min(0).optional().default(0) })
 
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { scheduleId } = examParamsSchema.parse(req.params)
-    const { password, webcamConfirmed } = startExamBodySchema.parse(req.body)
+    const { password, webcamConfirmed, webcamStatus } = startExamBodySchema.parse(req.body ?? {})
     const studentId    = req.user!.profileId
 
     // Lấy IP thực (xử lý cả trường hợp đứng sau proxy)
@@ -27,6 +35,7 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
       deviceInfo,
       passwordParam,
       webcamConfirmed,
+      webcamStatus,
     )
 
     res.status(200).json({
@@ -143,9 +152,10 @@ export async function getAttemptResult(req: Request, res: Response, next: NextFu
 export async function sendHeartbeat(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { scheduleId, attemptId } = sendHeartbeatParamsSchema.parse(req.params)
+    const { webcamStatus } = sendHeartbeatBodySchema.parse(req.body ?? {})
     const studentId = req.user!.profileId
 
-    const result = await takeExamService.sendHeartbeat(scheduleId, attemptId, studentId)
+    const result = await takeExamService.sendHeartbeat(scheduleId, attemptId, studentId, { webcamStatus })
 
     res.status(200).json({
       success: true,
@@ -176,6 +186,22 @@ export async function recordViolation(req: Request, res: Response, next: NextFun
   }
 }
 
+export async function endViolation(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId, violationId } = endViolationParamsSchema.parse(req.params)
+    const { endedAt } = endViolationBodySchema.parse(req.body ?? {})
+    const result = await takeExamService.endViolation(scheduleId, attemptId, req.user!.profileId, violationId, endedAt)
+
+    res.status(200).json({
+      success: true,
+      message: 'Violation ended',
+      data: toRecordViolationResponseDto(result),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function runCode(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { scheduleId, attemptId, questionId } = runCodeParamsSchema.parse(req.params)
@@ -199,6 +225,69 @@ export async function runCode(req: Request, res: Response, next: NextFunction): 
       message,
       data: toRunCodeResponseDto(result),
     })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getPendingLiveCameraRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
+    const result = await takeExamService.getPendingLiveCameraRequest(scheduleId, attemptId, req.user!.profileId)
+    res.status(200).json({ success: true, message: 'Live camera request loaded', data: result })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function submitLiveCameraOffer(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId, sessionId } = liveSessionParamsSchema.parse(req.params)
+    const { signal } = liveSignalBodySchema.parse(req.body)
+    const result = await takeExamService.submitLiveCameraOffer(scheduleId, attemptId, req.user!.profileId, sessionId, signal)
+    res.status(200).json({ success: true, message: 'Live camera offer submitted', data: result })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getStudentLiveSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId, sessionId } = liveSessionParamsSchema.parse(req.params)
+    const result = await takeExamService.getStudentLiveSession(scheduleId, attemptId, req.user!.profileId, sessionId)
+    res.status(200).json({ success: true, message: 'Live camera session loaded', data: result })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function addStudentLiveCandidate(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId, sessionId } = liveSessionParamsSchema.parse(req.params)
+    const { candidate } = liveCandidateBodySchema.parse(req.body)
+    const result = await takeExamService.addStudentLiveCandidate(scheduleId, attemptId, req.user!.profileId, sessionId, candidate)
+    res.status(201).json({ success: true, message: 'Live camera candidate submitted', data: result })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getStudentLiveCandidates(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId, sessionId } = liveSessionParamsSchema.parse(req.params)
+    const { from } = liveCandidateQuerySchema.parse(req.query)
+    const result = await takeExamService.getStudentLiveCandidates(scheduleId, attemptId, req.user!.profileId, sessionId, from)
+    res.status(200).json({ success: true, message: 'Live camera candidates loaded', data: result })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function endStudentLiveSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scheduleId, attemptId, sessionId } = liveSessionParamsSchema.parse(req.params)
+    const result = await takeExamService.endStudentLiveSession(scheduleId, attemptId, req.user!.profileId, sessionId)
+    res.status(200).json({ success: true, message: 'Live camera session ended', data: result })
   } catch (err) {
     next(err)
   }

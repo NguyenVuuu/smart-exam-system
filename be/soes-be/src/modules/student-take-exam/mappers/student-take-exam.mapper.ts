@@ -110,6 +110,8 @@ export function toRecordViolationResponseDto(result: RecordViolationResult): Rec
     violationType: result.violationType,
     severity: result.severity,
     detectedAt: result.detectedAt.toISOString(),
+    endedAt: result.endedAt ? result.endedAt.toISOString() : result.endedAt,
+    durationSeconds: result.durationSeconds,
     evidenceUrls: result.evidenceUrls,
   }
 }
