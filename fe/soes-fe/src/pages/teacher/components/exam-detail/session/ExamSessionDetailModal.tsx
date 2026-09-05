@@ -1,4 +1,4 @@
-﻿import { CalendarClock, Eye, EyeOff, Globe, MonitorCheck, Users, X } from 'lucide-react'
+import { CalendarClock, Eye, EyeOff, Globe, MonitorCheck, Users, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { releaseLabel } from '../../../constants/ExamEditorConfig'

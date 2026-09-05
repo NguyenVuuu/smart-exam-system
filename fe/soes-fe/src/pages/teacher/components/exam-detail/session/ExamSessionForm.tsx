@@ -34,6 +34,7 @@ export interface ExamSessionDraft {
   ipMode: ExamIpMode
   allowedIpRange: string
   distributionMode: ExamDistributionMode
+  randomQuestionCount: number
 }
 
 export function ExamSessionForm({
@@ -41,6 +42,8 @@ export function ExamSessionForm({
   courses,
   onChange,
   onAdd,
+  fieldErrors = {},
+  onFieldChange,
   submitLabel = 'Thêm ca',
   showSubmit = true,
 }: {
@@ -48,10 +51,13 @@ export function ExamSessionForm({
   courses: CourseOffering[]
   onChange: (draft: ExamSessionDraft) => void
   onAdd: () => void
+  fieldErrors?: Partial<Record<keyof ExamSessionDraft, string>>
+  onFieldChange?: (field: keyof ExamSessionDraft) => void
   submitLabel?: string
   showSubmit?: boolean
 }) {
   const update = <K extends keyof ExamSessionDraft>(key: K, value: ExamSessionDraft[K]) => {
+    onFieldChange?.(key)
     onChange({ ...draft, [key]: value })
   }
 
@@ -59,20 +65,23 @@ export function ExamSessionForm({
     <div className="space-y-4">
       <SectionTitle icon={<Users size={15} className="text-blue-600" />} title="Lớp và thời gian thi" />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <Field label="Lớp học phần" className="md:col-span-4">
+        <Field label="Lớp học phần" error={fieldErrors.courseOfferingId} className="md:col-span-4">
           <AppSelect
             value={draft.courseOfferingId}
             onChange={(value) => update('courseOfferingId', value)}
             buttonClassName={selectButtonClassName}
             menuClassName="z-50"
-            options={courses.map((course) => ({
-              value: course.id,
-              label: `${course.courseCode} - ${course.subjectName} (${course.totalStudents} SV)`,
-            }))}
+            options={[
+              { value: '', label: 'Chọn lớp học phần' },
+              ...courses.map((course) => ({
+                value: course.id,
+                label: `${course.courseCode} - ${course.subjectName} (${course.totalStudents} SV)`,
+              })),
+            ]}
           />
         </Field>
 
-        <Field label="Ngày thi">
+        <Field label="Ngày thi" error={fieldErrors.examDate}>
           <input
             type="date"
             value={draft.examDate}
@@ -81,7 +90,7 @@ export function ExamSessionForm({
           />
         </Field>
 
-        <Field label="Giờ mở bài">
+        <Field label="Giờ mở bài" error={fieldErrors.startTime}>
           <input
             type="time"
             value={draft.startTime}
@@ -90,7 +99,7 @@ export function ExamSessionForm({
           />
         </Field>
 
-        <Field label="Giờ đóng ca">
+        <Field label="Giờ đóng ca" error={fieldErrors.endTime}>
           <input
             type="time"
             value={draft.endTime}
@@ -99,7 +108,7 @@ export function ExamSessionForm({
           />
         </Field>
 
-        <Field label="Thời lượng làm bài">
+        <Field label="Thời lượng làm bài" error={fieldErrors.durationMinutes}>
           <AppNumberInput
             value={draft.durationMinutes}
             onChange={(value) => update('durationMinutes', value)}
@@ -107,7 +116,7 @@ export function ExamSessionForm({
           />
         </Field>
 
-        <Field label="Số lần làm bài" className="md:col-start-4">
+        <Field label="Số lần làm bài" error={fieldErrors.maxAttempts} className="md:col-start-4">
           <input
             type="number"
             min={1}
@@ -120,7 +129,7 @@ export function ExamSessionForm({
 
       <SectionTitle icon={<Lock size={15} className="text-blue-600" />} title="Truy cập và điểm số" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label="Mật khẩu vào thi">
+        <Field label="Mật khẩu vào thi" error={fieldErrors.password}>
           <input
             value={draft.password}
             onChange={(event) => update('password', event.target.value)}
@@ -144,7 +153,7 @@ export function ExamSessionForm({
         </Field>
 
         {draft.resultReleaseMode === 'SCHEDULED' && (
-          <Field label="Thời gian công bố điểm">
+          <Field label="Thời gian công bố điểm" error={fieldErrors.resultReleaseAt}>
             <input
               type="datetime-local"
               value={draft.resultReleaseAt}
@@ -189,12 +198,15 @@ export function ExamSessionForm({
             ]}
           />
           {draft.ipMode === 'CAMPUS' && (
-            <input
-              value={draft.allowedIpRange}
-              onChange={(event) => update('allowedIpRange', event.target.value)}
-              placeholder="Ví dụ: 192.168.1.1 - 192.168.1.254"
-              className={whiteInputClassName}
-            />
+            <>
+              <input
+                value={draft.allowedIpRange}
+                onChange={(event) => update('allowedIpRange', event.target.value)}
+                placeholder="Ví dụ: 192.168.1.1 - 192.168.1.254"
+                className={whiteInputClassName}
+              />
+              {fieldErrors.allowedIpRange && <p className="text-xs text-rose-600">{fieldErrors.allowedIpRange}</p>}
+            </>
           )}
         </div>
       </div>
@@ -213,6 +225,16 @@ export function ExamSessionForm({
               { value: 'RANDOM_SUBSET', label: 'Chọn tập câu hỏi ngẫu nhiên theo phần' },
           ]}
         />
+        {draft.distributionMode === 'RANDOM_SUBSET' && (
+          <Field label="Số câu hỏi ngẫu nhiên" error={fieldErrors.randomQuestionCount}>
+            <AppNumberInput
+              min={1}
+              value={draft.randomQuestionCount}
+              onChange={(value) => update('randomQuestionCount', value)}
+              suffix="câu"
+            />
+          </Field>
+        )}
         {showSubmit && (
           <button
             type="button"
@@ -229,10 +251,12 @@ export function ExamSessionForm({
 
 function Field({
   label,
+  error,
   className = '',
   children,
 }: {
   label: string
+  error?: string
   className?: string
   children: ReactNode
 }) {
@@ -240,6 +264,7 @@ function Field({
     <label className={`block space-y-1.5 ${className}`}>
       <span className="text-sm font-semibold text-slate-700">{label}</span>
       {children}
+      {error && <span className="block text-xs text-rose-600">{error}</span>}
     </label>
   )
 }

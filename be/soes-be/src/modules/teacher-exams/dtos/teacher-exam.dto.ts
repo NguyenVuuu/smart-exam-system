@@ -1,8 +1,9 @@
+import type { ExamStudentVisibility } from '@prisma/client'
 import type { ExamCapabilities } from '../types/teacher-exam.types'
 
 export interface TeacherExamDto {
   id: string; title: string; description: string | null; type: string; format: string
-  creationMethod: string; status: string; approvalStatus: string
+  creationMethod: string; status: string; studentVisibility: ExamStudentVisibility; approvalStatus: string
   defaultDurationMinutes: number; totalPoints: number
   subject: { id: string; code: string; name: string }
   semester: { id: string; code: string; name: string; status: string }

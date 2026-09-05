@@ -1,9 +1,9 @@
-﻿import { Database, ListChecks, Plus, Sparkles } from 'lucide-react'
+import { Database, ListChecks, Plus, Sparkles } from 'lucide-react'
 import type { ExamQuestionItem, ExamSection, ExamType } from '../../../types/teacher-exam.types'
 import type { Question } from '../../../types/teacher-question-bank.types'
-import { balanceQuestionPointsBySection } from '../../../utils/ExamEditorUtils'
 import { StepCard } from '../ExamEditorPrimitives'
 import { QuestionRow } from '../QuestionRow'
+import type { ApiFieldErrors } from '../../../../../api/errors'
 
 export function StepQuestions(props: {
   sections: ExamSection[]
@@ -20,8 +20,11 @@ export function StepQuestions(props: {
   openAi: () => void
   examType: ExamType
   onEdit: (question: Question) => void
+  fieldErrors?: ApiFieldErrors
+  onFieldChange?: (field: string) => void
 }) {
   const updateQuestionPoints = (index: number, points: number) => {
+    props.onFieldChange?.('items')
     const updated = [...props.questions]
     updated[index] = { ...updated[index], points }
     props.setQuestions(updated)
@@ -86,7 +89,7 @@ export function StepQuestions(props: {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
           {props.visibleQuestions.map((item, sectionIndex) => {
             const globalIndex = props.questions.findIndex((q) => q.questionId === item.questionId)
             return (
@@ -97,24 +100,18 @@ export function StepQuestions(props: {
                 sections={props.sections}
                 isCollapsed={props.collapsedQuestionIds.includes(item.questionId)}
                 onToggleCollapse={() => props.onToggleQuestionCollapse(item.questionId)}
-                onPointChange={(points: number) => updateQuestionPoints(globalIndex, points)}
-                onSectionChange={(sectionId: string) => updateQuestionSection(item.questionId, sectionId)}
+                onPointChange={(points) => updateQuestionPoints(globalIndex, points)}
+                onSectionChange={(sectionId) => updateQuestionSection(item.questionId, sectionId)}
                 onEdit={() => props.onEdit(item.question)}
-                onRemove={() =>
-                  props.setQuestions(
-                    balanceQuestionPointsBySection(
-                      props.questions.filter((q) => q.questionId !== item.questionId),
-                      props.sections,
-                      [item.sectionId ?? props.activeSectionId],
-                    ),
-                  )
-                }
+                onRemove={() => {
+                  props.setQuestions(props.questions.filter((q) => q.questionId !== item.questionId))
+                }}
               />
             )
           })}
 
           {props.visibleQuestions.length === 0 && (
-            <div className="p-8 border border-dashed border-gray-200 rounded-xl text-center text-xs text-gray-500">
+            <div className="p-8 text-center border border-dashed border-gray-200 rounded-xl text-xs text-gray-400">
               Chưa có câu hỏi nào trong phần thi này. Chọn một nguồn bên trên để thêm câu hỏi.
             </div>
           )}

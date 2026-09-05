@@ -22,5 +22,10 @@ export function useTeacherExams() {
     exams, loading, error, retry: load,
     copy: async (id: string) => toExam(await api.copyTeacherExam(id)),
     remove: async (id: string) => { await api.deleteTeacherExam(id); await load() },
+    setStudentVisibility: async (id: string, visibility: Exam['studentVisibility']) => {
+      const updated = toExam(await api.updateTeacherExamStudentVisibility(id, visibility))
+      setExams((current) => current.map((exam) => exam.id === id ? updated : exam))
+      return updated
+    },
   }
 }

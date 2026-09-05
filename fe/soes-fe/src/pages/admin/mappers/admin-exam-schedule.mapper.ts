@@ -33,6 +33,7 @@ export const toAdminSchedule = (row: ExamScheduleApiDto): AdminExamSchedule => (
   ipPolicy: row.allowedIpRanges.length ? row.allowedIpRanges.join(', ') : 'Không giới hạn IP',
   hasPassword: row.hasPassword,
   distributionMode: optionLabel(distributionOptions, row.distributionMode),
+  randomQuestionCount: row.randomQuestionCount,
   releaseMode: optionLabel(releaseOptions, row.resultReleaseMode), resultReleaseAt: row.resultReleaseAt ?? undefined,
   allowStudentReview: row.reviewPolicy !== 'NONE', requireFullscreen: row.requireFullscreen,
   enableWebcam: row.enableWebcam, blockCopyPaste: row.blockCopyPaste, blockRightClick: row.blockRightClick,
@@ -78,6 +79,8 @@ export function toSchedulePayload(schedule: AdminExamSchedule, existing: boolean
   const [start, end] = schedule.time.split(' - ')
   const startTime = new Date(`${date}T${start}:00`)
   const endTime = new Date(`${date}T${end}:00`)
+  const distributionMode =
+    distributionOptions.find(({ label }) => label === schedule.distributionMode)?.value ?? 'FIXED_ORDER'
   const grouped = new Map<string, string[]>()
   schedule.proctorAssignments?.forEach(({ courseOfferingId, teacherId }) => {
     grouped.set(courseOfferingId, [...(grouped.get(courseOfferingId) ?? []), teacherId])
@@ -92,8 +95,10 @@ export function toSchedulePayload(schedule: AdminExamSchedule, existing: boolean
     blockRightClick: schedule.blockRightClick ?? true,
     locationMode: schedule.ipPolicy === 'Không giới hạn IP' ? 'ONLINE' : 'CAMPUS',
     allowedIpRanges: schedule.ipPolicy === 'Không giới hạn IP' ? [] : [schedule.ipPolicy],
-    distributionMode: distributionOptions.find(({ label }) => label === schedule.distributionMode)?.value ?? 'FIXED_ORDER',
-    randomQuestionCount: null,
+    distributionMode,
+    randomQuestionCount: distributionMode === 'RANDOM_SUBSET'
+      ? schedule.randomQuestionCount ?? null
+      : null,
     resultReleaseMode: releaseOptions.find(({ label }) => label === schedule.releaseMode)?.value ?? 'MANUAL',
     resultReleaseAt: schedule.resultReleaseAt ? new Date(schedule.resultReleaseAt).toISOString() : null,
     reviewPolicy: schedule.allowStudentReview ? 'FULL_AFTER_RELEASE' : 'NONE', reviewStartAt: null, reviewEndAt: null,

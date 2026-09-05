@@ -15,32 +15,14 @@ import QuestionDetailModal from './components/question-bank/QuestionDetailModal'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
 import RemoveSharedQuestionDialog from './components/question-bank/RemoveSharedQuestionDialog'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
-import { useTeacherWorkspaceStore } from './store/teacherWorkspaceStore'
 import type { Question } from './types/teacher-question-bank.types'
 
 export default function TeacherQuestionBankPage() {
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const questionApi = useTeacherQuestions()
-  const storeQuestions = useTeacherWorkspaceStore((state) => state.questions)
-  const upsertStoreQuestion = useTeacherWorkspaceStore((state) => state.upsertQuestion)
-  const archiveStoreQuestion = useTeacherWorkspaceStore((state) => state.archiveQuestion)
-  const restoreStoreQuestion = useTeacherWorkspaceStore((state) => state.restoreQuestion)
-  const removeStoreSharedQuestion = useTeacherWorkspaceStore((state) => state.removeQuestionFromSharedBank)
-
-  // Ưu tiên toàn bộ câu hỏi từ API thực tế, fallback sang mock store nếu API rỗng
-  const questions: Question[] =
-    questionApi.questions.length > 0 ? questionApi.questions : storeQuestions
-
-  const subjects =
-    questionApi.subjects.length > 0
-      ? questionApi.subjects
-      : [
-          { id: 'sub-01', name: 'Lập trình Java căn bản' },
-          { id: 'sub-02', name: 'Cấu trúc dữ liệu & GT' },
-          { id: 'sub-03', name: 'Lập trình C++' },
-          { id: 'sub-04', name: 'Cơ sở dữ liệu' },
-        ]
+  const questions: Question[] = questionApi.questions
+  const subjects = questionApi.subjects
 
   const canApproveSharedQuestions = user?.permissions?.includes('APPROVE_SHARED_QUESTION') ?? false
 
@@ -100,14 +82,13 @@ export default function TeacherQuestionBankPage() {
   })
 
   const handleSaveQuestion = async (savedQuestionData: Partial<Question>) => {
-    if (questionApi.questions.length > 0 || !editingQuestion) {
+    try {
       await questionApi.save(savedQuestionData, editingQuestion?.id)
       toast.success(editingQuestion ? 'Đã cập nhật câu hỏi.' : 'Đã thêm câu hỏi vào ngân hàng cá nhân.')
-    } else {
-      upsertStoreQuestion({ ...editingQuestion, ...savedQuestionData } as Question)
-      toast.success('Đã cập nhật câu hỏi.')
+      setEditingQuestion(null)
+    } catch {
+      toast.error('Không thể lưu câu hỏi. Vui lòng thử lại.')
     }
-    setEditingQuestion(null)
   }
 
   const handleShareToSharedBank = async (qId: string) => {
@@ -130,8 +111,7 @@ export default function TeacherQuestionBankPage() {
       await questionApi.archive(archivingQuestion.id)
       toast.success('Đã lưu trữ câu hỏi.')
     } catch {
-      archiveStoreQuestion(archivingQuestion.id)
-      toast.success('Đã lưu trữ câu hỏi.')
+      toast.error('Không thể lưu trữ câu hỏi. Vui lòng thử lại.')
     } finally {
       setIsArchiving(false)
       setArchivingQuestion(null)
@@ -148,12 +128,6 @@ export default function TeacherQuestionBankPage() {
     try {
       if (removingSharedQuestion.sharedBankItemId) {
         await questionApi.removeShared(removingSharedQuestion.sharedBankItemId, removeReason.trim())
-      } else {
-        removeStoreSharedQuestion(
-          removingSharedQuestion.id,
-          removeReason.trim(),
-          user?.fullName || 'Trưởng bộ môn',
-        )
       }
       setRemovingSharedQuestion(null)
       toast.success('Đã gỡ câu hỏi khỏi Ngân hàng chung.')
@@ -250,6 +224,7 @@ export default function TeacherQuestionBankPage() {
               questions={filteredQuestions}
               activeTab={activeTab}
               canApproveSharedQuestions={canApproveSharedQuestions}
+              isLoading={questionApi.loading}
               onView={setViewingQuestion}
               onEdit={(q) => {
                 setEditingQuestion(q)
@@ -261,8 +236,7 @@ export default function TeacherQuestionBankPage() {
                   await questionApi.restore(q.id)
                   toast.success('Đã khôi phục câu hỏi.')
                 } catch {
-                  restoreStoreQuestion(q.id)
-                  toast.success('Đã khôi phục câu hỏi.')
+                  toast.error('Không thể khôi phục câu hỏi. Vui lòng thử lại.')
                 }
               }}
               onShare={handleShareToSharedBank}

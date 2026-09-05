@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { MOCK_EXAMS } from '../mock/teacher-exam.mock'
 import { MOCK_QUESTION_BANK } from '../mock/teacher-question-bank.mock'
-import type { Exam, ExamSchedule, ExamStudentVisibility } from '../types/teacher-exam.types'
+import type { Exam, ExamSchedule } from '../types/teacher-exam.types'
 import type { Question } from '../types/teacher-question-bank.types'
 
 interface TeacherWorkspaceState {
@@ -9,7 +9,6 @@ interface TeacherWorkspaceState {
   questions: Question[]
   upsertExam: (exam: Exam) => void
   removeDraftExam: (examId: string) => void
-  setExamVisibility: (examId: string, visibility: ExamStudentVisibility) => void
   replaceExamSchedules: (examId: string, schedules: ExamSchedule[]) => void
   upsertQuestion: (question: Question) => void
   addQuestions: (questions: Question[]) => void
@@ -32,9 +31,6 @@ export const useTeacherWorkspaceStore = create<TeacherWorkspaceState>((set) => (
   })),
   removeDraftExam: (examId) => set((state) => ({
     exams: state.exams.filter((exam) => exam.id !== examId || exam.status !== 'DRAFT'),
-  })),
-  setExamVisibility: (examId, studentVisibility) => set((state) => ({
-    exams: state.exams.map((exam) => exam.id === examId ? { ...exam, studentVisibility } : exam),
   })),
   replaceExamSchedules: (examId, schedules) => set((state) => ({
     exams: state.exams.map((exam) => exam.id === examId ? { ...exam, schedules } : exam),

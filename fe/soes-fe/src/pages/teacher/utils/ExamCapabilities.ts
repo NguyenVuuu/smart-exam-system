@@ -15,7 +15,8 @@ export function getExamCapabilities(exam: Exam) {
       exam.status === 'PUBLISHED' && exam.category !== 'FINAL' && (exam.schedules?.length ?? 0) > 0),
     canUnlock: exam.capabilities?.canUnlock ?? (exam.status === 'LOCKED'),
     canCopy: exam.capabilities?.canCopy ?? true,
-    canToggleStudentVisibility: ['PUBLISHED', 'LOCKED'].includes(exam.status),
+    canToggleStudentVisibility: exam.capabilities?.canToggleStudentVisibility
+      ?? ['PUBLISHED', 'LOCKED'].includes(exam.status),
     lockReason: isLockedFinalExam
       ? 'Đề thi cuối kỳ đã được phê duyệt / đã gán ca thi tập trung.'
       : exam.status === 'PUBLISHED'

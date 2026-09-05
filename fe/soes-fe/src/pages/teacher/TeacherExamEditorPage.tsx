@@ -1,10 +1,6 @@
-﻿import {
-  ArrowLeft,
-  Check,
-  CheckCircle2,
+import {
   ChevronLeft,
   ChevronRight,
-  Save,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -22,16 +18,18 @@ import {
   StepQuestions,
   StepSections,
 } from './components/exam-editor/ExamEditorSteps'
+import { ExamEditorHeader } from './components/exam-editor/ExamEditorHeader'
+import { ExamEditorWizardNav } from './components/exam-editor/ExamEditorWizardNav'
 import { WIZARD_STEPS, examTypeLabel, type WizardStepId } from './constants/ExamEditorConfig'
 import {
   balanceQuestionPointsBySection,
   buildInitialSections,
-  getDefaultTitle,
   inferSectionId,
   isQuestionAllowedForExam,
   splitPointsPrecisely,
   orderQuestionsBySection,
 } from './utils/ExamEditorUtils'
+import { POSITIVE_INTEGER_REGEX } from './utils/teacherValidation.utils'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
 import type {
   ExamCategory,
@@ -44,6 +42,7 @@ import { useTeacherCourses } from './hooks/useTeacherCourses'
 import { useTeacherExamDetail } from './hooks/useTeacherExamDetail'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import { useAuthStore } from '../../store/authStore'
+import { getApiErrorMessage, getApiFieldErrors, type ApiFieldErrors } from '../../api/errors'
 import * as examApi from './api/teacher-exams.api'
 import type { TeacherExamQuestionInput } from './api/teacher-exams.api'
 
@@ -97,32 +96,36 @@ export default function TeacherExamEditorPage() {
   const sourceId = copyFromId || examId
   const { exam: sourceExam, loading: sourceLoading, error: sourceError } = useTeacherExamDetail(sourceId)
   const initializedSourceId = useRef<string | null>(null)
+  const persistedExamId = useRef<string | null>(null)
+  const isSavingExam = useRef(false)
   const initialTypeFromUrl = (searchParams.get('type') as ExamType) || 'MULTIPLE_CHOICE'
   const initialSections = buildInitialSections(initialTypeFromUrl)
 
   const [activeStep, setActiveStep] = useState<WizardStepId>('INFO')
-  const [title, setTitle] = useState(
-    getDefaultTitle(initialTypeFromUrl),
-  )
-  const [description, setDescription] = useState(
-    'Kiểm tra kiến thức theo nội dung lớp học phần.',
-  )
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
   const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
   const [examType, setExamType] = useState<ExamType>(initialTypeFromUrl)
   const [subjectId, setSubjectId] = useState('')
   const [semesterId, setSemesterId] = useState('')
   const [sections, setSections] = useState<ExamSection[]>(initialSections)
   const [activeSectionId, setActiveSectionId] = useState(initialSections[0].id)
-  const [durationMinutes, setDurationMinutes] = useState(60)
+  const [durationMinutes, setDurationMinutes] = useState<number | ''>('')
   const [targetTotalPoints, setTargetTotalPoints] = useState(10)
-
   const [questions, setQuestions] = useState<ExamQuestionItem[]>([])
   const [collapsedQuestionIds, setCollapsedQuestionIds] = useState<string[]>([])
-
   const [isBankPickerOpen, setIsBankPickerOpen] = useState(false)
   const [isAiPdfOpen, setIsAiPdfOpen] = useState(false)
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({})
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((current) => {
+      const entries = Object.entries(current).filter(([key]) => key !== field && !key.startsWith(`${field}.`))
+      return entries.length === Object.keys(current).length ? current : Object.fromEntries(entries)
+    })
+  }
 
   useEffect(() => {
     if (!sourceExam || initializedSourceId.current === sourceExam.id) return
@@ -202,7 +205,6 @@ export default function TeacherExamEditorPage() {
       { replace: true },
     )
     setExamType(nextType)
-    setTitle(getDefaultTitle(nextType))
     setSections(nextSections)
     setActiveSectionId(nextSections[0].id)
     setQuestions((prev) => {
@@ -289,30 +291,48 @@ export default function TeacherExamEditorPage() {
   }
 
   const validateExam = () => {
-    if (!title.trim()) {
-      toast.error('Vui lòng nhập tên bài thi.')
+    if (title.trim().length < 5) {
+      setFieldErrors({ title: 'Tên đề thi phải có ít nhất 5 ký tự.' })
+      toast.error('Tên đề thi phải có ít nhất 5 ký tự.')
       setActiveStep('INFO')
       return false
     }
     if (!selectedSemesterId) {
+      setFieldErrors({ semesterId: 'Vui lòng chọn học kỳ của đề thi.' })
       toast.error('Vui lòng chọn học kỳ của đề thi.')
       setActiveStep('INFO')
       return false
     }
     if (questions.length === 0) {
+      setFieldErrors({ items: 'Đề thi phải có ít nhất một câu hỏi.' })
       toast.error('Bài thi cần có ít nhất một câu hỏi.')
       setActiveStep('QUESTIONS')
       return false
     }
     const sectionTargetTotal = sections.reduce((sum, section) => sum + (section.targetPoints ?? 0), 0)
     if (Math.abs(sectionTargetTotal - targetTotalPoints) >= 0.01) {
+      setFieldErrors({ sections: 'Tổng điểm các phần phải bằng tổng điểm mục tiêu.' })
       toast.error(`Tổng điểm các phần là ${sectionTargetTotal.toFixed(2)}, phải bằng ${targetTotalPoints.toFixed(2)} điểm.`)
       setActiveStep('SECTIONS')
       return false
     }
     if (Math.abs(totalPoints - targetTotalPoints) >= 0.01) {
+      setFieldErrors({ items: 'Tổng điểm câu hỏi phải bằng tổng điểm mục tiêu.' })
       toast.error(`Tổng điểm hiện tại là ${totalPoints.toFixed(2)}, phải bằng tổng điểm mục tiêu ${targetTotalPoints.toFixed(2)}.`)
       setActiveStep('QUESTIONS')
+      return false
+    }
+    const durationStr = String(durationMinutes).trim()
+    if (!durationStr || !POSITIVE_INTEGER_REGEX.test(durationStr) || Number(durationMinutes) <= 0) {
+      setFieldErrors({ defaultDurationMinutes: 'Thời lượng làm bài phải là số nguyên dương lớn hơn 0 (phút).' })
+      toast.error('Thời lượng làm bài phải là số nguyên dương lớn hơn 0.')
+      setActiveStep('CONFIG')
+      return false
+    }
+    if (!targetTotalPoints || targetTotalPoints <= 0) {
+      setFieldErrors({ totalPoints: 'Tổng điểm mục tiêu phải lớn hơn 0.' })
+      toast.error('Tổng điểm mục tiêu phải lớn hơn 0.')
+      setActiveStep('CONFIG')
       return false
     }
     return true
@@ -320,23 +340,34 @@ export default function TeacherExamEditorPage() {
 
   const persistExam = async (submit: boolean) => {
     if (!validateExam()) return
-    if (!selectedSubjectId) { toast.error('Vui lòng chọn môn học.'); return }
+    if (!selectedSubjectId) {
+      setFieldErrors({ subjectId: 'Vui lòng chọn môn học.' })
+      toast.error('Vui lòng chọn môn học.')
+      setActiveStep('INFO')
+      return
+    }
+    if (isSavingExam.current) return
+    isSavingExam.current = true
+
     const payload = {
       title: title.trim(), description: description.trim() || null,
       subjectId: selectedSubjectId, semesterId: selectedSemesterId,
       type: examCategory,
       format: examType === 'MULTIPLE_CHOICE' ? 'OBJECTIVE' as const : examType,
       creationMethod: sourceExam?.creationMethod ?? 'MANUAL' as const,
-      defaultDurationMinutes: durationMinutes, totalPoints: targetTotalPoints,
+      defaultDurationMinutes: Number(durationMinutes), totalPoints: targetTotalPoints,
       sections: sections.map((section) => ({
         id: section.id, title: section.title, description: section.description,
         type: section.type, targetPoints: section.targetPoints ?? 0, orderIndex: section.order,
       })),
     }
     try {
-      const saved = !isCopy && sourceExam
-        ? await examApi.updateTeacherExam(sourceExam.id, payload)
+      const editableExamId = !isCopy && sourceExam ? sourceExam.id : persistedExamId.current
+      const saved = editableExamId
+        ? await examApi.updateTeacherExam(editableExamId, payload)
         : await examApi.createTeacherExam(payload)
+      persistedExamId.current = saved.id
+
       const orderedQuestions = orderQuestionsBySection(questions, sections)
       await examApi.replaceTeacherExamQuestions(saved.id, orderedQuestions.map(toExamQuestionInput))
       if (submit) await examApi.submitTeacherExam(saved.id)
@@ -348,8 +379,21 @@ export default function TeacherExamEditorPage() {
           : `Đã lưu nháp ${examTypeLabel[examType]} với ${questions.length} câu hỏi.`,
       )
       navigate('/teacher/exams')
-    } catch {
-      toast.error('Không thể lưu đề thi. Dữ liệu của bạn vẫn được giữ để thử lại.')
+    } catch (error) {
+      const apiFieldErrors = getApiFieldErrors(error)
+      setFieldErrors(apiFieldErrors)
+      const firstField = Object.keys(apiFieldErrors)[0] ?? ''
+      if (/^(title|description|subjectId|semesterId|type|format)/.test(firstField)) setActiveStep('INFO')
+      else if (firstField.startsWith('sections')) setActiveStep('SECTIONS')
+      else if (firstField.startsWith('items')) setActiveStep('QUESTIONS')
+      else if (/^(defaultDurationMinutes|totalPoints)/.test(firstField)) setActiveStep('CONFIG')
+      toast.error(
+        Object.keys(apiFieldErrors).length
+          ? 'Vui lòng kiểm tra các trường đang báo lỗi.'
+          : getApiErrorMessage(error, 'Không thể lưu đề thi. Dữ liệu của bạn vẫn được giữ để thử lại.'),
+      )
+    } finally {
+      isSavingExam.current = false
     }
   }
 
@@ -364,66 +408,18 @@ export default function TeacherExamEditorPage() {
         <TeacherTopBar />
 
         <main className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <button
-              onClick={() => navigate('/teacher/exams')}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 transition-colors"
-            >
-              <ArrowLeft size={16} />
-              <span>Quay lại danh sách đề thi</span>
-            </button>
+          <ExamEditorHeader
+            onBack={() => navigate('/teacher/exams')}
+            onSaveDraft={handleSaveDraft}
+            onPublishExam={handlePublishExam}
+            examCategory={examCategory}
+            isDepartmentHead={isDepartmentHead}
+          />
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1.5"
-              >
-                <Save size={15} /> Lưu nháp (Draft)
-              </button>
-              <button
-                type="button"
-                onClick={handlePublishExam}
-                className={`px-5 py-2 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 ${
-                  examCategory === 'FINAL' && !isDepartmentHead
-                    ? 'bg-amber-600 hover:bg-amber-700'
-                    : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                <CheckCircle2 size={15} />
-                {examCategory === 'FINAL' && !isDepartmentHead
-                  ? 'Gửi duyệt đề thi'
-                  : 'Tạo & Công bố đề'}
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-              {WIZARD_STEPS.map((step, index) => {
-                const isActive = step.id === activeStep
-                const isDone = index < stepIndex
-
-                return (
-                  <button
-                    key={step.id}
-                    type="button"
-                    onClick={() => setActiveStep(step.id)}
-                    className={`h-12 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-colors ${
-                      isActive
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : isDone
-                        ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
-                        : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    {isDone ? <Check size={15} /> : step.icon}
-                    <span>{step.title}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <ExamEditorWizardNav
+            activeStep={activeStep}
+            setActiveStep={setActiveStep}
+          />
 
           <TeacherTwoColumnLayout>
             <TeacherTwoColumnMain>
@@ -443,6 +439,8 @@ export default function TeacherExamEditorPage() {
                   semesterId={selectedSemesterId}
                   setSemesterId={setSemesterId}
                   semesterOptions={semesterOptions}
+                  fieldErrors={fieldErrors}
+                  onFieldChange={clearFieldError}
                 />
               )}
 
@@ -455,6 +453,8 @@ export default function TeacherExamEditorPage() {
                   setActiveSectionId={setActiveSectionId}
                   questions={questions}
                   setQuestions={setQuestions}
+                  fieldErrors={fieldErrors}
+                  onFieldChange={clearFieldError}
                 />
               )}
 
@@ -477,6 +477,8 @@ export default function TeacherExamEditorPage() {
                     setEditingQuestion(question)
                     setIsEditorOpen(true)
                   }}
+                  fieldErrors={fieldErrors}
+                  onFieldChange={clearFieldError}
                 />
               )}
 
@@ -486,6 +488,8 @@ export default function TeacherExamEditorPage() {
                   setDurationMinutes={setDurationMinutes}
                   targetTotalPoints={targetTotalPoints}
                   setTargetTotalPoints={updateTargetTotalPoints}
+                  fieldErrors={fieldErrors}
+                  onFieldChange={clearFieldError}
                 />
               )}
 

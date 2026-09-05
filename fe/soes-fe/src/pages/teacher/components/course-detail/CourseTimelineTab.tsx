@@ -2,6 +2,7 @@ import { Download, Edit3, Paperclip, Pin, PinOff, Send, Trash2, X } from 'lucide
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { CourseAnnouncement } from '../../types/teacher-course.types'
+import { validateAnnouncement } from '../../utils/teacherValidation.utils'
 import FileSelectionList from '../FileSelectionList'
 import DeleteCoursePostDialog from './DeleteCoursePostDialog'
 
@@ -23,6 +24,16 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
   const [existingAttachments, setExistingAttachments] = useState<Array<{ id: string; name: string; size: string }>>([])
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([])
   const [attachments, setAttachments] = useState<File[]>([])
+  const [fieldErrors, setFieldErrors] = useState<{ title?: string; content?: string }>({})
+
+  const clearFieldError = (field: 'title' | 'content') => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
 
   const reset = () => {
     setTitle('')
@@ -31,6 +42,7 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
     setExistingAttachments([])
     setRemovedAttachmentIds([])
     setAttachments([])
+    setFieldErrors({})
   }
 
   const removeExistingAttachment = (attachmentId: string) => {
@@ -44,8 +56,14 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!title.trim() || !content.trim()) return
+    const validation = validateAnnouncement(title, content)
+    if (!validation.isValid) {
+      setFieldErrors(validation.errors)
+      if (validation.firstError) toast.error(validation.firstError)
+      return
+    }
 
+    setFieldErrors({})
     setSaving(true)
     try {
       if (editingId) {
@@ -65,7 +83,7 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
       toast.success(editingId ? 'Đã cập nhật bài đăng.' : 'Đã đăng thông báo.')
       reset()
     } catch {
-      toast.error('Không thể lưu bài đăng.')
+      toast.error('Không thể lưu bài đăng. Vui lòng thử lại.')
     } finally {
       setSaving(false)
     }
@@ -78,6 +96,7 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
     setExistingAttachments(post.attachedFiles ?? [])
     setRemovedAttachmentIds([])
     setAttachments([])
+    setFieldErrors({})
   }
 
   const maxNewFiles = Math.max(0, 5 - existingAttachments.length)
@@ -103,24 +122,28 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
         </div>
 
         <div className="mt-5 space-y-4">
-          <Field label="Tiêu đề">
+          <Field label="Tiêu đề" error={fieldErrors.title}>
             <input
-              required
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => {
+                clearFieldError('title')
+                setTitle(event.target.value)
+              }}
               placeholder="VD: Thông báo lịch thi giữa kỳ"
-              className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 shadow-2xs"
             />
           </Field>
 
-          <Field label="Nội dung">
+          <Field label="Nội dung" error={fieldErrors.content}>
             <textarea
               rows={7}
-              required
               value={content}
-              onChange={(event) => setContent(event.target.value)}
+              onChange={(event) => {
+                clearFieldError('content')
+                setContent(event.target.value)
+              }}
               placeholder="Nội dung thông báo..."
-              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-gray-800 outline-none focus:border-blue-500"
+              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-gray-800 outline-none focus:border-blue-500 shadow-2xs"
             />
           </Field>
 
@@ -179,70 +202,93 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
                   className="sr-only"
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
                   onChange={(event) => {
-                    setAttachments(Array.from(event.target.files ?? []).slice(0, maxNewFiles))
-                    event.currentTarget.value = ''
+                    const chosen = Array.from(event.target.files ?? [])
+                    if (!chosen.length) return
+                    const merged = [...attachments, ...chosen].slice(0, maxNewFiles)
+                    setAttachments(merged)
+                    event.target.value = ''
                   }}
                 />
               </span>
             </label>
           ) : (
-            <p className="text-xs text-amber-600">Bài đăng đã có tối đa 5 tệp đính kèm. Hãy gỡ bớt tệp nếu muốn chọn tệp mới.</p>
+            <p className="rounded-lg bg-gray-50 p-3 text-xs text-gray-500">Đã đạt giới hạn tối đa 5 tệp đính kèm cho mỗi bài đăng.</p>
           )}
 
-          <FileSelectionList
-            files={attachments}
-            onRemove={removeAttachment}
-            onClear={() => setAttachments([])}
-          />
-        </div>
+          <FileSelectionList files={attachments} onRemove={removeAttachment} onClear={() => setAttachments([])} />
 
-        <button
-          disabled={saving}
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 cursor-pointer"
-        >
-          {editingId ? <Edit3 size={17} /> : <Send size={17} />}
-          {saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Đăng thông báo'}
-        </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Send size={15} />
+            {saving ? 'Đang lưu...' : editingId ? 'Cập nhật bài đăng' : 'Đăng thông báo'}
+          </button>
+        </div>
       </form>
 
       <div className="space-y-4">
-        {[...announcements].sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned))).map((post) => (
-          <article key={post.id} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-900">{post.teacherName}</p>
-                <p className="mt-0.5 text-xs text-gray-400">{post.createdAt}</p>
+        {announcements.length === 0 && (
+          <div className="rounded-xl border border-gray-100 bg-white p-12 text-center text-sm text-gray-400 shadow-sm">
+            Chưa có thông báo nào trong lớp này.
+          </div>
+        )}
+
+        {announcements.map((post) => (
+          <article
+            key={post.id}
+            className={`rounded-xl border bg-white p-5 shadow-sm transition-shadow ${post.pinned ? 'border-amber-200 bg-amber-50/20' : 'border-gray-100'}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700 text-xs shrink-0">
+                  {(post.teacherName || 'GV').slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900">{post.title}</h4>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {post.teacherName} · {post.createdAt}
+                    {post.pinned && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
+                        <Pin size={11} /> Đã ghim
+                      </span>
+                    )}
+                  </p>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {post.pinned && (
-                  <span className="mr-1 inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700">
-                    <Pin size={12} /> Đã ghim
-                  </span>
-                )}
-                <IconButton title="Sửa bài đăng" onClick={() => edit(post)}><Edit3 size={17} /></IconButton>
-                <IconButton title={post.pinned ? 'Bỏ ghim' : 'Ghim bài đăng'} onClick={() => void onPin(post.id, !post.pinned).catch(() => toast.error('Không thể cập nhật ghim.'))}>
-                  {post.pinned ? <PinOff size={17} /> : <Pin size={17} />}
+
+              <div className="flex items-center gap-1">
+                <IconButton
+                  title={post.pinned ? 'Bỏ ghim' : 'Ghim bài đăng'}
+                  onClick={() => void onPin(post.id, !post.pinned)}
+                >
+                  {post.pinned ? <PinOff size={15} /> : <Pin size={15} />}
                 </IconButton>
-                <IconButton title="Xóa bài đăng" danger onClick={() => setDeleting(post)}><Trash2 size={17} /></IconButton>
+                <IconButton title="Chỉnh sửa" onClick={() => edit(post)}>
+                  <Edit3 size={15} />
+                </IconButton>
+                <IconButton title="Xóa bài" danger onClick={() => setDeleting(post)}>
+                  <Trash2 size={15} />
+                </IconButton>
               </div>
             </div>
 
-            <h4 className="mt-4 text-[15px] font-semibold leading-6 text-gray-900">{post.title}</h4>
-            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-700">{post.content}</p>
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-gray-700">{post.content}</p>
 
-            {!!post.attachedFiles?.length && (
+            {post.attachedFiles && post.attachedFiles.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {post.attachedFiles.map((file) => (
                   <button
-                    type="button"
                     key={file.id}
+                    type="button"
                     onClick={() => void onDownload(post.id, file.id, file.name)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:border-blue-200 hover:text-blue-600"
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 cursor-pointer"
                   >
-                    <Paperclip size={15} />
-                    <span>{file.name}</span>
+                    <Paperclip size={13} />
+                    <span className="max-w-[200px] truncate">{file.name}</span>
                     <span className="text-gray-400">({file.size})</span>
-                    <Download size={14} />
+                    <Download size={13} className="text-gray-400" />
                   </button>
                 ))}
               </div>
@@ -268,10 +314,11 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
   )
 }
 
-const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+const Field = ({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) => (
   <label className="block">
     <span className="mb-2 block text-sm font-medium text-gray-700">{label}</span>
     {children}
+    {error && <p className="mt-1.5 text-xs text-rose-600 font-medium">{error}</p>}
   </label>
 )
 
@@ -281,7 +328,7 @@ const IconButton = ({ title, onClick, danger, children }: { title: string; onCli
     title={title}
     aria-label={title}
     onClick={onClick}
-    className={`rounded-lg p-2 text-gray-400 transition-colors ${danger ? 'hover:bg-rose-50 hover:text-rose-600' : 'hover:bg-blue-50 hover:text-blue-600'}`}
+    className={`rounded-lg p-2 text-gray-400 transition-colors cursor-pointer ${danger ? 'hover:bg-rose-50 hover:text-rose-600' : 'hover:bg-blue-50 hover:text-blue-600'}`}
   >
     {children}
   </button>

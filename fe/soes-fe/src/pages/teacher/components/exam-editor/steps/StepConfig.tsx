@@ -1,12 +1,15 @@
-﻿import { Clock } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import AppNumberInput from '../../../../../components/common/AppNumberInput'
+import type { ApiFieldErrors } from '../../../../../api/errors'
 import { Field, StepCard } from '../ExamEditorPrimitives'
 
 export function StepConfig(props: {
-  durationMinutes: number
+  durationMinutes: number | ''
   setDurationMinutes: (value: number) => void
   targetTotalPoints: number
   setTargetTotalPoints: (value: number) => void
+  fieldErrors?: ApiFieldErrors
+  onFieldChange?: (field: string) => void
 }) {
   return (
     <StepCard
@@ -15,19 +18,20 @@ export function StepConfig(props: {
       icon={<Clock size={18} className="text-blue-600" />}
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Field label="Thời lượng mặc định">
+        <Field label="Thời lượng mặc định" error={props.fieldErrors?.defaultDurationMinutes}>
           <AppNumberInput
             value={props.durationMinutes}
-            onChange={props.setDurationMinutes}
+            placeholder="Nhập số phút..."
+            onChange={(value) => { props.onFieldChange?.('defaultDurationMinutes'); props.setDurationMinutes(value) }}
             suffix="phút"
           />
         </Field>
 
-        <Field label="Tổng điểm mục tiêu">
+        <Field label="Tổng điểm mục tiêu" error={props.fieldErrors?.totalPoints}>
           <AppNumberInput
             step={0.5}
             value={props.targetTotalPoints}
-            onChange={props.setTargetTotalPoints}
+            onChange={(value) => { props.onFieldChange?.('totalPoints'); props.setTargetTotalPoints(value) }}
           />
         </Field>
       </div>

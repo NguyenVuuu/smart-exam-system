@@ -1,6 +1,7 @@
 import { CheckCircle2, Send, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { getApiErrorMessage, getApiFieldErrors } from '../../../../api/errors'
 import type { CourseOffering } from '../../types/teacher-course.types'
 import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionForm, type ExamSessionDraft } from './session/ExamSessionForm'
@@ -20,23 +21,24 @@ interface AssignExamToCourseModalProps {
 }
 
 const DEFAULT_DRAFT: ExamSessionDraft = {
-  courseOfferingId: 'co-01',
-  examDate: '2026-08-25',
-  startTime: '08:00',
-  endTime: '10:00',
+  courseOfferingId: '',
+  examDate: '',
+  startTime: '',
+  endTime: '',
   durationMinutes: 60,
   maxAttempts: 1,
   password: '',
   resultReleaseMode: 'MANUAL',
-  resultReleaseAt: '2026-08-25T18:00',
+  resultReleaseAt: '',
   allowStudentReview: false,
   requireFullscreen: true,
   enableWebcam: true,
   blockCopyPaste: true,
   blockRightClick: true,
   ipMode: 'HOME',
-  allowedIpRange: '192.168.1.1 - 192.168.1.254',
+  allowedIpRange: '',
   distributionMode: 'SHUFFLE_QUESTIONS_AND_OPTIONS',
+  randomQuestionCount: 1,
 }
 
 export default function AssignExamToCourseModal(props: AssignExamToCourseModalProps) {
@@ -61,7 +63,6 @@ function AssignExamToCourseModalContent({
   onCreateSessions,
 }: AssignExamToCourseModalProps) {
   const isEditingExistingSession = Boolean(initialEditingSessionId)
-  const defaultCourseOfferingId = courses[0]?.id ?? ''
   const editingTarget = initialSessions?.find((s) => s.id === initialEditingSessionId) ?? (isEditingExistingSession ? initialSessions?.[0] : null)
 
   const [draftSession, setDraftSession] = useState<ExamSessionDraft>(() => {
@@ -70,51 +71,99 @@ function AssignExamToCourseModalContent({
       const parsedEnd = parseSessionDateTime(editingTarget.endTime)
       return {
         ...DEFAULT_DRAFT,
-        courseOfferingId: editingTarget.courseOfferingId || defaultCourseOfferingId,
-        examDate: parsedStart.date || DEFAULT_DRAFT.examDate,
-        startTime: parsedStart.time || DEFAULT_DRAFT.startTime,
-        endTime: parsedEnd.time || DEFAULT_DRAFT.endTime,
+        courseOfferingId: editingTarget.courseOfferingId,
+        examDate: parsedStart.date,
+        startTime: parsedStart.time,
+        endTime: parsedEnd.time,
         durationMinutes: editingTarget.durationMinutes,
         maxAttempts: editingTarget.maxAttempts ?? 1,
         password: editingTarget.password ?? '',
         resultReleaseMode: editingTarget.resultReleaseMode ?? 'MANUAL',
-        resultReleaseAt: editingTarget.resultReleaseAt ?? DEFAULT_DRAFT.resultReleaseAt,
+        resultReleaseAt: editingTarget.resultReleaseAt ?? '',
         allowStudentReview: Boolean(editingTarget.allowStudentReview),
         requireFullscreen: editingTarget.requireFullscreen ?? true,
         enableWebcam: editingTarget.enableWebcam ?? true,
         blockCopyPaste: editingTarget.blockCopyPaste ?? true,
         blockRightClick: editingTarget.blockRightClick ?? true,
         ipMode: editingTarget.ipMode ?? 'HOME',
-        allowedIpRange: editingTarget.allowedIpRange ?? DEFAULT_DRAFT.allowedIpRange,
+        allowedIpRange: editingTarget.allowedIpRange ?? '',
         distributionMode: editingTarget.distributionMode ?? 'SHUFFLE_QUESTIONS_AND_OPTIONS',
-        ...defaultConfig,
+        randomQuestionCount: editingTarget.randomQuestionCount ?? 1,
       }
     }
     return {
       ...DEFAULT_DRAFT,
-      courseOfferingId: defaultCourseOfferingId,
       ...defaultConfig,
     }
   })
   const [publishSessions, setPublishSessions] = useState<ExamSchedule[]>(initialSessions ?? [])
   const [editingSessionId, setEditingSessionId] = useState<string | null>(initialEditingSessionId ?? null)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof ExamSessionDraft, string>>>({})
+
+  const clearFieldError = (field: keyof ExamSessionDraft) => {
+    setFieldErrors((current) => {
+      const relatedFields: Partial<Record<keyof ExamSessionDraft, Array<keyof ExamSessionDraft>>> = {
+        ipMode: ['allowedIpRange'],
+        distributionMode: ['randomQuestionCount'],
+        resultReleaseMode: ['resultReleaseAt'],
+      }
+      const fieldsToClear = [field, ...(relatedFields[field] ?? [])]
+      if (!fieldsToClear.some((key) => current[key])) return current
+      const next = { ...current }
+      fieldsToClear.forEach((key) => delete next[key])
+      return next
+    })
+  }
 
   const buildSessionFromDraft = (): ExamSchedule | null => {
     const course = courses.find((item) => item.id === draftSession.courseOfferingId)
-    if (!course || course.subjectName !== subjectName) return null
+    const validationErrors: Partial<Record<keyof ExamSessionDraft, string>> = {}
+
+    if (!course || course.subjectName !== subjectName) {
+      validationErrors.courseOfferingId = 'Vui lòng chọn lớp học phần.'
+    }
+    if (!draftSession.examDate) validationErrors.examDate = 'Vui lòng chọn ngày thi.'
+    if (!draftSession.startTime) validationErrors.startTime = 'Vui lòng chọn giờ mở bài.'
+    if (!draftSession.endTime) validationErrors.endTime = 'Vui lòng chọn giờ đóng ca.'
+    if (draftSession.durationMinutes < 1) {
+      validationErrors.durationMinutes = 'Thời lượng làm bài phải lớn hơn 0.'
+    }
+    if (draftSession.maxAttempts < 1) {
+      validationErrors.maxAttempts = 'Số lần làm bài phải lớn hơn 0.'
+    }
+    const passwordLength = draftSession.password.trim().length
+    if (passwordLength > 0 && (passwordLength < 4 || passwordLength > 100)) {
+      validationErrors.password = 'Mật khẩu phải có từ 4 đến 100 ký tự.'
+    }
+    if (draftSession.resultReleaseMode === 'SCHEDULED' && !draftSession.resultReleaseAt) {
+      validationErrors.resultReleaseAt = 'Vui lòng chọn thời gian công bố điểm.'
+    }
+    if (draftSession.ipMode === 'CAMPUS' && !draftSession.allowedIpRange.trim()) {
+      validationErrors.allowedIpRange = 'Vui lòng nhập dải IP được phép.'
+    }
+    if (draftSession.distributionMode === 'RANDOM_SUBSET' && draftSession.randomQuestionCount < 1) {
+      validationErrors.randomQuestionCount = 'Số câu hỏi ngẫu nhiên phải lớn hơn 0.'
+    }
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors)
+      toast.error('Vui lòng kiểm tra các trường đang báo lỗi.')
+      return null
+    }
+    if (!course) return null
 
     const localStart = new Date(`${draftSession.examDate}T${draftSession.startTime}:00`)
     const localEnd = new Date(`${draftSession.examDate}T${draftSession.endTime}:00`)
     if (isNaN(localStart.getTime()) || isNaN(localEnd.getTime())) {
+      setFieldErrors((current) => ({ ...current, examDate: 'Ngày hoặc giờ thi không hợp lệ.' }))
       toast.error('Thời gian ca thi không hợp lệ.')
       return null
     }
     if (localEnd <= localStart) {
+      setFieldErrors((current) => ({ ...current, endTime: 'Giờ đóng ca phải sau giờ mở bài.' }))
       toast.error('Giờ đóng ca phải sau giờ mở bài.')
       return null
     }
-
     const startTime = localStart.toISOString()
     const endTime = localEnd.toISOString()
     return {
@@ -127,7 +176,7 @@ function AssignExamToCourseModalContent({
       endTime,
       durationMinutes: draftSession.durationMinutes,
       maxAttempts: draftSession.maxAttempts,
-      password: draftSession.password,
+      password: draftSession.password.trim() || undefined,
       resultReleaseMode: draftSession.resultReleaseMode,
       resultReleaseAt:
         draftSession.resultReleaseMode === 'SCHEDULED' ? draftSession.resultReleaseAt : undefined,
@@ -139,6 +188,9 @@ function AssignExamToCourseModalContent({
       ipMode: draftSession.ipMode,
       allowedIpRange: draftSession.ipMode === 'CAMPUS' ? draftSession.allowedIpRange : undefined,
       distributionMode: draftSession.distributionMode,
+      randomQuestionCount: draftSession.distributionMode === 'RANDOM_SUBSET'
+        ? draftSession.randomQuestionCount
+        : null,
       status: 'SCHEDULED',
     }
   }
@@ -173,22 +225,23 @@ function AssignExamToCourseModalContent({
     const parsedEnd = parseSessionDateTime(session.endTime)
     setDraftSession({
       courseOfferingId: session.courseOfferingId,
-      examDate: parsedStart.date || DEFAULT_DRAFT.examDate,
-      startTime: parsedStart.time || DEFAULT_DRAFT.startTime,
-      endTime: parsedEnd.time || DEFAULT_DRAFT.endTime,
+      examDate: parsedStart.date,
+      startTime: parsedStart.time,
+      endTime: parsedEnd.time,
       durationMinutes: session.durationMinutes,
       maxAttempts: session.maxAttempts ?? 1,
       password: session.password ?? '',
       resultReleaseMode: session.resultReleaseMode ?? 'MANUAL',
-      resultReleaseAt: session.resultReleaseAt ?? DEFAULT_DRAFT.resultReleaseAt,
+      resultReleaseAt: session.resultReleaseAt ?? '',
       allowStudentReview: Boolean(session.allowStudentReview),
       requireFullscreen: session.requireFullscreen ?? true,
       enableWebcam: session.enableWebcam ?? true,
       blockCopyPaste: session.blockCopyPaste ?? true,
       blockRightClick: session.blockRightClick ?? true,
       ipMode: session.ipMode ?? 'HOME',
-      allowedIpRange: session.allowedIpRange ?? DEFAULT_DRAFT.allowedIpRange,
+      allowedIpRange: session.allowedIpRange ?? '',
       distributionMode: session.distributionMode ?? 'SHUFFLE_QUESTIONS_AND_OPTIONS',
+      randomQuestionCount: session.randomQuestionCount ?? 1,
     })
   }
 
@@ -202,12 +255,34 @@ function AssignExamToCourseModalContent({
       return
     }
 
-    await onCreateSessions?.(sessionsToSave as ExamSchedule[])
-    setIsSuccess(true)
-    setTimeout(() => {
-      setIsSuccess(false)
-      onClose()
-    }, 1200)
+    try {
+      await onCreateSessions?.(sessionsToSave as ExamSchedule[])
+      setFieldErrors({})
+      setIsSuccess(true)
+      setTimeout(() => {
+        setIsSuccess(false)
+        onClose()
+      }, 1200)
+    } catch (error) {
+      const apiErrors = getApiFieldErrors(error)
+      const nextErrors: Partial<Record<keyof ExamSessionDraft, string>> = {
+        courseOfferingId: apiErrors.courseOfferingId,
+        startTime: apiErrors.startTime,
+        endTime: apiErrors.endTime,
+        durationMinutes: apiErrors.durationMinutes,
+        maxAttempts: apiErrors.maxAttempts,
+        password: apiErrors.password,
+        resultReleaseAt: apiErrors.resultReleaseAt,
+        allowedIpRange: apiErrors.allowedIpRanges,
+        randomQuestionCount: apiErrors.randomQuestionCount,
+      }
+      setFieldErrors(Object.fromEntries(Object.entries(nextErrors).filter(([, message]) => message)))
+      toast.error(
+        Object.keys(apiErrors).length
+          ? 'Vui lòng kiểm tra các trường đang báo lỗi.'
+          : getApiErrorMessage(error, 'Không thể lưu ca thi. Vui lòng thử lại.'),
+      )
+    }
   }
 
   return (
@@ -258,6 +333,8 @@ function AssignExamToCourseModalContent({
                   draft={draftSession}
                   courses={courses}
                   onChange={setDraftSession}
+                  fieldErrors={fieldErrors}
+                  onFieldChange={clearFieldError}
                   onAdd={addPublishSession}
                   submitLabel={editingSessionId ? 'Cập nhật thông tin' : 'Thêm ca'}
                   showSubmit={!isEditingExistingSession}

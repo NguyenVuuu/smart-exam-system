@@ -30,11 +30,12 @@ export function StepCard({
   )
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     <div>
       <label className="block text-xs font-semibold text-gray-700 mb-1.5">{label}</label>
       {children}
+      {error && <p className="mt-1.5 text-xs text-rose-600">{error}</p>}
     </div>
   )
 }

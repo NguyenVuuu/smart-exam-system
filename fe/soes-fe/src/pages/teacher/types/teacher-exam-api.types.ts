@@ -5,6 +5,7 @@ export interface TeacherExamCapabilities {
   canSchedule: boolean
   canLock: boolean
   canUnlock: boolean
+  canToggleStudentVisibility: boolean
   canCopy: boolean
   canArchive: boolean
   lockReason?: string
@@ -18,6 +19,7 @@ export interface TeacherExamDto {
   format: 'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'
   creationMethod: 'MANUAL' | 'QUESTION_BANK' | 'AI_GENERATED' | 'MIXED'
   status: 'DRAFT' | 'READY' | 'LOCKED' | 'ARCHIVED'
+  studentVisibility: 'VISIBLE' | 'HIDDEN'
   approvalStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED'
   defaultDurationMinutes: number
   totalPoints: number
@@ -87,6 +89,7 @@ export interface TeacherExamScheduleDto {
   status: 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED' | 'CANCELLED'
   locationMode: 'ONLINE' | 'CAMPUS'
   distributionMode: 'FIXED_ORDER' | 'SHUFFLE_QUESTIONS' | 'SHUFFLE_OPTIONS' | 'SHUFFLE_QUESTIONS_AND_OPTIONS' | 'RANDOM_SUBSET'
+  randomQuestionCount: number | null
   resultReleaseMode: 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED' | 'NEVER'
   resultReleaseAt: string | null
   reviewPolicy: 'NONE' | 'SCORE_ONLY' | 'ANSWERS_NO_KEY' | 'FULL_AFTER_RELEASE'
@@ -114,6 +117,7 @@ export interface TeacherExamSchedulePayload {
   locationMode: 'ONLINE' | 'CAMPUS'
   allowedIpRanges: string[]
   distributionMode: TeacherExamScheduleDto['distributionMode']
+  randomQuestionCount?: number | null
   resultReleaseMode: 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED'
   resultReleaseAt?: string | null
   allowStudentReview: boolean

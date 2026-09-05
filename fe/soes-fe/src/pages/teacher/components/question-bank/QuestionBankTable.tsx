@@ -1,4 +1,4 @@
-﻿import { Archive, ArchiveRestore, CloudUpload, Edit, Eye, XCircle } from 'lucide-react'
+import { Archive, ArchiveRestore, CloudUpload, Edit, Eye, XCircle } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { Question, QuestionType } from '../../types/teacher-question-bank.types'
@@ -43,6 +43,7 @@ export default function QuestionBankTable({
   questions,
   activeTab,
   canApproveSharedQuestions,
+  isLoading = false,
   onView,
   onEdit,
   onArchive,
@@ -53,6 +54,7 @@ export default function QuestionBankTable({
   questions: Question[]
   activeTab: 'PERSONAL' | 'SHARED'
   canApproveSharedQuestions: boolean
+  isLoading?: boolean
   onView: (q: Question) => void
   onEdit: (q: Question) => void
   onArchive: (q: Question) => void
@@ -209,6 +211,7 @@ export default function QuestionBankTable({
       columns={columns}
       data={questions}
       keyExtractor={(q) => q.id}
+      isLoading={isLoading}
       emptyText="Không tìm thấy câu hỏi nào phù hợp với bộ lọc."
     />
   )

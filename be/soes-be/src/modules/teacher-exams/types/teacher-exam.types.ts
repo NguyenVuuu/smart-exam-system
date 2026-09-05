@@ -5,6 +5,7 @@ export interface ExamCapabilities {
   canSchedule: boolean
   canLock: boolean
   canUnlock: boolean
+  canToggleStudentVisibility: boolean
   canCopy: boolean
   canArchive: boolean
   lockReason?: string

@@ -92,7 +92,7 @@ export function QuestionRow({
           <AppSelect
             value={item.sectionId ?? ''}
             onChange={onSectionChange}
-            buttonClassName="bg-gray-50 text-xs rounded-lg p-2"
+            buttonClassName="bg-white text-xs rounded-lg p-2 shadow-2xs"
             menuClassName="min-w-52"
             options={sections.map((section) => ({
               value: section.id,
@@ -107,7 +107,7 @@ export function QuestionRow({
               step={0.25}
               value={item.points}
               onChange={(e) => onPointChange(Number(e.target.value))}
-              className="w-20 bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs font-bold focus:outline-none focus:border-blue-300"
+              className="w-20 bg-white border border-gray-200 rounded-lg p-2 text-xs font-bold focus:outline-none focus:border-blue-300 shadow-2xs"
             />
           </label>
           <div className="flex justify-end gap-1">

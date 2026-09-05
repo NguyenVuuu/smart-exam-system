@@ -502,7 +502,7 @@ export default function AIPdfGeneratorModal({
                           const value = event.currentTarget.valueAsNumber
                           setQuestionCount(Number.isFinite(value) ? Math.min(50, Math.max(1, value)) : 1)
                         }}
-                        className="w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-xs font-bold outline-none focus:border-blue-500"
+                        className="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-xs font-bold outline-none focus:border-blue-500 shadow-2xs"
                       />
                     ) : (
                       <input
@@ -533,7 +533,7 @@ export default function AIPdfGeneratorModal({
                     autoCorrect="off"
                     autoCapitalize="off"
                     placeholder="Ví dụ: tập trung vào mảng 2 chiều, tránh câu hỏi mẹo..."
-                    className="min-h-[210px] flex-1 resize-y rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none focus:border-blue-500"
+                    className="min-h-[210px] flex-1 resize-y rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-blue-500 shadow-2xs"
                   />
                 </div>
               </div>

@@ -62,6 +62,7 @@ export default function FinalExamScheduleForm({
         ipRange={formState.ipRange}
         password={formState.password}
         distributionMode={formState.distributionMode}
+        randomQuestionCount={formState.randomQuestionCount}
         releaseMode={formState.releaseMode}
         releaseAt={formState.releaseAt}
         allowStudentReview={formState.allowStudentReview}
@@ -69,6 +70,7 @@ export default function FinalExamScheduleForm({
         enableWebcam={formState.enableWebcam}
         blockCopyPaste={formState.blockCopyPaste}
         blockRightClick={formState.blockRightClick}
+        fieldErrors={formState.fieldErrors}
         departmentOptions={options.departmentOptions}
         subjectOptions={options.subjectOptions}
         examOptions={options.examOptions}
@@ -85,6 +87,7 @@ export default function FinalExamScheduleForm({
         onIpRangeChange={actions.setIpRange}
         onPasswordChange={actions.setPassword}
         onDistributionModeChange={actions.setDistributionMode}
+        onRandomQuestionCountChange={actions.setRandomQuestionCount}
         onReleaseModeChange={actions.setReleaseMode}
         onReleaseAtChange={actions.setReleaseAt}
         onAllowStudentReviewChange={actions.setAllowStudentReview}
@@ -100,6 +103,7 @@ export default function FinalExamScheduleForm({
         proctorsByCourse={formState.proctorsByCourse}
         teachers={options.teachers}
         selectedExam={options.selectedExam}
+        error={formState.fieldErrors.courses}
         getAssignmentIssue={actions.getAssignmentIssue}
         getTeacherUnavailableReason={actions.getTeacherUnavailableReason}
         onToggleCourse={actions.toggleCourse}

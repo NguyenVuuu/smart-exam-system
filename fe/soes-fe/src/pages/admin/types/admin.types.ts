@@ -120,6 +120,7 @@ export interface AdminExamSchedule {
   password?: string
   hasPassword?: boolean
   distributionMode: string
+  randomQuestionCount?: number | null
   releaseMode: string
   resultReleaseAt?: string
   allowStudentReview?: boolean

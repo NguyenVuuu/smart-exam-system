@@ -81,6 +81,14 @@ export const lockTeacherExamDistribution = (id: string) =>
 export const unlockTeacherExamDistribution = (id: string) =>
   apiClient.delete<ApiResponse<TeacherExamDto>>(`/teacher/exams/${id}/distribution-lock`).then(({ data }) => data.data)
 
+export const updateTeacherExamStudentVisibility = (
+  id: string,
+  visibility: TeacherExamDto['studentVisibility'],
+) => apiClient.patch<ApiResponse<TeacherExamDto>>(
+  `/teacher/exams/${id}/student-visibility`,
+  { visibility },
+).then(({ data }) => data.data)
+
 export const getTeacherExamSchedules = (examId: string) =>
   apiClient.get<ApiResponse<TeacherExamScheduleDto[]>>(`/teacher/exams/${examId}/schedules`).then(({ data }) => data.data)
 

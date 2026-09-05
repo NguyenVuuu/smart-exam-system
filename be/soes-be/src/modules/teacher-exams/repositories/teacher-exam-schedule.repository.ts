@@ -60,6 +60,7 @@ export const findOwnedSchedule = (tx: Prisma.TransactionClient, teacherId: strin
     where: { id, createdById: userId, exam: { createdById: teacherId } },
     select: {
       id: true, status: true, startTime: true, endTime: true,
+      exam: { select: { status: true } },
       _count: { select: { attempts: true } },
     },
   })

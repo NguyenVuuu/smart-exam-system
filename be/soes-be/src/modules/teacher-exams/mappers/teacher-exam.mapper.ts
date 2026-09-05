@@ -21,6 +21,7 @@ export function examCapabilities(row: ExamRow, ownerId: string): ExamCapabilitie
     canLock: owns && row.type !== 'FINAL' && row.status === 'READY'
       && row.schedules.some((schedule) => schedule.status !== 'CANCELLED'),
     canUnlock: owns && row.type !== 'FINAL' && row.status === 'LOCKED' && distributionCanReopen,
+    canToggleStudentVisibility: owns && row.type !== 'FINAL' && ['READY', 'LOCKED'].includes(row.status),
     canCopy: owns, canArchive: owns && row.status !== 'DRAFT',
     ...(!editable && { lockReason: 'Exam is not editable in its current state' }),
   }
@@ -29,7 +30,8 @@ export function examCapabilities(row: ExamRow, ownerId: string): ExamCapabilitie
 export function toTeacherExamDto(row: ExamRow, actorId: string): TeacherExamDto {
   return {
     id: row.id, title: row.title, description: row.description, type: row.type, format: row.format,
-    creationMethod: row.creationMethod, status: row.status, approvalStatus: row.approvalStatus,
+    creationMethod: row.creationMethod, status: row.status,
+    studentVisibility: row.studentVisibility, approvalStatus: row.approvalStatus,
     defaultDurationMinutes: row.defaultDurationMinutes, totalPoints: Number(row.totalPoints),
     subject: { id: row.subject.id, code: row.subject.code, name: row.subject.name },
     semester: row.semester,

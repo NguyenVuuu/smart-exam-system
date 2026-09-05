@@ -402,6 +402,7 @@ model Exam {
   totalPoints            Decimal               @default(10) @db.Decimal(5, 2)
   format                 ExamFormat
   status                 ExamStatus            @default(DRAFT)
+  studentVisibility      ExamStudentVisibility @default(VISIBLE)
   approvalStatus         ExamApprovalStatus    @default(NOT_REQUIRED)
   reviewedAt             DateTime?
   reviewedById           String?
@@ -926,6 +927,11 @@ enum ExamStatus {
   READY
   LOCKED
   ARCHIVED
+}
+
+enum ExamStudentVisibility {
+  VISIBLE
+  HIDDEN
 }
 
 enum ExamFormat {

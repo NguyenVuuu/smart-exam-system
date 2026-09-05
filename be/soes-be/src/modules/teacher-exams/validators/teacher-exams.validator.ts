@@ -127,6 +127,9 @@ export const examApprovalQuerySchema = z.object({
 })
 
 export const examRejectionSchema = z.object({ reason: z.string().trim().min(5).max(1000) })
+export const examStudentVisibilitySchema = z.object({
+  visibility: z.enum(['VISIBLE', 'HIDDEN']),
+})
 export const extendTimeBodySchema = z.object({
   attemptId: z.string().trim().min(1),
   extraMinutes: z.coerce.number().int().min(1).max(180),

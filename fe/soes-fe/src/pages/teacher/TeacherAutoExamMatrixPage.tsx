@@ -21,12 +21,13 @@ import { useTeacherCourses } from './hooks/useTeacherCourses'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import { autoGenerateTeacherExam, createTeacherExamSchedule, deleteTeacherExam, submitTeacherExam } from './api/teacher-exams.api'
 import { toTeacherSchedulePayload } from './mappers/teacher-exam.mapper'
+import { validateAutoExamConfig } from './utils/teacherValidation.utils'
 
 const DEFAULT_SESSION_CONFIG = {
   maxAttempts: 1,
   password: '',
   resultReleaseMode: 'MANUAL' as const,
-  resultReleaseAt: '2026-08-25T18:00',
+  resultReleaseAt: '',
   allowStudentReview: false,
   requireFullscreen: true,
   enableWebcam: true,
@@ -41,10 +42,10 @@ export default function TeacherAutoExamMatrixPage() {
   const { questions, subjects } = useTeacherQuestions()
   const { courses } = useTeacherCourses()
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
-  const [examTitle, setExamTitle] = useState('Đề thi Giữa Kỳ 1 • 2026')
+  const [examTitle, setExamTitle] = useState('')
   const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
   const [examFormat, setExamFormat] = useState<'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'>('OBJECTIVE')
-  const [durationMinutes, setDurationMinutes] = useState(60)
+  const [durationMinutes, setDurationMinutes] = useState<number | ''>('')
   const [targetTotalPoints, setTargetTotalPoints] = useState(10)
   const [easyCount, setEasyCount] = useState(0)
   const [mediumCount, setMediumCount] = useState(0)
@@ -57,6 +58,16 @@ export default function TeacherAutoExamMatrixPage() {
   const [draftStatus, setDraftStatus] = useState<AutoExamDraftStatus>('NOT_GENERATED')
   const [previewExamCode, setPreviewExamCode] = useState<GeneratedExamDraft | null>(null)
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
 
   const subjectOptions = useMemo(() => {
     const subjectsFromCourses = courses.map((course) => ({ id: course.subjectId, name: `${course.subjectName} (${course.subjectCode})` }))
@@ -120,27 +131,27 @@ export default function TeacherAutoExamMatrixPage() {
   }
 
   const handleGenerateExams = async () => {
-    if (!examTitle.trim()) {
-      toast.error('Vui lòng nhập tên bài thi trước khi sinh đề.')
-      return
-    }
-
-    if (durationMinutes <= 0) {
-      toast.error('Thời lượng làm bài phải lớn hơn 0.')
-      return
-    }
-
-    if (targetTotalPoints <= 0) {
-      toast.error('Tổng điểm mục tiêu phải lớn hơn 0.')
-      return
-    }
-
     const subjectCourse = courses.find((course) => course.subjectId === selectedSubject && course.semesterStatus === 'ACTIVE')
       ?? courses.find((course) => course.subjectId === selectedSubject)
-    if (!selectedSubject || !subjectCourse?.semesterId) {
-      toast.error('Không tìm thấy học kỳ/lớp học phần cho môn đã chọn.')
+
+    const validation = validateAutoExamConfig({
+      title: examTitle,
+      durationMinutes,
+      targetTotalPoints,
+      selectedSubject,
+      hasValidSemester: Boolean(subjectCourse?.semesterId),
+      pickMode,
+      configuredQuestionCount,
+      selectedQuestionCount: selectedQuestionIds.length,
+    })
+
+    if (!validation.isValid) {
+      setFieldErrors(validation.errors)
+      if (validation.firstError) toast.error(validation.firstError)
       return
     }
+
+    setFieldErrors({})
 
     if (pickMode === 'MANUAL' && selectedQuestionIds.length === 0) {
       toast.error('Vui lòng chọn ít nhất một câu hỏi từ ngân hàng trước khi sinh đề.')
@@ -160,10 +171,10 @@ export default function TeacherAutoExamMatrixPage() {
             ? 'Đề thi hỗn hợp (trắc nghiệm và lập trình) được sinh tự động từ ngân hàng câu hỏi.'
             : 'Đề trắc nghiệm được sinh tự động từ ngân hàng câu hỏi và đã được giảng viên xem lại.',
         subjectId: selectedSubject,
-        semesterId: subjectCourse.semesterId,
+        semesterId: subjectCourse!.semesterId,
         type: examCategory,
         format: examFormat,
-        defaultDurationMinutes: durationMinutes,
+        defaultDurationMinutes: Number(durationMinutes),
         totalPoints: targetTotalPoints,
         pickMode,
         sourceScope: 'BOTH',
@@ -264,7 +275,7 @@ export default function TeacherAutoExamMatrixPage() {
                 setExamCategory={setExamCategory}
                 examFormat={examFormat}
                 setExamFormat={setExamFormat}
-                durationMinutes={durationMinutes}
+                durationMinutes={durationMinutes as number}
                 setDurationMinutes={setDurationMinutes}
                 targetTotalPoints={targetTotalPoints}
                 setTargetTotalPoints={setTargetTotalPoints}
@@ -290,6 +301,8 @@ export default function TeacherAutoExamMatrixPage() {
                 isGenerating={isGenerating}
                 totalQuestions={totalQuestions}
                 onGenerate={handleGenerateExams}
+                fieldErrors={fieldErrors}
+                onFieldChange={clearFieldError}
               />
             </TeacherTwoColumnMain>
 
@@ -326,7 +339,7 @@ export default function TeacherAutoExamMatrixPage() {
         onClose={() => setIsAssignModalOpen(false)}
         examTitle={examTitle}
         defaultConfig={{
-          durationMinutes,
+          durationMinutes: Number(durationMinutes) || 60,
           ...DEFAULT_SESSION_CONFIG,
           distributionMode: 'SHUFFLE_QUESTIONS_AND_OPTIONS',
         }}
@@ -349,7 +362,7 @@ export default function TeacherAutoExamMatrixPage() {
         examTitle={examTitle}
         examCategory={examCategory}
         draftStatus={draftStatus}
-        durationMinutes={durationMinutes}
+        durationMinutes={Number(durationMinutes) || 60}
         onClose={() => setPreviewExamCode(null)}
       />
     </div>

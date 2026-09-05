@@ -1,29 +1,19 @@
-import {
-  ArrowLeft,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  HardDrive,
-  Loader2,
-  Save,
-  Sparkles,
-  Trash2,
-  Upload,
-  XCircle,
-} from 'lucide-react'
+import { ArrowLeft, Loader2, Save, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import AppSelect from '../../components/common/AppSelect'
 import { getApiErrorMessage } from '../../api/errors'
-import FileSelectionList from './components/FileSelectionList'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
-import { QuestionProgrammingEditor } from './components/question-bank/editor/QuestionProgrammingEditor'
-import RichTextEditor from './components/question-bank/editor/RichTextEditor'
+import {
+  AiGeneratorConfigPanel,
+  type AiMode,
+  type DesiredDifficulty,
+  type SourceMode,
+  type TargetQuestionType,
+} from './components/ai-generator/AiGeneratorConfigPanel'
+import { AiDraftQuestionsPanel } from './components/ai-generator/AiDraftQuestionsPanel'
 import { formatPlainTextToHtml } from './utils/formatHtml.utils'
 import {
   generateAiQuestions,
@@ -32,88 +22,13 @@ import {
   uploadAiSourceFiles,
 } from './api/teacher-questions.api'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
-import type { AIDraftQuestion, DifficultyLevel } from './types/teacher-question-bank.types'
+import type { AIDraftQuestion } from './types/teacher-question-bank.types'
 import type { AiMaterialDto } from './types/teacher-question-api.types'
-
-type SourceMode = 'COURSE_MATERIAL' | 'UPLOAD_FILE'
-type AiMode = 'GENERATE_FROM_MATERIAL' | 'EXTRACT_EXISTING_EXAM'
-type DesiredDifficulty = DifficultyLevel | 'AUTO'
-type TargetQuestionType = 'ALL' | 'MULTIPLE_CHOICE' | 'PROGRAMMING'
-
-const questionTypeFilterOptions: Array<{ value: TargetQuestionType; label: string }> = [
-  { value: 'ALL', label: 'Tất cả (Tự động)' },
-  { value: 'MULTIPLE_CHOICE', label: 'Chỉ Trắc nghiệm' },
-  { value: 'PROGRAMMING', label: 'Chỉ Lập trình' },
-]
-
-const sourceOptions: Array<{ value: SourceMode; title: string; description: string }> = [
-  {
-    value: 'COURSE_MATERIAL',
-    title: 'Tài liệu lớp học',
-    description: 'File đã upload trong lớp.',
-  },
-  {
-    value: 'UPLOAD_FILE',
-    title: 'Tải file mới',
-    description: 'File riêng cho lần sinh này.',
-  },
-]
-
-const modeOptions: Array<{ value: AiMode; title: string; description: string }> = [
-  {
-    value: 'GENERATE_FROM_MATERIAL',
-    title: 'Sinh câu hỏi từ tài liệu',
-    description: 'Tạo câu hỏi mới từ nội dung file.',
-  },
-  {
-    value: 'EXTRACT_EXISTING_EXAM',
-    title: 'Bóc tách đề có sẵn',
-    description: 'Tách câu hỏi và đáp án từ đề.',
-  },
-]
-
-const difficultyOptions: Array<{ value: DesiredDifficulty; label: string }> = [
-  { value: 'AUTO', label: 'Tự phân bổ độ khó' },
-  { value: 'EASY', label: 'Dễ' },
-  { value: 'MEDIUM', label: 'Trung bình' },
-  { value: 'HARD', label: 'Khó' },
-]
-
-const difficultyLabel: Record<DifficultyLevel, string> = {
-  EASY: 'Dễ',
-  MEDIUM: 'Trung bình',
-  HARD: 'Khó',
-}
-
-const difficultyTone: Record<DifficultyLevel, string> = {
-  EASY: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  MEDIUM: 'border-amber-200 bg-amber-50 text-amber-700',
-  HARD: 'border-rose-200 bg-rose-50 text-rose-700',
-}
-
-const statusLabel: Record<AIDraftQuestion['status'], string> = {
-  PENDING_REVIEW: 'Chờ duyệt',
-  APPROVED: 'Đã chấp nhận',
-  REJECTED: 'Đã từ chối',
-}
-
-const questionTypeLabel: Record<string, string> = {
-  SINGLE_CHOICE: 'Một đáp án',
-  MULTIPLE_CHOICE: 'Nhiều đáp án',
-  TRUE_FALSE: 'Đúng / Sai',
-  PROGRAMMING: 'Lập trình',
-}
-
-const formatFileSize = (bytes: number) =>
-  bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`
 
 const aiDraftStorageKey = 'teacher-ai-question-drafts'
 
 function loadStoredDraftQuestions() {
   if (typeof window === 'undefined') return []
-
   try {
     const value = window.sessionStorage.getItem(aiDraftStorageKey)
     return value ? (JSON.parse(value) as AIDraftQuestion[]) : []
@@ -152,7 +67,6 @@ export default function TeacherAiQuestionGeneratorPage() {
       window.sessionStorage.removeItem(aiDraftStorageKey)
       return
     }
-
     window.sessionStorage.setItem(aiDraftStorageKey, JSON.stringify(draftQuestions))
   }, [draftQuestions])
 
@@ -457,471 +371,56 @@ export default function TeacherAiQuestionGeneratorPage() {
           />
 
           <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[480px_minmax(0,1fr)]">
-            <section ref={configSectionRef} className="space-y-5 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div>
-                <h2 className="text-sm font-bold text-gray-950">Cấu hình AI</h2>
-                <p className="mt-1 text-xs text-gray-500">
-                  AI tạo câu hỏi nháp, giảng viên duyệt rồi mới lưu.
-                </p>
-              </div>
+            <AiGeneratorConfigPanel
+              configSectionRef={configSectionRef}
+              selectedSubjectId={selectedSubjectId}
+              subjectOptions={subjectOptions}
+              onSubjectChange={(value) => {
+                setSubjectId(value)
+                setSelectedMaterials([])
+                setMaterialsLoading(true)
+              }}
+              sourceMode={sourceMode}
+              onSourceModeChange={setSourceMode}
+              materials={materials}
+              materialsLoading={materialsLoading}
+              selectedMaterials={selectedMaterials}
+              onToggleMaterial={toggleMaterial}
+              uploadedFiles={uploadedFiles}
+              onAddFiles={(files) => setUploadedFiles(files)}
+              onRemoveUploadedFile={removeUploadedFile}
+              onClearUploadedFiles={() => setUploadedFiles([])}
+              aiMode={aiMode}
+              onAiModeChange={setAiMode}
+              targetQuestionType={targetQuestionType}
+              onTargetQuestionTypeChange={setTargetQuestionType}
+              desiredDifficulty={desiredDifficulty}
+              onDesiredDifficultyChange={setDesiredDifficulty}
+              questionCount={questionCount}
+              onQuestionCountChange={setQuestionCount}
+              promptInput={promptInput}
+              onPromptInputChange={setPromptInput}
+              isGenerating={isGenerating}
+              onGenerate={handleGenerate}
+            />
 
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-gray-900">Môn học</label>
-                <AppSelect
-                  value={selectedSubjectId}
-                  onChange={(value) => {
-                    setSubjectId(value)
-                    setSelectedMaterials([])
-                    setMaterialsLoading(true)
-                  }}
-                  buttonClassName="bg-white"
-                  options={subjectOptions}
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  File tải mới hoặc tài liệu lớp học đều sẽ sinh câu hỏi cho môn này.
-                </p>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-900">Nguồn dữ liệu</label>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {sourceOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setSourceMode(option.value)}
-                      className={`rounded-xl border p-3 text-left transition-colors ${
-                        sourceMode === option.value
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      <p className="text-xs font-bold text-gray-950">{option.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-gray-500">{option.description}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {sourceMode === 'COURSE_MATERIAL' ? (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-900">Tài liệu lớp học</label>
-                    <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
-                      {materialsLoading ? (
-                        <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 p-5 text-xs text-gray-500">
-                          <Loader2 size={15} className="animate-spin" />
-                          Đang tải tài liệu...
-                        </div>
-                      ) : materials.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-gray-200 p-5 text-center text-xs text-gray-500">
-                          Chưa có tài liệu nào thuộc môn đã chọn.
-                        </div>
-                      ) : materials.map((material) => {
-                        const checked = selectedMaterials.includes(material.id)
-                        return (
-                          <label
-                            key={material.id}
-                            className={`relative flex min-h-[64px] cursor-pointer items-center gap-3 rounded-xl border p-3 pr-24 transition-colors ${
-                              checked ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(event) => toggleMaterial(material.id, event.target.checked)}
-                              className="rounded text-blue-600 focus:ring-blue-500"
-                            />
-                            <FileText size={16} className="text-blue-600" />
-                            <span className="min-w-0">
-                              <span className="block truncate text-xs font-semibold text-gray-900">
-                                {material.fileName}
-                              </span>
-                              <span className="block truncate text-xs text-gray-400">
-                                {material.courseCode} - {formatFileSize(material.fileSize)} - {material.contentType}
-                              </span>
-                              {material.duplicated && (
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-700">
-                                  Trùng nội dung
-                                </span>
-                              )}
-                            </span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      File trùng được nhận biết bằng checksum.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <label className="block cursor-pointer rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/30 p-6 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/60">
-                    <input
-                      type="file"
-                      accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"
-                      multiple
-                      className="hidden"
-                      onChange={(event) => {
-                        const files = Array.from(event.target.files ?? [])
-                        if (files.length) setUploadedFiles(files)
-                        event.currentTarget.value = ''
-                      }}
-                    />
-                    <Upload size={22} className="mx-auto text-blue-600" />
-                    <p className="mt-2 text-xs font-bold text-gray-900">Chọn một hoặc nhiều file PDF, DOCX, TXT, PNG, JPG</p>
-                    <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-400">
-                      <HardDrive size={13} />
-                      File sẽ lưu Supabase, checksum tính ở backend khi upload.
-                    </p>
-                  </label>
-                  <FileSelectionList
-                    files={uploadedFiles}
-                    onRemove={removeUploadedFile}
-                    onClear={() => setUploadedFiles([])}
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="text-xs font-bold text-gray-900">Chế độ xử lý</label>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {modeOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setAiMode(option.value)}
-                      className={`rounded-xl border p-3 text-left transition-colors ${
-                        aiMode === option.value
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      <p className="text-xs font-bold text-gray-950">{option.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-gray-500">{option.description}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                {aiMode === 'GENERATE_FROM_MATERIAL' ? (
-                  <>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-700">Dạng câu hỏi</label>
-                        <AppSelect
-                          value={targetQuestionType}
-                          onChange={(value) => setTargetQuestionType(value as TargetQuestionType)}
-                          buttonClassName="bg-gray-50"
-                          options={questionTypeFilterOptions}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-700">Độ khó</label>
-                        <AppSelect
-                          value={desiredDifficulty}
-                          onChange={(value) => setDesiredDifficulty(value as DesiredDifficulty)}
-                          buttonClassName="bg-gray-50"
-                          options={difficultyOptions}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-700">Số câu muốn sinh</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={questionCount}
-                        onChange={(event) => setQuestionCount(Number(event.target.value))}
-                        className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-gray-700">Cách lấy số câu</label>
-                    <input
-                      disabled
-                      value="Tự nhận diện theo đề"
-                      className="h-11 w-full rounded-xl border border-gray-200 bg-gray-100 px-3 text-sm font-semibold text-gray-600"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-700">Yêu cầu thêm cho AI</label>
-                <textarea
-                  rows={7}
-                  value={promptInput}
-                  onChange={(event) => setPromptInput(event.target.value)}
-                  spellCheck={false}
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  placeholder="Ví dụ: tạo đáp án nhiễu hợp lý, tránh câu hỏi mẹo, ưu tiên kiến thức chương kế thừa..."
-                  className="min-h-40 w-full resize-y rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700 disabled:opacity-60"
-              >
-                {isGenerating ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-                {isGenerating ? 'AI đang xử lý...' : 'Sinh câu hỏi'}
-              </button>
-            </section>
-
-            <section
-              className="flex min-h-[620px] flex-col overflow-hidden rounded-xl border border-gray-100 bg-white p-5 shadow-sm xl:min-h-0"
-              style={draftPanelHeight ? { height: draftPanelHeight } : undefined}
-            >
-              <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-4">
-                <div>
-                  <h2 className="text-sm font-bold text-gray-950">Câu hỏi nháp</h2>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Duyệt từng câu trước khi lưu vào ngân hàng cá nhân.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {draftQuestions.length > 0 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleApproveAllAvailable}
-                        className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
-                      >
-                        <CheckCircle2 size={14} />
-                        Chấp nhận tất cả
-                      </button>
-                      <button
-                        type="button"
-                        onClick={clearDraftQuestions}
-                        className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
-                      >
-                        <Trash2 size={14} />
-                        Xóa nháp
-                      </button>
-                    </>
-                  )}
-                  <span className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                    {draftQuestions.filter((item) => item.status === 'APPROVED').length} / {draftQuestions.length} đã duyệt
-                  </span>
-                </div>
-              </div>
-
-              {isGenerating ? (
-                <div className="flex min-h-[460px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-blue-200 bg-blue-50/20 text-center">
-                  {/* AI Sparkles icon nhấp nhô & gợn sóng */}
-                  <div className="relative flex items-center justify-center">
-                    <span className="absolute h-16 w-16 rounded-full bg-blue-400/20 animate-ping opacity-75" style={{ animationDuration: '1.8s' }} />
-                    <span className="absolute h-10 w-10 rounded-full bg-blue-500/30 animate-ping opacity-90" style={{ animationDuration: '1.2s' }} />
-                    <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-blue-500/25">
-                      <Sparkles size={24} className="text-amber-300 animate-bounce" style={{ animationDuration: '1s' }} />
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-sm font-bold text-gray-950">
-                    {aiMode === 'EXTRACT_EXISTING_EXAM' ? 'AI đang bóc tách câu hỏi...' : 'AI đang sinh câu hỏi...'}
-                  </p>
-                  <p className="mt-1 max-w-xs text-xs text-gray-500">
-                    Đang phân tích tài liệu và cấu trúc câu hỏi, vui lòng đợi trong giây lát.
-                  </p>
-                </div>
-              ) : draftQuestions.length === 0 ? (
-                <div className="flex min-h-[460px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 text-center">
-                  <Sparkles size={28} className="text-blue-500" />
-                  <p className="mt-3 text-sm font-bold text-gray-950">Chưa có câu hỏi nháp</p>
-                  <p className="mt-1 max-w-sm text-xs text-gray-500">
-                    Chọn nguồn dữ liệu và chế độ xử lý, sau đó bấm sinh câu hỏi.
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                  {draftQuestions.map((question, index) => {
-                    const isCollapsed = collapsedDraftQuestionIds.includes(question.id)
-                    return (
-                    <article key={question.id} className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-bold text-blue-700">
-                              Câu nháp #{index + 1}
-                            </span>
-                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-600">
-                              {questionTypeLabel[question.type] || question.type}
-                            </span>
-                            <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-bold ${difficultyTone[question.difficulty]}`}>
-                              {difficultyLabel[question.difficulty]}
-                            </span>
-                          </div>
-                          {isCollapsed && (
-                            <p className="mt-1.5 truncate text-sm font-semibold text-gray-950">
-                              {question.title || question.content || 'Chưa có tiêu đề'}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span
-                            className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
-                              question.status === 'APPROVED'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : question.status === 'REJECTED'
-                                  ? 'bg-rose-50 text-rose-700'
-                                  : 'bg-amber-50 text-amber-700'
-                            }`}
-                          >
-                            {statusLabel[question.status]}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => toggleDraftQuestionCollapse(question.id)}
-                            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 cursor-pointer"
-                            title={isCollapsed ? 'Mở câu hỏi' : 'Thu gọn câu hỏi'}
-                          >
-                            {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {!isCollapsed && (
-                        <>
-                      {question.aiDifficultyReason && (
-                        <p className="mt-3 text-xs leading-5 text-gray-500">
-                          <span className="font-semibold text-gray-600">Lý do xếp độ khó:</span> {question.aiDifficultyReason}
-                        </p>
-                      )}
-                      {question.type === 'PROGRAMMING' ? (
-                        <>
-                          <div className="mt-3">
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">Tiêu đề bài</label>
-                            <input
-                              value={question.title}
-                              onChange={(event) => updateDraftField(question.id, 'title', event.target.value)}
-                              className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-950 outline-none focus:border-blue-500"
-                            />
-                          </div>
-                          <div className="mt-3">
-                            <label className="mb-1 block text-xs font-semibold text-gray-600">Mô tả bài toán</label>
-                            <RichTextEditor
-                              value={question.content}
-                              onChange={(val) => updateDraftField(question.id, 'content', val)}
-                              placeholder="Nhập mô tả bài toán..."
-                              minHeight={200}
-                              height={240}
-                            />
-                          </div>
-                          <div className="mt-3">
-                            <QuestionProgrammingEditor
-                              programmingLanguage={question.programmingLanguage ?? 'JAVA'}
-                              onLanguageChange={(value) => updateDraftField(question.id, 'programmingLanguage', value)}
-                              timeLimitMs={question.timeLimitMs ?? 2000}
-                              onTimeLimitChange={(value) => updateDraftField(question.id, 'timeLimitMs', value)}
-                              memoryLimitMb={question.memoryLimitMb ?? 256}
-                              onMemoryLimitChange={(value) => updateDraftField(question.id, 'memoryLimitMb', value)}
-                              maxCodeSizeKb={question.maxCodeSizeKb ?? 256}
-                              onMaxCodeSizeChange={(value) => updateDraftField(question.id, 'maxCodeSizeKb', value)}
-                              testCases={question.testCases ?? []}
-                              onTestCasesChange={(testCases) => updateDraftTestCases(question.id, testCases)}
-                              expandedTcIds={expandedDraftTestCaseIds[question.id] ?? []}
-                              onToggleExpandTc={(testCaseId) => toggleDraftTestCase(question.id, testCaseId)}
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <div className="mt-3">
-                          <label className="mb-1 block text-xs font-semibold text-gray-600">Câu hỏi</label>
-                          <textarea
-                            rows={2}
-                            value={question.content || question.title}
-                            onChange={(event) => {
-                              updateDraftField(question.id, 'content', event.target.value)
-                              updateDraftField(question.id, 'title', event.target.value)
-                            }}
-                            className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold leading-6 text-gray-950 outline-none focus:border-blue-500"
-                          />
-                        </div>
-                      )}
-
-                      {question.options && (
-                        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-                          {question.options.map((option, optionIndex) => (
-                            <label
-                              key={option.id}
-                              className={`flex items-center gap-2 rounded-lg border p-2 text-xs ${
-                                option.isCorrect
-                                  ? 'border-emerald-200 bg-emerald-50 font-semibold text-emerald-800'
-                                  : 'border-gray-200 bg-gray-50 text-gray-700'
-                              }`}
-                            >
-                              <input
-                                type={question.type === 'MULTIPLE_CHOICE' ? 'checkbox' : 'radio'}
-                                name={`correct-${question.id}`}
-                                checked={option.isCorrect}
-                                onChange={(event) =>
-                                  updateDraftOptionCorrect(question.id, option.id, event.target.checked)
-                                }
-                                className="shrink-0 text-emerald-600 focus:ring-emerald-500"
-                              />
-                              <span className="shrink-0 font-bold">{String.fromCharCode(65 + optionIndex)}.</span>
-                              <input
-                                value={option.content}
-                                onChange={(event) =>
-                                  updateDraftOptionContent(question.id, option.id, event.target.value)
-                                }
-                                className="min-w-0 flex-1 bg-transparent outline-none"
-                              />
-                              {option.isCorrect && <Check size={14} className="shrink-0 text-emerald-600" />}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="mt-3">
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">Giải thích</label>
-                        <textarea
-                          rows={2}
-                          value={question.explanation ?? ''}
-                          onChange={(event) => updateDraftField(question.id, 'explanation', event.target.value)}
-                          className="w-full resize-y rounded-lg border border-blue-100 bg-blue-50 p-2 text-xs leading-5 text-blue-800 outline-none focus:border-blue-400"
-                          placeholder="Nhập hoặc chỉnh giải thích đáp án..."
-                        />
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
-                        <span className="text-xs text-gray-400">Nguồn: {question.sourceMaterialName}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => updateDraftStatus(question.id, 'REJECTED')}
-                            className="flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100"
-                          >
-                            <XCircle size={14} />
-                            Từ chối
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateDraftStatus(question.id, 'APPROVED')}
-                            className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
-                          >
-                            <CheckCircle2 size={14} />
-                            Chấp nhận
-                          </button>
-                        </div>
-                      </div>
-                        </>
-                      )}
-                    </article>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
+            <AiDraftQuestionsPanel
+              draftPanelHeight={draftPanelHeight}
+              draftQuestions={draftQuestions}
+              isGenerating={isGenerating}
+              aiMode={aiMode}
+              collapsedDraftQuestionIds={collapsedDraftQuestionIds}
+              expandedDraftTestCaseIds={expandedDraftTestCaseIds}
+              onApproveAllAvailable={handleApproveAllAvailable}
+              onClearDraftQuestions={clearDraftQuestions}
+              onToggleDraftQuestionCollapse={toggleDraftQuestionCollapse}
+              onToggleDraftTestCase={toggleDraftTestCase}
+              onUpdateDraftField={updateDraftField}
+              onUpdateDraftOptionContent={updateDraftOptionContent}
+              onUpdateDraftOptionCorrect={updateDraftOptionCorrect}
+              onUpdateDraftTestCases={updateDraftTestCases}
+              onUpdateDraftStatus={updateDraftStatus}
+            />
           </div>
         </main>
       </div>

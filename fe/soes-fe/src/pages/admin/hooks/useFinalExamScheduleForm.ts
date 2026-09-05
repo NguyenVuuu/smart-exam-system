@@ -1,5 +1,6 @@
 ﻿import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { getApiErrorMessage, getApiFieldErrors, type ApiFieldErrors } from '../../../api/errors'
 import {
   distributionOptions,
   PROCTOR_TURNOVER_MINUTES,
@@ -66,8 +67,8 @@ export function useFinalExamScheduleForm({
     }, {})
   }, [editingSchedule])
 
-  const [existingStartTime = '08:00', existingEndTime = '09:30'] = (
-    editingSchedule?.time ?? '08:00 - 09:30'
+  const [existingStartTime = '', existingEndTime = ''] = (
+    editingSchedule?.time ?? ''
   ).split(' - ')
 
   const [departmentId, setDepartmentId] = useState(initialExam?.departmentId ?? '')
@@ -98,6 +99,7 @@ export function useFinalExamScheduleForm({
       'SHUFFLE_QUESTIONS_AND_OPTIONS',
     ),
   )
+  const [randomQuestionCount, setRandomQuestionCount] = useState(editingSchedule?.randomQuestionCount ?? 1)
   const [releaseMode, setReleaseMode] = useState(
     findOptionValue(releaseOptions, editingSchedule?.releaseMode ?? '', 'MANUAL'),
   )
@@ -115,6 +117,16 @@ export function useFinalExamScheduleForm({
     initialCourses.map((c) => c.id),
   )
   const [proctorsByCourse, setProctorsByCourse] = useState<Record<string, string[]>>(initialAssignments)
+  const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({})
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
 
   const selectedExam = exams.find((exam) => exam.id === examId)
   const subjectsByDepartment = useMemo(
@@ -165,6 +177,7 @@ export function useFinalExamScheduleForm({
   )
 
   const changeDepartment = (value: string) => {
+    setFieldErrors({})
     setDepartmentId(value)
     setSubjectCode('')
     setExamId('')
@@ -173,6 +186,7 @@ export function useFinalExamScheduleForm({
   }
 
   const changeSubject = (value: string) => {
+    setFieldErrors({})
     setSubjectCode(value)
     setExamId('')
     setSelectedCourseIds([])
@@ -180,6 +194,7 @@ export function useFinalExamScheduleForm({
   }
 
   const changeExam = (value: string) => {
+    setFieldErrors({})
     setExamId(value)
     const exam = exams.find((item) => item.id === value)
     if (exam) {
@@ -189,15 +204,10 @@ export function useFinalExamScheduleForm({
     setSelectedCourseIds([])
     setProctorsByCourse({})
 
-    if (exam) {
-      const endMinutes = 8 * 60 + exam.durationMinutes
-      setEndTime(
-        `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`,
-      )
-    }
   }
 
   const toggleCourse = (courseId: string) => {
+    clearFieldError('courses')
     setSelectedCourseIds((current) =>
       current.includes(courseId) ? current.filter((id) => id !== courseId) : [...current, courseId],
     )
@@ -262,32 +272,54 @@ export function useFinalExamScheduleForm({
 
   const submitSchedule = async () => {
     if (!selectedExam) {
+      setFieldErrors({ examId: 'Vui lòng chọn đề cuối kỳ đã được duyệt.' })
       toast.error('Vui lòng chọn đề cuối kỳ đã được duyệt.')
       return
     }
     if (!examDate || !startTime || !endTime || toMinutes(startTime) >= toMinutes(endTime)) {
+      setFieldErrors({
+        ...(!examDate ? { examDate: 'Vui lòng chọn ngày thi.' } : {}),
+        ...(!startTime ? { startTime: 'Vui lòng chọn giờ mở.' } : {}),
+        endTime: 'Giờ kết thúc phải sau giờ mở.',
+      })
       toast.error('Ngày thi và khoảng thời gian ca thi chưa hợp lệ.')
       return
     }
     if (selectedCourseIds.length === 0) {
+      setFieldErrors({ courses: 'Vui lòng chọn ít nhất một lớp học phần.' })
       toast.error('Vui lòng chọn ít nhất một lớp học phần.')
       return
     }
     if (examMode === 'SCHOOL_IP' && !ipRange.trim()) {
+      setFieldErrors({ ipRange: 'Vui lòng nhập dải IP được phép của trường.' })
       toast.error('Vui lòng nhập dải IP được phép của trường.')
       return
     }
+    const passwordLength = password.trim().length
+    if (passwordLength > 0 && (passwordLength < 4 || passwordLength > 100)) {
+      setFieldErrors({ password: 'Mật khẩu phải có từ 4 đến 100 ký tự.' })
+      toast.error('Vui lòng kiểm tra mật khẩu ca thi.')
+      return
+    }
+    if (distributionMode === 'RANDOM_SUBSET' && randomQuestionCount < 1) {
+      setFieldErrors({ randomQuestionCount: 'Số câu hỏi ngẫu nhiên phải lớn hơn 0.' })
+      toast.error('Vui lòng nhập số câu hỏi ngẫu nhiên.')
+      return
+    }
     if (releaseMode === 'SCHEDULED' && !releaseAt) {
+      setFieldErrors({ releaseAt: 'Vui lòng chọn thời gian công bố kết quả.' })
       toast.error('Vui lòng chọn thời gian tự động công bố kết quả.')
       return
     }
     if (releaseMode === 'SCHEDULED' && releaseAt <= `${examDate}T${endTime}`) {
+      setFieldErrors({ releaseAt: 'Thời gian công bố phải sau khi ca thi kết thúc.' })
       toast.error('Thời gian công bố kết quả phải sau khi ca thi kết thúc.')
       return
     }
 
     const assignmentIssues = selectedCourseIds.map(getAssignmentIssue).filter(Boolean)
     if (assignmentIssues.length > 0) {
+      setFieldErrors({ courses: 'Vui lòng hoàn tất phân công và xử lý các lịch bị trùng.' })
       toast.error('Vui lòng hoàn tất phân công và xử lý các lịch bị trùng.')
       return
     }
@@ -318,6 +350,7 @@ export function useFinalExamScheduleForm({
       password: password.trim() || undefined,
       distributionMode:
         distributionOptions.find((item) => item.value === distributionMode)?.label ?? '',
+      randomQuestionCount: distributionMode === 'RANDOM_SUBSET' ? randomQuestionCount : null,
       releaseMode: releaseOptions.find((item) => item.value === releaseMode)?.label ?? '',
       resultReleaseAt: releaseMode === 'SCHEDULED' ? releaseAt : undefined,
       allowStudentReview,
@@ -330,11 +363,25 @@ export function useFinalExamScheduleForm({
       status: editingSchedule?.status ?? 'SCHEDULED',
     }
     try {
+      setFieldErrors({})
       await onSubmit(schedule)
       toast.success(editingSchedule ? 'Đã cập nhật lịch thi.' : 'Đã tạo lịch thi và phân công giảng viên cho từng lớp.')
       onClose()
-    } catch {
-      toast.error('Không thể lưu lịch thi. Vui lòng kiểm tra trùng lịch và thử lại.')
+    } catch (error) {
+      const apiErrors = getApiFieldErrors(error)
+      const courseError = Object.entries(apiErrors).find(([field]) => field === 'courses' || field.startsWith('courses.'))?.[1]
+      setFieldErrors({
+        ...apiErrors,
+        ...(apiErrors.allowedIpRanges ? { ipRange: apiErrors.allowedIpRanges } : {}),
+        ...(apiErrors.resultReleaseAt ? { releaseAt: apiErrors.resultReleaseAt } : {}),
+        ...(apiErrors.startTime ? { examDate: apiErrors.startTime, startTime: apiErrors.startTime } : {}),
+        ...(courseError ? { courses: courseError } : {}),
+      })
+      toast.error(
+        Object.keys(apiErrors).length
+          ? 'Vui lòng kiểm tra các trường đang báo lỗi.'
+          : getApiErrorMessage(error, 'Không thể lưu lịch thi. Vui lòng kiểm tra trùng lịch và thử lại.'),
+      )
     }
   }
 
@@ -350,6 +397,7 @@ export function useFinalExamScheduleForm({
       ipRange,
       password,
       distributionMode,
+      randomQuestionCount,
       releaseMode,
       releaseAt,
       allowStudentReview,
@@ -359,6 +407,7 @@ export function useFinalExamScheduleForm({
       blockRightClick,
       selectedCourseIds,
       proctorsByCourse,
+      fieldErrors,
     },
     options: {
       departmentOptions,
@@ -372,15 +421,28 @@ export function useFinalExamScheduleForm({
       changeDepartment,
       changeSubject,
       changeExam,
-      setExamDate,
-      setStartTime,
-      setEndTime,
-      setExamMode,
-      setIpRange,
-      setPassword,
-      setDistributionMode,
-      setReleaseMode,
-      setReleaseAt,
+      setExamDate: (value: string) => { clearFieldError('examDate'); setExamDate(value) },
+      setStartTime: (value: string) => { clearFieldError('startTime'); setStartTime(value) },
+      setEndTime: (value: string) => { clearFieldError('endTime'); setEndTime(value) },
+      setExamMode: (value: 'ONLINE' | 'SCHOOL_IP') => {
+        clearFieldError('ipRange')
+        setExamMode(value)
+      },
+      setIpRange: (value: string) => { clearFieldError('ipRange'); setIpRange(value) },
+      setPassword: (value: string) => { clearFieldError('password'); setPassword(value) },
+      setDistributionMode: (value: string) => {
+        clearFieldError('randomQuestionCount')
+        setDistributionMode(value)
+      },
+      setRandomQuestionCount: (value: number) => {
+        clearFieldError('randomQuestionCount')
+        setRandomQuestionCount(value)
+      },
+      setReleaseMode: (value: string) => {
+        clearFieldError('releaseAt')
+        setReleaseMode(value)
+      },
+      setReleaseAt: (value: string) => { clearFieldError('releaseAt'); setReleaseAt(value) },
       setAllowStudentReview,
       setRequireFullscreen,
       setEnableWebcam,
@@ -388,7 +450,10 @@ export function useFinalExamScheduleForm({
       setBlockRightClick,
       toggleCourse,
       setProctorsByCourse: (courseId: string, teacherIds: string[]) =>
-        setProctorsByCourse((current) => ({ ...current, [courseId]: teacherIds })),
+        {
+          clearFieldError('courses')
+          setProctorsByCourse((current) => ({ ...current, [courseId]: teacherIds }))
+        },
       getAssignmentIssue,
       getTeacherUnavailableReason,
       submitSchedule,
