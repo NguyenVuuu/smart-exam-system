@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { randomInt } from 'crypto'
+import type { WebcamStatus } from '@prisma/client'
 
 export async function countAttemptsForSchedule(scheduleId: string, studentId: string) {
   return prisma.examAttempt.count({ where: { examScheduleId: scheduleId, studentId } })
@@ -94,6 +95,7 @@ export interface CreateAttemptInput {
   ipAddress: string
   deviceInfo: string
   actorUserId: string
+  webcamStatus: WebcamStatus
 }
 
 function shuffled<T>(items: T[]): T[] {
@@ -149,6 +151,8 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
         isOnline: true,
         ipAddress: input.ipAddress,
         deviceInfo: input.deviceInfo,
+        webcamStatus: input.webcamStatus,
+        lastWebcamHeartbeatAt: input.webcamStatus === 'ACTIVE' ? input.startedAt : null,
       },
     })
     if (selected.length) {

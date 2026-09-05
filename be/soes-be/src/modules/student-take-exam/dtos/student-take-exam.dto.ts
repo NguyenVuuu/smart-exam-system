@@ -135,6 +135,8 @@ export interface RecordViolationResponseDto {
   violationType: string
   severity: string
   detectedAt: string
+  endedAt?: string | null
+  durationSeconds?: number | null
   evidenceUrls: string[]
 }
 

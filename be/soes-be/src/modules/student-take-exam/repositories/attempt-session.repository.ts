@@ -1,15 +1,33 @@
 import prisma from '../../../lib/prisma'
+import type { WebcamStatus } from '@prisma/client'
 
-export async function upsertExamSessionHeartbeat(attemptId: string, lastHeartbeat: Date) {
+interface UpsertExamSessionHeartbeatInput {
+  webcamStatus?: WebcamStatus
+}
+
+export async function upsertExamSessionHeartbeat(
+  attemptId: string,
+  lastHeartbeat: Date,
+  input: UpsertExamSessionHeartbeatInput = {},
+) {
+  const webcamHeartbeatAt = input.webcamStatus === 'ACTIVE' ? lastHeartbeat : undefined
+
   await prisma.examSession.upsert({
     where: { attemptId },
-    update: { lastHeartbeat, isOnline: true },
+    update: {
+      lastHeartbeat,
+      isOnline: true,
+      ...(input.webcamStatus ? { webcamStatus: input.webcamStatus } : {}),
+      ...(webcamHeartbeatAt ? { lastWebcamHeartbeatAt: webcamHeartbeatAt } : {}),
+    },
     create: {
       attemptId,
       lastHeartbeat,
       isOnline: true,
       ipAddress: 'unknown',
       deviceInfo: 'unknown',
+      webcamStatus: input.webcamStatus ?? 'NOT_REQUIRED',
+      lastWebcamHeartbeatAt: webcamHeartbeatAt,
     },
   })
 }
@@ -32,6 +50,7 @@ export async function findAttemptForHeartbeat(attemptId: string, scheduleId: str
       id: true,
       status: true,
       deadlineAt: true,
+      examSchedule: { select: { enableWebcam: true } },
       examSession: { select: { lastHeartbeat: true } },
     },
   })

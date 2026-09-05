@@ -70,6 +70,56 @@ router.post(
   takeExamController.recordViolation,
 )
 
+// PATCH /api/student/exam-schedules/:scheduleId/attempts/:attemptId/violations/:violationId/end
+router.patch(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/violations/:violationId/end',
+  authenticate,
+  requireStudent(),
+  takeExamController.endViolation,
+)
+
+router.get(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/live/request',
+  authenticate,
+  requireStudent(),
+  takeExamController.getPendingLiveCameraRequest,
+)
+
+router.get(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId',
+  authenticate,
+  requireStudent(),
+  takeExamController.getStudentLiveSession,
+)
+
+router.post(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId/offer',
+  authenticate,
+  requireStudent(),
+  takeExamController.submitLiveCameraOffer,
+)
+
+router.post(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId/ice-candidates',
+  authenticate,
+  requireStudent(),
+  takeExamController.addStudentLiveCandidate,
+)
+
+router.get(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId/ice-candidates',
+  authenticate,
+  requireStudent(),
+  takeExamController.getStudentLiveCandidates,
+)
+
+router.delete(
+  '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId',
+  authenticate,
+  requireStudent(),
+  takeExamController.endStudentLiveSession,
+)
+
 // POST /api/student/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run
 router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run',

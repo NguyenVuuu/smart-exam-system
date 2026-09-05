@@ -1,9 +1,9 @@
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import bcrypt from 'bcrypt'
-import type { SeverityLevel, ViolationType } from '@prisma/client'
-import { examConfig } from "../../../config";
+import type { SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
+import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
-import { uploadViolationEvidenceFiles } from '../../../lib/minio'
+import { saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
 import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
 import { judge0Service, Judge0Service } from '../../../lib/judge0'
@@ -16,6 +16,7 @@ import {
   STUDENT_STARTABLE_SCHEDULE_STATUSES,
   STUDENT_VISIBLE_EXAM_STATUSES,
 } from '../../student-common/exam-visibility.policy'
+import * as live from '../../proctoring-live/proctoring-live.service'
 
 /**
  * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
@@ -307,6 +308,7 @@ export async function startExam(
   deviceInfo: string,
   password?: string,
   webcamConfirmed = false,
+  webcamStatus?: WebcamStatus,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
   const schedule = await repo.findScheduleById(scheduleId);
@@ -341,7 +343,8 @@ export async function startExam(
     throw new ConflictError("Exam has not started yet");
   }
 
-  if (schedule.enableWebcam && !webcamConfirmed) {
+  const initialWebcamStatus: WebcamStatus = schedule.enableWebcam ? 'ACTIVE' : 'NOT_REQUIRED'
+  if (schedule.enableWebcam && (!webcamConfirmed || webcamStatus !== 'ACTIVE')) {
     throw new ForbiddenError("Webcam access is required to start this exam");
   }
 
@@ -410,6 +413,7 @@ export async function startExam(
       ipAddress,
       deviceInfo,  
       actorUserId,
+      webcamStatus: initialWebcamStatus,
     });
   } catch (err) {
     if (err instanceof Error && err.name === "DUPLICATE_ATTEMPT") {
@@ -798,6 +802,7 @@ export async function sendHeartbeat(
   scheduleId: string,
   attemptId: string,
   studentId: string,
+  input: { webcamStatus?: WebcamStatus } = {},
 ): Promise<SendHeartbeatResult> {
   const now = new Date()
 
@@ -821,7 +826,12 @@ export async function sendHeartbeat(
   }
 
   // ── 4. Update ExamSession.lastHeartbeat atomically ─────────────────────────
-  await repo.upsertExamSessionHeartbeat(attemptId, now)
+  const webcamStatus = attemptData.examSchedule.enableWebcam
+    ? input.webcamStatus ?? 'DISCONNECTED'
+    : 'NOT_REQUIRED'
+
+  await repo.upsertExamSessionHeartbeat(attemptId, now, { webcamStatus })
+  await repo.syncCameraStatusViolation(attemptId, webcamStatus, now)
 
   // ── 5. Compute remainingSeconds realtime ───────────────────────────────────
   const remainingSeconds = Math.max(
@@ -866,13 +876,28 @@ export async function recordViolation(
     throw new ValidationError('Invalid detectedAt')
   }
 
-  let evidenceUrls: string[] = []
+  const source = getViolationSource(input.violationType as ViolationType)
+  const evidenceType = getViolationEvidenceType(input.violationType as ViolationType)
+  const violation = await repo.createViolation({
+    attemptId,
+    violationType: input.violationType as ViolationType,
+    source,
+    severity: input.severity as SeverityLevel,
+    description: input.description,
+    detectedAt,
+    evidences: [],
+  })
+
+  let evidenceObjectNames: string[] = []
+  let evidenceStorageProvider: 'MINIO' | 'LOCAL' = 'MINIO'
   try {
-    evidenceUrls = await uploadViolationEvidenceFiles({
+    evidenceObjectNames = await uploadViolationEvidenceFiles({
       attemptId,
       violationType: input.violationType,
       detectedAt,
       files: evidenceFiles,
+      storagePrefix: attempt.examSchedule.proctoringStoragePath,
+      violationId: violation.id,
     })
   } catch (error) {
     logger.error('Failed to upload violation evidence', {
@@ -880,16 +905,91 @@ export async function recordViolation(
       violationType: input.violationType,
       error: error instanceof Error ? error.message : String(error),
     })
+    evidenceStorageProvider = 'LOCAL'
+    evidenceObjectNames = await saveViolationEvidenceFilesLocal({
+      attemptId,
+      violationType: input.violationType,
+      detectedAt,
+      files: evidenceFiles,
+      storagePrefix: attempt.examSchedule.proctoringStoragePath,
+      violationId: violation.id,
+    })
   }
 
-  return repo.createViolation({
+  const evidences = evidenceObjectNames.map((objectName, index) => {
+      const file = evidenceFiles[index]
+      return {
+        evidenceType,
+        bucket: minioConfig.evidenceBucket,
+        objectName,
+        storagePath: objectName.split('/').slice(0, -1).join('/'),
+        fileName: file?.originalname ?? objectName.split('/').pop() ?? 'evidence.jpg',
+        contentType: file?.mimetype ?? 'image/jpeg',
+        fileSize: file?.size,
+        storageProvider: evidenceStorageProvider,
+      }
+    })
+
+  await repo.addViolationEvidence({ violationId: violation.id, evidences })
+  return { ...violation, evidenceUrls: evidenceObjectNames }
+}
+
+export async function endViolation(
+  scheduleId: string,
+  attemptId: string,
+  studentId: string,
+  violationId: string,
+  endedAtInput?: string,
+): Promise<RecordViolationResult> {
+  const endedAt = endedAtInput ? new Date(endedAtInput) : new Date()
+  if (Number.isNaN(endedAt.getTime())) {
+    throw new ValidationError('Invalid endedAt')
+  }
+
+  const violation = await repo.endViolation({
+    scheduleId,
     attemptId,
-    violationType: input.violationType as ViolationType,
-    severity: input.severity as SeverityLevel,
-    description: input.description,
-    detectedAt,
-    evidenceUrls,
+    studentId,
+    violationId,
+    endedAt,
   })
+
+  if (!violation) {
+    throw new NotFoundError('Violation not found')
+  }
+
+  return violation
+}
+
+function getViolationSource(violationType: ViolationType): ViolationSource {
+  if (
+    [
+      'NO_FACE',
+      'MULTIPLE_FACES',
+      'LOOKING_AWAY',
+      'CAMERA_BLOCKED',
+      'CAMERA_DISCONNECTED',
+      'CAMERA_PERMISSION_DENIED',
+    ].includes(violationType)
+  ) {
+    return 'WEBCAM'
+  }
+
+  if (['SCREEN_SHARE_STOPPED', 'SCREEN_PERMISSION_DENIED'].includes(violationType)) {
+    return 'SCREEN'
+  }
+
+  if (['PROCTOR_WEBCAM_CAPTURE', 'PROCTOR_SCREEN_CAPTURE'].includes(violationType)) {
+    return 'PROCTOR'
+  }
+
+  return 'BROWSER'
+}
+
+function getViolationEvidenceType(violationType: ViolationType): ViolationEvidenceType {
+  return getViolationSource(violationType) === 'WEBCAM' || violationType === 'PROCTOR_WEBCAM_CAPTURE'
+    ? 'WEBCAM_IMAGE'
+    : 'SCREEN_IMAGE'
 }
 
 export async function runCode(
@@ -954,4 +1054,72 @@ export async function runCode(
   )
   const judge0Results = await runJudge0Submissions(submissions)
   return buildRunCodeResult(questionId, attempt, testCases, judge0Results, now)
+}
+
+async function requireLiveAttempt(scheduleId: string, attemptId: string, studentId: string) {
+  const attempt = await repo.findAttemptForViolation(attemptId, scheduleId, studentId)
+  if (!attempt) throw new NotFoundError('Attempt not found')
+  const now = new Date()
+  if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
+    throw new ConflictError('Exam attempt has ended')
+  }
+  return attempt
+}
+
+export async function getPendingLiveCameraRequest(scheduleId: string, attemptId: string, studentId: string) {
+  await requireLiveAttempt(scheduleId, attemptId, studentId)
+  return live.getPendingStudentRequest(attemptId, scheduleId)
+}
+
+export async function submitLiveCameraOffer(
+  scheduleId: string,
+  attemptId: string,
+  studentId: string,
+  sessionId: string,
+  offer: Record<string, unknown>,
+) {
+  await requireLiveAttempt(scheduleId, attemptId, studentId)
+  const session = live.submitStudentOffer({ scheduleId, attemptId, sessionId, offer })
+  if (!session) throw new NotFoundError('Live session not found')
+  return session
+}
+
+export async function getStudentLiveSession(scheduleId: string, attemptId: string, studentId: string, sessionId: string) {
+  await requireLiveAttempt(scheduleId, attemptId, studentId)
+  const session = live.getStudentLiveSession(sessionId, attemptId, scheduleId)
+  if (!session) throw new NotFoundError('Live session not found')
+  return session
+}
+
+export async function addStudentLiveCandidate(
+  scheduleId: string,
+  attemptId: string,
+  studentId: string,
+  sessionId: string,
+  candidate: Record<string, unknown>,
+) {
+  await requireLiveAttempt(scheduleId, attemptId, studentId)
+  const result = live.addStudentCandidate({ scheduleId, attemptId, sessionId, candidate })
+  if (!result) throw new NotFoundError('Live session not found')
+  return result
+}
+
+export async function getStudentLiveCandidates(
+  scheduleId: string,
+  attemptId: string,
+  studentId: string,
+  sessionId: string,
+  from: number,
+) {
+  await requireLiveAttempt(scheduleId, attemptId, studentId)
+  const result = live.getTeacherCandidates(sessionId, attemptId, scheduleId, from)
+  if (!result) throw new NotFoundError('Live session not found')
+  return result
+}
+
+export async function endStudentLiveSession(scheduleId: string, attemptId: string, studentId: string, sessionId: string) {
+  await requireLiveAttempt(scheduleId, attemptId, studentId)
+  const session = live.endLiveSession(sessionId, { attemptId, scheduleId })
+  if (!session) throw new NotFoundError('Live session not found')
+  return session
 }

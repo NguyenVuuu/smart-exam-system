@@ -137,6 +137,8 @@ export interface RecordViolationResult {
   violationType: string
   severity: string
   detectedAt: Date
+  endedAt?: Date | null
+  durationSeconds?: number | null
   evidenceUrls: string[]
 }
 
