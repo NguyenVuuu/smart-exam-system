@@ -71,7 +71,7 @@ export async function listProctorAssignments(teacherId: string) {
   if (!teacher) return { rows: [], teacherUserId: null }
   const rows = await prisma.examScheduleCourse.findMany({
     where: {
-      examSchedule: { status: { notIn: ['DRAFT', 'CANCELLED'] }, endTime: { gt: new Date() } },
+      examSchedule: { status: { notIn: ['DRAFT', 'CANCELLED'] } },
       OR: [{ proctors: { some: { teacherId } } }, { examSchedule: { createdById: teacher.userId } }],
     },
     select: proctorAssignmentSelect,
@@ -159,6 +159,7 @@ export async function getCourseGradebook(
   }) : []
   return { total, enrollments, schedules, attempts }
 }
+
 export function findTeacherCourseScope(teacherId: string, courseOfferingId: string) {
   return prisma.courseOffering.findFirst({
     where: { id: courseOfferingId, teacherId },

@@ -1,9 +1,11 @@
-import { Check, CheckCircle2, ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Sparkles, Upload, X, XCircle } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Sparkles, Trash2, Upload, X, XCircle } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '../../../../api/errors'
 import FileSelectionList from '../FileSelectionList'
 import { QuestionProgrammingEditor } from '../question-bank/editor/QuestionProgrammingEditor'
+import RichTextEditor from '../question-bank/editor/RichTextEditor'
+import { formatPlainTextToHtml } from '../../utils/formatHtml.utils'
 import {
   generateAiQuestions,
   getAiMaterials,
@@ -176,7 +178,7 @@ export default function AIPdfGeneratorModal({
         difficulty: question.difficulty,
         aiDifficultyReason: question.difficultyReason,
         title: question.title,
-        content: question.type === 'PROGRAMMING' ? question.content : question.title,
+        content: question.type === 'PROGRAMMING' ? formatPlainTextToHtml(question.content) : question.title,
         explanation: question.explanation,
         options: question.options.map((option, index) => ({
           ...option,
@@ -209,7 +211,11 @@ export default function AIPdfGeneratorModal({
       toast.error(`Câu ${invalidIndex + 1}: ${firstError}`)
       return
     }
-    onApprovedAdd(generatedList)
+    const sanitizedList = generatedList.map((q) => ({
+      ...q,
+      content: q.type === 'PROGRAMMING' ? formatPlainTextToHtml(q.content) : q.content,
+    }))
+    onApprovedAdd(sanitizedList)
     window.sessionStorage.removeItem(storageKey)
     onClose()
     setStep(1)
@@ -237,7 +243,10 @@ export default function AIPdfGeneratorModal({
   const rejectGeneratedQuestion = (questionId: string) => {
     setGeneratedList((current) => {
       const next = current.filter((question) => question.id !== questionId)
-      if (next.length === 0) window.sessionStorage.removeItem(storageKey)
+      if (next.length === 0) {
+        window.sessionStorage.removeItem(storageKey)
+        setStep(1)
+      }
       return next
     })
     setCollapsedQuestionIds((current) => current.filter((id) => id !== questionId))
@@ -246,6 +255,15 @@ export default function AIPdfGeneratorModal({
       delete next[questionId]
       return next
     })
+  }
+
+  const handleRejectAll = () => {
+    setGeneratedList([])
+    setCollapsedQuestionIds([])
+    setExpandedTestCaseIds({})
+    window.sessionStorage.removeItem(storageKey)
+    toast.success('Đã từ chối tất cả câu hỏi nháp.')
+    setStep(1)
   }
 
   const updateGeneratedTestCases = (
@@ -330,7 +348,27 @@ export default function AIPdfGeneratorModal({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">
-          {step === 1 && (
+          {step === 1 && isGenerating && (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 py-12 text-center">
+              {/* AI Sparkles icon nhấp nhô & gợn sóng */}
+              <div className="relative flex items-center justify-center">
+                <span className="absolute h-16 w-16 rounded-full bg-blue-400/20 animate-ping opacity-75" style={{ animationDuration: '1.8s' }} />
+                <span className="absolute h-10 w-10 rounded-full bg-blue-500/30 animate-ping opacity-90" style={{ animationDuration: '1.2s' }} />
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-blue-500/25">
+                  <Sparkles size={24} className="text-amber-300 animate-bounce" style={{ animationDuration: '1s' }} />
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm font-bold text-gray-950">
+                {aiMode === 'EXTRACT_EXISTING_EXAM' ? 'AI đang bóc tách câu hỏi...' : 'AI đang sinh câu hỏi...'}
+              </p>
+              <p className="max-w-xs text-xs text-gray-500">
+                Đang phân tích tài liệu và cấu trúc câu hỏi, vui lòng đợi trong giây lát.
+              </p>
+            </div>
+          )}
+
+          {step === 1 && !isGenerating && (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex min-h-0 flex-1 flex-col space-y-4 overflow-y-auto pr-1">
                 <div className="space-y-1.5">
@@ -491,6 +529,9 @@ export default function AIPdfGeneratorModal({
                     rows={8}
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
                     placeholder="Ví dụ: tập trung vào mảng 2 chiều, tránh câu hỏi mẹo..."
                     className="min-h-[210px] flex-1 resize-y rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none focus:border-blue-500"
                   />
@@ -525,9 +566,20 @@ export default function AIPdfGeneratorModal({
                   <CheckCircle2 size={16} className="text-emerald-600" />
                   AI đã {aiMode === 'EXTRACT_EXISTING_EXAM' ? 'bóc tách' : 'sinh'} {generatedList.length} câu hỏi nháp
                 </span>
-                <button onClick={() => setStep(1)} className="text-xs font-semibold text-blue-600 hover:underline">
-                  Chọn chế độ khác
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleRejectAll}
+                    className="flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                  >
+                    <Trash2 size={13} />
+                    Từ chối tất cả
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button onClick={() => setStep(1)} className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer">
+                    Chọn chế độ khác
+                  </button>
+                </div>
               </div>
 
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
@@ -590,11 +642,12 @@ export default function AIPdfGeneratorModal({
                               </div>
                               <div>
                                 <label className="mb-1 block text-xs font-semibold text-gray-600">Mô tả bài toán</label>
-                                <textarea
-                                  rows={4}
+                                <RichTextEditor
                                   value={q.content}
-                                  onChange={(event) => updateGeneratedQuestion(q.id, { content: event.target.value })}
-                                  className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm leading-6 text-gray-800 outline-none focus:border-blue-500"
+                                  onChange={(val) => updateGeneratedQuestion(q.id, { content: val })}
+                                  placeholder="Nhập mô tả bài toán..."
+                                  minHeight={200}
+                                  height={240}
                                 />
                               </div>
                               <QuestionProgrammingEditor
@@ -675,15 +728,20 @@ export default function AIPdfGeneratorModal({
               </div>
 
               <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-white pt-3">
-                <button onClick={() => setStep(1)} className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-medium text-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200 cursor-pointer"
+                >
                   Quay lại
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmAddAll}
-                  className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                  className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-700 cursor-pointer"
                 >
                   <Check size={15} />
-                  Thêm vào đề
+                  Thêm vào đề ({generatedList.length})
                 </button>
               </div>
             </div>
