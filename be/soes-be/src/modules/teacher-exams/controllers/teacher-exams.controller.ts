@@ -86,23 +86,23 @@ export const requestLiveCamera = async (req: Request, res: Response) => {
 }
 export const getTeacherLiveSession = async (req: Request, res: Response) => {
   const { sessionId } = liveSessionParam.parse(req.params)
-  send(res, gradingService.getTeacherLiveSession(req.user!.profileId, sessionId))
+  send(res, await gradingService.getTeacherLiveSession(req.user!.profileId, sessionId))
 }
 export const submitTeacherLiveAnswer = async (req: Request, res: Response) => {
   const { sessionId } = liveSessionParam.parse(req.params)
-  send(res, gradingService.submitTeacherLiveAnswer(req.user!.profileId, sessionId, signalBody.parse(req.body).signal))
+  send(res, await gradingService.submitTeacherLiveAnswer(req.user!.profileId, sessionId, signalBody.parse(req.body).signal))
 }
 export const addTeacherLiveCandidate = async (req: Request, res: Response) => {
   const { sessionId } = liveSessionParam.parse(req.params)
-  send(res, gradingService.addTeacherLiveCandidate(req.user!.profileId, sessionId, candidateBody.parse(req.body).candidate), 201)
+  send(res, await gradingService.addTeacherLiveCandidate(req.user!.profileId, sessionId, candidateBody.parse(req.body).candidate), 201)
 }
 export const getTeacherLiveCandidates = async (req: Request, res: Response) => {
   const { sessionId } = liveSessionParam.parse(req.params)
-  send(res, gradingService.getTeacherLiveCandidates(req.user!.profileId, sessionId, cursorQuery.parse(req.query).from))
+  send(res, await gradingService.getTeacherLiveCandidates(req.user!.profileId, sessionId, cursorQuery.parse(req.query).from))
 }
 export const endTeacherLiveSession = async (req: Request, res: Response) => {
   const { sessionId } = liveSessionParam.parse(req.params)
-  send(res, gradingService.endTeacherLiveSession(req.user!.profileId, sessionId))
+  send(res, await gradingService.endTeacherLiveSession(req.user!.profileId, sessionId))
 }
 export const cameraReport = async (req: Request, res: Response) => {
   const { id, scheduleId } = gradingParams.parse(req.params)

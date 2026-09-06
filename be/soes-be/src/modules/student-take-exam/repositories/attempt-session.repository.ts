@@ -33,14 +33,31 @@ export async function upsertExamSessionHeartbeat(
 }
 
 export async function markStaleExamSessionsOffline(cutoff: Date) {
-  return prisma.examSession.updateMany({
+  const staleSessions = await prisma.examSession.findMany({
     where: {
       isOnline: true,
       lastHeartbeat: { lt: cutoff },
       attempt: { status: 'IN_PROGRESS' },
     },
+    select: {
+      attemptId: true,
+      lastHeartbeat: true,
+      attempt: { select: { examScheduleId: true } },
+    },
+  })
+
+  if (staleSessions.length === 0) return []
+
+  await prisma.examSession.updateMany({
+    where: { attemptId: { in: staleSessions.map((session) => session.attemptId) } },
     data: { isOnline: false },
   })
+
+  return staleSessions.map((session) => ({
+    attemptId: session.attemptId,
+    scheduleId: session.attempt.examScheduleId,
+    lastHeartbeatAt: session.lastHeartbeat,
+  }))
 }
 
 export async function findAttemptForHeartbeat(attemptId: string, scheduleId: string, studentId: string) {

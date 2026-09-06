@@ -1,7 +1,10 @@
 import { randomUUID } from 'crypto'
+import redis from '../../lib/redis'
 
-const REQUEST_TTL_MS = 30_000
-const SESSION_TTL_MS = 10 * 60_000
+const REQUEST_TTL_SECONDS = 30
+const SESSION_TTL_SECONDS = 10 * 60
+const SESSION_PREFIX = 'proctoring:live:session:'
+const ATTEMPT_PREFIX = 'proctoring:live:attempt:'
 
 type JsonSignal = Record<string, unknown>
 
@@ -19,15 +22,11 @@ interface LiveSession {
   teacherCandidates: JsonSignal[]
 }
 
-const sessions = new Map<string, LiveSession>()
+const sessionKey = (id: string) => `${SESSION_PREFIX}${id}`
+const attemptKey = (attemptId: string, scheduleId: string) => `${ATTEMPT_PREFIX}${scheduleId}:${attemptId}`
 
-function cleanup(now = Date.now()) {
-  for (const [id, session] of sessions.entries()) {
-    const ttl = session.status === 'REQUESTED' ? REQUEST_TTL_MS : SESSION_TTL_MS
-    if (session.status === 'ENDED' || now - session.updatedAt > ttl) {
-      sessions.delete(id)
-    }
-  }
+function ttlFor(session: LiveSession) {
+  return session.status === 'REQUESTED' ? REQUEST_TTL_SECONDS : SESSION_TTL_SECONDS
 }
 
 function publicSession(session: LiveSession) {
@@ -35,6 +34,7 @@ function publicSession(session: LiveSession) {
     id: session.id,
     attemptId: session.attemptId,
     scheduleId: session.scheduleId,
+    teacherId: session.teacherId,
     status: session.status,
     offer: session.offer,
     answer: session.answer,
@@ -44,17 +44,34 @@ function publicSession(session: LiveSession) {
   }
 }
 
-export function requestLiveCamera(input: { attemptId: string; scheduleId: string; teacherId: string }) {
-  cleanup()
-  const existing = [...sessions.values()].find((session) =>
-    session.attemptId === input.attemptId &&
-    session.teacherId === input.teacherId &&
-    session.status !== 'ENDED'
-  )
+async function readSession(sessionId: string): Promise<LiveSession | null> {
+  const raw = await redis.get(sessionKey(sessionId))
+  return raw ? JSON.parse(raw) as LiveSession : null
+}
 
-  if (existing) {
-    existing.updatedAt = Date.now()
-    return publicSession(existing)
+async function writeSession(session: LiveSession) {
+  session.updatedAt = Date.now()
+  await redis.set(sessionKey(session.id), JSON.stringify(session), 'EX', ttlFor(session))
+  if (session.status !== 'ENDED') {
+    await redis.set(attemptKey(session.attemptId, session.scheduleId), session.id, 'EX', ttlFor(session))
+  }
+}
+
+async function endSession(session: LiveSession) {
+  session.status = 'ENDED'
+  session.updatedAt = Date.now()
+  await redis.set(sessionKey(session.id), JSON.stringify(session), 'EX', 10)
+  await redis.del(attemptKey(session.attemptId, session.scheduleId))
+}
+
+export async function requestLiveCamera(input: { attemptId: string; scheduleId: string; teacherId: string }) {
+  const existingId = await redis.get(attemptKey(input.attemptId, input.scheduleId))
+  if (existingId) {
+    const existing = await readSession(existingId)
+    if (existing && existing.teacherId === input.teacherId && existing.status !== 'ENDED') {
+      await writeSession(existing)
+      return publicSession(existing)
+    }
   }
 
   const now = Date.now()
@@ -71,97 +88,93 @@ export function requestLiveCamera(input: { attemptId: string; scheduleId: string
     studentCandidates: [],
     teacherCandidates: [],
   }
-  sessions.set(session.id, session)
+  await writeSession(session)
   return publicSession(session)
 }
 
-export function getPendingStudentRequest(attemptId: string, scheduleId: string) {
-  cleanup()
-  const session = [...sessions.values()].find((item) =>
-    item.attemptId === attemptId &&
-    item.scheduleId === scheduleId &&
-    item.status === 'REQUESTED'
-  )
-  return session ? publicSession(session) : null
+export async function getPendingStudentRequest(attemptId: string, scheduleId: string) {
+  const sessionId = await redis.get(attemptKey(attemptId, scheduleId))
+  if (!sessionId) return null
+  const session = await readSession(sessionId)
+  if (!session || session.status !== 'REQUESTED') return null
+  await writeSession(session)
+  return publicSession(session)
 }
 
-export function getTeacherLiveSession(sessionId: string, teacherId: string) {
-  cleanup()
-  const session = sessions.get(sessionId)
+export async function getTeacherLiveSession(sessionId: string, teacherId: string) {
+  const session = await readSession(sessionId)
   if (!session || session.teacherId !== teacherId) return null
-  session.updatedAt = Date.now()
+  await writeSession(session)
   return publicSession(session)
 }
 
-export function getStudentLiveSession(sessionId: string, attemptId: string, scheduleId: string) {
-  cleanup()
-  const session = sessions.get(sessionId)
+export async function getStudentLiveSession(sessionId: string, attemptId: string, scheduleId: string) {
+  const session = await readSession(sessionId)
   if (!session || session.attemptId !== attemptId || session.scheduleId !== scheduleId) return null
-  session.updatedAt = Date.now()
+  await writeSession(session)
   return publicSession(session)
 }
 
-export function submitStudentOffer(input: { sessionId: string; attemptId: string; scheduleId: string; offer: JsonSignal }) {
-  const session = sessions.get(input.sessionId)
+export async function submitStudentOffer(input: { sessionId: string; attemptId: string; scheduleId: string; offer: JsonSignal }) {
+  const session = await readSession(input.sessionId)
   if (!session || session.attemptId !== input.attemptId || session.scheduleId !== input.scheduleId) return null
   session.offer = input.offer
   session.status = 'OFFERED'
-  session.updatedAt = Date.now()
+  await writeSession(session)
   return publicSession(session)
 }
 
-export function submitTeacherAnswer(input: { sessionId: string; teacherId: string; answer: JsonSignal }) {
-  const session = sessions.get(input.sessionId)
+export async function submitTeacherAnswer(input: { sessionId: string; teacherId: string; answer: JsonSignal }) {
+  const session = await readSession(input.sessionId)
   if (!session || session.teacherId !== input.teacherId) return null
   session.answer = input.answer
   session.status = 'CONNECTED'
-  session.updatedAt = Date.now()
+  await writeSession(session)
   return publicSession(session)
 }
 
-export function addStudentCandidate(input: { sessionId: string; attemptId: string; scheduleId: string; candidate: JsonSignal }) {
-  const session = sessions.get(input.sessionId)
+export async function addStudentCandidate(input: { sessionId: string; attemptId: string; scheduleId: string; candidate: JsonSignal }) {
+  const session = await readSession(input.sessionId)
   if (!session || session.attemptId !== input.attemptId || session.scheduleId !== input.scheduleId) return null
   session.studentCandidates.push(input.candidate)
-  session.updatedAt = Date.now()
+  await writeSession(session)
   return { ok: true }
 }
 
-export function addTeacherCandidate(input: { sessionId: string; teacherId: string; candidate: JsonSignal }) {
-  const session = sessions.get(input.sessionId)
+export async function addTeacherCandidate(input: { sessionId: string; teacherId: string; candidate: JsonSignal }) {
+  const session = await readSession(input.sessionId)
   if (!session || session.teacherId !== input.teacherId) return null
   session.teacherCandidates.push(input.candidate)
-  session.updatedAt = Date.now()
+  await writeSession(session)
   return { ok: true }
 }
 
-export function getStudentCandidates(sessionId: string, teacherId: string, from = 0) {
-  const session = sessions.get(sessionId)
+export async function getStudentCandidates(sessionId: string, teacherId: string, from = 0) {
+  const session = await readSession(sessionId)
   if (!session || session.teacherId !== teacherId) return null
-  session.updatedAt = Date.now()
+  await writeSession(session)
   return {
     candidates: session.studentCandidates.slice(from),
     nextCursor: session.studentCandidates.length,
   }
 }
 
-export function getTeacherCandidates(sessionId: string, attemptId: string, scheduleId: string, from = 0) {
-  const session = sessions.get(sessionId)
+export async function getTeacherCandidates(sessionId: string, attemptId: string, scheduleId: string, from = 0) {
+  const session = await readSession(sessionId)
   if (!session || session.attemptId !== attemptId || session.scheduleId !== scheduleId) return null
-  session.updatedAt = Date.now()
+  await writeSession(session)
   return {
     candidates: session.teacherCandidates.slice(from),
     nextCursor: session.teacherCandidates.length,
   }
 }
 
-export function endLiveSession(sessionId: string, actor: { teacherId?: string; attemptId?: string; scheduleId?: string }) {
-  const session = sessions.get(sessionId)
+export async function endLiveSession(sessionId: string, actor: { teacherId?: string; attemptId?: string; scheduleId?: string }) {
+  const session = await readSession(sessionId)
   if (!session) return null
   const allowedTeacher = actor.teacherId && session.teacherId === actor.teacherId
   const allowedStudent = actor.attemptId && actor.scheduleId && session.attemptId === actor.attemptId && session.scheduleId === actor.scheduleId
   if (!allowedTeacher && !allowedStudent) return null
-  session.status = 'ENDED'
-  session.updatedAt = Date.now()
+  await endSession(session)
   return publicSession(session)
 }

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import type { SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
-import { saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
+import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
 import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
 import { judge0Service, Judge0Service } from '../../../lib/judge0'
@@ -17,6 +17,7 @@ import {
   STUDENT_STARTABLE_SCHEDULE_STATUSES,
 } from '../../student-common/exam-visibility.policy'
 import * as live from '../../proctoring-live/proctoring-live.service'
+import { emitAttemptEvent, emitProctoringEvent } from '../../proctoring/proctoring-realtime.events'
 
 /**
  * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
@@ -104,14 +105,22 @@ export async function processExpiredAttempts(now = new Date(), limit = 50): Prom
 
 export async function markOfflineExamSessions(now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - examConfig.heartbeatTimeoutMs)
-  const result = await repo.markStaleExamSessionsOffline(cutoff)
-  if (result.count > 0) {
+  const staleSessions = await repo.markStaleExamSessionsOffline(cutoff)
+  for (const session of staleSessions) {
+    emitProctoringEvent(session.scheduleId, 'student:offline', {
+      attemptId: session.attemptId,
+      scheduleId: session.scheduleId,
+      lastHeartbeatAt: session.lastHeartbeatAt.toISOString(),
+      isOnline: false,
+    })
+  }
+  if (staleSessions.length > 0) {
     logger.info('Marked stale exam sessions offline', {
-      count: result.count,
+      count: staleSessions.length,
       cutoff: cutoff.toISOString(),
     })
   }
-  return result.count
+  return staleSessions.length
 }
 
 function orderedReviewOptions(
@@ -832,6 +841,17 @@ export async function sendHeartbeat(
 
   await repo.upsertExamSessionHeartbeat(attemptId, now, { webcamStatus })
   await repo.syncCameraStatusViolation(attemptId, webcamStatus, now)
+  emitProctoringEvent(scheduleId, 'student:heartbeat', {
+    attemptId,
+    scheduleId,
+    webcamStatus,
+    lastHeartbeatAt: now.toISOString(),
+    remainingSeconds: Math.max(
+      0,
+      Math.floor((attemptData.deadlineAt.getTime() - now.getTime()) / 1000),
+    ),
+    isOnline: true,
+  })
 
   // ── 5. Compute remainingSeconds realtime ───────────────────────────────────
   const remainingSeconds = Math.max(
@@ -905,6 +925,9 @@ export async function recordViolation(
       violationType: input.violationType,
       error: error instanceof Error ? error.message : String(error),
     })
+    if (minioConfig.requireEvidenceStorage) {
+      throw new ValidationError('Evidence storage is not available')
+    }
     evidenceStorageProvider = 'LOCAL'
     evidenceObjectNames = await saveViolationEvidenceFilesLocal({
       attemptId,
@@ -931,6 +954,27 @@ export async function recordViolation(
     })
 
   await repo.addViolationEvidence({ violationId: violation.id, evidences })
+  const firstEvidence = evidenceObjectNames[0] ?? null
+  const evidenceImageUrl = firstEvidence
+    ? evidenceStorageProvider === 'LOCAL'
+      ? getLocalViolationEvidenceUrl(firstEvidence)
+      : await getViolationEvidenceUrl(firstEvidence)
+    : null
+  emitProctoringEvent(scheduleId, 'violation:created', {
+    id: violation.id,
+    scheduleId,
+    attemptId,
+    studentId: attempt.studentId,
+    studentCode: attempt.student.studentCode,
+    studentName: attempt.student.user.fullName,
+    type: violation.violationType,
+    timestamp: violation.detectedAt.toISOString(),
+    severity: violation.severity,
+    endedAt: violation.endedAt ? violation.endedAt.toISOString() : null,
+    durationSeconds: violation.durationSeconds,
+    evidenceImageUrl,
+    note: input.description ?? null,
+  })
   return { ...violation, evidenceUrls: evidenceObjectNames }
 }
 
@@ -958,6 +1002,7 @@ export async function endViolation(
     throw new NotFoundError('Violation not found')
   }
 
+  emitProctoringEvent(scheduleId, 'violation:ended', violation)
   return violation
 }
 
@@ -1056,7 +1101,7 @@ export async function runCode(
   return buildRunCodeResult(questionId, attempt, testCases, judge0Results, now)
 }
 
-async function requireLiveAttempt(scheduleId: string, attemptId: string, studentId: string) {
+export async function requireLiveAttempt(scheduleId: string, attemptId: string, studentId: string) {
   const attempt = await repo.findAttemptForViolation(attemptId, scheduleId, studentId)
   if (!attempt) throw new NotFoundError('Attempt not found')
   const now = new Date()
@@ -1079,14 +1124,14 @@ export async function submitLiveCameraOffer(
   offer: Record<string, unknown>,
 ) {
   await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const session = live.submitStudentOffer({ scheduleId, attemptId, sessionId, offer })
+  const session = await live.submitStudentOffer({ scheduleId, attemptId, sessionId, offer })
   if (!session) throw new NotFoundError('Live session not found')
   return session
 }
 
 export async function getStudentLiveSession(scheduleId: string, attemptId: string, studentId: string, sessionId: string) {
   await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const session = live.getStudentLiveSession(sessionId, attemptId, scheduleId)
+  const session = await live.getStudentLiveSession(sessionId, attemptId, scheduleId)
   if (!session) throw new NotFoundError('Live session not found')
   return session
 }
@@ -1099,7 +1144,7 @@ export async function addStudentLiveCandidate(
   candidate: Record<string, unknown>,
 ) {
   await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const result = live.addStudentCandidate({ scheduleId, attemptId, sessionId, candidate })
+  const result = await live.addStudentCandidate({ scheduleId, attemptId, sessionId, candidate })
   if (!result) throw new NotFoundError('Live session not found')
   return result
 }
@@ -1112,14 +1157,15 @@ export async function getStudentLiveCandidates(
   from: number,
 ) {
   await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const result = live.getTeacherCandidates(sessionId, attemptId, scheduleId, from)
+  const result = await live.getTeacherCandidates(sessionId, attemptId, scheduleId, from)
   if (!result) throw new NotFoundError('Live session not found')
   return result
 }
 
 export async function endStudentLiveSession(scheduleId: string, attemptId: string, studentId: string, sessionId: string) {
   await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const session = live.endLiveSession(sessionId, { attemptId, scheduleId })
+  const session = await live.endLiveSession(sessionId, { attemptId, scheduleId })
   if (!session) throw new NotFoundError('Live session not found')
+  emitAttemptEvent(attemptId, 'live:ended', session)
   return session
 }

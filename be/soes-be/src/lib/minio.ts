@@ -50,11 +50,12 @@ function evidenceObjectName(input: {
 }): string {
   const extension = extname(input.originalName).toLowerCase() || '.jpg'
   const timestamp = input.detectedAt.toISOString().replace(/[:.]/g, '-')
+  const evidenceKind = input.violationType.includes('SCREEN') ? 'screen' : 'webcam'
 
   if (input.storagePrefix && input.violationId) {
     return [
       input.storagePrefix.replace(/\/+$/g, ''),
-      'webcam',
+      evidenceKind,
       safePathPart(input.attemptId),
       `${safePathPart(input.violationId)}${extension}`,
     ].join('/')

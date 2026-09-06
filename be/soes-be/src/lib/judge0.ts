@@ -342,10 +342,10 @@ export class Judge0Service {
     if (judge0StatusId === 4) return "WRONG_ANSWER"; // Wrong Answer
     if (judge0StatusId === 5) return "TIME_LIMIT_EXCEEDED";
     if (judge0StatusId === 6) return "SYSTEM_ERROR"; // Compilation Error - map to SYSTEM_ERROR for test cases
-    if (judge0StatusId === 7) return "RUNTIME_ERROR"; // Runtime Error
+    if ([7, 9, 10, 11, 12].includes(judge0StatusId)) return "RUNTIME_ERROR";
     if (judge0StatusId === 8) return "MEMORY_LIMIT_EXCEEDED";
-    if (judge0StatusId === 9) return "SYSTEM_ERROR";
-    if (judge0StatusId === 10) return "SYSTEM_ERROR"; // Rejected
+    if (judge0StatusId === 13) return "SYSTEM_ERROR";
+    if (judge0StatusId === 14) return "SYSTEM_ERROR"; // Exec format error
     return "SYSTEM_ERROR";
   }
 

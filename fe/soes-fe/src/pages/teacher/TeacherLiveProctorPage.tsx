@@ -2,6 +2,7 @@ import { AlertTriangle, Camera, Image, RefreshCw, ShieldAlert, Square, Video } f
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { getSocket } from '../../api/socket'
 import AppBadge from '../../components/common/AppBadge'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
@@ -9,21 +10,16 @@ import TeacherTablePanel from './components/TeacherTablePanel'
 import TeacherToolbar from './components/TeacherToolbar'
 import TeacherTopBar from './components/TeacherTopBar'
 import {
-  addTeacherLiveCameraCandidate,
   endTeacherLiveCamera,
-  getTeacherLiveCameraCandidates,
-  getTeacherLiveCameraSession,
   getTeacherLiveProctoringSessions,
   getTeacherLiveProctoringViolations,
   startTeacherLiveCamera,
-  submitTeacherLiveCameraAnswer,
 } from './api/teacher-exams.api'
 import type { ProctoringSessionRecord, ViolationRecord } from './types/teacher-exam.types'
 
 type ProctoringTab = 'live' | 'violations'
 
 const REFRESH_MS = 10_000
-const SIGNAL_POLL_MS = 1_000
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 }
@@ -52,6 +48,31 @@ const severityTone = {
   HIGH: 'rose',
 } as const
 
+function normalizeRealtimeViolation(payload: Partial<ViolationRecord> & {
+  violationType?: ViolationRecord['type']
+  detectedAt?: string
+}): ViolationRecord | null {
+  const timestamp = payload.timestamp ?? payload.detectedAt
+  const type = payload.type ?? payload.violationType
+  if (!payload.id || !payload.attemptId || !timestamp || !type || !payload.severity) return null
+
+  return {
+    id: payload.id,
+    scheduleId: payload.scheduleId ?? '',
+    attemptId: payload.attemptId,
+    studentId: payload.studentId ?? '',
+    studentCode: payload.studentCode ?? 'N/A',
+    studentName: payload.studentName ?? 'Sinh viên',
+    type,
+    timestamp,
+    endedAt: payload.endedAt ?? null,
+    durationSeconds: payload.durationSeconds ?? null,
+    severity: payload.severity,
+    evidenceImageUrl: payload.evidenceImageUrl,
+    note: payload.note,
+  }
+}
+
 export default function TeacherLiveProctorPage() {
   const [params] = useSearchParams()
   const scheduleId = params.get('scheduleId') ?? ''
@@ -69,7 +90,6 @@ export default function TeacherLiveProctorPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const peerRef = useRef<RTCPeerConnection | null>(null)
   const liveSessionIdRef = useRef<string | null>(null)
-  const candidateCursorRef = useRef(0)
 
   const load = useCallback(async () => {
     if (!scheduleId) return
@@ -104,11 +124,13 @@ export default function TeacherLiveProctorPage() {
 
   const stopLive = useCallback(() => {
     const sessionId = liveSessionIdRef.current
-    if (sessionId) void endTeacherLiveCamera(sessionId).catch(() => undefined)
+    if (sessionId) {
+      getSocket().emit('live:end', { sessionId })
+      void endTeacherLiveCamera(sessionId).catch(() => undefined)
+    }
     peerRef.current?.close()
     peerRef.current = null
     liveSessionIdRef.current = null
-    candidateCursorRef.current = 0
     setRemoteStream(null)
     setLiveAttemptId(null)
     setLiveSessionId(null)
@@ -122,42 +144,78 @@ export default function TeacherLiveProctorPage() {
   }, [])
 
   useEffect(() => {
-    if (!liveSessionId || !peerRef.current) return
-    let cancelled = false
+    if (!scheduleId) return
+    const socket = getSocket()
 
-    const poll = async () => {
+    socket.emit('proctoring:join_schedule', { scheduleId }, (response: { ok: boolean; data?: { schedule: { title: string }; items: ProctoringSessionRecord[] }; error?: string }) => {
+      if (!response.ok) return
+      if (response.data) {
+        setScheduleTitle(response.data.schedule.title)
+        setSessions(response.data.items)
+      }
+    })
+
+    const handleHeartbeat = (payload: { attemptId: string; webcamStatus?: ProctoringSessionRecord['webcamStatus']; lastHeartbeatAt?: string; isOnline?: boolean }) => {
+      setSessions((current) => current.map((item) => item.attemptId === payload.attemptId
+        ? {
+            ...item,
+            isOnline: payload.isOnline ?? item.isOnline,
+            webcamStatus: payload.webcamStatus ?? item.webcamStatus,
+            lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt,
+          }
+        : item))
+    }
+    const handleOffline = (payload: { attemptId: string; lastHeartbeatAt?: string; isOnline: false }) => {
+      setSessions((current) => current.map((item) => item.attemptId === payload.attemptId
+        ? { ...item, isOnline: false, lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt }
+        : item))
+    }
+    const handleViolationCreated = (payload: ViolationRecord) => {
+      const violation = normalizeRealtimeViolation(payload)
+      if (!violation) return
+      setViolations((current) => current.some((item) => item.id === violation.id) ? current : [violation, ...current])
+      setSessions((current) => current.map((item) => item.attemptId === violation.attemptId
+        ? { ...item, violationCount: item.violationCount + 1 }
+        : item))
+    }
+    const handleViolationEnded = (payload: Pick<ViolationRecord, 'id' | 'endedAt' | 'durationSeconds'>) => {
+      setViolations((current) => current.map((item) => item.id === payload.id ? { ...item, ...payload } : item))
+    }
+    const handleLiveOffer = async (session: { id: string; status: string; offer: RTCSessionDescriptionInit | null }) => {
       const peer = peerRef.current
-      if (cancelled || !peer) return
-
-      const session = await getTeacherLiveCameraSession(liveSessionId).catch(() => null)
-      if (!session || session.status === 'ENDED') {
-        stopLive()
-        return
-      }
-
-      if (session.offer && !peer.currentRemoteDescription) {
-        setLiveStatus('CONNECTING')
-        await peer.setRemoteDescription(session.offer)
-        const answer = await peer.createAnswer()
-        await peer.setLocalDescription(answer)
-        await submitTeacherLiveCameraAnswer(liveSessionId, answer)
-      }
-
-      const batch = await getTeacherLiveCameraCandidates(liveSessionId, candidateCursorRef.current).catch(() => null)
-      if (!batch) return
-      candidateCursorRef.current = batch.nextCursor
-      for (const candidate of batch.candidates) {
-        await peer.addIceCandidate(candidate).catch(() => undefined)
-      }
+      if (!peer || session.id !== liveSessionIdRef.current || !session.offer || peer.currentRemoteDescription) return
+      setLiveStatus('CONNECTING')
+      await peer.setRemoteDescription(session.offer)
+      const answer = await peer.createAnswer()
+      await peer.setLocalDescription(answer)
+      socket.emit('live:teacher_answer', { sessionId: session.id, answer })
+    }
+    const handleStudentCandidate = async ({ sessionId, candidate }: { sessionId: string; candidate: RTCIceCandidateInit }) => {
+      if (sessionId !== liveSessionIdRef.current) return
+      await peerRef.current?.addIceCandidate(candidate).catch(() => undefined)
+    }
+    const handleLiveEnded = (session: { id: string }) => {
+      if (session.id === liveSessionIdRef.current) stopLive()
     }
 
-    void poll()
-    const intervalId = window.setInterval(() => void poll(), SIGNAL_POLL_MS)
+    socket.on('student:heartbeat', handleHeartbeat)
+    socket.on('student:offline', handleOffline)
+    socket.on('violation:created', handleViolationCreated)
+    socket.on('violation:ended', handleViolationEnded)
+    socket.on('live:offer', handleLiveOffer)
+    socket.on('live:student_candidate', handleStudentCandidate)
+    socket.on('live:ended', handleLiveEnded)
+
     return () => {
-      cancelled = true
-      window.clearInterval(intervalId)
+      socket.off('student:heartbeat', handleHeartbeat)
+      socket.off('student:offline', handleOffline)
+      socket.off('violation:created', handleViolationCreated)
+      socket.off('violation:ended', handleViolationEnded)
+      socket.off('live:offer', handleLiveOffer)
+      socket.off('live:student_candidate', handleStudentCandidate)
+      socket.off('live:ended', handleLiveEnded)
     }
-  }, [liveSessionId, stopLive])
+  }, [scheduleId, stopLive])
 
   const startLive = async (session: ProctoringSessionRecord) => {
     if (liveAttemptId && liveAttemptId !== session.attemptId) stopLive()
@@ -168,7 +226,6 @@ export default function TeacherLiveProctorPage() {
 
     const peer = new RTCPeerConnection(RTC_CONFIG)
     peerRef.current = peer
-    candidateCursorRef.current = 0
 
     peer.ontrack = (event) => {
       setRemoteStream(event.streams[0] ?? new MediaStream([event.track]))
@@ -177,7 +234,7 @@ export default function TeacherLiveProctorPage() {
     peer.onicecandidate = (event) => {
       const sessionId = liveSessionIdRef.current
       if (!event.candidate || !sessionId) return
-      void addTeacherLiveCameraCandidate(sessionId, event.candidate.toJSON()).catch(() => undefined)
+      getSocket().emit('live:teacher_candidate', { sessionId, candidate: event.candidate.toJSON() })
     }
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === 'connected') setLiveStatus('CONNECTED')
@@ -185,7 +242,13 @@ export default function TeacherLiveProctorPage() {
     }
 
     try {
-      const liveSession = await startTeacherLiveCamera(session.attemptId)
+      const socket = getSocket()
+      const liveSession = await new Promise<Awaited<ReturnType<typeof startTeacherLiveCamera>>>((resolve, reject) => {
+        socket.emit('live:request_camera', { attemptId: session.attemptId }, (response: { ok: boolean; data?: Awaited<ReturnType<typeof startTeacherLiveCamera>>; error?: string }) => {
+          if (response.ok && response.data) resolve(response.data)
+          else reject(new Error(response.error ?? 'Unable to request live camera'))
+        })
+      })
       liveSessionIdRef.current = liveSession.id
       setLiveSessionId(liveSession.id)
       toast.success(`Đang mở camera của ${session.studentName}.`)
@@ -492,13 +555,15 @@ function EmptyState({ text }: { text: string }) {
 }
 
 function formatDateTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
   return new Intl.DateTimeFormat('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     day: '2-digit',
     month: '2-digit',
-  }).format(new Date(value))
+  }).format(date)
 }
 
 function formatDuration(violation: ViolationRecord) {
