@@ -19,6 +19,13 @@ export function findAttemptForViolation(
       status: true,
       deadlineAt: true,
       examSchedule: { select: { proctoringStoragePath: true } },
+      studentId: true,
+      student: {
+        select: {
+          studentCode: true,
+          user: { select: { fullName: true } },
+        },
+      },
     },
   })
 }

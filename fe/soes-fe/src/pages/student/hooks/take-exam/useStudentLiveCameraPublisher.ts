@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { takeExamApi } from '../../api/student-take-exam.api'
+import { getSocket } from '../../../../api/socket'
+import { takeExamApi, type LiveCameraSession } from '../../api/student-take-exam.api'
 import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
 
-const REQUEST_POLL_MS = 2_000
-const SIGNAL_POLL_MS = 1_000
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 }
@@ -16,18 +15,17 @@ export function useStudentLiveCameraPublisher(input: {
 }) {
   const peerRef = useRef<RTCPeerConnection | null>(null)
   const sessionIdRef = useRef<string | null>(null)
-  const teacherCandidateCursorRef = useRef(0)
 
   useEffect(() => {
     if (!input.enabled || !input.scheduleId || !input.attemptId || !isExamWebcamStreamLive(input.stream)) return
 
     let cancelled = false
+    const socket = getSocket()
 
     const cleanupPeer = () => {
       peerRef.current?.close()
       peerRef.current = null
       sessionIdRef.current = null
-      teacherCandidateCursorRef.current = 0
     }
 
     const startSession = async (sessionId: string) => {
@@ -43,12 +41,12 @@ export function useStudentLiveCameraPublisher(input: {
 
       peer.onicecandidate = (event) => {
         if (!event.candidate) return
-        void takeExamApi.addStudentLiveCandidate(
-          input.scheduleId,
-          input.attemptId,
+        socket.emit('live:student_candidate', {
+          scheduleId: input.scheduleId,
+          attemptId: input.attemptId,
           sessionId,
-          event.candidate.toJSON(),
-        ).catch(() => undefined)
+          candidate: event.candidate.toJSON(),
+        })
       }
 
       peer.onconnectionstatechange = () => {
@@ -62,52 +60,52 @@ export function useStudentLiveCameraPublisher(input: {
         offerToReceiveVideo: false,
       })
       await peer.setLocalDescription(offer)
-      await takeExamApi.submitLiveCameraOffer(input.scheduleId, input.attemptId, sessionId, offer)
+      socket.emit('live:student_offer', {
+        scheduleId: input.scheduleId,
+        attemptId: input.attemptId,
+        sessionId,
+        offer,
+      })
     }
 
-    const pollRequest = async () => {
+    const handleLiveRequest = (request: LiveCameraSession) => {
       if (cancelled || peerRef.current) return
-      const request = await takeExamApi.getPendingLiveCameraRequest(input.scheduleId, input.attemptId).catch(() => null)
-      if (!request || request.status !== 'REQUESTED') return
-      await startSession(request.id).catch(cleanupPeer)
+      if (request.attemptId !== input.attemptId || request.scheduleId !== input.scheduleId) return
+      void startSession(request.id).catch(cleanupPeer)
     }
 
-    const pollSignal = async () => {
-      const sessionId = sessionIdRef.current
+    const handleLiveAnswer = async (session: LiveCameraSession) => {
       const peer = peerRef.current
-      if (cancelled || !sessionId || !peer) return
-
-      const session = await takeExamApi.getStudentLiveSession(input.scheduleId, input.attemptId, sessionId).catch(() => null)
-      if (!session || session.status === 'ENDED') {
-        cleanupPeer()
-        return
-      }
-
+      if (cancelled || !peer || session.id !== sessionIdRef.current) return
       if (session.answer && !peer.currentRemoteDescription) {
         await peer.setRemoteDescription(session.answer).catch(() => undefined)
       }
-
-      const candidateBatch = await takeExamApi
-        .getStudentLiveCandidates(input.scheduleId, input.attemptId, sessionId, teacherCandidateCursorRef.current)
-        .catch(() => null)
-      if (!candidateBatch) return
-
-      teacherCandidateCursorRef.current = candidateBatch.nextCursor
-      for (const candidate of candidateBatch.candidates) {
-        await peer.addIceCandidate(candidate).catch(() => undefined)
-      }
     }
 
-    void pollRequest()
-    const requestIntervalId = window.setInterval(() => void pollRequest(), REQUEST_POLL_MS)
-    const signalIntervalId = window.setInterval(() => void pollSignal(), SIGNAL_POLL_MS)
+    const handleTeacherCandidate = async ({ sessionId, candidate }: { sessionId: string; candidate: RTCIceCandidateInit }) => {
+      if (cancelled || sessionId !== sessionIdRef.current) return
+      await peerRef.current?.addIceCandidate(candidate).catch(() => undefined)
+    }
+
+    const handleLiveEnded = (session: LiveCameraSession) => {
+      if (session.id === sessionIdRef.current) cleanupPeer()
+    }
+
+    socket.emit('proctoring:join_attempt', { scheduleId: input.scheduleId, attemptId: input.attemptId })
+    socket.on('live:request', handleLiveRequest)
+    socket.on('live:answer', handleLiveAnswer)
+    socket.on('live:teacher_candidate', handleTeacherCandidate)
+    socket.on('live:ended', handleLiveEnded)
 
     return () => {
       cancelled = true
-      window.clearInterval(requestIntervalId)
-      window.clearInterval(signalIntervalId)
+      socket.off('live:request', handleLiveRequest)
+      socket.off('live:answer', handleLiveAnswer)
+      socket.off('live:teacher_candidate', handleTeacherCandidate)
+      socket.off('live:ended', handleLiveEnded)
       const sessionId = sessionIdRef.current
       if (sessionId) {
+        socket.emit('live:end', { sessionId })
         void takeExamApi.endStudentLiveSession(input.scheduleId, input.attemptId, sessionId).catch(() => undefined)
       }
       cleanupPeer()
