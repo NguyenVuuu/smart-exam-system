@@ -8,6 +8,7 @@ import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
 import * as repo from '../repositories/teacher-exam-grading.repository'
 import type { InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
+import { emitProctoringEvent } from '../../proctoring/proctoring-realtime.events'
 
 async function requireSchedule(teacherId: string, examId: string, scheduleId: string) {
   const schedule = await repo.findScheduleAccess(teacherId, examId, scheduleId)
@@ -153,32 +154,32 @@ export async function requestLiveCamera(teacherId: string, attemptId: string) {
   return live.requestLiveCamera({ attemptId, scheduleId: attempt.examScheduleId, teacherId })
 }
 
-export function getTeacherLiveSession(teacherId: string, sessionId: string) {
-  const session = live.getTeacherLiveSession(sessionId, teacherId)
+export async function getTeacherLiveSession(teacherId: string, sessionId: string) {
+  const session = await live.getTeacherLiveSession(sessionId, teacherId)
   if (!session) throw new NotFoundError('Live session not found')
   return session
 }
 
-export function submitTeacherLiveAnswer(teacherId: string, sessionId: string, answer: Record<string, unknown>) {
-  const session = live.submitTeacherAnswer({ teacherId, sessionId, answer })
+export async function submitTeacherLiveAnswer(teacherId: string, sessionId: string, answer: Record<string, unknown>) {
+  const session = await live.submitTeacherAnswer({ teacherId, sessionId, answer })
   if (!session) throw new NotFoundError('Live session not found')
   return session
 }
 
-export function addTeacherLiveCandidate(teacherId: string, sessionId: string, candidate: Record<string, unknown>) {
-  const result = live.addTeacherCandidate({ teacherId, sessionId, candidate })
+export async function addTeacherLiveCandidate(teacherId: string, sessionId: string, candidate: Record<string, unknown>) {
+  const result = await live.addTeacherCandidate({ teacherId, sessionId, candidate })
   if (!result) throw new NotFoundError('Live session not found')
   return result
 }
 
-export function getTeacherLiveCandidates(teacherId: string, sessionId: string, from: number) {
-  const result = live.getStudentCandidates(sessionId, teacherId, from)
+export async function getTeacherLiveCandidates(teacherId: string, sessionId: string, from: number) {
+  const result = await live.getStudentCandidates(sessionId, teacherId, from)
   if (!result) throw new NotFoundError('Live session not found')
   return result
 }
 
-export function endTeacherLiveSession(teacherId: string, sessionId: string) {
-  const session = live.endLiveSession(sessionId, { teacherId })
+export async function endTeacherLiveSession(teacherId: string, sessionId: string) {
+  const session = await live.endLiveSession(sessionId, { teacherId })
   if (!session) throw new NotFoundError('Live session not found')
   return session
 }
@@ -201,6 +202,7 @@ export async function reviewViolation(
     reviewNote: data.reviewNote,
   })
   if (!result) throw new NotFoundError('Violation not found')
+  emitProctoringEvent(scheduleId, 'violation:reviewed', result)
   return result
 }
 
@@ -221,6 +223,7 @@ export async function invalidateAttempt(
     reason: data.reason,
   })
   if (!result) throw new NotFoundError('Exam attempt not found')
+  emitProctoringEvent(scheduleId, 'attempt:invalidated', result)
   return result
 }
 
