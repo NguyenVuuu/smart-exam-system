@@ -82,4 +82,8 @@ export const minioConfig = {
   get evidenceUrlExpirySeconds(): number {
     return parseInt(process.env.MINIO_EVIDENCE_URL_EXPIRY_SECONDS ?? '300', 10)
   },
+
+  get requireEvidenceStorage(): boolean {
+    return process.env.MINIO_REQUIRE_EVIDENCE_STORAGE === 'true' || appConfig.nodeEnv === 'production'
+  },
 } as const
