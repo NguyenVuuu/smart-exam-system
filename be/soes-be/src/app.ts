@@ -3,7 +3,7 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import path from 'path'
 import { errorHandler } from './middlewares/errorHandler'
-import { authRoutes } from './modules/auth'
+import { authRoutes, authenticate, requireRoles } from './modules/auth'
 import { studentDashboardRoutes } from './modules/student-dashboard'
 import { studentSubjectsRoutes } from './modules/student-subjects'
 import { studentCourseDetailRoutes } from './modules/student-course-detail'
@@ -15,10 +15,13 @@ import { teacherQuestionsRoutes } from './modules/teacher-questions'
 import { teacherExamsRoutes } from './modules/teacher-exams'
 import { examScheduleRoutes } from './modules/exam-schedules'
 import { adminContentRoutes } from './modules/admin-content'
+import { adminAuditLogRoutes } from './modules/admin-audit-logs'
 import { aiQuestionGenerationRoutes } from './modules/ai-question-generation'
-import { corsConfig } from './config'
+import { corsConfig, proxyConfig } from './config'
+import { auditRequestContext } from './middlewares/auditRequestContext'
 
 const app = express()
+app.set('trust proxy', proxyConfig.trustProxy)
 
 // ── Core Middlewares ──────────────────────────────────────
 app.use(
@@ -37,9 +40,13 @@ app.use(
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
-app.use('/api/local-evidence', express.static(path.join(process.cwd(), 'uploads', 'evidence')))
-
-app.set('trust proxy', true)   // hoặc số lượng proxy hop, ví dụ: 1
+app.use(auditRequestContext)
+app.use(
+  '/api/local-evidence',
+  authenticate,
+  requireRoles('TEACHER', 'ADMIN'),
+  express.static(path.join(process.cwd(), 'uploads', 'evidence')),
+)
 
 // ── Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
@@ -51,6 +58,7 @@ app.use('/api/admin', adminAcademicRoutes)
 app.use('/api/admin', adminUsersRoutes)
 app.use('/api/admin', examScheduleRoutes)
 app.use('/api/admin', adminContentRoutes)
+app.use('/api/admin', adminAuditLogRoutes)
 app.use('/api/teacher', teacherCoursesRoutes)
 app.use('/api/teacher', teacherQuestionsRoutes)
 app.use('/api/teacher', teacherExamsRoutes)

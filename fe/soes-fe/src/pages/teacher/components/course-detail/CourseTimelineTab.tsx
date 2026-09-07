@@ -1,5 +1,5 @@
 import { Download, Edit3, Paperclip, Pin, PinOff, Send, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import type { CourseAnnouncement } from '../../types/teacher-course.types'
 import { validateAnnouncement } from '../../utils/teacherValidation.utils'
@@ -100,6 +100,14 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
   }
 
   const maxNewFiles = Math.max(0, 5 - existingAttachments.length)
+
+  const sortedAnnouncements = useMemo(() => {
+    return [...announcements].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      return 0
+    })
+  }, [announcements])
 
   return (
     <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
@@ -229,16 +237,20 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
       </form>
 
       <div className="space-y-4">
-        {announcements.length === 0 && (
+        {sortedAnnouncements.length === 0 && (
           <div className="rounded-xl border border-gray-100 bg-white p-12 text-center text-sm text-gray-400 shadow-sm">
             Chưa có thông báo nào trong lớp này.
           </div>
         )}
 
-        {announcements.map((post) => (
+        {sortedAnnouncements.map((post) => (
           <article
             key={post.id}
-            className={`rounded-xl border bg-white p-5 shadow-sm transition-shadow ${post.pinned ? 'border-amber-200 bg-amber-50/20' : 'border-gray-100'}`}
+            className={`rounded-xl border bg-white p-5 shadow-xs transition-all ${
+              post.pinned
+                ? 'border-blue-300 bg-blue-50/25 ring-1 ring-blue-500/10'
+                : 'border-gray-200/80 hover:border-gray-300'
+            }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -250,8 +262,8 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
                   <p className="text-xs text-gray-400 mt-0.5">
                     {post.teacherName} · {post.createdAt}
                     {post.pinned && (
-                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
-                        <Pin size={11} /> Đã ghim
+                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[11px] font-medium text-blue-700">
+                        <Pin size={11} className="text-blue-600" /> Đã ghim
                       </span>
                     )}
                   </p>
@@ -263,7 +275,7 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
                   title={post.pinned ? 'Bỏ ghim' : 'Ghim bài đăng'}
                   onClick={() => void onPin(post.id, !post.pinned)}
                 >
-                  {post.pinned ? <PinOff size={15} /> : <Pin size={15} />}
+                  {post.pinned ? <PinOff size={15} className="text-blue-600" /> : <Pin size={15} />}
                 </IconButton>
                 <IconButton title="Chỉnh sửa" onClick={() => edit(post)}>
                   <Edit3 size={15} />

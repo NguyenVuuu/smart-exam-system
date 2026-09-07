@@ -28,6 +28,7 @@ export const scheduleBodySchema = z.object({
   status: z.enum(['DRAFT', 'SCHEDULED']).default('DRAFT'),
   courses: z.array(z.object({ courseOfferingId: id, teacherIds: z.array(id).min(1).max(10) })).min(1).max(100),
 }).superRefine((data, ctx) => {
+  if (data.status === 'SCHEDULED' && data.startTime <= new Date()) ctx.addIssue({ code: 'custom', path: ['startTime'], message: 'Start time must be in the future' })
   if (data.endTime <= data.startTime) ctx.addIssue({ code: 'custom', path: ['endTime'], message: 'End time must be after start time' })
   const courseIds = data.courses.map(({ courseOfferingId }) => courseOfferingId)
   if (new Set(courseIds).size !== courseIds.length) ctx.addIssue({ code: 'custom', path: ['courses'], message: 'Course offerings must be unique' })

@@ -1,73 +1,110 @@
-import { ScrollText } from 'lucide-react'
+import { Download, RefreshCw, ScrollText } from 'lucide-react'
 import { useState } from 'react'
-import AppBadge from '../../components/common/AppBadge'
-import DataTable, { type ColumnDef } from '../../components/common/DataTable'
-import { ADMIN_AUDIT_LOGS } from './mock/admin.mock'
-import type { AuditLogItem } from './types/admin.types'
+import { toast } from 'sonner'
+import { exportAdminAuditLogs, getAdminAuditLog } from './api/admin-audit-logs.api'
 import AdminLayout from './components/AdminLayout'
+import AdminButton from './components/AdminButton'
 import AdminPageHeader from './components/AdminPageHeader'
-import AdminSelect from './components/AdminSelect'
 import AdminTablePanel from './components/AdminTablePanel'
-import AdminToolbar from './components/AdminToolbar'
+import AuditLogDetailModal from './components/audit-log/AuditLogDetailModal'
+import AuditLogFilters from './components/audit-log/AuditLogFilters'
+import AuditLogStats from './components/audit-log/AuditLogStats'
+import AuditLogTable from './components/audit-log/AuditLogTable'
+import { useAdminAuditLogs } from './hooks/useAdminAuditLogs'
+import { useAuditLogFilters } from './hooks/useAuditLogFilters'
+import type { AdminAuditLogDetailApiDto } from './types/admin-api.types'
+import { downloadBlob } from './utils/audit-log.utils'
+
+const PAGE_SIZE = 10
 
 export default function AdminAuditLogPage() {
-  const [action, setAction] = useState('ALL')
-  const [search, setSearch] = useState('')
+  const filterState = useAuditLogFilters(PAGE_SIZE)
+  const { logs, overview, refresh } = useAdminAuditLogs(filterState.filters)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<AdminAuditLogDetailApiDto>()
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
-  const filteredLogs = ADMIN_AUDIT_LOGS.filter((item) => {
-    const matchesAction = action === 'ALL' || item.action === action
-    const matchesSearch =
-      item.actor.toLowerCase().includes(search.toLowerCase()) ||
-      item.entity.toLowerCase().includes(search.toLowerCase()) ||
-      item.detail.toLowerCase().includes(search.toLowerCase())
-    return matchesAction && matchesSearch
-  })
+  const openDetail = async (id: string) => {
+    setSelectedId(id)
+    setDetail(undefined)
+    setDetailLoading(true)
+    try {
+      setDetail(await getAdminAuditLog(id))
+    } catch {
+      setSelectedId(null)
+      toast.error('Không thể tải chi tiết nhật ký.')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
 
-  const columns: ColumnDef<AuditLogItem>[] = [
-    { header: 'THỜI GIAN', width: '180px', render: (item) => <span className="text-sm text-slate-700">{item.time}</span> },
-    {
-      header: 'NGƯỜI THỰC HIỆN',
-      width: '210px',
-      render: (item) => (
-        <div>
-          <p className="text-sm font-semibold text-slate-950">{item.actor}</p>
-          <p className="text-xs text-slate-400">10.10.5.12</p>
-        </div>
-      ),
-    },
-    { header: 'HÀNH ĐỘNG', width: '180px', render: (item) => <AppBadge tone={item.action === 'SỬA ĐIỂM' ? 'amber' : item.action === 'TẠO CA THI' ? 'blue' : 'emerald'}>{item.action}</AppBadge> },
-    { header: 'THỰC THỂ', width: '240px', render: (item) => <span className="text-sm text-slate-700">{item.entity}</span> },
-    { header: 'CHI TIẾT', render: (item) => <span className="text-sm text-slate-600">{item.detail}</span> },
-  ]
+  const exportLogs = async () => {
+    setExporting(true)
+    try {
+      const filename = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`
+      downloadBlob(await exportAdminAuditLogs(filterState.exportFilters), filename)
+      toast.success('Đã xuất nhật ký theo bộ lọc hiện tại.')
+    } catch {
+      toast.error('Không thể xuất nhật ký. Vui lòng thử lại.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const closeDetail = () => {
+    setSelectedId(null)
+    setDetail(undefined)
+  }
 
   return (
     <AdminLayout>
       <AdminPageHeader
         icon={<ScrollText size={20} />}
-        title="Audit Log"
-        description="Ghi lại các thao tác quan trọng: đăng nhập, duyệt, sửa điểm, hủy ca và xử lý vi phạm."
+        title="Nhật ký hệ thống"
+        description="Theo dõi các thao tác quan trọng và truy vết thay đổi trong hệ thống."
+        action={(
+          <div className="flex gap-2">
+            <AdminButton
+              tone="secondary"
+              icon={<RefreshCw size={16} />}
+              onClick={() => void refresh()}
+              disabled={logs.isFetching}
+            >
+              Làm mới
+            </AdminButton>
+            <AdminButton icon={<Download size={16} />} onClick={() => void exportLogs()} disabled={exporting}>
+              {exporting ? 'Đang xuất...' : 'Xuất CSV'}
+            </AdminButton>
+          </div>
+        )}
       />
 
+      <AuditLogStats overview={overview.data} loading={overview.isLoading} />
       <AdminTablePanel>
-        <AdminToolbar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Tìm theo người thực hiện, thực thể hoặc chi tiết..."
-          onReset={() => {
-            setSearch('')
-            setAction('ALL')
-          }}
-          filters={(
-            <AdminSelect value={action} onChange={setAction} className="w-56" options={[
-              { value: 'ALL', label: 'Hành động' },
-              { value: 'SỬA ĐIỂM', label: 'Sửa điểm' },
-              { value: 'TẠO CA THI', label: 'Tạo ca thi' },
-              { value: 'ĐĂNG NHẬP', label: 'Đăng nhập' },
-            ]} />
-          )}
+        <AuditLogFilters
+          values={filterState.values}
+          actions={overview.data?.actions ?? []}
+          entityTypes={overview.data?.entityTypes ?? []}
+          onChange={filterState.update}
+          onReset={filterState.reset}
         />
-        <DataTable columns={columns} data={filteredLogs} keyExtractor={(item) => item.id} emptyText="Chưa có audit log phù hợp." />
+        <AuditLogTable
+          items={logs.data?.items ?? []}
+          pagination={logs.data?.pagination}
+          page={filterState.page}
+          pageSize={PAGE_SIZE}
+          loading={logs.isLoading}
+          error={logs.isError}
+          onPageChange={filterState.setPage}
+          onOpenDetail={(id) => void openDetail(id)}
+          onRetry={() => void logs.refetch()}
+        />
       </AdminTablePanel>
+
+      {selectedId && (
+        <AuditLogDetailModal auditLog={detail} loading={detailLoading} onClose={closeDetail} />
+      )}
     </AdminLayout>
   )
 }

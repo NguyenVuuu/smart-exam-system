@@ -1,4 +1,3 @@
-```gitignore
 # =========================
 # Dependencies
 # =========================
@@ -49,7 +48,7 @@ pnpm-debug.log*
 storage/
 
 # =========================
-# IDE
+# IDE & Editors
 # =========================
 .vscode/
 .idea/
@@ -67,6 +66,16 @@ Thumbs.db
 *.temp
 *.swp
 *.swo
+temp-skills/
+
+# =========================
+# AI & Agent Local Files
+# =========================
+.agents/
+.agent/
+.gemini/
+.codex/
+.kombai/
 
 # =========================
 # Testing
@@ -78,4 +87,3 @@ Thumbs.db
 # =========================
 .pnpm-store/
 .yarn/
-```

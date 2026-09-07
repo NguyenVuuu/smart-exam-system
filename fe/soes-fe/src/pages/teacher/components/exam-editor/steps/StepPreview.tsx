@@ -1,4 +1,4 @@
-﻿import { Eye } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import { examTypeLabel } from '../../../constants/ExamEditorConfig'
 import type { ExamQuestionItem, ExamSection, ExamType } from '../../../types/teacher-exam.types'
 import { StepCard } from '../ExamEditorPrimitives'
@@ -28,15 +28,12 @@ export function StepPreview({
       icon={<Eye size={18} className="text-blue-600" />}
     >
       <div className="space-y-4">
-        <div className="border-b border-gray-100 pb-4 flex items-start justify-between gap-4">
+        <div className="border-b border-gray-100 pb-4">
           <div className="min-w-0">
             <p className="text-xs font-semibold text-blue-600 uppercase">{examTypeLabel[examType]}</p>
-            <h2 className="mt-1 truncate text-xs font-semibold text-gray-900" title={title}>{title}</h2>
-            <p className="mt-1 truncate text-xs text-gray-500" title={description}>{description}</p>
+            <h2 className="mt-1 truncate text-sm font-semibold text-gray-900" title={title}>{title}</h2>
+            {description && <p className="mt-1 truncate text-xs text-gray-500" title={description}>{description}</p>}
           </div>
-          <span className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium shrink-0">
-            Xem thử đề cá nhân
-          </span>
         </div>
 
         {sectionStats.map((section) => (

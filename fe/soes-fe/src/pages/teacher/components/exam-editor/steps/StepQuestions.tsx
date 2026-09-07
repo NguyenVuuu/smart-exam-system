@@ -4,6 +4,7 @@ import type { Question } from '../../../types/teacher-question-bank.types'
 import { StepCard } from '../ExamEditorPrimitives'
 import { QuestionRow } from '../QuestionRow'
 import type { ApiFieldErrors } from '../../../../../api/errors'
+import { normalizePoint } from '../../../utils/ExamEditorUtils'
 
 export function StepQuestions(props: {
   sections: ExamSection[]
@@ -26,7 +27,7 @@ export function StepQuestions(props: {
   const updateQuestionPoints = (index: number, points: number) => {
     props.onFieldChange?.('items')
     const updated = [...props.questions]
-    updated[index] = { ...updated[index], points }
+    updated[index] = { ...updated[index], points: normalizePoint(points) }
     props.setQuestions(updated)
   }
 

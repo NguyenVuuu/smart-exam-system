@@ -104,7 +104,7 @@ export function QuestionRow({
             <input
               type="number"
               min={0}
-              step={0.25}
+              step={0.01}
               value={item.points}
               onChange={(e) => onPointChange(Number(e.target.value))}
               className="w-20 bg-white border border-gray-200 rounded-lg p-2 text-xs font-bold focus:outline-none focus:border-blue-300 shadow-2xs"

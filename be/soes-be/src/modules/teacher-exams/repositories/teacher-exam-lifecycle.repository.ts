@@ -2,6 +2,7 @@ import type { ExamStudentVisibility, Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import { createExamQuestion, deleteExamQuestions } from './exam-question-snapshot.repository'
 import { examInclude } from './teacher-exams.repository'
+import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 
 const copySuffix = ' - Bản sao'
 const toCopyTitle = (title: string) => `${title.replace(/( - Bản sao)+$/u, '')}${copySuffix}`
@@ -48,14 +49,12 @@ export function setDistributionLock(
     })
     if (!changed.count) return { changed: false, blocked: false }
 
-    await tx.auditLog.create({
-      data: {
-        userId,
-        action: locked ? 'LOCK_EXAM_DISTRIBUTION' : 'UNLOCK_EXAM_DISTRIBUTION',
-        entityType: 'Exam',
-        entityId: examId,
-        metadata: { from, to },
-      },
+    await writeAuditLog(tx, {
+      userId,
+      action: locked ? 'LOCK_EXAM_DISTRIBUTION' : 'UNLOCK_EXAM_DISTRIBUTION',
+      entityType: 'Exam',
+      entityId: examId,
+      metadata: { from, to },
     })
     return { changed: true, blocked: false }
   })
@@ -88,14 +87,12 @@ export function setStudentVisibility(
     })
     if (!changed.count) return false
 
-    await tx.auditLog.create({
-      data: {
-        userId,
-        action: 'UPDATE_EXAM_STUDENT_VISIBILITY',
-        entityType: 'Exam',
-        entityId: examId,
-        metadata: { from: exam.studentVisibility, to: visibility },
-      },
+    await writeAuditLog(tx, {
+      userId,
+      action: 'UPDATE_EXAM_STUDENT_VISIBILITY',
+      entityType: 'Exam',
+      entityId: examId,
+      metadata: { from: exam.studentVisibility, to: visibility },
     })
     return true
   })

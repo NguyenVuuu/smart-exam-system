@@ -2,6 +2,23 @@ export interface ApiResponse<T> { success: boolean; data: T }
 export interface ApiPagination { page: number; pageSize: number; totalItems: number; totalPages: number }
 export interface ApiPage<T> { items: T[]; pagination: ApiPagination }
 
+export type AuditActorRole = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'UNKNOWN'
+
+export interface AdminAuditLogApiDto {
+  id: string; action: string; entityType: string; entityId: string; createdAt: string; ipAddress: string | null
+  actor: { id: string; code: string | null; fullName: string; email: string | null; role: AuditActorRole }
+}
+
+export interface AdminAuditLogDetailApiDto extends AdminAuditLogApiDto {
+  userAgent: string | null
+  metadata: unknown
+}
+
+export interface AdminAuditLogOverviewApiDto {
+  totalLogs: number; todayLogs: number; actorCount: number; actionCount: number
+  actions: string[]; entityTypes: string[]
+}
+
 export interface DepartmentApiDto {
   id: string; code: string; name: string; description: string | null; status: string
   subjectCount: number; teacherCount: number

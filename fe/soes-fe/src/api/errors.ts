@@ -46,6 +46,7 @@ const examMessageTranslations: Record<string, string> = {
   'One or more questions are unavailable': 'Một hoặc nhiều câu hỏi không còn khả dụng.',
   'One or more selected questions are unavailable': 'Một hoặc nhiều câu hỏi đã chọn không còn khả dụng.',
   'Question points must equal exam total points': 'Tổng điểm câu hỏi phải bằng tổng điểm của đề.',
+  'Points can have at most two decimal places': 'Điểm chỉ được có tối đa 2 chữ số thập phân.',
   'One or more exam sections are invalid': 'Có phần đề thi không hợp lệ.',
   'Exam must contain at least one question': 'Đề thi phải có ít nhất một câu hỏi.',
   'Section IDs must be unique': 'Mã các phần trong đề không được trùng.',
@@ -83,6 +84,7 @@ const scheduleMessageTranslations: Record<string, string> = {
     'Lịch thi đã được chốt. Vui lòng mở lại lịch thi trước khi cập nhật ca.',
   'Exam distribution is locked; reopen it before cancelling a schedule':
     'Lịch thi đã được chốt. Vui lòng mở lại lịch thi trước khi hủy ca.',
+  'Start time must be in the future': 'Giờ mở bài phải lớn hơn thời điểm hiện tại.',
   'End time must be after start time': 'Giờ kết thúc ca thi phải sau giờ bắt đầu.',
   'Campus exam requires allowed IP ranges': 'Ca thi giới hạn IP trường cần nhập dải IP được phép.',
   'Random question count is required': 'Chế độ chọn ngẫu nhiên cần nhập số câu hỏi.',

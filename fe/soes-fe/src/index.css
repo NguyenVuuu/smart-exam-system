@@ -36,8 +36,8 @@
   }
 
   html {
-    font-size: 15.5px;
-    /* Phóng to tỷ lệ chữ & khung hình lên ~110% */
+    font-size: 15px;
+    scroll-behavior: smooth;
   }
 
   * {
@@ -51,6 +51,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     color: #1e293b;
+    background-color: var(--soes-canvas);
   }
 
   input,

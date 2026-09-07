@@ -149,12 +149,3 @@ export interface AdminProctorSession {
   warnings: number
   status: 'OPEN' | 'CLOSED'
 }
-
-export interface AuditLogItem {
-  id: string
-  time: string
-  actor: string
-  action: string
-  entity: string
-  detail: string
-}

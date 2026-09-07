@@ -1,6 +1,6 @@
 import { Eye, MessageSquareWarning, ShieldAlert } from 'lucide-react'
+import { useState } from 'react'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
-import { ADMIN_PROCTOR_SESSIONS } from './mock/admin.mock'
 import type { AdminProctorSession } from './types/admin.types'
 import { AdminStatusBadge } from './components/AdminBadges'
 import AdminLayout from './components/AdminLayout'
@@ -8,7 +8,9 @@ import AdminPageHeader from './components/AdminPageHeader'
 import AdminTablePanel from './components/AdminTablePanel'
 
 export default function AdminProctoringPage() {
-  const totals = ADMIN_PROCTOR_SESSIONS.reduce((acc, item) => ({
+  const [sessions] = useState<AdminProctorSession[]>([])
+
+  const totals = sessions.reduce((acc, item) => ({
     online: acc.online + item.online,
     inProgress: acc.inProgress + item.inProgress,
     submitted: acc.submitted + item.submitted,
@@ -60,7 +62,7 @@ export default function AdminProctoringPage() {
       </div>
 
       <AdminTablePanel>
-        <DataTable columns={columns} data={ADMIN_PROCTOR_SESSIONS} keyExtractor={(item) => item.id} emptyText="Chưa có ca thi cần giám sát." />
+        <DataTable columns={columns} data={sessions} keyExtractor={(item) => item.id} emptyText="Chưa có ca thi cần giám sát." />
       </AdminTablePanel>
     </AdminLayout>
   )

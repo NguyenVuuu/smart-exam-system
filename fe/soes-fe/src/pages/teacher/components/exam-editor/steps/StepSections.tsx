@@ -1,7 +1,7 @@
 ﻿import { Layers, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ExamQuestionItem, ExamSection, ExamType } from '../../../types/teacher-exam.types'
-import { balanceQuestionPointsBySection, createExamSectionId } from '../../../utils/ExamEditorUtils'
+import { balanceQuestionPointsBySection, createExamSectionId, normalizePoint } from '../../../utils/ExamEditorUtils'
 import { StepCard } from '../ExamEditorPrimitives'
 import type { ApiFieldErrors } from '../../../../../api/errors'
 
@@ -82,7 +82,7 @@ export function StepSections({
   const updateSectionPoints = (sectionId: string, targetPoints: number) => {
     onFieldChange?.('sections')
     const nextSections = sections.map((section) =>
-      section.id === sectionId ? { ...section, targetPoints: Math.max(0, targetPoints) } : section,
+      section.id === sectionId ? { ...section, targetPoints: normalizePoint(targetPoints) } : section,
     )
     setSections(nextSections)
     setQuestions(balanceQuestionPointsBySection(questions, nextSections))
@@ -150,7 +150,7 @@ export function StepSections({
                       <input
                         type="number"
                         min={0}
-                        step={0.25}
+                        step={0.01}
                         value={section.targetPoints ?? 0}
                         onChange={(event) => updateSectionPoints(section.id, Number(event.target.value))}
                         className="h-8 w-20 rounded-lg border border-gray-200 bg-white px-2 text-right text-sm font-normal text-gray-800 outline-none focus:border-blue-500"

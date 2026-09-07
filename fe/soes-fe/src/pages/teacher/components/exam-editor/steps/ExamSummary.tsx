@@ -1,5 +1,6 @@
-﻿import { examTypeLabel } from '../../../constants/ExamEditorConfig'
+import { examTypeLabel } from '../../../constants/ExamEditorConfig'
 import type { ExamQuestionItem, ExamSection, ExamType } from '../../../types/teacher-exam.types'
+import { arePointTotalsEqual, formatPoint } from '../../../utils/ExamEditorUtils'
 import { SummaryBox } from '../ExamEditorPrimitives'
 
 export function ExamSummary({
@@ -10,6 +11,7 @@ export function ExamSummary({
   sectionStats,
   questions,
   totalPoints,
+  targetTotalPoints,
   onAutoBalancePoints,
 }: {
   examType: ExamType
@@ -19,9 +21,10 @@ export function ExamSummary({
   sectionStats: Array<ExamSection & { questionCount: number; points: number }>
   questions: ExamQuestionItem[]
   totalPoints: number
+  targetTotalPoints: number
   onAutoBalancePoints?: () => void
 }) {
-  const isPointsBalanced = Math.abs(totalPoints - 10) < 0.01
+  const isPointsBalanced = arePointTotalsEqual(totalPoints, targetTotalPoints)
 
   return (
     <aside className="w-full xl:w-[360px] space-y-4 h-fit xl:sticky xl:top-6 font-sans">
@@ -44,7 +47,7 @@ export function ExamSummary({
           >
             <span className="text-xs text-gray-500 block font-medium">Tổng điểm</span>
             <span className={`text-xs font-bold ${isPointsBalanced ? 'text-emerald-700' : 'text-amber-700'}`}>
-              {totalPoints.toFixed(1)}/10
+              {formatPoint(totalPoints)}/{formatPoint(targetTotalPoints)}
             </span>
           </div>
         </div>
@@ -55,7 +58,7 @@ export function ExamSummary({
             onClick={onAutoBalancePoints}
             className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
           >
-            ⚡ Tự động chia đều cho tròn 10.0đ
+            Tự động chia đều cho đủ {formatPoint(targetTotalPoints)}đ
           </button>
         )}
 
@@ -68,7 +71,7 @@ export function ExamSummary({
             >
               <span className="text-gray-700 font-medium truncate max-w-[180px]">{section.title}</span>
               <span className="font-bold text-blue-700 shrink-0">
-                {section.questionCount} câu • {section.points.toFixed(1)}đ
+                {section.questionCount} câu • {formatPoint(section.points)}đ
               </span>
             </div>
           ))}

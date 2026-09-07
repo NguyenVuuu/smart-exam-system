@@ -68,7 +68,7 @@ export function StepInfo(props: {
             value={props.title}
             onChange={(e) => { props.onFieldChange?.('title'); props.setTitle(e.target.value) }}
             placeholder="Ví dụ: Đề thi Giữa Kỳ 1..."
-            className="w-full bg-white border border-gray-200 text-xs rounded-xl p-2.5 focus:outline-none focus:border-blue-500 font-medium shadow-2xs"
+            className="flex h-10 w-full rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-normal text-slate-800 shadow-xs transition-colors placeholder:text-gray-400 focus:border-blue-500 focus:outline-none"
           />
         </Field>
 
@@ -101,7 +101,7 @@ export function StepInfo(props: {
               value={props.description}
               onChange={(e) => { props.onFieldChange?.('description'); props.setDescription(e.target.value) }}
               placeholder="Nhập mô tả đề thi..."
-              className="w-full bg-white border border-gray-200 text-xs rounded-xl p-3 focus:outline-none focus:border-blue-500 shadow-2xs"
+              className="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm font-normal text-slate-800 shadow-xs transition-colors placeholder:text-gray-400 focus:border-blue-500 focus:outline-none"
             />
           </Field>
         </div>

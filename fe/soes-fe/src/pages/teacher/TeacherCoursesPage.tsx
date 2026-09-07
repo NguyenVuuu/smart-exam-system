@@ -101,48 +101,50 @@ export default function TeacherCoursesPage() {
               <p>{error}</p><button type="button" className="mt-2 text-blue-600 underline" onClick={retry}>Thử lại</button>
             </div>
           )}
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),360px))] items-start gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,310px),360px))] items-start gap-4">
             {filteredCourses.map((course) => (
               <div
                 key={course.id}
                 onClick={() => navigate(`/teacher/courses/${course.id}`)}
-                className="group flex min-h-[190px] cursor-pointer flex-col gap-4 rounded-xl border border-gray-100 bg-white p-[18px] shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
+                className="group relative flex min-h-[195px] cursor-pointer flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400/80 hover:shadow-md"
               >
-                <div className="space-y-2.5">
+                <div>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[13px] font-bold text-blue-600">
-                      {course.subjectCode.substring(0, 3)}
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-sm font-bold text-blue-600 tracking-wider shadow-2xs">
+                      {course.subjectCode.substring(0, 3).toUpperCase()}
                     </div>
                     <AppBadge tone={course.status === 'ACTIVE' ? 'emerald' : 'gray'}>
                       {course.status === 'ACTIVE' ? 'ĐANG MỞ' : 'ĐÃ ĐÓNG'}
                     </AppBadge>
                   </div>
 
-                  <div className="min-w-0">
-                    <span className="block truncate text-[13px] font-semibold uppercase text-blue-600" title={`Mã lớp: ${course.courseCode}`}>
-                      Mã lớp: {course.courseCode}
-                    </span>
-                    <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900 transition-colors group-hover:text-blue-600">
+                  <div className="mt-3.5 min-w-0">
+                    <h3 className="line-clamp-2 text-base font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
                       {course.subjectName}
                     </h3>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-lg border border-blue-200/70 bg-blue-50/80 px-2.5 py-1 text-xs font-mono font-semibold text-blue-700">
+                        Mã lớp: {course.courseCode}
+                      </span>
+                    </div>
                     {course.description && (
-                      <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-gray-500">{course.description}</p>
+                      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500">{course.description}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-3 text-[13px] text-gray-500">
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1">
-                      <Users size={14} className="text-gray-400" />
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3.5 text-sm text-slate-600">
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-1.5 font-medium text-slate-600">
+                      <Users size={15} className="text-slate-400" />
                       {course.totalStudents} SV
                     </span>
-                    <span className="flex items-center gap-1">
-                      <BookOpen size={14} className="text-gray-400" />
+                    <span className="flex items-center gap-1.5 font-medium text-slate-600">
+                      <BookOpen size={15} className="text-slate-400" />
                       {course.totalExams} Bài thi
                     </span>
                   </div>
-                  <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  <ChevronRight size={17} className="text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-600" />
                 </div>
               </div>
             ))}

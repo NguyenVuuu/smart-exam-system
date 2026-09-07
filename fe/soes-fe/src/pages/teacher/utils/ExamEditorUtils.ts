@@ -79,14 +79,42 @@ export function inferSectionId(question: Question, sections: ExamSection[]) {
   return sections.find((section) => section.type === 'OBJECTIVE')?.id || sections[0].id
 }
 
-export function splitPointsPrecisely(totalPoints: number, itemCount: number) {
-  if (itemCount === 0) return []
+export function splitPointsPrecisely(totalPoints: number, itemCount: number): number[] {
+  if (itemCount <= 0) return []
+  if (totalPoints <= 0) return Array(itemCount).fill(0)
 
-  const basePoint = Math.floor((totalPoints / itemCount) * 100) / 100
+  const totalCents = toPointCents(totalPoints)
+  const baseCents = Math.floor(totalCents / itemCount)
+  const remainderCents = totalCents % itemCount
+
   return Array.from({ length: itemCount }, (_, index) => {
-    if (index < itemCount - 1) return Number(basePoint.toFixed(2))
-    return Number((totalPoints - basePoint * (itemCount - 1)).toFixed(2))
+    const cents = baseCents + (index < remainderCents ? 1 : 0)
+    return fromPointCents(cents)
   })
+}
+
+export function toPointCents(points: number) {
+  return Math.round((Number.isFinite(points) ? points : 0) * 100)
+}
+
+export function fromPointCents(cents: number) {
+  return Number((cents / 100).toFixed(2))
+}
+
+export function normalizePoint(points: number) {
+  return fromPointCents(Math.max(0, toPointCents(points)))
+}
+
+export function sumPointsPrecisely(points: number[]) {
+  return fromPointCents(points.reduce((sum, point) => sum + toPointCents(point), 0))
+}
+
+export function arePointTotalsEqual(left: number, right: number) {
+  return toPointCents(left) === toPointCents(right)
+}
+
+export function formatPoint(points: number) {
+  return normalizePoint(points).toFixed(2).replace(/\.?0+$/, '')
 }
 
 /**
@@ -116,7 +144,7 @@ export function balanceQuestionPointsBySection(
     const sectionQuestionIndexes = nextQuestions
       .map((item, index) => (item.sectionId === sectionId ? index : -1))
       .filter((index) => index >= 0)
-    const pointList = splitPointsPrecisely(section.targetPoints, sectionQuestionIndexes.length)
+    const pointList = splitPointsPrecisely(normalizePoint(section.targetPoints), sectionQuestionIndexes.length)
 
     nextQuestions = nextQuestions.map((item, index) => {
       const pointIndex = sectionQuestionIndexes.indexOf(index)
