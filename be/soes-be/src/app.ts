@@ -3,7 +3,7 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import path from 'path'
 import { errorHandler } from './middlewares/errorHandler'
-import { authRoutes } from './modules/auth'
+import { authRoutes, authenticate, requireRoles } from './modules/auth'
 import { studentDashboardRoutes } from './modules/student-dashboard'
 import { studentSubjectsRoutes } from './modules/student-subjects'
 import { studentCourseDetailRoutes } from './modules/student-course-detail'
@@ -37,7 +37,12 @@ app.use(
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
-app.use('/api/local-evidence', express.static(path.join(process.cwd(), 'uploads', 'evidence')))
+app.use(
+  '/api/local-evidence',
+  authenticate,
+  requireRoles('TEACHER', 'ADMIN'),
+  express.static(path.join(process.cwd(), 'uploads', 'evidence')),
+)
 
 app.set('trust proxy', true)   // hoặc số lượng proxy hop, ví dụ: 1
 

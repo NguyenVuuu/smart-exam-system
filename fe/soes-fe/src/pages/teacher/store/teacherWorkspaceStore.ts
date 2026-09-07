@@ -1,6 +1,4 @@
 import { create } from 'zustand'
-import { MOCK_EXAMS } from '../mock/teacher-exam.mock'
-import { MOCK_QUESTION_BANK } from '../mock/teacher-question-bank.mock'
 import type { Exam, ExamSchedule } from '../types/teacher-exam.types'
 import type { Question } from '../types/teacher-question-bank.types'
 
@@ -22,8 +20,8 @@ interface TeacherWorkspaceState {
 }
 
 export const useTeacherWorkspaceStore = create<TeacherWorkspaceState>((set) => ({
-  exams: MOCK_EXAMS.map((exam) => ({ ...exam, questions: [...exam.questions], schedules: [...(exam.schedules ?? [])] })),
-  questions: MOCK_QUESTION_BANK.map((question) => ({ ...question })),
+  exams: [],
+  questions: [],
   upsertExam: (exam) => set((state) => ({
     exams: state.exams.some((item) => item.id === exam.id)
       ? state.exams.map((item) => (item.id === exam.id ? exam : item))

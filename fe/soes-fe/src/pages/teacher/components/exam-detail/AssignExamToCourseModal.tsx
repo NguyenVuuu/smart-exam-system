@@ -5,7 +5,8 @@ import { getApiErrorMessage, getApiFieldErrors } from '../../../../api/errors'
 import type { CourseOffering } from '../../types/teacher-course.types'
 import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionForm, type ExamSessionDraft } from './session/ExamSessionForm'
-import { ExamSessionList, parseSessionDateTime } from './session/ExamSessionList'
+import { ExamSessionList } from './session/ExamSessionList'
+import { parseSessionDateTime } from './session/session-time.utils'
 
 interface AssignExamToCourseModalProps {
   isOpen: boolean
@@ -164,6 +165,11 @@ function AssignExamToCourseModalContent({
       toast.error('Giờ đóng ca phải sau giờ mở bài.')
       return null
     }
+    if (localStart <= new Date()) {
+      setFieldErrors((current) => ({ ...current, startTime: 'Giờ mở bài phải lớn hơn thời điểm hiện tại.' }))
+      toast.error('Giờ mở bài phải lớn hơn thời điểm hiện tại.')
+      return null
+    }
     const startTime = localStart.toISOString()
     const endTime = localEnd.toISOString()
     return {
@@ -247,11 +253,18 @@ function AssignExamToCourseModalContent({
 
   const handlePublishToClass = async () => {
     const sessionsToSave = isEditingExistingSession
-      ? [buildSessionFromDraft()].filter(Boolean)
+      ? [buildSessionFromDraft()].filter((session): session is ExamSchedule => Boolean(session))
       : publishSessions
 
     if (sessionsToSave.length === 0) {
       toast.error('Vui lòng thêm ít nhất một ca thi trước khi công bố.')
+      return
+    }
+    const expiredSession = sessionsToSave.find((session) => new Date(session.startTime) <= new Date())
+    if (expiredSession) {
+      if (!isEditingExistingSession) editPublishSession(expiredSession)
+      setFieldErrors((current) => ({ ...current, startTime: 'Giờ mở bài phải lớn hơn thời điểm hiện tại.' }))
+      toast.error('Có ca thi đã qua giờ mở bài. Vui lòng cập nhật lại thời gian trước khi công bố.')
       return
     }
 

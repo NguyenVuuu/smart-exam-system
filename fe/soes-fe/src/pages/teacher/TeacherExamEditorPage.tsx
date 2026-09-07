@@ -24,10 +24,13 @@ import { WIZARD_STEPS, examTypeLabel, type WizardStepId } from './constants/Exam
 import {
   balanceQuestionPointsBySection,
   buildInitialSections,
+  arePointTotalsEqual,
+  normalizePoint,
   inferSectionId,
   isQuestionAllowedForExam,
   splitPointsPrecisely,
   orderQuestionsBySection,
+  sumPointsPrecisely,
 } from './utils/ExamEditorUtils'
 import { POSITIVE_INTEGER_REGEX } from './utils/teacherValidation.utils'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
@@ -47,7 +50,7 @@ import * as examApi from './api/teacher-exams.api'
 import type { TeacherExamQuestionInput } from './api/teacher-exams.api'
 
 const toExamQuestionInput = (item: ExamQuestionItem): TeacherExamQuestionInput => {
-  const placement = { points: item.points, sectionId: item.sectionId }
+  const placement = { points: normalizePoint(item.points), sectionId: item.sectionId }
   if (item.sourceQuestionId) {
     return { ...placement, source: 'QUESTION_BANK', questionId: item.sourceQuestionId }
   }
@@ -166,7 +169,7 @@ export default function TeacherExamEditorPage() {
   const subjectOptions = Array.from(new Map(semesterCourses.map((course) => [course.subjectId, {
     value: course.subjectId, label: `${course.subjectCode} - ${course.subjectName}`,
   }])).values())
-  const totalPoints = questions.reduce((sum, item) => sum + item.points, 0)
+  const totalPoints = sumPointsPrecisely(questions.map((item) => item.points))
   const stepIndex = WIZARD_STEPS.findIndex((step) => step.id === activeStep)
   const visibleQuestions = questions.filter((item) => item.sectionId === activeSectionId)
 
@@ -177,15 +180,16 @@ export default function TeacherExamEditorPage() {
         return {
           ...section,
           questionCount: sectionQuestions.length,
-          points: sectionQuestions.reduce((sum, item) => sum + item.points, 0),
+          points: sumPointsPrecisely(sectionQuestions.map((item) => item.points)),
         }
       }),
     [questions, sections],
   )
 
   const updateTargetTotalPoints = (points: number) => {
-    setTargetTotalPoints(points)
-    const sectionPointList = splitPointsPrecisely(points, sections.length)
+    const normalizedPoints = normalizePoint(points)
+    setTargetTotalPoints(normalizedPoints)
+    const sectionPointList = splitPointsPrecisely(normalizedPoints, sections.length)
     const nextSections = sections.map((section, index) => ({
       ...section,
       targetPoints: sectionPointList[index],
@@ -309,16 +313,17 @@ export default function TeacherExamEditorPage() {
       setActiveStep('QUESTIONS')
       return false
     }
-    const sectionTargetTotal = sections.reduce((sum, section) => sum + (section.targetPoints ?? 0), 0)
-    if (Math.abs(sectionTargetTotal - targetTotalPoints) >= 0.01) {
+    const normalizedTargetTotalPoints = normalizePoint(targetTotalPoints)
+    const sectionTargetTotal = sumPointsPrecisely(sections.map((section) => section.targetPoints ?? 0))
+    if (!arePointTotalsEqual(sectionTargetTotal, normalizedTargetTotalPoints)) {
       setFieldErrors({ sections: 'Tổng điểm các phần phải bằng tổng điểm mục tiêu.' })
-      toast.error(`Tổng điểm các phần là ${sectionTargetTotal.toFixed(2)}, phải bằng ${targetTotalPoints.toFixed(2)} điểm.`)
+      toast.error(`Tổng điểm các phần là ${sectionTargetTotal.toFixed(2)}, phải bằng ${normalizedTargetTotalPoints.toFixed(2)} điểm.`)
       setActiveStep('SECTIONS')
       return false
     }
-    if (Math.abs(totalPoints - targetTotalPoints) >= 0.01) {
+    if (!arePointTotalsEqual(totalPoints, normalizedTargetTotalPoints)) {
       setFieldErrors({ items: 'Tổng điểm câu hỏi phải bằng tổng điểm mục tiêu.' })
-      toast.error(`Tổng điểm hiện tại là ${totalPoints.toFixed(2)}, phải bằng tổng điểm mục tiêu ${targetTotalPoints.toFixed(2)}.`)
+      toast.error(`Tổng điểm hiện tại là ${totalPoints.toFixed(2)}, phải bằng tổng điểm mục tiêu ${normalizedTargetTotalPoints.toFixed(2)}.`)
       setActiveStep('QUESTIONS')
       return false
     }
@@ -329,7 +334,7 @@ export default function TeacherExamEditorPage() {
       setActiveStep('CONFIG')
       return false
     }
-    if (!targetTotalPoints || targetTotalPoints <= 0) {
+    if (!normalizedTargetTotalPoints || normalizedTargetTotalPoints <= 0) {
       setFieldErrors({ totalPoints: 'Tổng điểm mục tiêu phải lớn hơn 0.' })
       toast.error('Tổng điểm mục tiêu phải lớn hơn 0.')
       setActiveStep('CONFIG')
@@ -355,10 +360,10 @@ export default function TeacherExamEditorPage() {
       type: examCategory,
       format: examType === 'MULTIPLE_CHOICE' ? 'OBJECTIVE' as const : examType,
       creationMethod: sourceExam?.creationMethod ?? 'MANUAL' as const,
-      defaultDurationMinutes: Number(durationMinutes), totalPoints: targetTotalPoints,
+      defaultDurationMinutes: Number(durationMinutes), totalPoints: normalizePoint(targetTotalPoints),
       sections: sections.map((section) => ({
         id: section.id, title: section.title, description: section.description,
-        type: section.type, targetPoints: section.targetPoints ?? 0, orderIndex: section.order,
+        type: section.type, targetPoints: normalizePoint(section.targetPoints ?? 0), orderIndex: section.order,
       })),
     }
     try {
@@ -532,6 +537,7 @@ export default function TeacherExamEditorPage() {
               sectionStats={sectionStats}
               questions={questions}
               totalPoints={totalPoints}
+              targetTotalPoints={targetTotalPoints}
               onAutoBalancePoints={handleAutoBalancePoints}
             />
           </TeacherTwoColumnLayout>

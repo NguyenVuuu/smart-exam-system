@@ -19,7 +19,7 @@ export const teacherCourseDetailInclude = {
       createdBy: { include: { user: { select: { fullName: true } } } },
       attachments: true,
     },
-    orderBy: [{ publishedAt: 'desc' as const }, { createdAt: 'desc' as const }],
+    orderBy: [{ isPinned: 'desc' as const }, { publishedAt: 'desc' as const }, { createdAt: 'desc' as const }],
   },
 }
 

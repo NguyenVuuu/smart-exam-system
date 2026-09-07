@@ -20,6 +20,13 @@ import type {
   ExamsQuery,
 } from "../validators/teacher-exams.validator";
 import type { SnapshotSource } from "../repositories/exam-question-snapshot.repository";
+import {
+  arePointTotalsEqual,
+  fromPointCents,
+  normalizePoint,
+  sumPointCents,
+  toPointCents,
+} from "../utils/exam-points.util";
 
 type InlineExamQuestion = Extract<ExamQuestionInput, { source: 'INLINE' }>['question'];
 type AutoQuestionPoolItem = Awaited<ReturnType<typeof repo.findAutoExamQuestionPool>>[number];
@@ -38,13 +45,18 @@ function shuffle<T>(items: T[]) {
   return shuffled;
 }
 
-function splitPoints(totalPoints: number, count: number) {
+function splitPoints(totalPoints: number, count: number): number[] {
   if (count <= 0) return [];
-  const base = Math.floor((totalPoints / count) * 100) / 100;
-  const points = Array.from({ length: count }, () => base);
-  const used = base * count;
-  points[count - 1] = Number((points[count - 1] + totalPoints - used).toFixed(2));
-  return points;
+  if (totalPoints <= 0) return Array(count).fill(0);
+
+  const totalCents = toPointCents(totalPoints);
+  const baseCents = Math.floor(totalCents / count);
+  const remainderCents = totalCents % count;
+
+  return Array.from({ length: count }, (_, index) => {
+    const cents = baseCents + (index < remainderCents ? 1 : 0);
+    return fromPointCents(cents);
+  });
 }
 
 function toQuestionSnapshot(question: AutoQuestionPoolItem): SnapshotSource {
@@ -251,17 +263,17 @@ export async function autoGenerate(teacherId: string, data: AutoGenerateExamBody
 
   const objectivePoints = questions
     .filter(({ sectionId }) => sectionId === sectionIds.OBJECTIVE)
-    .reduce((sum, question) => sum + question.points, 0);
+    .reduce((sum, question) => sum + toPointCents(question.points), 0);
   const programmingPoints = questions
     .filter(({ sectionId }) => sectionId === sectionIds.PROGRAMMING)
-    .reduce((sum, question) => sum + question.points, 0);
+    .reduce((sum, question) => sum + toPointCents(question.points), 0);
   const sections = [
     ...(objectivePoints > 0 ? [{
       id: sectionIds.OBJECTIVE,
       title: 'Phần 1: Trắc nghiệm',
       description: 'Câu hỏi được chọn tự động từ ngân hàng câu hỏi.',
       type: 'OBJECTIVE' as const,
-      targetPoints: Number(objectivePoints.toFixed(2)),
+      targetPoints: fromPointCents(objectivePoints),
       orderIndex: 1,
     }] : []),
     ...(programmingPoints > 0 ? [{
@@ -269,7 +281,7 @@ export async function autoGenerate(teacherId: string, data: AutoGenerateExamBody
       title: objectivePoints > 0 ? 'Phần 2: Lập trình' : 'Phần 1: Lập trình',
       description: 'Bài lập trình được chọn tự động từ ngân hàng câu hỏi.',
       type: 'PROGRAMMING' as const,
-      targetPoints: Number(programmingPoints.toFixed(2)),
+      targetPoints: fromPointCents(programmingPoints),
       orderIndex: objectivePoints > 0 ? 2 : 1,
     }] : []),
   ];
@@ -335,8 +347,8 @@ export async function replaceQuestions(
   );
   if (questions.length !== bankItems.length)
     throw new ValidationError("One or more questions are unavailable");
-  const total = items.reduce((sum, item) => sum + item.points, 0);
-  if (Math.abs(total - Number(exam.totalPoints)) > 0.001)
+  const total = sumPointCents(items.map((item) => item.points));
+  if (!arePointTotalsEqual(fromPointCents(total), Number(exam.totalPoints)))
     throw new ValidationError("Question points must equal exam total points");
   const byId = new Map(questions.map((question) => [question.id, question]));
   const sectionIds = new Set(exam.sections?.map(({ id }) => id) ?? []);
@@ -347,13 +359,13 @@ export async function replaceQuestions(
     if (item.source === 'QUESTION_BANK') {
       return {
         question: byId.get(item.questionId)!, sourceQuestionId: item.questionId,
-        points: item.points, sectionId: item.sectionId, orderIndex: index + 1,
+        points: normalizePoint(item.points), sectionId: item.sectionId, orderIndex: index + 1,
       };
     }
     return {
       question: toInlineSnapshot(item.question, index),
       sourceQuestionId: null,
-      points: item.points,
+      points: normalizePoint(item.points),
       sectionId: item.sectionId,
       orderIndex: index + 1,
     };

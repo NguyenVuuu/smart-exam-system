@@ -1,4 +1,4 @@
-﻿import {
+import {
   BarChart3,
   BookOpen,
   Calendar,

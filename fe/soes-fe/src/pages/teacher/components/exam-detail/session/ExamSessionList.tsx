@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppCard from '../../../../../components/common/AppCard'
 import type { ExamSchedule } from '../../../types/teacher-exam.types'
-import { formatSessionRange, parseDateTimeParts, formatDate } from '../../../../../utils/date.utils'
+import { formatSessionTime } from './session-time.utils'
 
 function getSessionEffectiveStatus(session: ExamSchedule): ExamSchedule['status'] {
   if (session.status === 'CANCELLED' || session.status === 'DRAFT') {
@@ -45,10 +45,10 @@ export function ExamSessionList({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {sessions.map((session) => {
-        const effectiveStatus = getSessionEffectiveStatus(session)
+        const effectiveStatus = variant === 'draft' ? session.status : getSessionEffectiveStatus(session)
         const canChange = effectiveStatus === 'DRAFT' || effectiveStatus === 'SCHEDULED'
         const showManagementActions = variant === 'manage' && canChange && (onEdit || onRemove)
-        const showDraftActions = variant === 'draft' && canChange && (onEdit || onRemove)
+        const showDraftActions = variant === 'draft' && session.status !== 'CANCELLED' && (onEdit || onRemove)
 
         return (
           <AppCard key={session.id} className="relative flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-xs hover:shadow-sm transition-shadow">
@@ -104,7 +104,7 @@ export function ExamSessionList({
 
             {variant === 'manage' && (
               <div className="mt-3 flex items-center justify-end gap-1.5 border-t border-gray-100 pt-2.5">
-                {session.status === 'OPEN' && (
+                {effectiveStatus === 'OPEN' && (
                   <button
                     type="button"
                     onClick={() => navigate('/teacher/proctoring')}
@@ -185,18 +185,6 @@ function RuleBadge({ icon, label }: { icon: ReactNode; label: string }) {
       <span className="truncate">{label}</span>
     </span>
   )
-}
-
-export function formatSessionTime(session: ExamSchedule) {
-  return formatSessionRange(session.startTime, session.endTime)
-}
-
-export function parseSessionDateTime(value: string) {
-  return parseDateTimeParts(value)
-}
-
-export function formatDisplayDate(date: string) {
-  return formatDate(date)
 }
 
 function securitySummary(session: ExamSchedule) {

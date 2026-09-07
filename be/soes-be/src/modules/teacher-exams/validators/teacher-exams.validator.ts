@@ -1,5 +1,11 @@
 import { z } from 'zod'
 import { paginationFields } from '../../../utils/pagination'
+import {
+  arePointTotalsEqual,
+  hasAtMostTwoDecimalPlaces,
+  sumPointCents,
+  fromPointCents,
+} from '../utils/exam-points.util'
 
 const id = z.string().trim().min(1)
 
@@ -25,14 +31,22 @@ export const examBodySchema = z.object({
     orderIndex: z.coerce.number().int().positive(),
   })).min(1).max(20),
 }).superRefine((data, context) => {
+  if (!hasAtMostTwoDecimalPlaces(data.totalPoints)) {
+    context.addIssue({ code: 'custom', path: ['totalPoints'], message: 'Points can have at most two decimal places' })
+  }
   if (new Set(data.sections.map(({ id }) => id)).size !== data.sections.length) {
     context.addIssue({ code: 'custom', path: ['sections'], message: 'Section IDs must be unique' })
   }
   if (new Set(data.sections.map(({ orderIndex }) => orderIndex)).size !== data.sections.length) {
     context.addIssue({ code: 'custom', path: ['sections'], message: 'Section order must be unique' })
   }
-  const sectionPoints = data.sections.reduce((sum, section) => sum + section.targetPoints, 0)
-  if (Math.abs(sectionPoints - data.totalPoints) > 0.001) {
+  data.sections.forEach((section, index) => {
+    if (!hasAtMostTwoDecimalPlaces(section.targetPoints)) {
+      context.addIssue({ code: 'custom', path: ['sections', index, 'targetPoints'], message: 'Points can have at most two decimal places' })
+    }
+  })
+  const sectionPoints = fromPointCents(sumPointCents(data.sections.map((section) => section.targetPoints)))
+  if (!arePointTotalsEqual(sectionPoints, data.totalPoints)) {
     context.addIssue({ code: 'custom', path: ['sections'], message: 'Section points must equal exam total points' })
   }
 })
@@ -40,6 +54,10 @@ export const examBodySchema = z.object({
 const examQuestionPlacementSchema = z.object({
   sectionId: id.optional(),
   points: z.coerce.number().positive().max(1000),
+}).superRefine((data, context) => {
+  if (!hasAtMostTwoDecimalPlaces(data.points)) {
+    context.addIssue({ code: 'custom', path: ['points'], message: 'Points can have at most two decimal places' })
+  }
 })
 
 const inlineExamQuestionSchema = z.object({

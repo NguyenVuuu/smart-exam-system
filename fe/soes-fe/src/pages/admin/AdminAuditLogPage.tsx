@@ -2,7 +2,6 @@ import { ScrollText } from 'lucide-react'
 import { useState } from 'react'
 import AppBadge from '../../components/common/AppBadge'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
-import { ADMIN_AUDIT_LOGS } from './mock/admin.mock'
 import type { AuditLogItem } from './types/admin.types'
 import AdminLayout from './components/AdminLayout'
 import AdminPageHeader from './components/AdminPageHeader'
@@ -11,10 +10,11 @@ import AdminTablePanel from './components/AdminTablePanel'
 import AdminToolbar from './components/AdminToolbar'
 
 export default function AdminAuditLogPage() {
+  const [logs] = useState<AuditLogItem[]>([])
   const [action, setAction] = useState('ALL')
   const [search, setSearch] = useState('')
 
-  const filteredLogs = ADMIN_AUDIT_LOGS.filter((item) => {
+  const filteredLogs = logs.filter((item) => {
     const matchesAction = action === 'ALL' || item.action === action
     const matchesSearch =
       item.actor.toLowerCase().includes(search.toLowerCase()) ||

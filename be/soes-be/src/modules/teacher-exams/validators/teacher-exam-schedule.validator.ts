@@ -19,6 +19,7 @@ export const teacherExamScheduleBodySchema = z.object({
   resultReleaseAt: z.coerce.date().optional().nullable(),
   allowStudentReview: z.boolean().default(false),
 }).superRefine((data, ctx) => {
+  if (data.startTime <= new Date()) ctx.addIssue({ code: 'custom', path: ['startTime'], message: 'Start time must be in the future' })
   if (data.endTime <= data.startTime) ctx.addIssue({ code: 'custom', path: ['endTime'], message: 'End time must be after start time' })
   if (data.locationMode === 'CAMPUS' && !data.allowedIpRanges.length) ctx.addIssue({ code: 'custom', path: ['allowedIpRanges'], message: 'Campus exam requires allowed IP ranges' })
   if (data.distributionMode === 'RANDOM_SUBSET' && !data.randomQuestionCount) ctx.addIssue({ code: 'custom', path: ['randomQuestionCount'], message: 'Random question count is required' })
