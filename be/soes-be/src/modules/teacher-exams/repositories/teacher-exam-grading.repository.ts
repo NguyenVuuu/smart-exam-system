@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
+import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 
 export const submissionInclude = {
   student: { include: { user: { select: { fullName: true } } } },
@@ -219,14 +220,12 @@ export function updateViolationReview(input: {
       },
     })
 
-    await tx.auditLog.create({
-      data: {
-        userId: input.userId,
-        action: 'REVIEW_PROCTORING_VIOLATION',
-        entityType: 'Violation',
-        entityId: violation.id,
-        metadata: { previousStatus: violation.reviewStatus, reviewStatus: input.reviewStatus },
-      },
+    await writeAuditLog(tx, {
+      userId: input.userId,
+      action: 'REVIEW_PROCTORING_VIOLATION',
+      entityType: 'Violation',
+      entityId: violation.id,
+      metadata: { previousStatus: violation.reviewStatus, reviewStatus: input.reviewStatus },
     })
 
     return updated
@@ -281,14 +280,12 @@ export function invalidateAttempt(input: {
       data: { isOnline: false },
     })
 
-    await tx.auditLog.create({
-      data: {
-        userId: input.userId,
-        action: 'INVALIDATE_EXAM_ATTEMPT_BY_PROCTOR',
-        entityType: 'ExamAttempt',
-        entityId: attempt.id,
-        metadata: { reason: input.reason, examScheduleId: input.scheduleId },
-      },
+    await writeAuditLog(tx, {
+      userId: input.userId,
+      action: 'INVALIDATE_EXAM_ATTEMPT_BY_PROCTOR',
+      entityType: 'ExamAttempt',
+      entityId: attempt.id,
+      metadata: { reason: input.reason, examScheduleId: input.scheduleId },
     })
 
     return updated
@@ -345,11 +342,9 @@ export function overrideScore(
       data: { manualScore: score, totalScore: score, status: 'GRADED', version: { increment: 1 } },
       include: submissionInclude,
     })
-    await tx.auditLog.create({
-      data: {
-        userId, action: 'OVERRIDE_EXAM_SCORE', entityType: 'ExamAttempt', entityId: attemptId,
-        metadata: { reason, previousScore: attempt.totalScore, newScore: score },
-      },
+    await writeAuditLog(tx, {
+      userId, action: 'OVERRIDE_EXAM_SCORE', entityType: 'ExamAttempt', entityId: attemptId,
+      metadata: { reason, previousScore: Number(attempt.totalScore), newScore: score },
     })
     return updated
   })

@@ -1,5 +1,6 @@
 import type { ExamSectionType, Prisma, QuestionType } from '@prisma/client'
 import prisma from '../../../lib/prisma'
+import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import type { AutoGenerateExamBody, ExamApprovalQuery, ExamBody, ExamsQuery } from '../validators/teacher-exams.validator'
 import { createExamQuestion, deleteExamQuestions, type SnapshotInput } from './exam-question-snapshot.repository'
 
@@ -143,13 +144,15 @@ export function updateAttemptDeadline(
       where: { id, status: 'IN_PROGRESS', deadlineAt: expectedDeadline }, data: { deadlineAt },
     })
     if (!changed.count) return null
-    await tx.auditLog.create({
-      data: {
-        userId,
-        action: 'EXTEND_EXAM_ATTEMPT',
-        entityType: 'ExamAttempt',
-        entityId: id,
-        metadata: { reason, previousDeadline: expectedDeadline, newDeadline: deadlineAt },
+    await writeAuditLog(tx, {
+      userId,
+      action: 'EXTEND_EXAM_ATTEMPT',
+      entityType: 'ExamAttempt',
+      entityId: id,
+      metadata: {
+        reason,
+        previousDeadline: expectedDeadline.toISOString(),
+        newDeadline: deadlineAt.toISOString(),
       },
     })
     return tx.examAttempt.findUnique({

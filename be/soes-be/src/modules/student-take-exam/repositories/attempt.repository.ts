@@ -1,6 +1,7 @@
 import prisma from '../../../lib/prisma'
 import { randomInt } from 'crypto'
 import type { WebcamStatus } from '@prisma/client'
+import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 
 export async function countAttemptsForSchedule(scheduleId: string, studentId: string) {
   return prisma.examAttempt.count({ where: { examScheduleId: scheduleId, studentId } })
@@ -134,14 +135,12 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       data: { status: 'LOCKED' },
     })
     if (locked.count) {
-      await transaction.auditLog.create({
-        data: {
-          userId: input.actorUserId,
-          action: 'AUTO_LOCK_EXAM_DISTRIBUTION',
-          entityType: 'Exam',
-          entityId: input.examId,
-          metadata: { scheduleId: input.scheduleId, attemptId: attempt.id },
-        },
+      await writeAuditLog(transaction, {
+        userId: input.actorUserId,
+        action: 'AUTO_LOCK_EXAM_DISTRIBUTION',
+        entityType: 'Exam',
+        entityId: input.examId,
+        metadata: { scheduleId: input.scheduleId, attemptId: attempt.id },
       })
     }
     await transaction.examSession.create({
@@ -229,19 +228,17 @@ export async function autoSubmitAttemptWithAudit(attemptId: string, submittedAt:
       data: { isOnline: false },
     })
 
-    await tx.auditLog.create({
-      data: {
-        userId: attempt.student.userId,
-        action: 'AUTO_SUBMIT_EXAM_ATTEMPT',
-        entityType: 'ExamAttempt',
-        entityId: attempt.id,
-        metadata: {
-          examScheduleId: attempt.examScheduleId,
-          studentId: attempt.studentId,
-          deadlineAt: attempt.deadlineAt.toISOString(),
-          submittedAt: submittedAt.toISOString(),
-          reason: 'TIMEOUT',
-        },
+    await writeAuditLog(tx, {
+      userId: attempt.student.userId,
+      action: 'AUTO_SUBMIT_EXAM_ATTEMPT',
+      entityType: 'ExamAttempt',
+      entityId: attempt.id,
+      metadata: {
+        examScheduleId: attempt.examScheduleId,
+        studentId: attempt.studentId,
+        deadlineAt: attempt.deadlineAt.toISOString(),
+        submittedAt: submittedAt.toISOString(),
+        reason: 'TIMEOUT',
       },
     })
 

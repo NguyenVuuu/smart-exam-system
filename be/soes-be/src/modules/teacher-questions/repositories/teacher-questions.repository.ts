@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import type { ApprovalQuery, QuestionBody, QuestionsQuery } from '../validators/teacher-questions.validator'
+import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 
 export const questionInclude = {
   subject: { select: { id: true, code: true, name: true, departmentId: true } },
@@ -199,13 +200,11 @@ export function submitToSharedBank(
         rejectionReason: null,
       },
     })
-    await tx.auditLog.create({
-      data: {
-        userId: actorUserId,
-        action: autoApprove ? 'AUTO_APPROVE_SHARED_QUESTION' : 'SUBMIT_SHARED_QUESTION',
-        entityType: 'QuestionBankItem',
-        entityId: item.id,
-      },
+    await writeAuditLog(tx, {
+      userId: actorUserId,
+      action: autoApprove ? 'AUTO_APPROVE_SHARED_QUESTION' : 'SUBMIT_SHARED_QUESTION',
+      entityType: 'QuestionBankItem',
+      entityId: item.id,
     })
     return item
   })
@@ -254,10 +253,10 @@ export function reviewBankItem(
       },
     })
     if (!result.count) return false
-    await tx.auditLog.create({ data: {
+    await writeAuditLog(tx, {
       userId: actorUserId, action: approved ? 'APPROVE_SHARED_QUESTION' : 'REJECT_SHARED_QUESTION',
       entityType: 'QuestionBankItem', entityId: id, metadata: reason ? { reason } : undefined,
-    } })
+    })
     return true
   })
 }
@@ -269,10 +268,10 @@ export function removeBankItem(id: string, teacherId: string, actorUserId: strin
       data: { removedAt: new Date(), removedByTeacherId: teacherId, removalReason: reason },
     })
     if (!result.count) return false
-    await tx.auditLog.create({ data: {
+    await writeAuditLog(tx, {
       userId: actorUserId, action: 'REMOVE_SHARED_QUESTION', entityType: 'QuestionBankItem',
       entityId: id, metadata: { reason },
-    } })
+    })
     return true
   })
 }

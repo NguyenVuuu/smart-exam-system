@@ -3,6 +3,7 @@ import { examParamsSchema, startExamBodySchema, examAttemptParamsSchema, saveAns
 import { toStartExamResponseDto, toGetExamContentResponseDto, toSaveAnswerResponseDto, toSubmitExamResponseDto, toGetAttemptStatusResponseDto, toGetAttemptResultResponseDto, toSendHeartbeatResponseDto, toRecordViolationResponseDto, toRunCodeResponseDto } from '../mappers/student-take-exam.mapper'
 import * as takeExamService from '../services/student-take-exam.service'
 import { z } from 'zod'
+import { clientRequestContext } from '../../../middlewares/auditRequestContext'
 
 const liveSessionParamsSchema = examAttemptParamsSchema.extend({
   sessionId: z.string().uuid({ message: 'sessionId must be a valid UUID' }),
@@ -17,13 +18,9 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
     const { password, webcamConfirmed, webcamStatus } = startExamBodySchema.parse(req.body ?? {})
     const studentId    = req.user!.profileId
 
-    // Lấy IP thực (xử lý cả trường hợp đứng sau proxy)
-    const ipAddress =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.ip ||
-      'unknown'
-
-    const deviceInfo = req.headers['user-agent'] || 'unknown'
+    const requestContext = clientRequestContext(req)
+    const ipAddress = requestContext.ipAddress ?? 'unknown'
+    const deviceInfo = requestContext.userAgent ?? 'unknown'
 
     const passwordParam = password ?? undefined
 

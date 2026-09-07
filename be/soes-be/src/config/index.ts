@@ -24,6 +24,16 @@ export const corsConfig = {
   },
 } as const
 
+export const proxyConfig = {
+  get trustProxy(): string | number {
+    const configuredProxy = process.env.TRUST_PROXY?.trim()
+    if (!configuredProxy) return 'loopback'
+
+    const proxyHops = Number(configuredProxy)
+    return Number.isInteger(proxyHops) && proxyHops >= 0 ? proxyHops : configuredProxy
+  },
+} as const
+
 export const examConfig = {
   /**
    * How long (in milliseconds) since the last heartbeat before a student

@@ -787,6 +787,9 @@ model AuditLog {
   user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, createdAt])
 }
 
 enum AccountStatus {
