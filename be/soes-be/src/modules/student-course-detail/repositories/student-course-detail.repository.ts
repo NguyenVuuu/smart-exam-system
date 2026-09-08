@@ -235,6 +235,7 @@ export class StudentCourseDetailRepository {
         maxAttempts: true,
         passwordHash: true,
         enableWebcam: true,
+        enableScreenMonitoring: true,
         status: true,
         publishedAt: true,
         exam: { select: { description: true } },
@@ -308,6 +309,7 @@ export class StudentCourseDetailRepository {
       canStart,
       requiresPassword: schedule.passwordHash !== null,
       enableWebcam: schedule.enableWebcam,
+      enableScreenMonitoring: schedule.enableScreenMonitoring,
       status,
       remainingSeconds,
       canResume,
@@ -533,6 +535,7 @@ export interface ExamDetailRow {
   canStart: boolean
   requiresPassword: boolean
   enableWebcam: boolean
+  enableScreenMonitoring: boolean
   status: string
   remainingSeconds?: number | null
   canResume?: boolean

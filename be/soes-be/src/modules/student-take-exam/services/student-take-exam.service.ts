@@ -1,6 +1,6 @@
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import bcrypt from 'bcrypt'
-import type { SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
+import type { ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
@@ -106,6 +106,8 @@ export async function processExpiredAttempts(now = new Date(), limit = 50): Prom
 export async function markOfflineExamSessions(now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - examConfig.heartbeatTimeoutMs)
   const staleSessions = await repo.markStaleExamSessionsOffline(cutoff)
+  const staleAttemptIds = staleSessions.map((session) => session.attemptId)
+  await repo.closeOpenWebcamObservationViolations(staleAttemptIds, now)
   for (const session of staleSessions) {
     emitProctoringEvent(session.scheduleId, 'student:offline', {
       attemptId: session.attemptId,
@@ -318,6 +320,8 @@ export async function startExam(
   password?: string,
   webcamConfirmed = false,
   webcamStatus?: WebcamStatus,
+  screenShareConfirmed = false,
+  screenShareStatus?: ScreenShareStatus,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
   const schedule = await repo.findScheduleById(scheduleId);
@@ -351,6 +355,10 @@ export async function startExam(
   const initialWebcamStatus: WebcamStatus = schedule.enableWebcam ? 'ACTIVE' : 'NOT_REQUIRED'
   if (schedule.enableWebcam && (!webcamConfirmed || webcamStatus !== 'ACTIVE')) {
     throw new ForbiddenError("Webcam access is required to start this exam");
+  }
+  const initialScreenShareStatus: ScreenShareStatus = schedule.enableScreenMonitoring ? 'ACTIVE' : 'NOT_REQUIRED'
+  if (schedule.enableScreenMonitoring && (!screenShareConfirmed || screenShareStatus !== 'ACTIVE')) {
+    throw new ForbiddenError("Screen sharing is required to start this exam");
   }
 
   // Allow student to resume if active attempt is valid (e.g. granted extra time beyond schedule.endTime)
@@ -423,6 +431,7 @@ export async function startExam(
       deviceInfo,  
       actorUserId,
       webcamStatus: initialWebcamStatus,
+      screenShareStatus: initialScreenShareStatus,
     });
   } catch (err) {
     if (err instanceof Error && err.name === "DUPLICATE_ATTEMPT") {
@@ -528,6 +537,7 @@ export async function getExamContent(
     deadlineAt:       attempt.deadlineAt,
     integritySettings: {
       enableWebcam: attempt.examSchedule.enableWebcam,
+      enableScreenMonitoring: attempt.examSchedule.enableScreenMonitoring,
       requireFullscreen: attempt.examSchedule.requireFullscreen,
       blockCopyPaste: attempt.examSchedule.blockCopyPaste,
       blockRightClick: attempt.examSchedule.blockRightClick,
@@ -751,6 +761,8 @@ export async function getAttemptStatus(
     remainingSeconds,
     lastSavedAt:        data.lastSavedAt,
     isOnline,
+    webcamStatus:       data.examSession?.webcamStatus,
+    screenShareStatus:  data.examSession?.screenShareStatus,
     answeredCount:      data._count.studentAnswers,
     totalQuestionCount: data._count.attemptQuestions,
   }
@@ -811,7 +823,7 @@ export async function sendHeartbeat(
   scheduleId: string,
   attemptId: string,
   studentId: string,
-  input: { webcamStatus?: WebcamStatus } = {},
+  input: { webcamStatus?: WebcamStatus; screenShareStatus?: ScreenShareStatus } = {},
 ): Promise<SendHeartbeatResult> {
   const now = new Date()
 
@@ -838,13 +850,18 @@ export async function sendHeartbeat(
   const webcamStatus = attemptData.examSchedule.enableWebcam
     ? input.webcamStatus ?? 'DISCONNECTED'
     : 'NOT_REQUIRED'
+  const screenShareStatus = attemptData.examSchedule.enableScreenMonitoring
+    ? input.screenShareStatus ?? 'STOPPED'
+    : 'NOT_REQUIRED'
 
-  await repo.upsertExamSessionHeartbeat(attemptId, now, { webcamStatus })
+  await repo.upsertExamSessionHeartbeat(attemptId, now, { webcamStatus, screenShareStatus })
   await repo.syncCameraStatusViolation(attemptId, webcamStatus, now)
+  await repo.syncScreenShareStatusViolation(attemptId, screenShareStatus, now)
   emitProctoringEvent(scheduleId, 'student:heartbeat', {
     attemptId,
     scheduleId,
     webcamStatus,
+    screenShareStatus,
     lastHeartbeatAt: now.toISOString(),
     remainingSeconds: Math.max(
       0,

@@ -15,12 +15,22 @@ export const webcamStatusSchema = z.enum([
   'BLOCKED',
 ])
 
+export const screenShareStatusSchema = z.enum([
+  'NOT_REQUIRED',
+  'PENDING_PERMISSION',
+  'ACTIVE',
+  'STOPPED',
+  'PERMISSION_DENIED',
+])
+
 // ─── API 1: Start Exam ────────────────────────────────────────────────────────
 
 export const startExamBodySchema = z.object({
   password: z.string().optional().nullable(),
   webcamConfirmed: z.boolean().optional().default(false),
   webcamStatus: webcamStatusSchema.optional(),
+  screenShareConfirmed: z.boolean().optional().default(false),
+  screenShareStatus: screenShareStatusSchema.optional(),
 })
 
 export type StartExamBody = z.infer<typeof startExamBodySchema>
@@ -65,6 +75,7 @@ export type SendHeartbeatParams = z.infer<typeof sendHeartbeatParamsSchema>
 
 export const sendHeartbeatBodySchema = z.object({
   webcamStatus: webcamStatusSchema.optional(),
+  screenShareStatus: screenShareStatusSchema.optional(),
 })
 
 export type SendHeartbeatBody = z.infer<typeof sendHeartbeatBodySchema>
@@ -77,6 +88,7 @@ export const violationTypeSchema = z.enum([
   'INACTIVITY',
   'LOOKING_AWAY',
   'COPY_PASTE',
+  'RIGHT_CLICK',
   'CAMERA_BLOCKED',
   'CAMERA_DISCONNECTED',
   'CAMERA_PERMISSION_DENIED',
