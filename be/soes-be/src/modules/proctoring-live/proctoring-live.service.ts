@@ -7,12 +7,14 @@ const SESSION_PREFIX = 'proctoring:live:session:'
 const ATTEMPT_PREFIX = 'proctoring:live:attempt:'
 
 type JsonSignal = Record<string, unknown>
+export type LiveStreamType = 'WEBCAM' | 'SCREEN'
 
 interface LiveSession {
   id: string
   attemptId: string
   scheduleId: string
   teacherId: string
+  streamType: LiveStreamType
   createdAt: number
   updatedAt: number
   status: 'REQUESTED' | 'OFFERED' | 'CONNECTED' | 'ENDED'
@@ -23,7 +25,7 @@ interface LiveSession {
 }
 
 const sessionKey = (id: string) => `${SESSION_PREFIX}${id}`
-const attemptKey = (attemptId: string, scheduleId: string) => `${ATTEMPT_PREFIX}${scheduleId}:${attemptId}`
+const attemptKey = (attemptId: string, scheduleId: string, streamType: LiveStreamType) => `${ATTEMPT_PREFIX}${scheduleId}:${attemptId}:${streamType}`
 
 function ttlFor(session: LiveSession) {
   return session.status === 'REQUESTED' ? REQUEST_TTL_SECONDS : SESSION_TTL_SECONDS
@@ -35,6 +37,7 @@ function publicSession(session: LiveSession) {
     attemptId: session.attemptId,
     scheduleId: session.scheduleId,
     teacherId: session.teacherId,
+    streamType: session.streamType,
     status: session.status,
     offer: session.offer,
     answer: session.answer,
@@ -53,7 +56,7 @@ async function writeSession(session: LiveSession) {
   session.updatedAt = Date.now()
   await redis.set(sessionKey(session.id), JSON.stringify(session), 'EX', ttlFor(session))
   if (session.status !== 'ENDED') {
-    await redis.set(attemptKey(session.attemptId, session.scheduleId), session.id, 'EX', ttlFor(session))
+    await redis.set(attemptKey(session.attemptId, session.scheduleId, session.streamType), session.id, 'EX', ttlFor(session))
   }
 }
 
@@ -61,11 +64,11 @@ async function endSession(session: LiveSession) {
   session.status = 'ENDED'
   session.updatedAt = Date.now()
   await redis.set(sessionKey(session.id), JSON.stringify(session), 'EX', 10)
-  await redis.del(attemptKey(session.attemptId, session.scheduleId))
+  await redis.del(attemptKey(session.attemptId, session.scheduleId, session.streamType))
 }
 
-export async function requestLiveCamera(input: { attemptId: string; scheduleId: string; teacherId: string }) {
-  const existingId = await redis.get(attemptKey(input.attemptId, input.scheduleId))
+export async function requestLiveStream(input: { attemptId: string; scheduleId: string; teacherId: string; streamType: LiveStreamType }) {
+  const existingId = await redis.get(attemptKey(input.attemptId, input.scheduleId, input.streamType))
   if (existingId) {
     const existing = await readSession(existingId)
     if (existing && existing.teacherId === input.teacherId && existing.status !== 'ENDED') {
@@ -80,6 +83,7 @@ export async function requestLiveCamera(input: { attemptId: string; scheduleId: 
     attemptId: input.attemptId,
     scheduleId: input.scheduleId,
     teacherId: input.teacherId,
+    streamType: input.streamType,
     createdAt: now,
     updatedAt: now,
     status: 'REQUESTED',
@@ -92,8 +96,13 @@ export async function requestLiveCamera(input: { attemptId: string; scheduleId: 
   return publicSession(session)
 }
 
-export async function getPendingStudentRequest(attemptId: string, scheduleId: string) {
-  const sessionId = await redis.get(attemptKey(attemptId, scheduleId))
+export const requestLiveCamera = (input: { attemptId: string; scheduleId: string; teacherId: string }) =>
+  requestLiveStream({ ...input, streamType: 'WEBCAM' })
+
+export async function getPendingStudentRequest(attemptId: string, scheduleId: string, streamType?: LiveStreamType) {
+  const sessionId = streamType
+    ? await redis.get(attemptKey(attemptId, scheduleId, streamType))
+    : (await redis.get(attemptKey(attemptId, scheduleId, 'WEBCAM'))) ?? (await redis.get(attemptKey(attemptId, scheduleId, 'SCREEN')))
   if (!sessionId) return null
   const session = await readSession(sessionId)
   if (!session || session.status !== 'REQUESTED') return null

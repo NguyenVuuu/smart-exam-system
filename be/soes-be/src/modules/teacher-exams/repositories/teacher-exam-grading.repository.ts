@@ -95,9 +95,74 @@ export const findAttemptAccessForLiveProctoring = (teacherId: string, attemptId:
     select: {
       id: true,
       examScheduleId: true,
-      examSchedule: { select: { enableWebcam: true } },
+      examSchedule: { select: { enableWebcam: true, enableScreenMonitoring: true, proctoringStoragePath: true } },
+      studentId: true,
+      student: { select: { studentCode: true, user: { select: { fullName: true } } } },
     },
   })
+
+export const findAttemptForManualEvidence = findAttemptAccessForLiveProctoring
+
+export function createManualProctorViolation(input: {
+  attemptId: string
+  teacherUserId: string
+  violationType: 'PROCTOR_WEBCAM_CAPTURE' | 'PROCTOR_SCREEN_CAPTURE'
+  description?: string | null
+  detectedAt: Date
+}) {
+  return prisma.violation.create({
+    data: {
+      attemptId: input.attemptId,
+      violationType: input.violationType,
+      source: 'PROCTOR',
+      severity: 'MEDIUM',
+      detectedBy: 'PROCTOR',
+      detectedById: input.teacherUserId,
+      detectedAt: input.detectedAt,
+      description: input.description ?? null,
+    },
+    select: {
+      id: true,
+      violationType: true,
+      severity: true,
+      detectedAt: true,
+      endedAt: true,
+      durationSeconds: true,
+    },
+  })
+}
+
+export async function addManualViolationEvidence(input: {
+  violationId: string
+  teacherUserId: string
+  evidenceType: 'WEBCAM_IMAGE' | 'SCREEN_IMAGE'
+  evidences: Array<{
+    bucket: string
+    objectName: string
+    storagePath: string
+    fileName: string
+    contentType: string
+    fileSize?: number
+    storageProvider: 'MINIO' | 'LOCAL'
+  }>
+}) {
+  if (input.evidences.length === 0) return
+
+  await prisma.violationEvidence.createMany({
+    data: input.evidences.map((evidence) => ({
+      violationId: input.violationId,
+      capturedById: input.teacherUserId,
+      evidenceType: input.evidenceType,
+      storageProvider: evidence.storageProvider,
+      bucket: evidence.bucket,
+      objectName: evidence.objectName,
+      storagePath: evidence.storagePath,
+      fileName: evidence.fileName,
+      contentType: evidence.contentType,
+      fileSize: evidence.fileSize,
+    })),
+  })
+}
 
 export function listSubmissions(scheduleId: string, courseOfferingIds: string[], page: number, pageSize: number) {
   const where: Prisma.ExamAttemptWhereInput = {
@@ -162,6 +227,8 @@ export function listProctoringSessions(scheduleId: string, courseOfferingIds: st
           isOnline: true,
           webcamStatus: true,
           lastWebcamHeartbeatAt: true,
+          screenShareStatus: true,
+          lastScreenHeartbeatAt: true,
         },
       },
       _count: { select: { violations: true, studentAnswers: true, attemptQuestions: true } },

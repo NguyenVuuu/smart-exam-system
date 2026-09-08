@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { asyncHandler } from '../../../middlewares/asyncHandler'
 import { authenticate } from '../../auth/middlewares/authenticate'
 import { requireTeacher } from '../../auth/middlewares/authorize'
+import { uploadViolationEvidence } from '../../student-take-exam/middlewares/evidence-upload'
 import * as controller from '../controllers/teacher-exams.controller'
 
 const router = Router()
@@ -37,6 +38,8 @@ router.post('/proctoring/extend-time', asyncHandler(controller.extendTime))
 router.get('/proctoring/schedules/:scheduleId/sessions', asyncHandler(controller.listLiveProctoringSessions))
 router.get('/proctoring/schedules/:scheduleId/violations', asyncHandler(controller.listLiveProctoringViolations))
 router.post('/proctoring/attempts/:attemptId/live/start', asyncHandler(controller.requestLiveCamera))
+router.post('/proctoring/attempts/:attemptId/live/screen/start', asyncHandler(controller.requestLiveScreen))
+router.post('/proctoring/attempts/:attemptId/live/:streamType/capture', uploadViolationEvidence, asyncHandler(controller.captureManualEvidence))
 router.get('/proctoring/live/:sessionId', asyncHandler(controller.getTeacherLiveSession))
 router.post('/proctoring/live/:sessionId/answer', asyncHandler(controller.submitTeacherLiveAnswer))
 router.post('/proctoring/live/:sessionId/ice-candidates', asyncHandler(controller.addTeacherLiveCandidate))
