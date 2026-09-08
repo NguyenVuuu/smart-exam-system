@@ -17,7 +17,7 @@ export type ExamSectionType = 'OBJECTIVE' | 'PROGRAMMING'
 export type ExamIpMode = 'HOME' | 'CAMPUS'
 export type ExamDistributionMode =
   | 'FIXED_ORDER'
-  | 'SHUFFLE_ORDER'
+  | 'SHUFFLE_QUESTIONS'
   | 'SHUFFLE_OPTIONS'
   | 'SHUFFLE_QUESTIONS_AND_OPTIONS'
   | 'RANDOM_SUBSET'
@@ -60,6 +60,7 @@ export interface ExamSchedule {
   allowStudentReview?: boolean
   requireFullscreen?: boolean
   enableWebcam?: boolean
+  enableScreenMonitoring?: boolean
   blockCopyPaste?: boolean
   blockRightClick?: boolean
   ipMode?: ExamIpMode
@@ -167,8 +168,10 @@ export interface ViolationRecord {
     | 'TAB_SWITCH'
     | 'FULLSCREEN_EXIT'
     | 'COPY_PASTE'
+    | 'RIGHT_CLICK'
     | 'NO_FACE'
     | 'MULTIPLE_FACES'
+    | 'LOOKING_AWAY'
     | 'CAMERA_BLOCKED'
     | 'CAMERA_DISCONNECTED'
     | 'CAMERA_PERMISSION_DENIED'
@@ -198,8 +201,10 @@ export interface ProctoringSessionRecord {
   isOnline: boolean
   ipAddress: string | null
   webcamStatus: 'NOT_REQUIRED' | 'PENDING_PERMISSION' | 'ACTIVE' | 'DISCONNECTED' | 'PERMISSION_DENIED' | 'BLOCKED'
+  screenShareStatus: 'NOT_REQUIRED' | 'PENDING_PERMISSION' | 'ACTIVE' | 'STOPPED' | 'PERMISSION_DENIED'
   lastHeartbeatAt: string | null
   lastWebcamHeartbeatAt: string | null
+  lastScreenHeartbeatAt: string | null
   answeredCount: number
   totalQuestionCount: number
   violationCount: number

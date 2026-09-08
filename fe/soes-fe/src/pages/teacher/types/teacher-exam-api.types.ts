@@ -96,6 +96,7 @@ export interface TeacherExamScheduleDto {
   hasPassword: boolean
   requireFullscreen: boolean
   enableWebcam: boolean
+  enableScreenMonitoring: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
   allowedIpRanges: string[]
@@ -112,6 +113,7 @@ export interface TeacherExamSchedulePayload {
   password?: string | null
   requireFullscreen: boolean
   enableWebcam: boolean
+  enableScreenMonitoring: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
   locationMode: 'ONLINE' | 'CAMPUS'

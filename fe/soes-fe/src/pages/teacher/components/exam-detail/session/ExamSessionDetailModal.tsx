@@ -19,7 +19,6 @@ const distributionModeLabel: Record<string, string> = {
   SHUFFLE_OPTIONS: 'Xáo trộn đáp án',
   SHUFFLE_QUESTIONS_AND_OPTIONS: 'Xáo trộn câu và đáp án',
   RANDOM_SUBSET: 'Đề sinh ngẫu nhiên',
-  SHUFFLE_ORDER: 'Xáo trộn câu hỏi',
 }
 
 export default function ExamSessionDetailModal({
@@ -41,6 +40,7 @@ export default function ExamSessionDetailModal({
   const rules = [
     session.requireFullscreen ? 'Toàn màn hình' : null,
     session.enableWebcam ? 'Webcam' : null,
+    session.enableScreenMonitoring ? 'Giám sát màn hình' : null,
     session.blockCopyPaste ? 'Chặn copy/paste' : null,
     session.blockRightClick ? 'Chặn chuột phải' : null,
   ].filter((rule): rule is string => Boolean(rule))
