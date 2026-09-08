@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { takeExamApi } from '../../api/student-take-exam.api'
+import { isExamScreenShareStreamLive, useExamScreenShare } from '../../hooks/take-exam/useExamScreenShare'
 import { useExamWebcam } from '../../hooks/take-exam/useExamWebcam'
 import type { ExamDetail } from '../../types/exam-detail.types'
 import { hasActiveExamWebcam, isExamWebcamStreamLive } from '../../utils/exam-webcam'
@@ -20,6 +21,7 @@ export default function ExamAction({ data }: ExamActionProps) {
   const [isWebcamDialogOpen, setIsWebcamDialogOpen] = useState(false)
   const [password, setPassword] = useState('')
   const webcam = useExamWebcam(data.enableWebcam)
+  const screenShare = useExamScreenShare(data.enableScreenMonitoring)
 
   if (status === 'SUBMITTED') {
     return (
@@ -54,10 +56,17 @@ export default function ExamAction({ data }: ExamActionProps) {
   const startOrResumeExam = async () => {
     const targetScheduleId = scheduleId ?? data.id
     const hasValidWebcam = hasActiveExamWebcam() && isExamWebcamStreamLive(webcam.stream)
+    const hasValidScreenShare = isExamScreenShareStreamLive(screenShare.stream)
 
     if (data.enableWebcam && !hasValidWebcam) {
       toast.error('Camera chưa sẵn sàng', {
         description: 'Bạn phải bật camera trước khi vào làm bài.',
+      })
+      return
+    }
+    if (data.enableScreenMonitoring && !hasValidScreenShare) {
+      toast.error('Chưa chia sẻ toàn màn hình', {
+        description: 'Bạn phải chia sẻ toàn màn hình trước khi vào làm bài.',
       })
       return
     }
@@ -73,6 +82,8 @@ export default function ExamAction({ data }: ExamActionProps) {
         password: password || undefined,
         webcamConfirmed: data.enableWebcam ? hasValidWebcam : undefined,
         webcamStatus: data.enableWebcam ? (hasValidWebcam ? 'ACTIVE' : 'PERMISSION_DENIED') : 'NOT_REQUIRED',
+        screenShareConfirmed: data.enableScreenMonitoring ? hasValidScreenShare : undefined,
+        screenShareStatus: data.enableScreenMonitoring ? (hasValidScreenShare ? 'ACTIVE' : 'PERMISSION_DENIED') : 'NOT_REQUIRED',
       })
       navigateToExam(targetScheduleId, result.attemptId)
     } catch (error: unknown) {
@@ -86,7 +97,7 @@ export default function ExamAction({ data }: ExamActionProps) {
   }
 
   const handleStartExam = () => {
-    if (data.enableWebcam || (!canResume && data.requiresPassword)) {
+    if (data.enableWebcam || data.enableScreenMonitoring || (!canResume && data.requiresPassword)) {
       setIsWebcamDialogOpen(true)
       return
     }
@@ -96,12 +107,17 @@ export default function ExamAction({ data }: ExamActionProps) {
   const handleCloseWebcamDialog = () => {
     if (isStarting) return
     webcam.stop()
+    screenShare.stop()
     setPassword('')
     setIsWebcamDialogOpen(false)
   }
 
   const handleEnableCamera = () => {
     void webcam.start().catch(() => undefined)
+  }
+
+  const handleEnableScreenShare = () => {
+    void screenShare.start().catch(() => undefined)
   }
 
   const label = canResume ? 'Tiếp tục làm bài' : 'Vào làm bài'
@@ -122,12 +138,17 @@ export default function ExamAction({ data }: ExamActionProps) {
         stream={webcam.stream}
         status={webcam.status}
         errorMessage={webcam.errorMessage}
+        screenStream={screenShare.stream}
+        screenStatus={screenShare.status}
+        screenErrorMessage={screenShare.errorMessage}
         isStartingExam={isStarting}
         requiresWebcam={data.enableWebcam}
+        requiresScreenShare={data.enableScreenMonitoring}
         requiresPassword={!canResume && data.requiresPassword}
         password={password}
         onPasswordChange={setPassword}
         onEnableCamera={handleEnableCamera}
+        onEnableScreenShare={handleEnableScreenShare}
         onClose={handleCloseWebcamDialog}
         onContinue={() => void startOrResumeExam()}
       />

@@ -1,23 +1,24 @@
 import { useEffect, useRef } from 'react'
 import { getSocket } from '../../../../api/socket'
 import { takeExamApi, type LiveCameraSession } from '../../api/student-take-exam.api'
-import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 }
 
-export function useStudentLiveCameraPublisher(input: {
+export function useStudentLiveStreamPublisher(input: {
   enabled: boolean
   scheduleId: string
   attemptId: string
   stream: MediaStream | null
+  streamType: 'WEBCAM' | 'SCREEN'
 }) {
   const peerRef = useRef<RTCPeerConnection | null>(null)
   const sessionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!input.enabled || !input.scheduleId || !input.attemptId || !isExamWebcamStreamLive(input.stream)) return
+    const hasLiveVideo = input.stream?.getVideoTracks().some((track) => track.readyState === 'live' && track.enabled)
+    if (!input.enabled || !input.scheduleId || !input.attemptId || !hasLiveVideo) return
 
     let cancelled = false
     const socket = getSocket()
@@ -71,6 +72,7 @@ export function useStudentLiveCameraPublisher(input: {
     const handleLiveRequest = (request: LiveCameraSession) => {
       if (cancelled || peerRef.current) return
       if (request.attemptId !== input.attemptId || request.scheduleId !== input.scheduleId) return
+      if ((request.streamType ?? 'WEBCAM') !== input.streamType) return
       void startSession(request.id).catch(cleanupPeer)
     }
 
@@ -110,5 +112,7 @@ export function useStudentLiveCameraPublisher(input: {
       }
       cleanupPeer()
     }
-  }, [input.attemptId, input.enabled, input.scheduleId, input.stream])
+  }, [input.attemptId, input.enabled, input.scheduleId, input.stream, input.streamType])
 }
+
+export const useStudentLiveCameraPublisher = useStudentLiveStreamPublisher

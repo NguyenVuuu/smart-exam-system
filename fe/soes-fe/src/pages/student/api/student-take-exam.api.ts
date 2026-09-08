@@ -15,6 +15,8 @@ export interface StartExamRequest {
   password?: string
   webcamConfirmed?: boolean
   webcamStatus?: ExamSessionWebcamStatus
+  screenShareConfirmed?: boolean
+  screenShareStatus?: ExamSessionScreenShareStatus
 }
 
 export interface StartExamResponse {
@@ -73,6 +75,7 @@ export type ExamViolationType =
   | 'INACTIVITY'
   | 'LOOKING_AWAY'
   | 'COPY_PASTE'
+  | 'RIGHT_CLICK'
   | 'CAMERA_BLOCKED'
   | 'CAMERA_DISCONNECTED'
   | 'CAMERA_PERMISSION_DENIED'
@@ -84,9 +87,11 @@ export type ExamViolationType =
 export type ExamViolationSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export type ExamSessionWebcamStatus = 'NOT_REQUIRED' | 'PENDING_PERMISSION' | 'ACTIVE' | 'DISCONNECTED' | 'PERMISSION_DENIED' | 'BLOCKED'
+export type ExamSessionScreenShareStatus = 'NOT_REQUIRED' | 'PENDING_PERMISSION' | 'ACTIVE' | 'STOPPED' | 'PERMISSION_DENIED'
 
 export interface SendHeartbeatPayload {
   webcamStatus?: ExamSessionWebcamStatus
+  screenShareStatus?: ExamSessionScreenShareStatus
 }
 
 export interface RecordViolationPayload {
@@ -111,6 +116,7 @@ export interface LiveCameraSession {
   id: string
   attemptId: string
   scheduleId: string
+  streamType?: 'WEBCAM' | 'SCREEN'
   status: 'REQUESTED' | 'OFFERED' | 'CONNECTED' | 'ENDED'
   offer: RTCSessionDescriptionInit | null
   answer: RTCSessionDescriptionInit | null
@@ -167,6 +173,7 @@ const BASE_URL = '/student/exam-schedules'
 
 interface ApiExamIntegritySettings {
   enableWebcam?: boolean
+  enableScreenMonitoring?: boolean
   requireFullscreen?: boolean
   blockCopyPaste?: boolean
   blockRightClick?: boolean
@@ -233,6 +240,7 @@ export const takeExamApi = {
       ...data,
       integritySettings: {
         enableWebcam: data.integritySettings?.enableWebcam ?? false,
+        enableScreenMonitoring: data.integritySettings?.enableScreenMonitoring ?? false,
         requireFullscreen: data.integritySettings?.requireFullscreen ?? false,
         blockCopyPaste: data.integritySettings?.blockCopyPaste ?? true,
         blockRightClick: data.integritySettings?.blockRightClick ?? true,

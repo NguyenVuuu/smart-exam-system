@@ -92,6 +92,7 @@ export interface ExamDetail {
   canStart: boolean
   requiresPassword: boolean
   enableWebcam: boolean
+  enableScreenMonitoring: boolean
   status: StudentExamStatus
   remainingSeconds: number | null
 }
