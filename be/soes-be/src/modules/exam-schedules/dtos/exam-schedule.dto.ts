@@ -18,6 +18,7 @@ export interface ExamScheduleDto {
   maxTabSwitches: number | null;
   requireFullscreen: boolean;
   enableWebcam: boolean;
+  enableScreenMonitoring: boolean;
   blockCopyPaste: boolean;
   blockRightClick: boolean;
   allowedIpRanges: string[];

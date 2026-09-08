@@ -32,6 +32,7 @@ export function toExamScheduleDto(row: ScheduleRow): ExamScheduleDto {
     hasPassword: Boolean(row.passwordHash), exam: row.exam,
     enableTabLock: row.enableTabLock, maxTabSwitches: row.maxTabSwitches,
     requireFullscreen: row.requireFullscreen, enableWebcam: row.enableWebcam,
+    enableScreenMonitoring: row.enableScreenMonitoring,
     blockCopyPaste: row.blockCopyPaste, blockRightClick: row.blockRightClick,
     allowedIpRanges: row.allowedIpRanges, randomQuestionCount: row.randomQuestionCount,
     resultReleaseAt: row.resultReleaseAt, reviewStartAt: row.reviewStartAt, reviewEndAt: row.reviewEndAt,

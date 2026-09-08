@@ -16,6 +16,7 @@ export const scheduleBodySchema = z.object({
   password: z.string().trim().min(4).max(100).optional().nullable(),
   enableTabLock: z.boolean().default(true), maxTabSwitches: z.coerce.number().int().min(0).max(100).optional().nullable(),
   requireFullscreen: z.boolean().default(false), enableWebcam: z.boolean().default(false),
+  enableScreenMonitoring: z.boolean().default(false),
   blockCopyPaste: z.boolean().default(true), blockRightClick: z.boolean().default(true),
   locationMode: z.enum(['ONLINE', 'CAMPUS']).default('ONLINE'),
   allowedIpRanges: z.array(z.string().trim().min(1)).max(50).default([]),

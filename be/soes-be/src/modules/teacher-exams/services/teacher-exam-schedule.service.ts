@@ -39,6 +39,7 @@ async function toWriteInput(
     maxTabSwitches: null,
     requireFullscreen: data.requireFullscreen,
     enableWebcam: data.enableWebcam,
+    enableScreenMonitoring: data.enableScreenMonitoring,
     blockCopyPaste: data.blockCopyPaste,
     blockRightClick: data.blockRightClick,
     locationMode: data.locationMode,
