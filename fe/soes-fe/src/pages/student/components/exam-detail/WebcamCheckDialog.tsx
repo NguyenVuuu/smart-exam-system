@@ -1,5 +1,6 @@
-import { Camera, CameraOff, Eye, EyeOff, KeyRound, LoaderCircle, ShieldCheck, X } from 'lucide-react'
+import { Camera, CameraOff, Eye, EyeOff, KeyRound, LoaderCircle, MonitorUp, ShieldCheck, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { isExamScreenShareStreamLive, type ExamScreenShareStatus } from '../../hooks/take-exam/useExamScreenShare'
 import type { ExamWebcamStatus } from '../../hooks/take-exam/useExamWebcam'
 import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
 
@@ -8,12 +9,17 @@ interface WebcamCheckDialogProps {
   stream: MediaStream | null
   status: ExamWebcamStatus
   errorMessage: string | null
+  screenStream?: MediaStream | null
+  screenStatus?: ExamScreenShareStatus
+  screenErrorMessage?: string | null
   isStartingExam: boolean
   requiresWebcam: boolean
+  requiresScreenShare?: boolean
   requiresPassword: boolean
   password: string
   onPasswordChange: (value: string) => void
   onEnableCamera: () => void
+  onEnableScreenShare?: () => void
   onClose: () => void
   onContinue: () => void
 }
@@ -23,12 +29,17 @@ export default function WebcamCheckDialog({
   stream,
   status,
   errorMessage,
+  screenStream = null,
+  screenStatus = 'IDLE',
+  screenErrorMessage = null,
   isStartingExam,
   requiresWebcam,
+  requiresScreenShare = false,
   requiresPassword,
   password,
   onPasswordChange,
   onEnableCamera,
+  onEnableScreenShare,
   onClose,
   onContinue,
 }: WebcamCheckDialogProps) {
@@ -42,8 +53,10 @@ export default function WebcamCheckDialog({
   if (!isOpen) return null
 
   const isRequesting = status === 'REQUESTING'
-  const isReady = !requiresWebcam || (status === 'ACTIVE' && isExamWebcamStreamLive(stream))
-  const canContinue = isReady && (!requiresPassword || password.trim().length > 0)
+  const isRequestingScreen = screenStatus === 'REQUESTING'
+  const isWebcamReady = !requiresWebcam || (status === 'ACTIVE' && isExamWebcamStreamLive(stream))
+  const isScreenReady = !requiresScreenShare || (screenStatus === 'ACTIVE' && isExamScreenShareStreamLive(screenStream))
+  const canContinue = isWebcamReady && isScreenReady && (!requiresPassword || password.trim().length > 0)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="webcam-check-title">
@@ -59,9 +72,9 @@ export default function WebcamCheckDialog({
           </button>
         </div>
 
-        <div className={`grid gap-5 p-6 ${requiresWebcam ? 'md:grid-cols-[1.35fr_0.65fr]' : ''}`}>
+        <div className={`grid gap-5 p-6 ${requiresWebcam || requiresScreenShare ? 'md:grid-cols-[1.35fr_0.65fr]' : ''}`}>
           {requiresWebcam && <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-950">
-            {isReady ? (
+            {isWebcamReady ? (
               <video ref={videoRef} autoPlay muted playsInline className="h-full w-full scale-x-[-1] object-cover" aria-label="Hình ảnh camera của bạn" />
             ) : (
               <div className="flex h-full flex-col items-center justify-center px-6 text-center text-slate-300">
@@ -69,7 +82,7 @@ export default function WebcamCheckDialog({
                 <p className="mt-3 text-sm font-semibold">{isRequesting ? 'Đang khởi động camera...' : 'Camera chưa được bật'}</p>
               </div>
             )}
-            {isReady && (
+            {isWebcamReady && (
               <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white shadow-lg">
                 <span className="h-2 w-2 rounded-full bg-white" /> Đang hoạt động
               </span>
@@ -81,6 +94,13 @@ export default function WebcamCheckDialog({
               <ShieldCheck className="mb-2 text-blue-600" size={22} />
               <p className="font-bold">Trước khi tiếp tục</p>
               <p className="mt-1 leading-6 text-blue-800">Đảm bảo khuôn mặt đủ sáng, camera không bị che và không có ứng dụng khác đang sử dụng camera.</p>
+            </div>}
+            {requiresScreenShare && <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-950">
+              <MonitorUp className="mb-2 text-emerald-600" size={22} />
+              <p className="font-bold">Chia sẻ toàn màn hình</p>
+              <p className="mt-1 leading-6 text-emerald-800">
+                {isScreenReady ? 'Toàn màn hình đang được chia sẻ.' : 'Ca thi yêu cầu chia sẻ toàn màn hình trước khi vào bài. Hãy chọn Toàn bộ màn hình/Entire screen, không chọn cửa sổ hoặc tab.'}
+              </p>
             </div>}
             {requiresPassword && (
               <label className="block text-sm font-semibold text-slate-700">
@@ -102,15 +122,21 @@ export default function WebcamCheckDialog({
               </label>
             )}
             {errorMessage && <p className="rounded-xl bg-rose-50 p-3 text-xs font-medium leading-5 text-rose-700" role="alert">{errorMessage}</p>}
+            {screenErrorMessage && <p className="rounded-xl bg-rose-50 p-3 text-xs font-medium leading-5 text-rose-700" role="alert">{screenErrorMessage}</p>}
           </div>
         </div>
 
         <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} disabled={isStartingExam} className="min-h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">Hủy</button>
-          {requiresWebcam && !isReady ? (
+          {requiresWebcam && !isWebcamReady ? (
             <button type="button" onClick={onEnableCamera} disabled={isRequesting} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60">
               {isRequesting ? <LoaderCircle className="animate-spin" size={18} /> : <Camera size={18} />}
               {isRequesting ? 'Đang mở camera...' : 'Bật camera'}
+            </button>
+          ) : requiresScreenShare && !isScreenReady ? (
+            <button type="button" onClick={onEnableScreenShare} disabled={isRequestingScreen} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60">
+              {isRequestingScreen ? <LoaderCircle className="animate-spin" size={18} /> : <MonitorUp size={18} />}
+              {isRequestingScreen ? 'Đang mở chia sẻ...' : 'Chia sẻ toàn màn hình'}
             </button>
           ) : (
             <button type="button" onClick={onContinue} disabled={isStartingExam || !canContinue} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60">

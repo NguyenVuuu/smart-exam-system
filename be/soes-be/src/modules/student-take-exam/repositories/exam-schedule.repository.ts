@@ -13,6 +13,7 @@ export async function findScheduleById(scheduleId: string) {
       maxAttempts: true,
       passwordHash: true,
       enableWebcam: true,
+      enableScreenMonitoring: true,
       distributionMode: true,
       randomQuestionCount: true,
       exam: { select: { id: true, status: true, studentVisibility: true } },

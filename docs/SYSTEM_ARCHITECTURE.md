@@ -428,7 +428,7 @@ Theo dõi:
 ### Webcam Monitoring
 
 - WebRTC (`navigator.mediaDevices.getUserMedia`)
-- MediaPipe Face Detection
+- MediaPipe Face Landmarker
 
 Theo dõi:
 
@@ -438,7 +438,7 @@ Theo dõi:
 Khi phát hiện vi phạm:
 
 ```text
-MediaPipe phát hiện bất thường
+MediaPipe Face Landmarker phát hiện bất thường
                 ↓
 Chụp ảnh webcam
                 ↓

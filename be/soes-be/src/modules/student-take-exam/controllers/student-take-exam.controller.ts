@@ -15,7 +15,7 @@ const liveCandidateQuerySchema = z.object({ from: z.coerce.number().int().min(0)
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { scheduleId } = examParamsSchema.parse(req.params)
-    const { password, webcamConfirmed, webcamStatus } = startExamBodySchema.parse(req.body ?? {})
+    const { password, webcamConfirmed, webcamStatus, screenShareConfirmed, screenShareStatus } = startExamBodySchema.parse(req.body ?? {})
     const studentId    = req.user!.profileId
 
     const requestContext = clientRequestContext(req)
@@ -33,6 +33,8 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
       passwordParam,
       webcamConfirmed,
       webcamStatus,
+      screenShareConfirmed,
+      screenShareStatus,
     )
 
     res.status(200).json({
@@ -149,10 +151,10 @@ export async function getAttemptResult(req: Request, res: Response, next: NextFu
 export async function sendHeartbeat(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { scheduleId, attemptId } = sendHeartbeatParamsSchema.parse(req.params)
-    const { webcamStatus } = sendHeartbeatBodySchema.parse(req.body ?? {})
+    const { webcamStatus, screenShareStatus } = sendHeartbeatBodySchema.parse(req.body ?? {})
     const studentId = req.user!.profileId
 
-    const result = await takeExamService.sendHeartbeat(scheduleId, attemptId, studentId, { webcamStatus })
+    const result = await takeExamService.sendHeartbeat(scheduleId, attemptId, studentId, { webcamStatus, screenShareStatus })
 
     res.status(200).json({
       success: true,

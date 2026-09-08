@@ -83,6 +83,8 @@ export function toGetAttemptStatusResponseDto(result: AttemptStatusResult): GetA
     remainingSeconds:   result.remainingSeconds,
     lastSavedAt:        result.lastSavedAt ? result.lastSavedAt.toISOString() : null,
     isOnline:           result.isOnline,
+    webcamStatus:       result.webcamStatus,
+    screenShareStatus:  result.screenShareStatus,
     answeredCount:      result.answeredCount,
     totalQuestionCount: result.totalQuestionCount,
   }

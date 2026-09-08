@@ -7,6 +7,7 @@ export const teacherExamScheduleBodySchema = z.object({
   maxAttempts: z.coerce.number().int().min(1).max(10).default(1),
   password: z.string().trim().min(4).max(100).optional().nullable(),
   requireFullscreen: z.boolean().default(false), enableWebcam: z.boolean().default(false),
+  enableScreenMonitoring: z.boolean().default(false),
   blockCopyPaste: z.boolean().default(true), blockRightClick: z.boolean().default(true),
   locationMode: z.enum(['ONLINE', 'CAMPUS']).default('ONLINE'),
   allowedIpRanges: z.array(z.string().trim().min(1)).max(50).default([]),

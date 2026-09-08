@@ -2,15 +2,12 @@ import { useEffect, useRef } from 'react'
 import { takeExamApi, type ExamViolationType, type RecordViolationPayload } from '../../api/student-take-exam.api'
 import type { ExamWebcamStatus } from './useExamWebcam'
 import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
+import type { FaceLandmarker, FaceLandmarkerResult, Matrix, NormalizedLandmark } from '@mediapipe/tasks-vision'
 
 type WebcamIssueType = Extract<
   ExamViolationType,
-  'CAMERA_DISCONNECTED' | 'CAMERA_PERMISSION_DENIED' | 'CAMERA_BLOCKED' | 'NO_FACE' | 'MULTIPLE_FACES'
+  'CAMERA_DISCONNECTED' | 'CAMERA_PERMISSION_DENIED' | 'CAMERA_BLOCKED' | 'NO_FACE' | 'MULTIPLE_FACES' | 'LOOKING_AWAY'
 >
-
-interface FaceDetectorLike {
-  detect: (source: CanvasImageSource) => Promise<Array<unknown>>
-}
 
 interface ImageCaptureLike {
   grabFrame: () => Promise<ImageBitmap>
@@ -18,7 +15,6 @@ interface ImageCaptureLike {
 
 declare global {
   interface Window {
-    FaceDetector?: new (options?: { fastMode?: boolean; maxDetectedFaces?: number }) => FaceDetectorLike
     ImageCapture?: new (track: MediaStreamTrack) => ImageCaptureLike
   }
 }
@@ -28,17 +24,42 @@ interface OpenViolationState {
   type: WebcamIssueType
 }
 
+function openViolationStorageKey(scheduleId: string, attemptId: string, type: WebcamIssueType) {
+  return `soes:webcam-violation:${scheduleId}:${attemptId}:${type}`
+}
+
+function rememberOpenViolation(scheduleId: string, attemptId: string, violation: OpenViolationState) {
+  window.localStorage.setItem(openViolationStorageKey(scheduleId, attemptId, violation.type), violation.id)
+}
+
+function forgetOpenViolation(scheduleId: string, attemptId: string, violation: OpenViolationState) {
+  window.localStorage.removeItem(openViolationStorageKey(scheduleId, attemptId, violation.type))
+}
+
+function restoreOpenViolation(scheduleId: string, attemptId: string): OpenViolationState | null {
+  const types: WebcamIssueType[] = ['CAMERA_DISCONNECTED', 'CAMERA_PERMISSION_DENIED', 'CAMERA_BLOCKED', 'NO_FACE', 'MULTIPLE_FACES', 'LOOKING_AWAY']
+  for (const type of types) {
+    const id = window.localStorage.getItem(openViolationStorageKey(scheduleId, attemptId, type))
+    if (id) return { id, type }
+  }
+  return null
+}
+
 const ANALYSIS_INTERVAL_MS = 1_000
 const VIOLATION_COOLDOWN_MS = 15_000
-const FALLBACK_SAMPLE_SIZE = 96
-const FALLBACK_MIN_FACE_SKIN_PIXELS = 36
-const FALLBACK_MIN_FACE_SKIN_RATIO = 0.006
+const MEDIAPIPE_WASM_URL = '/mediapipe/wasm'
+const FACE_LANDMARKER_MODEL_URL = '/models/face_landmarker.task'
+const FACE_LANDMARKER_NUM_FACES = 3
+const FACE_YAW_THRESHOLD_DEGREES = 35
+const NOSE_HORIZONTAL_OFFSET_RATIO = 0.55
+
 const THRESHOLDS_MS: Record<WebcamIssueType, number> = {
   CAMERA_DISCONNECTED: 0,
   CAMERA_PERMISSION_DENIED: 0,
   CAMERA_BLOCKED: 0,
   NO_FACE: 5_000,
   MULTIPLE_FACES: 3_000,
+  LOOKING_AWAY: 4_000,
 }
 
 const SEVERITY: Record<WebcamIssueType, RecordViolationPayload['severity']> = {
@@ -47,6 +68,7 @@ const SEVERITY: Record<WebcamIssueType, RecordViolationPayload['severity']> = {
   CAMERA_BLOCKED: 'HIGH',
   NO_FACE: 'MEDIUM',
   MULTIPLE_FACES: 'HIGH',
+  LOOKING_AWAY: 'MEDIUM',
 }
 
 const DESCRIPTION: Record<WebcamIssueType, string> = {
@@ -55,7 +77,12 @@ const DESCRIPTION: Record<WebcamIssueType, string> = {
   CAMERA_BLOCKED: 'Camera is blocked, muted, or not producing fresh frames.',
   NO_FACE: 'No face was detected for longer than the configured threshold.',
   MULTIPLE_FACES: 'Multiple faces were detected for longer than the configured threshold.',
+  LOOKING_AWAY: 'Student face direction moved away from the exam screen for longer than the configured threshold.',
 }
+
+const CAMERA_STATUS_ISSUES: WebcamIssueType[] = ['CAMERA_DISCONNECTED', 'CAMERA_PERMISSION_DENIED', 'CAMERA_BLOCKED']
+
+let faceLandmarkerPromise: Promise<FaceLandmarker> | null = null
 
 function issueFromWebcamStatus(status: ExamWebcamStatus): WebcamIssueType | null {
   if (status === 'DISCONNECTED' || status === 'UNAVAILABLE' || status === 'ERROR') return 'CAMERA_DISCONNECTED'
@@ -108,94 +135,75 @@ async function buildEvidenceFiles(video: HTMLVideoElement | null, stream: MediaS
   return snapshot ? [snapshot] : undefined
 }
 
-function isLikelySkinPixel(r: number, g: number, b: number): boolean {
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  const y = 0.299 * r + 0.587 * g + 0.114 * b
-  const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b
-  const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b
+async function getFaceLandmarker(): Promise<FaceLandmarker> {
+  if (!faceLandmarkerPromise) {
+    faceLandmarkerPromise = import('@mediapipe/tasks-vision').then(async ({ FaceLandmarker, FilesetResolver }) => {
+      const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL)
+      const options = {
+        baseOptions: {
+          modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+          delegate: 'GPU',
+        },
+        runningMode: 'VIDEO',
+        numFaces: FACE_LANDMARKER_NUM_FACES,
+        minFaceDetectionConfidence: 0.55,
+        minFacePresenceConfidence: 0.55,
+        minTrackingConfidence: 0.55,
+        outputFacialTransformationMatrixes: true,
+      } as const
 
-  return y > 45
-    && max - min > 12
-    && cb >= 77
-    && cb <= 135
-    && cr >= 133
-    && cr <= 180
-    && r > 60
-    && g > 35
-    && b > 15
-}
-
-function findSkinComponents(skinMask: Uint8Array): number[] {
-  const visited = new Uint8Array(skinMask.length)
-  const componentSizes: number[] = []
-  const queue: number[] = []
-
-  for (let start = 0; start < skinMask.length; start += 1) {
-    if (!skinMask[start] || visited[start]) continue
-
-    let size = 0
-    visited[start] = 1
-    queue.push(start)
-
-    while (queue.length > 0) {
-      const current = queue.pop()!
-      size += 1
-      const x = current % FALLBACK_SAMPLE_SIZE
-      const y = Math.floor(current / FALLBACK_SAMPLE_SIZE)
-      const neighbors = [
-        x > 0 ? current - 1 : -1,
-        x < FALLBACK_SAMPLE_SIZE - 1 ? current + 1 : -1,
-        y > 0 ? current - FALLBACK_SAMPLE_SIZE : -1,
-        y < FALLBACK_SAMPLE_SIZE - 1 ? current + FALLBACK_SAMPLE_SIZE : -1,
-      ]
-
-      for (const next of neighbors) {
-        if (next < 0 || !skinMask[next] || visited[next]) continue
-        visited[next] = 1
-        queue.push(next)
-      }
-    }
-
-    componentSizes.push(size)
+      return FaceLandmarker.createFromOptions(vision, options)
+        .catch(() => FaceLandmarker.createFromOptions(vision, {
+          ...options,
+          baseOptions: {
+            ...options.baseOptions,
+            delegate: 'CPU',
+          },
+        }))
+    })
   }
 
-  return componentSizes.sort((a, b) => b - a)
+  return faceLandmarkerPromise
 }
 
-function detectFallbackFaceIssue(video: HTMLVideoElement, canvas: HTMLCanvasElement): WebcamIssueType | null {
-  const width = video.videoWidth
-  const height = video.videoHeight
-  if (width <= 0 || height <= 0) return null
+function degrees(radians: number): number {
+  return radians * 180 / Math.PI
+}
 
-  canvas.width = FALLBACK_SAMPLE_SIZE
-  canvas.height = FALLBACK_SAMPLE_SIZE
+function getMatrixPose(matrix: Matrix | undefined): { yaw: number; pitch: number } | null {
+  if (!matrix || matrix.data.length < 16) return null
+  const m = matrix.data
+  const yaw = degrees(Math.atan2(m[8], Math.hypot(m[0], m[4])))
+  const pitch = degrees(Math.atan2(-m[9], Math.hypot(m[10], m[11])))
+  return { yaw, pitch }
+}
 
-  const context = canvas.getContext('2d', { willReadFrequently: true })
-  if (!context) return null
+function hasLandmarkLookingAway(landmarks: NormalizedLandmark[] | undefined): boolean {
+  if (!landmarks) return false
+  const nose = landmarks[1]
+  const leftEye = landmarks[33]
+  const rightEye = landmarks[263]
+  if (!nose || !leftEye || !rightEye) return false
 
-  context.drawImage(video, 0, 0, FALLBACK_SAMPLE_SIZE, FALLBACK_SAMPLE_SIZE)
-  const { data } = context.getImageData(0, 0, FALLBACK_SAMPLE_SIZE, FALLBACK_SAMPLE_SIZE)
-  const skinMask = new Uint8Array(FALLBACK_SAMPLE_SIZE * FALLBACK_SAMPLE_SIZE)
+  const eyeCenterX = (leftEye.x + rightEye.x) / 2
+  const eyeDistance = Math.max(0.001, Math.abs(rightEye.x - leftEye.x))
+  const horizontalOffset = Math.abs(nose.x - eyeCenterX) / eyeDistance
 
-  let skinPixels = 0
-  for (let index = 0; index < data.length; index += 4) {
-    const r = data[index]
-    const g = data[index + 1]
-    const b = data[index + 2]
-    if (isLikelySkinPixel(r, g, b)) {
-      skinPixels += 1
-      skinMask[index / 4] = 1
-    }
+  return horizontalOffset > NOSE_HORIZONTAL_OFFSET_RATIO
+}
+
+function detectFaceLandmarkerIssue(result: FaceLandmarkerResult): WebcamIssueType | null {
+  const faceCount = result.faceLandmarks.length
+  if (faceCount === 0) return 'NO_FACE'
+  if (faceCount > 1) return 'MULTIPLE_FACES'
+
+  const isLandmarkLookingAway = hasLandmarkLookingAway(result.faceLandmarks[0])
+  const pose = getMatrixPose(result.facialTransformationMatrixes[0])
+  if (pose && Math.abs(pose.yaw) > FACE_YAW_THRESHOLD_DEGREES && isLandmarkLookingAway) {
+    return 'LOOKING_AWAY'
   }
 
-  const totalPixels = FALLBACK_SAMPLE_SIZE * FALLBACK_SAMPLE_SIZE
-  const skinRatio = skinPixels / totalPixels
-  const components = findSkinComponents(skinMask)
-  const faceLikeComponents = components.filter((size) => size >= FALLBACK_MIN_FACE_SKIN_PIXELS)
-
-  if (skinRatio < FALLBACK_MIN_FACE_SKIN_RATIO || faceLikeComponents.length === 0) return 'NO_FACE'
-  return null
+  return !pose && isLandmarkLookingAway ? 'LOOKING_AWAY' : null
 }
 
 export function useWebcamViolationMonitor(input: {
@@ -214,8 +222,9 @@ export function useWebcamViolationMonitor(input: {
 
     let cancelled = false
     let video: HTMLVideoElement | null = null
-    let detector: FaceDetectorLike | null = null
-    const fallbackCanvas = document.createElement('canvas')
+    let landmarker: FaceLandmarker | null = null
+    let landmarkerReady = false
+    openViolationRef.current = openViolationRef.current ?? restoreOpenViolation(input.scheduleId, input.attemptId)
 
     if (input.stream && isExamWebcamStreamLive(input.stream)) {
       video = document.createElement('video')
@@ -223,15 +232,22 @@ export function useWebcamViolationMonitor(input: {
       video.playsInline = true
       video.srcObject = input.stream
       void video.play().catch(() => undefined)
-      if (window.FaceDetector) {
-        detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 })
-      }
+      void getFaceLandmarker()
+        .then((result) => {
+          if (cancelled) return
+          landmarker = result
+          landmarkerReady = true
+        })
+        .catch(() => {
+          landmarkerReady = false
+        })
     }
 
     const closeOpenViolation = async (endedAt: string) => {
       const openViolation = openViolationRef.current
       if (!openViolation) return
       openViolationRef.current = null
+      forgetOpenViolation(input.scheduleId, input.attemptId, openViolation)
       await takeExamApi.endViolation(input.scheduleId, input.attemptId, openViolation.id, endedAt).catch(() => undefined)
     }
 
@@ -250,11 +266,13 @@ export function useWebcamViolationMonitor(input: {
         severity: SEVERITY[type],
         description: DESCRIPTION[type],
         detectedAt: new Date(observedAt).toISOString(),
-        evidenceFiles: await buildEvidenceFiles(video, input.stream),
+        evidenceFiles: CAMERA_STATUS_ISSUES.includes(type) ? undefined : await buildEvidenceFiles(video, input.stream),
       }).catch(() => null)
 
       if (!cancelled && response) {
-        openViolationRef.current = { id: response.id, type }
+        const nextOpenViolation = { id: response.id, type }
+        openViolationRef.current = nextOpenViolation
+        rememberOpenViolation(input.scheduleId, input.attemptId, nextOpenViolation)
       }
     }
 
@@ -283,19 +301,10 @@ export function useWebcamViolationMonitor(input: {
         await observeIssue(null, Date.now())
         return
       }
+      if (!landmarkerReady || !landmarker) return
 
       try {
-        let faceIssue: WebcamIssueType | null = null
-        if (detector) {
-          const faces = await detector.detect(video)
-          faceIssue = faces.length === 0
-            ? 'NO_FACE'
-            : faces.length > 1
-              ? 'MULTIPLE_FACES'
-              : null
-        } else {
-          faceIssue = detectFallbackFaceIssue(video, fallbackCanvas)
-        }
+        const faceIssue = detectFaceLandmarkerIssue(landmarker.detectForVideo(video, performance.now()))
         await observeIssue(faceIssue, Date.now())
       } catch {
         await observeIssue(null, Date.now())
@@ -309,6 +318,7 @@ export function useWebcamViolationMonitor(input: {
     void tick()
 
     return () => {
+      void closeOpenViolation(new Date().toISOString())
       cancelled = true
       window.clearInterval(intervalId)
       video?.pause()

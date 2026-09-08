@@ -13,6 +13,7 @@ const idParam = z.object({ id: z.string().min(1) })
 const scheduleOnlyParam = z.object({ scheduleId: z.string().min(1) })
 const liveSessionParam = z.object({ sessionId: z.string().uuid() })
 const liveAttemptParam = z.object({ attemptId: z.string().uuid() })
+const manualCaptureParam = liveAttemptParam.extend({ streamType: z.enum(['WEBCAM', 'SCREEN']) })
 const signalBody = z.object({ signal: z.record(z.string(), z.unknown()) })
 const candidateBody = z.object({ candidate: z.record(z.string(), z.unknown()) })
 const cursorQuery = z.object({ from: z.coerce.number().int().min(0).optional().default(0) })
@@ -83,6 +84,15 @@ export const listLiveProctoringViolations = async (req: Request, res: Response) 
 export const requestLiveCamera = async (req: Request, res: Response) => {
   const { attemptId } = liveAttemptParam.parse(req.params)
   send(res, await gradingService.requestLiveCamera(req.user!.profileId, attemptId), 201)
+}
+export const requestLiveScreen = async (req: Request, res: Response) => {
+  const { attemptId } = liveAttemptParam.parse(req.params)
+  send(res, await gradingService.requestLiveScreen(req.user!.profileId, attemptId), 201)
+}
+export const captureManualEvidence = async (req: Request, res: Response) => {
+  const { attemptId, streamType } = manualCaptureParam.parse(req.params)
+  const evidenceFiles = Array.isArray(req.files) ? req.files : []
+  send(res, await gradingService.captureManualEvidence(req.user!.profileId, req.user!.id, attemptId, streamType, evidenceFiles), 201)
 }
 export const getTeacherLiveSession = async (req: Request, res: Response) => {
   const { sessionId } = liveSessionParam.parse(req.params)

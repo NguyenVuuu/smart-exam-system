@@ -1,15 +1,17 @@
-import { AlertTriangle, Camera, Image, RefreshCw, ShieldAlert, Square, Video } from 'lucide-react'
+import { AlertTriangle, Camera, Image, MonitorUp, RefreshCw, ShieldAlert, Square, Video } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { getSocket } from '../../api/socket'
 import AppBadge from '../../components/common/AppBadge'
+import AppSelect from '../../components/common/AppSelect'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTablePanel from './components/TeacherTablePanel'
 import TeacherToolbar from './components/TeacherToolbar'
 import TeacherTopBar from './components/TeacherTopBar'
 import {
+  captureTeacherLiveEvidence,
   endTeacherLiveCamera,
   getTeacherLiveProctoringSessions,
   getTeacherLiveProctoringViolations,
@@ -18,6 +20,8 @@ import {
 import type { ProctoringSessionRecord, ViolationRecord } from './types/teacher-exam.types'
 
 type ProctoringTab = 'live' | 'violations'
+type LiveStreamType = 'WEBCAM' | 'SCREEN'
+type LiveStatus = 'IDLE' | 'REQUESTING' | 'CONNECTING' | 'CONNECTED'
 
 const REFRESH_MS = 10_000
 const RTC_CONFIG: RTCConfiguration = {
@@ -40,6 +44,22 @@ const webcamLabel = {
   DISCONNECTED: 'Mất kết nối',
   PERMISSION_DENIED: 'Mất quyền',
   BLOCKED: 'Bị chặn',
+} as const
+
+const screenTone = {
+  NOT_REQUIRED: 'gray',
+  PENDING_PERMISSION: 'amber',
+  ACTIVE: 'emerald',
+  STOPPED: 'rose',
+  PERMISSION_DENIED: 'rose',
+} as const
+
+const screenLabel = {
+  NOT_REQUIRED: 'Không yêu cầu',
+  PENDING_PERMISSION: 'Chờ quyền',
+  ACTIVE: 'Đang chia sẻ',
+  STOPPED: 'Đã dừng',
+  PERMISSION_DENIED: 'Mất quyền',
 } as const
 
 const severityTone = {
@@ -81,11 +101,13 @@ export default function TeacherLiveProctorPage() {
   const [violations, setViolations] = useState<ViolationRecord[]>([])
   const [scheduleTitle, setScheduleTitle] = useState('Ca thi')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedViolationStudentId, setSelectedViolationStudentId] = useState('ALL')
   const [loading, setLoading] = useState(false)
   const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null)
   const [liveAttemptId, setLiveAttemptId] = useState<string | null>(null)
+  const [liveStreamType, setLiveStreamType] = useState<LiveStreamType>('WEBCAM')
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null)
-  const [liveStatus, setLiveStatus] = useState<'IDLE' | 'REQUESTING' | 'CONNECTING' | 'CONNECTED'>('IDLE')
+  const [liveStatus, setLiveStatus] = useState<LiveStatus>('IDLE')
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const peerRef = useRef<RTCPeerConnection | null>(null)
@@ -112,6 +134,10 @@ export default function TeacherLiveProctorPage() {
   useEffect(() => { void load() }, [load])
 
   useEffect(() => {
+    setSelectedViolationStudentId('ALL')
+  }, [scheduleId])
+
+  useEffect(() => {
     if (!scheduleId) return
     const intervalId = window.setInterval(() => void load(), REFRESH_MS)
     return () => window.clearInterval(intervalId)
@@ -133,6 +159,7 @@ export default function TeacherLiveProctorPage() {
     liveSessionIdRef.current = null
     setRemoteStream(null)
     setLiveAttemptId(null)
+    setLiveStreamType('WEBCAM')
     setLiveSessionId(null)
     setLiveStatus('IDLE')
   }, [])
@@ -155,16 +182,24 @@ export default function TeacherLiveProctorPage() {
       }
     })
 
-    const handleHeartbeat = (payload: { attemptId: string; webcamStatus?: ProctoringSessionRecord['webcamStatus']; lastHeartbeatAt?: string; isOnline?: boolean }) => {
+    const handleHeartbeat = (payload: {
+      attemptId: string
+      webcamStatus?: ProctoringSessionRecord['webcamStatus']
+      screenShareStatus?: ProctoringSessionRecord['screenShareStatus']
+      lastHeartbeatAt?: string
+      isOnline?: boolean
+    }) => {
       setSessions((current) => current.map((item) => item.attemptId === payload.attemptId
         ? {
             ...item,
             isOnline: payload.isOnline ?? item.isOnline,
             webcamStatus: payload.webcamStatus ?? item.webcamStatus,
+            screenShareStatus: payload.screenShareStatus ?? item.screenShareStatus,
             lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt,
           }
         : item))
     }
+
     const handleOffline = (payload: { attemptId: string; lastHeartbeatAt?: string; isOnline: false }) => {
       setSessions((current) => current.map((item) => item.attemptId === payload.attemptId
         ? { ...item, isOnline: false, lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt }
@@ -217,10 +252,11 @@ export default function TeacherLiveProctorPage() {
     }
   }, [scheduleId, stopLive])
 
-  const startLive = async (session: ProctoringSessionRecord) => {
-    if (liveAttemptId && liveAttemptId !== session.attemptId) stopLive()
+  const startLive = async (session: ProctoringSessionRecord, streamType: LiveStreamType) => {
+    if (liveAttemptId && (liveAttemptId !== session.attemptId || liveStreamType !== streamType)) stopLive()
     setActiveTab('live')
     setLiveAttemptId(session.attemptId)
+    setLiveStreamType(streamType)
     setLiveStatus('REQUESTING')
     setRemoteStream(null)
 
@@ -242,19 +278,19 @@ export default function TeacherLiveProctorPage() {
     }
 
     try {
-      const socket = getSocket()
+      const eventName = streamType === 'SCREEN' ? 'live:request_screen' : 'live:request_camera'
       const liveSession = await new Promise<Awaited<ReturnType<typeof startTeacherLiveCamera>>>((resolve, reject) => {
-        socket.emit('live:request_camera', { attemptId: session.attemptId }, (response: { ok: boolean; data?: Awaited<ReturnType<typeof startTeacherLiveCamera>>; error?: string }) => {
+        getSocket().emit(eventName, { attemptId: session.attemptId }, (response: { ok: boolean; data?: Awaited<ReturnType<typeof startTeacherLiveCamera>>; error?: string }) => {
           if (response.ok && response.data) resolve(response.data)
-          else reject(new Error(response.error ?? 'Unable to request live camera'))
+          else reject(new Error(response.error ?? 'Unable to request live stream'))
         })
       })
       liveSessionIdRef.current = liveSession.id
       setLiveSessionId(liveSession.id)
-      toast.success(`Đang mở camera của ${session.studentName}.`)
+      toast.success(streamType === 'SCREEN' ? `Đang mở màn hình của ${session.studentName}.` : `Đang mở camera của ${session.studentName}.`)
     } catch {
       stopLive()
-      toast.error('Không thể mở camera sinh viên.')
+      toast.error(streamType === 'SCREEN' ? 'Không thể mở màn hình sinh viên.' : 'Không thể mở camera sinh viên.')
     }
   }
 
@@ -265,17 +301,62 @@ export default function TeacherLiveProctorPage() {
       session.studentCode.toLocaleLowerCase('vi').includes(keyword)
   }), [searchQuery, sessions])
 
+  const violationStudentOptions = useMemo(() => [
+    { value: 'ALL', label: 'Tất cả sinh viên' },
+    ...sessions
+      .map((session) => ({
+        value: session.studentId,
+        label: `${session.studentCode} - ${session.studentName}`,
+      }))
+      .sort((first, second) => first.label.localeCompare(second.label, 'vi')),
+  ], [sessions])
+
   const filteredViolations = useMemo(() => violations.filter((violation) => {
     const keyword = searchQuery.trim().toLocaleLowerCase('vi')
-    return !keyword ||
+    const matchesStudent = selectedViolationStudentId === 'ALL' || violation.studentId === selectedViolationStudentId
+    const matchesKeyword = !keyword ||
       violation.studentName.toLocaleLowerCase('vi').includes(keyword) ||
       violation.studentCode.toLocaleLowerCase('vi').includes(keyword) ||
       violation.type.toLocaleLowerCase('vi').includes(keyword)
-  }), [searchQuery, violations])
+
+    return matchesStudent && matchesKeyword
+  }), [searchQuery, selectedViolationStudentId, violations])
+
+  const captureManualLiveEvidence = useCallback(async () => {
+    if (!liveAttemptId || !remoteStream || !videoRef.current) return
+    const video = videoRef.current
+    if (!video.videoWidth || !video.videoHeight) {
+      toast.error('Chưa có khung hình để chụp bằng chứng.')
+      return
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+    if (!blob) {
+      toast.error('Không thể tạo ảnh bằng chứng.')
+      return
+    }
+
+    try {
+      const fileName = `${liveStreamType.toLowerCase()}-capture-${Date.now()}.jpg`
+      const violation = await captureTeacherLiveEvidence(liveAttemptId, liveStreamType, new File([blob], fileName, { type: 'image/jpeg' }))
+      setViolations((current) => current.some((item) => item.id === violation.id) ? current : [violation, ...current])
+      toast.success(liveStreamType === 'SCREEN' ? 'Đã chụp bằng chứng màn hình.' : 'Đã chụp bằng chứng webcam.')
+    } catch {
+      toast.error('Không thể lưu bằng chứng thủ công.')
+    }
+  }, [liveAttemptId, liveStreamType, remoteStream])
 
   const liveStudent = sessions.find((session) => session.attemptId === liveAttemptId) ?? null
   const onlineCount = sessions.filter((session) => session.isOnline).length
   const cameraActiveCount = sessions.filter((session) => session.webcamStatus === 'ACTIVE').length
+  const screenActiveCount = sessions.filter((session) => session.screenShareStatus === 'ACTIVE').length
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
@@ -305,14 +386,15 @@ export default function TeacherLiveProctorPage() {
             </div>
           ) : (
             <>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-4">
                 <Metric label="Online" value={onlineCount} tone="text-blue-600" />
                 <Metric label="Camera đang bật" value={cameraActiveCount} tone="text-emerald-600" />
+                <Metric label="Màn hình đang chia sẻ" value={screenActiveCount} tone="text-cyan-600" />
                 <Metric label="Vi phạm trong ca" value={violations.length} tone="text-rose-600" />
               </div>
 
               <div className="flex flex-wrap gap-2 border-b border-gray-200">
-                <TabButton active={activeTab === 'live'} onClick={() => setActiveTab('live')} icon={<Video size={16} />} label="Live camera" />
+                <TabButton active={activeTab === 'live'} onClick={() => setActiveTab('live')} icon={<Video size={16} />} label="Live proctoring" />
                 <TabButton active={activeTab === 'violations'} onClick={() => setActiveTab('violations')} icon={<AlertTriangle size={16} />} label={`Nhật ký vi phạm (${violations.length})`} />
               </div>
 
@@ -329,27 +411,46 @@ export default function TeacherLiveProctorPage() {
                     <StudentLiveTable
                       sessions={filteredSessions}
                       liveAttemptId={liveAttemptId}
+                      liveStreamType={liveStreamType}
                       onStartLive={startLive}
                       onStopLive={stopLive}
                     />
                   </TeacherTablePanel>
 
-                  <LiveCameraPanel
+                  <LiveStreamPanel
                     liveStudent={liveStudent}
                     liveStatus={liveStatus}
                     liveSessionId={liveSessionId}
+                    liveStreamType={liveStreamType}
                     remoteStream={remoteStream}
                     videoRef={videoRef}
+                    onCapture={captureManualLiveEvidence}
                   />
                 </div>
               ) : (
                 <TeacherTablePanel>
                   <TeacherToolbar
-                    filters={<h3 className="text-sm font-semibold text-slate-950">Nhật ký bằng chứng vi phạm</h3>}
+                    filters={
+                      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+                        <h3 className="text-sm font-semibold text-slate-950">Nhật ký bằng chứng vi phạm</h3>
+                        <AppSelect
+                          value={selectedViolationStudentId}
+                          options={violationStudentOptions}
+                          onChange={setSelectedViolationStudentId}
+                          disabled={violationStudentOptions.length <= 1}
+                          placeholder="Lọc theo sinh viên"
+                          className="w-full sm:w-72"
+                          buttonClassName="rounded-lg"
+                        />
+                      </div>
+                    }
                     searchValue={searchQuery}
                     onSearchChange={setSearchQuery}
                     searchPlaceholder="Tìm MSSV, họ tên hoặc loại vi phạm..."
-                    onReset={() => setSearchQuery('')}
+                    onReset={() => {
+                      setSearchQuery('')
+                      setSelectedViolationStudentId('ALL')
+                    }}
                   />
                   <ViolationTable violations={filteredViolations} onViewEvidence={setEvidenceUrl} />
                 </TeacherTablePanel>
@@ -405,12 +506,14 @@ function TabButton({ active, icon, label, onClick }: { active: boolean; icon: Re
 function StudentLiveTable({
   sessions,
   liveAttemptId,
+  liveStreamType,
   onStartLive,
   onStopLive,
 }: {
   sessions: ProctoringSessionRecord[]
   liveAttemptId: string | null
-  onStartLive: (session: ProctoringSessionRecord) => void
+  liveStreamType: LiveStreamType
+  onStartLive: (session: ProctoringSessionRecord, streamType: LiveStreamType) => void
   onStopLive: () => void
 }) {
   return (
@@ -421,6 +524,7 @@ function StudentLiveTable({
             <th className="whitespace-nowrap px-5 py-3">Sinh viên</th>
             <th className="whitespace-nowrap px-5 py-3">Online</th>
             <th className="whitespace-nowrap px-5 py-3">Camera</th>
+            <th className="whitespace-nowrap px-5 py-3">Màn hình</th>
             <th className="whitespace-nowrap px-5 py-3">Tiến độ</th>
             <th className="whitespace-nowrap px-5 py-3 text-right">Live</th>
           </tr>
@@ -438,21 +542,34 @@ function StudentLiveTable({
               <td className="px-5 py-4">
                 <AppBadge tone={webcamTone[session.webcamStatus]}>{webcamLabel[session.webcamStatus]}</AppBadge>
               </td>
+              <td className="px-5 py-4">
+                <AppBadge tone={screenTone[session.screenShareStatus]}>{screenLabel[session.screenShareStatus]}</AppBadge>
+              </td>
               <td className="px-5 py-4 text-slate-600">{session.answeredCount}/{session.totalQuestionCount}</td>
               <td className="px-5 py-4 text-right">
                 {liveAttemptId === session.attemptId ? (
                   <button type="button" onClick={onStopLive} className="inline-flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100">
-                    <Square size={14} /> Ngắt
+                    <Square size={14} /> {liveStreamType === 'SCREEN' ? 'Ngắt màn hình' : 'Ngắt camera'}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => onStartLive(session)}
-                    disabled={!session.isOnline || session.webcamStatus !== 'ACTIVE'}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Video size={14} /> Xem camera
-                  </button>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onStartLive(session, 'WEBCAM')}
+                      disabled={!session.isOnline || session.webcamStatus !== 'ACTIVE'}
+                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Video size={14} /> Camera
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onStartLive(session, 'SCREEN')}
+                      disabled={!session.isOnline || session.screenShareStatus !== 'ACTIVE'}
+                      className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <MonitorUp size={14} /> Màn hình
+                    </button>
+                  </div>
                 )}
               </td>
             </tr>
@@ -464,40 +581,52 @@ function StudentLiveTable({
   )
 }
 
-function LiveCameraPanel({
+function LiveStreamPanel({
   liveStudent,
   liveStatus,
   liveSessionId,
+  liveStreamType,
   remoteStream,
   videoRef,
+  onCapture,
 }: {
   liveStudent: ProctoringSessionRecord | null
-  liveStatus: 'IDLE' | 'REQUESTING' | 'CONNECTING' | 'CONNECTED'
+  liveStatus: LiveStatus
   liveSessionId: string | null
+  liveStreamType: LiveStreamType
   remoteStream: MediaStream | null
   videoRef: React.RefObject<HTMLVideoElement | null>
+  onCapture: () => void
 }) {
+  const isScreen = liveStreamType === 'SCREEN'
   return (
     <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
       <div className="border-b border-gray-100 px-5 py-4">
-        <h2 className="text-sm font-bold text-slate-900">Camera đang xem</h2>
+        <h2 className="text-sm font-bold text-slate-900">{isScreen ? 'Màn hình đang xem' : 'Camera đang xem'}</h2>
         <p className="mt-1 text-xs text-slate-500">
           {liveStudent ? `${liveStudent.studentName} · ${liveStudent.studentCode}` : 'Chưa chọn sinh viên'}
         </p>
       </div>
       <div className="aspect-video bg-slate-950">
         {remoteStream ? (
-          <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+          <video ref={videoRef} autoPlay playsInline muted className={`h-full w-full ${isScreen ? 'object-contain' : 'object-cover'}`} />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-300">
-            <Camera size={34} />
-            <span className="text-sm">{liveStatus === 'IDLE' ? 'Chọn một sinh viên để xem live camera' : 'Đang mở camera sinh viên...'}</span>
+            {isScreen ? <MonitorUp size={34} /> : <Camera size={34} />}
+            <span className="text-sm">{liveStatus === 'IDLE' ? (isScreen ? 'Chọn sinh viên để xem màn hình' : 'Chọn sinh viên để xem live camera') : (isScreen ? 'Đang mở màn hình sinh viên...' : 'Đang mở camera sinh viên...')}</span>
           </div>
         )}
       </div>
       <div className="flex items-center justify-between px-5 py-4 text-xs text-slate-500">
         <span>Trạng thái: {liveStatus}</span>
-        {liveSessionId && <span>Session: {liveSessionId.slice(0, 8)}</span>}
+        <div className="flex items-center gap-3">
+          {remoteStream && (
+            <button type="button" onClick={onCapture} className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 font-semibold text-blue-700 hover:bg-blue-100">
+              <Image size={14} /> Chụp bằng chứng
+            </button>
+          )}
+          {liveSessionId && <span>Session: {liveSessionId.slice(0, 8)}</span>}
+        </div>
       </div>
     </section>
   )
@@ -581,13 +710,17 @@ function formatViolationType(type: ViolationRecord['type']) {
     TAB_SWITCH: 'Chuyển tab',
     FULLSCREEN_EXIT: 'Thoát toàn màn hình',
     COPY_PASTE: 'Sao chép/dán',
+    RIGHT_CLICK: 'Chuột phải',
     NO_FACE: 'Không thấy mặt',
     MULTIPLE_FACES: 'Nhiều khuôn mặt',
+    LOOKING_AWAY: 'Nhìn lệch khỏi màn hình',
     CAMERA_BLOCKED: 'Camera bị chặn',
     CAMERA_DISCONNECTED: 'Camera mất kết nối',
     CAMERA_PERMISSION_DENIED: 'Mất quyền camera',
     SCREEN_SHARE_STOPPED: 'Dừng chia sẻ màn hình',
     SCREEN_PERMISSION_DENIED: 'Mất quyền màn hình',
+    PROCTOR_WEBCAM_CAPTURE: 'Giảng viên chụp webcam',
+    PROCTOR_SCREEN_CAPTURE: 'Giảng viên chụp màn hình',
     INACTIVITY: 'Không hoạt động',
   }
   return labels[type] ?? type

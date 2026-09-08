@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Maximize2, Save, Send, ShieldAlert } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, Save, Send, ShieldAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -11,16 +11,18 @@ import TakeExamHeader from './components/take-exam/TakeExamHeader'
 import TakeExamProgress from './components/take-exam/TakeExamProgress'
 import './components/take-exam/take-exam.css'
 import { useExamIntegrityGuard } from './hooks/take-exam/useExamIntegrityGuard'
+import { isExamScreenShareStreamLive, type ExamScreenShareStatus, useExamScreenShare } from './hooks/take-exam/useExamScreenShare'
 import { useExamWebcam } from './hooks/take-exam/useExamWebcam'
+import { captureScreenEvidence, useScreenShareViolationMonitor } from './hooks/take-exam/useScreenShareViolationMonitor'
 import { useWebcamViolationMonitor } from './hooks/take-exam/useWebcamViolationMonitor'
-import { useStudentLiveCameraPublisher } from './hooks/take-exam/useStudentLiveCameraPublisher'
+import { useStudentLiveStreamPublisher } from './hooks/take-exam/useStudentLiveCameraPublisher'
 import { useTakeExam } from './hooks/take-exam/useTakeExam'
 import { useGetExamAttempt, useRecordViolationMutation, useRunCodeMutation, useSendHeartbeatMutation } from './hooks/take-exam/useTakeExamApi'
 import type {
   QuestionAnswer,
   TakeExamAnswers,
 } from './types/take-exam.types'
-import type { ExamSessionWebcamStatus, RunCodeResponse } from './api/student-take-exam.api'
+import { takeExamApi, type ExamSessionScreenShareStatus, type ExamSessionWebcamStatus, type RunCodeResponse } from './api/student-take-exam.api'
 import type { RecordViolationPayload } from './api/student-take-exam.api'
 import { hasAnswer } from './components/take-exam/take-exam.utils'
 import { useDebounce } from 'use-debounce'
@@ -37,6 +39,14 @@ function toSessionWebcamStatus(status: ExamWebcamStatus, stream: MediaStream | n
   if (status === 'PERMISSION_DENIED') return 'PERMISSION_DENIED'
   if (status === 'BLOCKED') return 'BLOCKED'
   return 'DISCONNECTED'
+}
+
+function toSessionScreenShareStatus(status: ExamScreenShareStatus, stream: MediaStream | null, required: boolean): ExamSessionScreenShareStatus {
+  if (!required) return 'NOT_REQUIRED'
+  if (status === 'ACTIVE' && isExamScreenShareStreamLive(stream)) return 'ACTIVE'
+  if (status === 'PERMISSION_DENIED') return 'PERMISSION_DENIED'
+  if (status === 'REQUESTING') return 'PENDING_PERMISSION'
+  return 'STOPPED'
 }
 
 export default function StudentTakeExamPage() {
@@ -58,17 +68,24 @@ export default function StudentTakeExamPage() {
   const [runCodeError, setRunCodeError] = useState<string | null>(null)
   const [runCodeErrorQuestionId, setRunCodeErrorQuestionId] = useState<string | null>(null)
   const previousWebcamStatusRef = useRef<ExamSessionWebcamStatus | null>(null)
+  const previousScreenStatusRef = useRef<ExamSessionScreenShareStatus | null>(null)
 
   const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId)
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
   const { mutate: sendHeartbeat } = useSendHeartbeatMutation()
-  const { mutate: recordViolation } = useRecordViolationMutation()
+  const { mutateAsync: recordViolation } = useRecordViolationMutation()
   const {
     stream: webcamStream,
     status: webcamStatus,
     errorMessage: webcamErrorMessage,
     start: startWebcam,
   } = useExamWebcam(session?.integritySettings.enableWebcam ?? false)
+  const {
+    stream: screenStream,
+    status: screenStatus,
+    errorMessage: screenErrorMessage,
+    start: startScreenShare,
+  } = useExamScreenShare(session?.integritySettings.enableScreenMonitoring ?? false)
 
   useEffect(() => {
     cancelScheduledExamWebcamStop()
@@ -130,16 +147,24 @@ export default function StudentTakeExamPage() {
   })
 
   const handleViolationDetected = useCallback((payload: RecordViolationPayload) => {
-    if (!scheduleId || !attemptId) return
-    recordViolation({
+    if (!scheduleId || !attemptId) return undefined
+    return recordViolation({
       scheduleId,
       attemptId,
       data: payload,
     })
   }, [attemptId, recordViolation, scheduleId])
 
+  const handleViolationEnded = useCallback(async (violationId: string, endedAt?: string) => {
+    if (!scheduleId || !attemptId) return
+    await takeExamApi.endViolation(scheduleId, attemptId, violationId, endedAt).catch(() => undefined)
+  }, [attemptId, scheduleId])
+
+  const handleCaptureScreenEvidence = useCallback(() => captureScreenEvidence(screenStream), [screenStream])
+
   const {
     isFullscreenActive,
+    fullscreenExitCountdown,
     requestFullscreen,
   } = useExamIntegrityGuard({
     enabled: phase === 'IN_PROGRESS' && Boolean(session),
@@ -147,6 +172,9 @@ export default function StudentTakeExamPage() {
     blockRightClick: session?.integritySettings.blockRightClick ?? false,
     requireFullscreen: session?.integritySettings.requireFullscreen ?? false,
     onViolation: handleViolationDetected,
+    onEndViolation: handleViolationEnded,
+    captureScreenEvidence: handleCaptureScreenEvidence,
+    fullscreenViolationStorageKey: scheduleId && attemptId ? `soes:fullscreen-violation:${scheduleId}:${attemptId}` : undefined,
   })
 
   useWebcamViolationMonitor({
@@ -157,26 +185,45 @@ export default function StudentTakeExamPage() {
     webcamStatus,
   })
 
-  useStudentLiveCameraPublisher({
+  useScreenShareViolationMonitor({
+    enabled: phase === 'IN_PROGRESS' && Boolean(session?.integritySettings.enableScreenMonitoring),
+    scheduleId: scheduleId ?? '',
+    attemptId: attemptId ?? '',
+    stream: screenStream,
+    screenShareStatus: screenStatus,
+  })
+
+  useStudentLiveStreamPublisher({
     enabled: phase === 'IN_PROGRESS' && Boolean(session?.integritySettings.enableWebcam),
     scheduleId: scheduleId ?? '',
     attemptId: attemptId ?? '',
     stream: webcamStream,
+    streamType: 'WEBCAM',
+  })
+
+  useStudentLiveStreamPublisher({
+    enabled: phase === 'IN_PROGRESS' && Boolean(session?.integritySettings.enableScreenMonitoring),
+    scheduleId: scheduleId ?? '',
+    attemptId: attemptId ?? '',
+    stream: screenStream,
+    streamType: 'SCREEN',
   })
 
   useEffect(() => {
     if (!scheduleId || !attemptId || phase !== 'IN_PROGRESS' || !session) return
 
     const webcamHeartbeatStatus = toSessionWebcamStatus(webcamStatus, webcamStream, session.integritySettings.enableWebcam)
+    const screenShareHeartbeatStatus = toSessionScreenShareStatus(screenStatus, screenStream, session.integritySettings.enableScreenMonitoring)
 
-    sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: webcamHeartbeatStatus } })
+    sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: webcamHeartbeatStatus, screenShareStatus: screenShareHeartbeatStatus } })
     const intervalId = window.setInterval(() => {
       const nextWebcamHeartbeatStatus = toSessionWebcamStatus(webcamStatus, webcamStream, session.integritySettings.enableWebcam)
-      sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: nextWebcamHeartbeatStatus } })
+      const nextScreenShareHeartbeatStatus = toSessionScreenShareStatus(screenStatus, screenStream, session.integritySettings.enableScreenMonitoring)
+      sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: nextWebcamHeartbeatStatus, screenShareStatus: nextScreenShareHeartbeatStatus } })
     }, 10_000)
 
     return () => window.clearInterval(intervalId)
-  }, [attemptId, phase, scheduleId, sendHeartbeat, session, webcamStatus, webcamStream])
+  }, [attemptId, phase, scheduleId, screenStatus, screenStream, sendHeartbeat, session, webcamStatus, webcamStream])
 
   useEffect(() => {
     if (phase !== 'IN_PROGRESS' || !session?.integritySettings.enableWebcam) return
@@ -205,6 +252,28 @@ export default function StudentTakeExamPage() {
       description: 'Bạn cần mở lại camera. Sự kiện này đã được ghi nhận để giảng viên xem xét.',
     })
   }, [phase, session?.integritySettings.enableWebcam, webcamStatus, webcamStream])
+
+  useEffect(() => {
+    if (phase !== 'IN_PROGRESS' || !session?.integritySettings.enableScreenMonitoring) return
+
+    const currentStatus = toSessionScreenShareStatus(screenStatus, screenStream, true)
+    const previousStatus = previousScreenStatusRef.current
+    previousScreenStatusRef.current = currentStatus
+
+    if (previousStatus === currentStatus) return
+    if (currentStatus === 'ACTIVE') {
+      if (previousStatus && previousStatus !== 'ACTIVE') {
+        toast.success('Chia sẻ màn hình đã hoạt động lại', {
+          description: 'Hệ thống đã ghi nhận thời điểm chia sẻ màn hình được khôi phục.',
+        })
+      }
+      return
+    }
+
+    toast.warning(currentStatus === 'PERMISSION_DENIED' ? 'Quyền chia sẻ màn hình bị từ chối' : 'Chia sẻ màn hình đã dừng', {
+      description: 'Bạn cần chia sẻ lại màn hình. Sự kiện này đã được ghi nhận để giảng viên xem xét.',
+    })
+  }, [phase, screenStatus, screenStream, session?.integritySettings.enableScreenMonitoring])
 
   // Auto-save when answers change
   useEffect(() => {
@@ -240,6 +309,10 @@ export default function StudentTakeExamPage() {
   const handleEnableExamCamera = useCallback(() => {
     void startWebcam().catch(() => undefined)
   }, [startWebcam])
+
+  const handleEnableScreenShare = useCallback(() => {
+    void startScreenShare().catch(() => undefined)
+  }, [startScreenShare])
 
   const handleRunCode = useCallback(
     (sourceCode: string) => {
@@ -331,16 +404,40 @@ export default function StudentTakeExamPage() {
         onEnableCamera={handleEnableExamCamera}
       />
       {!isFullscreenActive && phase === 'IN_PROGRESS' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-5 backdrop-blur-md" role="alertdialog" aria-modal="true" aria-labelledby="fullscreen-required-title">
-          <div className="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-2xl">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-              <ShieldAlert size={32} />
+        <div className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 rounded-2xl border border-amber-200 bg-white p-4 shadow-2xl" role="alert" aria-live="assertive">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                <ShieldAlert size={22} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900">Bạn đã thoát chế độ toàn màn hình.</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Tự động chụp màn hình sau {fullscreenExitCountdown ?? 5} giây nếu bạn chưa quay lại. Thoát quá 7 giây hoặc chuyển ứng dụng sẽ bị ghi nhận nghiêm trọng.
+                </p>
+              </div>
             </div>
-            <h2 id="fullscreen-required-title" className="mt-5 text-xl font-bold text-slate-900">Cần bật toàn màn hình</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">Nội dung bài thi tạm khóa vì kỳ thi yêu cầu chế độ toàn màn hình.</p>
-            <button type="button" onClick={() => void requestFullscreen()} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700">
+            <button type="button" onClick={() => void requestFullscreen()} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white hover:bg-blue-700">
               <Maximize2 size={18} />
-              Bật toàn màn hình
+              Quay lại ngay
+            </button>
+          </div>
+        </div>
+      )}
+      {session.integritySettings.enableScreenMonitoring && phase === 'IN_PROGRESS' && !isExamScreenShareStreamLive(screenStream) && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-5 backdrop-blur-md" role="alertdialog" aria-modal="true" aria-labelledby="screen-share-required-title">
+          <div className="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-2xl">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
+              <MonitorUp size={32} />
+            </div>
+            <h2 id="screen-share-required-title" className="mt-5 text-xl font-bold text-slate-900">Cần chia sẻ toàn màn hình</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Ca thi này yêu cầu giám sát toàn màn hình. Nội dung bài thi sẽ tiếp tục sau khi bạn chọn Toàn bộ màn hình/Entire screen, không chọn cửa sổ hoặc tab.
+            </p>
+            {screenErrorMessage && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{screenErrorMessage}</p>}
+            <button type="button" onClick={handleEnableScreenShare} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700">
+              <MonitorUp size={18} />
+              Chia sẻ toàn màn hình
             </button>
           </div>
         </div>

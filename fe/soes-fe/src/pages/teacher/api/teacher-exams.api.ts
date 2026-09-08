@@ -130,6 +130,7 @@ export interface TeacherLiveCameraSession {
   id: string
   attemptId: string
   scheduleId: string
+  streamType?: 'WEBCAM' | 'SCREEN'
   status: 'REQUESTED' | 'OFFERED' | 'CONNECTED' | 'ENDED'
   offer: RTCSessionDescriptionInit | null
   answer: RTCSessionDescriptionInit | null
@@ -141,6 +142,20 @@ export interface TeacherLiveCameraSession {
 export const startTeacherLiveCamera = (attemptId: string) =>
   apiClient.post<ApiResponse<TeacherLiveCameraSession>>(`/teacher/proctoring/attempts/${attemptId}/live/start`)
     .then(({ data }) => data.data)
+
+export const startTeacherLiveScreen = (attemptId: string) =>
+  apiClient.post<ApiResponse<TeacherLiveCameraSession>>(`/teacher/proctoring/attempts/${attemptId}/live/screen/start`)
+    .then(({ data }) => data.data)
+
+export const captureTeacherLiveEvidence = (attemptId: string, streamType: 'WEBCAM' | 'SCREEN', file: File) => {
+  const formData = new FormData()
+  formData.append('evidences', file)
+  return apiClient.post<ApiResponse<ViolationRecord>>(
+    `/teacher/proctoring/attempts/${attemptId}/live/${streamType}/capture`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  ).then(({ data }) => data.data)
+}
 
 export const getTeacherLiveCameraSession = (sessionId: string) =>
   apiClient.get<ApiResponse<TeacherLiveCameraSession>>(`/teacher/proctoring/live/${sessionId}`)

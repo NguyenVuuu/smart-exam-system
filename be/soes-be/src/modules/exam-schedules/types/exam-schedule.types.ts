@@ -9,7 +9,7 @@ export interface ScheduleWriteInput {
   title: string; examId: string; startTime: Date; endTime: Date
   durationMinutes: number; maxAttempts: number; passwordHash?: string | null
   enableTabLock: boolean; maxTabSwitches: number | null; requireFullscreen: boolean
-  enableWebcam: boolean; blockCopyPaste: boolean; blockRightClick: boolean
+  enableWebcam: boolean; enableScreenMonitoring: boolean; blockCopyPaste: boolean; blockRightClick: boolean
   locationMode: ExamLocationMode; allowedIpRanges: string[]
   distributionMode: ExamDistributionMode; randomQuestionCount: number | null
   resultReleaseMode: ResultReleaseMode; resultReleaseAt: Date | null

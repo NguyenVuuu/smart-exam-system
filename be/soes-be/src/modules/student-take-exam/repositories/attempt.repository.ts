@@ -1,6 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { randomInt } from 'crypto'
-import type { WebcamStatus } from '@prisma/client'
+import type { ScreenShareStatus, WebcamStatus } from '@prisma/client'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 
 export async function countAttemptsForSchedule(scheduleId: string, studentId: string) {
@@ -35,6 +35,7 @@ export async function findAttemptWithContent(
           durationMinutes: true,
           endTime: true,
           enableWebcam: true,
+          enableScreenMonitoring: true,
           requireFullscreen: true,
           blockCopyPaste: true,
           blockRightClick: true,
@@ -97,6 +98,7 @@ export interface CreateAttemptInput {
   deviceInfo: string
   actorUserId: string
   webcamStatus: WebcamStatus
+  screenShareStatus: ScreenShareStatus
 }
 
 function shuffled<T>(items: T[]): T[] {
@@ -152,6 +154,8 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
         deviceInfo: input.deviceInfo,
         webcamStatus: input.webcamStatus,
         lastWebcamHeartbeatAt: input.webcamStatus === 'ACTIVE' ? input.startedAt : null,
+        screenShareStatus: input.screenShareStatus,
+        lastScreenHeartbeatAt: input.screenShareStatus === 'ACTIVE' ? input.startedAt : null,
       },
     })
     if (selected.length) {
@@ -279,7 +283,7 @@ export async function findAttemptStatus(attemptId: string, scheduleId: string, s
       submittedAt: true,
       endedBy: true,
       lastSavedAt: true,
-      examSession: { select: { lastHeartbeat: true } },
+      examSession: { select: { lastHeartbeat: true, webcamStatus: true, screenShareStatus: true } },
       _count: { select: { studentAnswers: true, attemptQuestions: true } },
     },
   })

@@ -1,6 +1,6 @@
 import { ConflictError, NotFoundError, ValidationError } from '../../../errors/AppError'
-import { examConfig } from '../../../config'
-import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl } from '../../../lib/minio'
+import { examConfig, minioConfig } from '../../../config'
+import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
 import { logger } from '../../../lib/logger'
 import { toPagination } from '../../../utils/pagination'
 import { computeScheduleStatus } from '../../exam-schedules/mappers/exam-schedule.mapper'
@@ -105,8 +105,10 @@ export async function listProctoringSessions(teacherId: string, examId: string, 
         isOnline,
         ipAddress: row.examSession?.ipAddress ?? null,
         webcamStatus: row.examSession?.webcamStatus ?? 'NOT_REQUIRED',
+        screenShareStatus: row.examSession?.screenShareStatus ?? 'NOT_REQUIRED',
         lastHeartbeatAt: lastHeartbeat,
         lastWebcamHeartbeatAt: row.examSession?.lastWebcamHeartbeatAt ?? null,
+        lastScreenHeartbeatAt: row.examSession?.lastScreenHeartbeatAt ?? null,
         answeredCount: row._count.studentAnswers,
         totalQuestionCount: row._count.attemptQuestions,
         violationCount: row._count.violations,
@@ -151,7 +153,14 @@ export async function requestLiveCamera(teacherId: string, attemptId: string) {
   const attempt = await repo.findAttemptAccessForLiveProctoring(teacherId, attemptId)
   if (!attempt) throw new NotFoundError('Exam attempt not found')
   if (!attempt.examSchedule.enableWebcam) throw new ConflictError('Webcam is not enabled for this schedule')
-  return live.requestLiveCamera({ attemptId, scheduleId: attempt.examScheduleId, teacherId })
+  return live.requestLiveStream({ attemptId, scheduleId: attempt.examScheduleId, teacherId, streamType: 'WEBCAM' })
+}
+
+export async function requestLiveScreen(teacherId: string, attemptId: string) {
+  const attempt = await repo.findAttemptAccessForLiveProctoring(teacherId, attemptId)
+  if (!attempt) throw new NotFoundError('Exam attempt not found')
+  if (!attempt.examSchedule.enableScreenMonitoring) throw new ConflictError('Screen monitoring is not enabled for this schedule')
+  return live.requestLiveStream({ attemptId, scheduleId: attempt.examScheduleId, teacherId, streamType: 'SCREEN' })
 }
 
 export async function getTeacherLiveSession(teacherId: string, sessionId: string) {
@@ -182,6 +191,113 @@ export async function endTeacherLiveSession(teacherId: string, sessionId: string
   const session = await live.endLiveSession(sessionId, { teacherId })
   if (!session) throw new NotFoundError('Live session not found')
   return session
+}
+
+export async function captureManualEvidence(
+  teacherId: string,
+  teacherUserId: string,
+  attemptId: string,
+  streamType: 'WEBCAM' | 'SCREEN',
+  evidenceFiles: Express.Multer.File[] = [],
+) {
+  const attempt = await repo.findAttemptForManualEvidence(teacherId, attemptId)
+  if (!attempt) throw new NotFoundError('Exam attempt not found')
+  if (streamType === 'WEBCAM' && !attempt.examSchedule.enableWebcam) {
+    throw new ConflictError('Webcam is not enabled for this schedule')
+  }
+  if (streamType === 'SCREEN' && !attempt.examSchedule.enableScreenMonitoring) {
+    throw new ConflictError('Screen monitoring is not enabled for this schedule')
+  }
+  if (evidenceFiles.length === 0) {
+    throw new ValidationError('Evidence file is required')
+  }
+
+  const detectedAt = new Date()
+  const violationType = streamType === 'WEBCAM' ? 'PROCTOR_WEBCAM_CAPTURE' : 'PROCTOR_SCREEN_CAPTURE'
+  const evidenceType = streamType === 'WEBCAM' ? 'WEBCAM_IMAGE' : 'SCREEN_IMAGE'
+  const violation = await repo.createManualProctorViolation({
+    attemptId,
+    teacherUserId,
+    violationType,
+    detectedAt,
+    description: streamType === 'WEBCAM'
+      ? 'Teacher captured webcam evidence from live proctoring.'
+      : 'Teacher captured screen evidence from live proctoring.',
+  })
+
+  let evidenceObjectNames: string[] = []
+  let evidenceStorageProvider: 'MINIO' | 'LOCAL' = 'MINIO'
+  try {
+    evidenceObjectNames = await uploadViolationEvidenceFiles({
+      attemptId,
+      violationType,
+      detectedAt,
+      files: evidenceFiles,
+      storagePrefix: attempt.examSchedule.proctoringStoragePath,
+      violationId: violation.id,
+    })
+  } catch (error) {
+    logger.error('Failed to upload manual proctoring evidence', {
+      attemptId,
+      violationType,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    if (minioConfig.requireEvidenceStorage) {
+      throw new ValidationError('Evidence storage is not available')
+    }
+    evidenceStorageProvider = 'LOCAL'
+    evidenceObjectNames = await saveViolationEvidenceFilesLocal({
+      attemptId,
+      violationType,
+      detectedAt,
+      files: evidenceFiles,
+      storagePrefix: attempt.examSchedule.proctoringStoragePath,
+      violationId: violation.id,
+    })
+  }
+
+  await repo.addManualViolationEvidence({
+    violationId: violation.id,
+    teacherUserId,
+    evidenceType,
+    evidences: evidenceObjectNames.map((objectName, index) => {
+      const file = evidenceFiles[index]
+      return {
+        bucket: minioConfig.evidenceBucket,
+        objectName,
+        storagePath: objectName.split('/').slice(0, -1).join('/'),
+        fileName: file?.originalname ?? objectName.split('/').pop() ?? 'evidence.jpg',
+        contentType: file?.mimetype ?? 'image/jpeg',
+        fileSize: file?.size,
+        storageProvider: evidenceStorageProvider,
+      }
+    }),
+  })
+
+  const firstEvidence = evidenceObjectNames[0] ?? null
+  const evidenceImageUrl = firstEvidence
+    ? evidenceStorageProvider === 'LOCAL'
+      ? getLocalViolationEvidenceUrl(firstEvidence)
+      : await getViolationEvidenceUrl(firstEvidence)
+    : null
+
+  const payload = {
+    id: violation.id,
+    scheduleId: attempt.examScheduleId,
+    attemptId,
+    studentId: attempt.studentId,
+    studentCode: attempt.student.studentCode,
+    studentName: attempt.student.user.fullName,
+    type: violation.violationType,
+    timestamp: violation.detectedAt.toISOString(),
+    severity: violation.severity,
+    endedAt: violation.endedAt?.toISOString() ?? null,
+    durationSeconds: violation.durationSeconds,
+    evidenceImageUrl,
+    note: streamType === 'WEBCAM' ? 'Teacher webcam capture' : 'Teacher screen capture',
+  }
+  emitProctoringEvent(attempt.examScheduleId, 'violation:created', payload)
+  return payload
 }
 
 export async function reviewViolation(

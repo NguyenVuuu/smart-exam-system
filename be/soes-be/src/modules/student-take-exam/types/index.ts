@@ -21,6 +21,7 @@ export interface ExamContentResult {
 
 export interface ExamIntegritySettings {
   enableWebcam: boolean
+  enableScreenMonitoring: boolean
   requireFullscreen: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
@@ -88,6 +89,8 @@ export interface AttemptStatusResult {
   remainingSeconds:   number
   lastSavedAt:        Date | null
   isOnline:           boolean
+  webcamStatus?:      string
+  screenShareStatus?: string
   answeredCount:      number
   totalQuestionCount: number
 }

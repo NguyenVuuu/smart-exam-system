@@ -29,6 +29,7 @@ export interface ExamSessionDraft {
   allowStudentReview: boolean
   requireFullscreen: boolean
   enableWebcam: boolean
+  enableScreenMonitoring: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
   ipMode: ExamIpMode
@@ -178,6 +179,7 @@ export function ExamSessionForm({
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-2">
           <Toggle checked={draft.requireFullscreen} onChange={(value) => update('requireFullscreen', value)} label="Bắt buộc toàn màn hình" />
           <Toggle checked={draft.enableWebcam} onChange={(value) => update('enableWebcam', value)} label="Giám sát webcam" />
+          <Toggle checked={draft.enableScreenMonitoring} onChange={(value) => update('enableScreenMonitoring', value)} label="Giám sát màn hình" />
           <Toggle checked={draft.blockCopyPaste} onChange={(value) => update('blockCopyPaste', value)} label="Chặn copy/paste" />
           <Toggle checked={draft.blockRightClick} onChange={(value) => update('blockRightClick', value)} label="Chặn chuột phải" />
         </div>
@@ -220,7 +222,7 @@ export function ExamSessionForm({
           menuClassName="z-50"
           options={[
               { value: 'FIXED_ORDER', label: 'Giữ nguyên thứ tự câu hỏi' },
-              { value: 'SHUFFLE_ORDER', label: 'Xáo thứ tự câu hỏi' },
+              { value: 'SHUFFLE_QUESTIONS', label: 'Xáo thứ tự câu hỏi' },
               { value: 'SHUFFLE_QUESTIONS_AND_OPTIONS', label: 'Xáo câu hỏi và phương án' },
               { value: 'RANDOM_SUBSET', label: 'Chọn tập câu hỏi ngẫu nhiên theo phần' },
           ]}

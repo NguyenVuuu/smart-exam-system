@@ -124,6 +124,7 @@ Each heartbeat emits `student:heartbeat` to the schedule room with:
 - attempt id
 - schedule id
 - webcam status
+- screen share status
 - heartbeat time
 - remaining seconds
 - online state
@@ -156,10 +157,16 @@ proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/screen/{attempt
 
 ## Remaining Gaps
 
-Not completed in this batch:
+Completed in the screen monitoring batch:
 
-- Live screen monitoring with `getDisplayMedia`.
-- Teacher manual evidence capture from live webcam/screen stream.
+- Student pre-check uses `getDisplayMedia` when `enableScreenMonitoring=true`.
+- Student heartbeat persists `screenShareStatus` with `NOT_REQUIRED`, `PENDING_PERMISSION`, `ACTIVE`, `STOPPED`, and `PERMISSION_DENIED`.
+- `SCREEN_PERMISSION_DENIED` and `SCREEN_SHARE_STOPPED` are recorded as screen violations.
+- Teacher live proctoring supports `streamType=WEBCAM` and `streamType=SCREEN`.
+- Teachers can manually capture evidence from live webcam or live screen streams.
+
+Remaining gaps:
+
 - Socket event handling for submitted/progress-updated beyond heartbeat.
 - Persisted audit records for every socket live action.
 - Automated tests for socket authorization and live signaling.

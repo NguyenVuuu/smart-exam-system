@@ -130,6 +130,17 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
       }
     })
 
+    socket.on('live:request_screen', async ({ attemptId }: { attemptId: string }, ack?: (data: unknown) => void) => {
+      try {
+        if (user.role !== 'TEACHER') throw new Error('Only teachers can request live screen')
+        const session = await teacherGrading.requestLiveScreen(user.profileId, attemptId)
+        io?.to(attemptRoom(attemptId)).emit('live:request', session)
+        ack?.({ ok: true, data: session })
+      } catch (error) {
+        ack?.({ ok: false, error: error instanceof Error ? error.message : 'Unable to request live screen' })
+      }
+    })
+
     socket.on('live:student_offer', async (
       { scheduleId, attemptId, sessionId, offer }: { scheduleId: string; attemptId: string; sessionId: string; offer: Record<string, unknown> },
       ack?: (data: unknown) => void,
