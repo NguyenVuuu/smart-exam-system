@@ -254,7 +254,7 @@ Hiện tại hệ thống hỗ trợ ba vai trò:
 - WebRTC
 - MediaDevices API (`getUserMedia`, `getDisplayMedia`)
 - Giám sát sự kiện trình duyệt
-- MediaPipe Face Detection
+- MediaPipe Face Landmarker
 - Socket.IO
 
 ### Lưu trữ
