@@ -1,5 +1,11 @@
 import { apiClient } from '../../../api/axios'
-import type { QuestionPayload, TeacherQuestionDto, TeacherSubjectOption } from '../types/teacher-question-api.types'
+import type {
+  QuestionAuditPageDto,
+  QuestionAuditSeverity,
+  QuestionPayload,
+  TeacherQuestionDto,
+  TeacherSubjectOption,
+} from '../types/teacher-question-api.types'
 
 interface ApiResponse<T> { success: boolean; data: T }
 interface QuestionList {
@@ -26,6 +32,21 @@ async function listAll(scope: 'PERSONAL' | 'SHARED', archived = false) {
 export const getPersonalQuestions = () => listAll('PERSONAL')
 export const getArchivedQuestions = () => listAll('PERSONAL', true)
 export const getSharedQuestions = () => listAll('SHARED')
+
+export interface QuestionAuditFilters {
+  page: number
+  pageSize: number
+  keyword?: string
+  severity?: QuestionAuditSeverity
+}
+
+export async function getQuestionAudit(params: QuestionAuditFilters) {
+  const response = await apiClient.get<ApiResponse<QuestionAuditPageDto>>(
+    '/teacher/question-audit',
+    { params },
+  )
+  return response.data.data
+}
 
 export async function getQuestionSubjects() {
   const response = await apiClient.get<ApiResponse<TeacherSubjectOption[]>>('/teacher/question-subjects')

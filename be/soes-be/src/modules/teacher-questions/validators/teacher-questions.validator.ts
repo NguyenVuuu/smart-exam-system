@@ -18,6 +18,13 @@ export const questionsQuerySchema = z.object({
   archived: z.enum(['true', 'false']).transform((value) => value === 'true').optional(),
 })
 
+export const questionAuditQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  keyword: z.string().trim().max(200).optional(),
+  severity: z.enum(['HIGH', 'LOW']).optional(),
+})
+
 export const questionBodySchema = z.object({
   subjectId: id,
   title: z.string().trim().min(3).max(200),
@@ -53,5 +60,6 @@ export const rejectionSchema = z.object({ reason: z.string().trim().min(5).max(1
 export const removalSchema = rejectionSchema
 
 export type QuestionsQuery = z.infer<typeof questionsQuerySchema>
+export type QuestionAuditQuery = z.infer<typeof questionAuditQuerySchema>
 export type QuestionBody = z.infer<typeof questionBodySchema>
 export type ApprovalQuery = z.infer<typeof approvalQuerySchema>

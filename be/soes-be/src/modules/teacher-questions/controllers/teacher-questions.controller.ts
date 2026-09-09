@@ -2,7 +2,8 @@
 import { z } from 'zod'
 import { sendSuccess as send } from '../../../utils/httpResponse'
 import * as service from '../services/teacher-questions.service'
-import { approvalQuerySchema, questionBodySchema, questionsQuerySchema, rejectionSchema, removalSchema } from '../validators/teacher-questions.validator'
+import * as auditService from '../services/question-audit.service'
+import { approvalQuerySchema, questionAuditQuerySchema, questionBodySchema, questionsQuerySchema, rejectionSchema, removalSchema } from '../validators/teacher-questions.validator'
 
 const idParam = z.object({ id: z.string().min(1) })
 const uploadedFiles = (req: Request) => (req.files as Express.Multer.File[] | undefined) ?? []
@@ -21,6 +22,10 @@ export const uploadAiSourceFiles = async (req: Request, res: Response) => send(
   201,
 )
 export const listQuestions = async (req: Request, res: Response) => send(res, await service.list(req.user!.profileId, questionsQuerySchema.parse(req.query)))
+export const listQuestionAudit = async (req: Request, res: Response) => send(
+  res,
+  await auditService.listQuestionAudit(req.user!.profileId, questionAuditQuerySchema.parse(req.query)),
+)
 export const listSubjects = async (req: Request, res: Response) => send(res, await service.listSubjects(req.user!.profileId))
 export const createQuestion = async (req: Request, res: Response) => send(res, await service.create(req.user!.profileId, questionBodySchema.parse(req.body)), 201)
 export const updateQuestion = async (req: Request, res: Response) => send(res, await service.update(req.user!.profileId, idParam.parse(req.params).id, questionBodySchema.parse(req.body)))
