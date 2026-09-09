@@ -28,9 +28,26 @@ import { getIntegrationStatuses } from './integration-health.service'
 
 const SYSTEM_LOGO_OBJECT_NAME = 'branding/system-logo'
 
-async function removeStoredSystemLogo(): Promise<void> {
+function extractStoragePathFromUrl(url?: string): string | null {
+  if (!url) return null
   try {
-    await removeObjectsFromBucket(supabaseBuckets.systemAssets, [SYSTEM_LOGO_OBJECT_NAME])
+    const cleanUrl = url.split('?')[0]
+    const bucket = supabaseBuckets.systemAssets
+    const marker = `/public/${bucket}/`
+    const idx = cleanUrl.indexOf(marker)
+    if (idx !== -1) {
+      return cleanUrl.slice(idx + marker.length)
+    }
+  } catch {}
+  return null
+}
+
+async function removeStoredSystemLogo(currentLogoUrl?: string): Promise<void> {
+  try {
+    const pathsToDelete = [SYSTEM_LOGO_OBJECT_NAME]
+    const extracted = extractStoragePathFromUrl(currentLogoUrl)
+    if (extracted) pathsToDelete.push(extracted)
+    await removeObjectsFromBucket(supabaseBuckets.systemAssets, pathsToDelete)
   } catch (error) {
     logger.warn('Unable to remove the stored system logo', { error: String(error) })
   }
@@ -177,20 +194,27 @@ export async function uploadSystemLogo(
   const detectedMimeType = detectLogoMimeType(file.buffer)
   if (!detectedMimeType) throw new ValidationError('Nội dung file logo không hợp lệ')
 
+  const currentSettings = await readSystemSettingsFile()
+  await removeStoredSystemLogo(currentSettings.general.logoUrl)
+
+  const extension = detectedMimeType === 'image/png' ? 'png' : detectedMimeType === 'image/jpeg' ? 'jpg' : 'webp'
+  const newObjectName = `branding/system-logo-${Date.now()}.${extension}`
+
   const storedLogo = await uploadBufferToBucket(
     supabaseBuckets.systemAssets,
     { ...file, mimetype: detectedMimeType },
     'branding',
-    { publicUrl: true, objectName: SYSTEM_LOGO_OBJECT_NAME, upsert: true },
+    { publicUrl: true, objectName: newObjectName, upsert: true },
   )
   if (!storedLogo.publicUrl) throw new ValidationError('Không thể tạo đường dẫn logo công khai')
 
-  return updateSystemLogoUrl(userId, `${storedLogo.publicUrl}?v=${Date.now()}`)
+  return updateSystemLogoUrl(userId, storedLogo.publicUrl)
 }
 
 export async function removeSystemLogo(userId: string): Promise<GeneralSettingsDto> {
+  const currentSettings = await readSystemSettingsFile()
   const settings = await updateSystemLogoUrl(userId, '')
-  await removeStoredSystemLogo()
+  await removeStoredSystemLogo(currentSettings.general.logoUrl)
   return settings
 }
 
