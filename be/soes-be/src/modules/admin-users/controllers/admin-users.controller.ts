@@ -6,6 +6,8 @@ import { accountStatusSchema, createUserSchema, enrollmentBodySchema, enrollment
 
 const profileParams = z.object({ role: z.enum(['ADMIN', 'TEACHER', 'STUDENT']), profileId: z.string().min(1) })
 const enrollmentParams = z.object({ courseOfferingId: z.string().min(1), studentId: z.string().min(1).optional() })
+const roleQuery = z.object({ role: z.enum(['ADMIN', 'TEACHER', 'STUDENT']) })
+export const getNextCode = async (req: Request, res: Response) => send(res, await service.getNextCode(roleQuery.parse(req.query).role))
 export const listUsers = async (req: Request, res: Response) => send(res, await service.list(usersQuerySchema.parse(req.query)))
 export const createUser = async (req: Request, res: Response) => send(res, await service.create(createUserSchema.parse(req.body)), 201)
 export const updateUser = async (req: Request, res: Response) => {

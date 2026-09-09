@@ -4,7 +4,6 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../../errors/AppError";
-import { geminiConfig } from "../../../lib/gemini";
 import { logger } from "../../../lib/logger";
 import { supabaseBuckets } from "../../../lib/supabase";
 import { downloadBufferFromBucket } from "../../../services/storage.service";
@@ -13,6 +12,8 @@ import type { SourceDocument } from "./document-reader.service";
 import { toGeminiContent } from "./document-reader.service";
 import { generateWithGemini } from "./gemini-question.service";
 import { buildGenerationPrompt } from "../prompts/question-generation.prompt";
+import { getStoredAiSettings } from "../../admin-system-settings/services/admin-system-settings.service";
+import { assertQuestionCountWithinLimit } from "./ai-question-generation.rules";
 import type {
   GenerateQuestionsBody,
   SaveGeneratedQuestionsBody,
@@ -183,6 +184,10 @@ export async function generate(
   teacherId: string,
   input: GenerateQuestionsBody,
 ) {
+  const aiSettings = await getStoredAiSettings();
+  const requestedQuestionCount = input.questionCount ?? aiSettings.maxQuestionsPerRun;
+  assertQuestionCountWithinLimit(requestedQuestionCount, aiSettings.maxQuestionsPerRun);
+
   const subject = await requireSubject(teacherId, input.subjectId);
   const sources =
     input.sourceType === "COURSE_MATERIAL"
@@ -200,7 +205,7 @@ export async function generate(
   const history = await repo.createHistory(
     teacherId,
     input,
-    geminiConfig.model,
+    aiSettings.model,
     sources.materialIds,
   );
 
@@ -211,12 +216,15 @@ export async function generate(
       subject.name,
       sources.sourceNames,
     );
-    const questions = await generateWithGemini(
+    const questions = await generateWithGemini({
       contents,
       prompt,
-      input.mode === "EXTRACT_EXISTING_EXAM",
-      input.questionCount ?? geminiConfig.maxQuestions,
-    );
+      extraction: input.mode === "EXTRACT_EXISTING_EXAM",
+      questionCount: requestedQuestionCount,
+      model: aiSettings.model,
+      timeoutMs: aiSettings.timeoutSeconds * 1000,
+    });
+    assertQuestionCountWithinLimit(questions.length, aiSettings.maxQuestionsPerRun);
     if (
       input.mode === "GENERATE_FROM_MATERIAL" &&
       questions.length !== input.questionCount

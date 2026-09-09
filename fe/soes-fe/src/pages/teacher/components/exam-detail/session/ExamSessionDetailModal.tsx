@@ -38,6 +38,9 @@ export default function ExamSessionDetailModal({
   const formattedEnd = `${formatDisplayDate(endParsed.date)} · ${endParsed.time}`
 
   const rules = [
+    session.enableTabLock
+      ? `Theo dõi chuyển tab (${session.maxTabSwitches ?? 3} lần)`
+      : null,
     session.requireFullscreen ? 'Toàn màn hình' : null,
     session.enableWebcam ? 'Webcam' : null,
     session.enableScreenMonitoring ? 'Giám sát màn hình' : null,

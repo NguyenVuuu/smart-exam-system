@@ -41,6 +41,41 @@ export interface QuestionPayload {
   testCases: Array<{ input: string; expectedOutput: string; isHidden: boolean }>
 }
 
+export type QuestionAuditSeverity = 'HIGH' | 'LOW'
+
+export interface QuestionAuditIssueDto {
+  code: string
+  severity: QuestionAuditSeverity
+  field: string
+  message: string
+}
+
+export interface QuestionAuditItemDto {
+  question: TeacherQuestionDto
+  severity: QuestionAuditSeverity
+  issues: QuestionAuditIssueDto[]
+}
+
+export interface QuestionAuditSummaryDto {
+  auditedQuestionCount: number
+  requiredQuestionCount: number
+  warningQuestionCount: number
+  qualifiedQuestionCount: number
+  issueCount: number
+}
+
+export interface QuestionAuditPageDto {
+  items: QuestionAuditItemDto[]
+  summary: QuestionAuditSummaryDto
+  matchingIssueCount: number
+  pagination: {
+    page: number
+    pageSize: number
+    totalItems: number
+    totalPages: number
+  }
+}
+
 export interface TeacherSubjectOption {
   id: string
   name: string

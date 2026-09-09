@@ -25,6 +25,27 @@ export const questionInclude = {
 
 export const approvalInclude = { question: { include: questionInclude } }
 
+export const questionAuditSelect = {
+  id: true,
+  title: true,
+  content: true,
+  explanation: true,
+  type: true,
+  language: true,
+  subject: { select: { name: true } },
+  options: { select: { content: true, isCorrect: true } },
+  programmingConfig: {
+    select: { timeLimitMs: true, memoryLimitKb: true, maxCodeSizeKb: true },
+  },
+  programmingTests: {
+    select: { input: true, expectedOutput: true, isHidden: true },
+  },
+} satisfies Prisma.QuestionSelect
+
+export type QuestionAuditCandidate = Prisma.QuestionGetPayload<{
+  select: typeof questionAuditSelect
+}>
+
 export async function teacherDepartment(teacherId: string) {
   return prisma.teacher.findUnique({
     where: { id: teacherId }, select: { departmentId: true, position: true, userId: true },
@@ -75,6 +96,18 @@ export async function listQuestions(teacherId: string, departmentId: string, que
     }),
   ])
 }
+
+export const listQuestionAuditCandidates = (teacherId: string) => prisma.question.findMany({
+  where: { ownerId: teacherId, archivedAt: null },
+  select: questionAuditSelect,
+  orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+})
+
+export const listOwnedQuestionsByIds = (teacherId: string, ids: string[]) =>
+  prisma.question.findMany({
+    where: { ownerId: teacherId, id: { in: ids } },
+    include: questionInclude,
+  })
 
 export const findOwnedQuestion = (id: string, ownerId: string) => prisma.question.findFirst({ where: { id, ownerId }, include: questionInclude })
 

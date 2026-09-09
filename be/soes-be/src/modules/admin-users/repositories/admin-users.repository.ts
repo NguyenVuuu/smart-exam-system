@@ -49,6 +49,59 @@ export const findAdminByCode = (code: string) => prisma.admin.findUnique({ where
 export const findTeacherByCode = (code: string) => prisma.teacher.findUnique({ where: { teacherCode: code } })
 export const findStudentByCode = (code: string) => prisma.student.findUnique({ where: { studentCode: code } })
 
+export async function generateNextUserCode(role: 'ADMIN' | 'TEACHER' | 'STUDENT', tx?: Prisma.TransactionClient): Promise<string> {
+  const db = tx || prisma
+  const setting = await db.codeGenerationSetting.findUnique({ where: { id: 'SYSTEM' } })
+  const prefix = role === 'ADMIN'
+    ? (setting?.adminPrefix || 'AD')
+    : role === 'TEACHER'
+      ? (setting?.teacherPrefix || 'GV')
+      : (setting?.studentPrefix || 'SV')
+  const digits = role === 'ADMIN'
+    ? (setting?.adminDigits || 6)
+    : role === 'TEACHER'
+      ? (setting?.teacherDigits || 6)
+      : (setting?.studentDigits || 6)
+
+  let existingCodes: string[] = []
+  if (role === 'ADMIN') {
+    const list = await db.admin.findMany({
+      where: { adminCode: { startsWith: prefix, mode: 'insensitive' } },
+      select: { adminCode: true },
+    })
+    existingCodes = list.map((item) => item.adminCode)
+  } else if (role === 'TEACHER') {
+    const list = await db.teacher.findMany({
+      where: { teacherCode: { startsWith: prefix, mode: 'insensitive' } },
+      select: { teacherCode: true },
+    })
+    existingCodes = list.map((item) => item.teacherCode)
+  } else {
+    const list = await db.student.findMany({
+      where: { studentCode: { startsWith: prefix, mode: 'insensitive' } },
+      select: { studentCode: true },
+    })
+    existingCodes = list.map((item) => item.studentCode)
+  }
+
+  let maxNum = 0
+  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`^${escapedPrefix}(\\d+)$`, 'i')
+
+  for (const code of existingCodes) {
+    const match = code.match(regex)
+    if (match && match[1]) {
+      const parsed = parseInt(match[1], 10)
+      if (!isNaN(parsed) && parsed > maxNum) {
+        maxNum = parsed
+      }
+    }
+  }
+
+  const nextNum = maxNum + 1
+  return `${prefix}${String(nextNum).padStart(digits, '0')}`
+}
+
 export async function findProfile(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string) {
   if (role === 'ADMIN') return prisma.admin.findUnique({ where: { id: profileId } })
   if (role === 'TEACHER') return prisma.teacher.findUnique({ where: { id: profileId } })

@@ -23,8 +23,11 @@ interface FinalExamScheduleFieldsProps {
   releaseMode: string
   releaseAt: string
   allowStudentReview: boolean
+  enableTabLock: boolean
+  maxTabSwitches: number
   requireFullscreen: boolean
   enableWebcam: boolean
+  enableScreenMonitoring: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
   fieldErrors: ApiFieldErrors
@@ -48,8 +51,11 @@ interface FinalExamScheduleFieldsProps {
   onReleaseModeChange: (value: string) => void
   onReleaseAtChange: (value: string) => void
   onAllowStudentReviewChange: (checked: boolean) => void
+  onEnableTabLockChange: (checked: boolean) => void
+  onMaxTabSwitchesChange: (count: number) => void
   onRequireFullscreenChange: (checked: boolean) => void
   onEnableWebcamChange: (checked: boolean) => void
+  onEnableScreenMonitoringChange: (checked: boolean) => void
   onBlockCopyPasteChange: (checked: boolean) => void
   onBlockRightClickChange: (checked: boolean) => void
 }
@@ -69,8 +75,11 @@ export default function FinalExamScheduleFields({
   releaseMode,
   releaseAt,
   allowStudentReview,
+  enableTabLock,
+  maxTabSwitches,
   requireFullscreen,
   enableWebcam,
+  enableScreenMonitoring,
   blockCopyPaste,
   blockRightClick,
   fieldErrors,
@@ -94,8 +103,11 @@ export default function FinalExamScheduleFields({
   onReleaseModeChange,
   onReleaseAtChange,
   onAllowStudentReviewChange,
+  onEnableTabLockChange,
+  onMaxTabSwitchesChange,
   onRequireFullscreenChange,
   onEnableWebcamChange,
+  onEnableScreenMonitoringChange,
   onBlockCopyPasteChange,
   onBlockRightClickChange,
 }: FinalExamScheduleFieldsProps) {
@@ -163,13 +175,19 @@ export default function FinalExamScheduleFields({
 
       <ScheduleRulesPanel
         allowStudentReview={allowStudentReview}
+        enableTabLock={enableTabLock}
+        maxTabSwitches={maxTabSwitches}
         requireFullscreen={requireFullscreen}
         enableWebcam={enableWebcam}
+        enableScreenMonitoring={enableScreenMonitoring}
         blockCopyPaste={blockCopyPaste}
         blockRightClick={blockRightClick}
         onAllowStudentReviewChange={onAllowStudentReviewChange}
+        onEnableTabLockChange={onEnableTabLockChange}
+        onMaxTabSwitchesChange={onMaxTabSwitchesChange}
         onRequireFullscreenChange={onRequireFullscreenChange}
         onEnableWebcamChange={onEnableWebcamChange}
+        onEnableScreenMonitoringChange={onEnableScreenMonitoringChange}
         onBlockCopyPasteChange={onBlockCopyPasteChange}
         onBlockRightClickChange={onBlockRightClickChange}
       />

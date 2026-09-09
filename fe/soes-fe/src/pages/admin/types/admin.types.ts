@@ -124,8 +124,11 @@ export interface AdminExamSchedule {
   releaseMode: string
   resultReleaseAt?: string
   allowStudentReview?: boolean
+  enableTabLock?: boolean
+  maxTabSwitches?: number | null
   requireFullscreen?: boolean
   enableWebcam?: boolean
+  enableScreenMonitoring?: boolean
   blockCopyPaste?: boolean
   blockRightClick?: boolean
   proctors: string[]

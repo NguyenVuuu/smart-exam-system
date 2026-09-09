@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { paginationFields } from '../../../utils/pagination'
+import { EXAM_SCHEDULE_DEFAULTS } from '../constants/exam-schedule.defaults'
 
 const id = z.string().trim().min(1)
 
@@ -14,10 +15,14 @@ export const scheduleBodySchema = z.object({
   startTime: z.coerce.date(), endTime: z.coerce.date(),
   durationMinutes: z.coerce.number().int().min(1).max(1440), maxAttempts: z.coerce.number().int().min(1).max(10),
   password: z.string().trim().min(4).max(100).optional().nullable(),
-  enableTabLock: z.boolean().default(true), maxTabSwitches: z.coerce.number().int().min(0).max(100).optional().nullable(),
-  requireFullscreen: z.boolean().default(false), enableWebcam: z.boolean().default(false),
-  enableScreenMonitoring: z.boolean().default(false),
-  blockCopyPaste: z.boolean().default(true), blockRightClick: z.boolean().default(true),
+  enableTabLock: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableTabLock),
+  maxTabSwitches: z.coerce.number().int().min(0).max(100).optional().nullable()
+    .default(EXAM_SCHEDULE_DEFAULTS.maxTabSwitches),
+  requireFullscreen: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.requireFullscreen),
+  enableWebcam: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableWebcam),
+  enableScreenMonitoring: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableScreenMonitoring),
+  blockCopyPaste: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.blockCopyPaste),
+  blockRightClick: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.blockRightClick),
   locationMode: z.enum(['ONLINE', 'CAMPUS']).default('ONLINE'),
   allowedIpRanges: z.array(z.string().trim().min(1)).max(50).default([]),
   distributionMode: z.enum(['FIXED_ORDER', 'SHUFFLE_QUESTIONS', 'SHUFFLE_OPTIONS', 'SHUFFLE_QUESTIONS_AND_OPTIONS', 'RANDOM_SUBSET']).default('FIXED_ORDER'),

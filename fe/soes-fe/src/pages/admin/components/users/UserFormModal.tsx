@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import type { AdminUser, Department } from '../../types/admin.types'
+import { getNextUserCode } from '../../api/admin-management.api'
 import { AdminField, AdminInput } from '../AdminFormFields'
 import AdminModal from '../AdminModal'
 import AdminSelect from '../AdminSelect'
@@ -44,6 +46,27 @@ export default function UserFormModal({
   onClose: () => void
   onConfirm: () => void
 }) {
+  const [suggestedCode, setSuggestedCode] = useState<string>('')
+
+  useEffect(() => {
+    if (open && !editingUserId) {
+      let isMounted = true
+      getNextUserCode(roleInput)
+        .then((res) => {
+          if (isMounted && res?.code) {
+            setSuggestedCode(res.code)
+            onCodeChange(res.code)
+          }
+        })
+        .catch(() => {
+          if (isMounted) setSuggestedCode('')
+        })
+      return () => {
+        isMounted = false
+      }
+    }
+  }, [open, editingUserId, roleInput, onCodeChange])
+
   return (
     <AdminModal
       open={open}
@@ -55,11 +78,12 @@ export default function UserFormModal({
     >
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <AdminField label="Mã (MSSV / MSGV)">
+          <AdminField label="Mã tài khoản (Tự động cấp)">
             <AdminInput
-              value={codeInput}
+              value={!editingUserId ? (suggestedCode || codeInput || 'Đang tạo mã...') : codeInput}
               onChange={(event) => onCodeChange(event.target.value)}
-              placeholder="VD: SV2026001 hoặc GV001"
+              disabled={!editingUserId}
+              placeholder="VD: SV2026001"
             />
           </AdminField>
           <AdminField label="Vai trò">

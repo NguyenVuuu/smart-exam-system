@@ -17,6 +17,8 @@ export const POSITIVE_INTEGER_REGEX = REGEX_PATTERNS.POSITIVE_INTEGER
 export const POSITIVE_NUMBER_REGEX = REGEX_PATTERNS.POSITIVE_NUMBER
 export const NON_EMPTY_REGEX = REGEX_PATTERNS.NON_EMPTY
 
+const AUTO_EXAM_TITLE_MIN_LENGTH = 5
+const AUTO_EXAM_TITLE_MAX_LENGTH = 250
 
 export interface ValidationResult<T extends Record<string, string> = Record<string, string>> {
   isValid: boolean
@@ -100,8 +102,10 @@ export function validateAutoExamConfig(params: {
 
   if (!trimmedTitle) {
     errors.examTitle = 'Vui lòng nhập tên bài thi trước khi sinh đề.'
-  } else if (trimmedTitle.length < 3) {
-    errors.examTitle = 'Tên bài thi phải có ít nhất 3 ký tự.'
+  } else if (trimmedTitle.length < AUTO_EXAM_TITLE_MIN_LENGTH) {
+    errors.examTitle = `Tên bài thi phải có ít nhất ${AUTO_EXAM_TITLE_MIN_LENGTH} ký tự.`
+  } else if (trimmedTitle.length > AUTO_EXAM_TITLE_MAX_LENGTH) {
+    errors.examTitle = `Tên bài thi không được vượt quá ${AUTO_EXAM_TITLE_MAX_LENGTH} ký tự.`
   }
 
   const durationCheck = validateDuration(params.durationMinutes)

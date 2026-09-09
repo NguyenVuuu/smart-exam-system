@@ -1,0 +1,29 @@
+{
+  "general": {
+    "organizationName": "Trường Đại học Công nghệ & Khảo thí SOES",
+    "shortName": "SOS",
+    "slogan": "TEST",
+    "supportEmail": "hotro.khaothi@soes.edu.vn",
+    "supportHotline": "1900 6868",
+    "copyright": "© 2026 SOES - Smart Online Exam System. All rights reserved.",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "dateFormat": "DD/MM/YYYY",
+    "defaultLanguage": "vi",
+    "logoUrl": "https://ebgewmxrgwdayskixvwd.supabase.co/storage/v1/object/public/question-images/branding/system-logo?v=1788974450460"
+  },
+  "examDefaults": {
+    "enableTabLock": true,
+    "maxTabSwitches": 3,
+    "requireFullscreen": true,
+    "enableWebcam": true,
+    "enableScreenMonitoring": true,
+    "blockCopyPaste": true,
+    "blockRightClick": true,
+    "heartbeatTimeoutSeconds": 15
+  },
+  "ai": {
+    "model": "gemini-3.1-flash-lite",
+    "maxQuestionsPerRun": 50,
+    "timeoutSeconds": 120
+  }
+}

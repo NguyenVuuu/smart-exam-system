@@ -189,11 +189,13 @@ function RuleBadge({ icon, label }: { icon: ReactNode; label: string }) {
 
 function securitySummary(session: ExamSchedule) {
   const count = [
+    session.enableTabLock,
     session.requireFullscreen,
     session.enableWebcam,
+    session.enableScreenMonitoring,
     session.blockCopyPaste,
     session.blockRightClick,
   ].filter(Boolean).length
 
-  return count === 4 ? 'Chống gian lận tối đa' : `${count}/4 lớp bảo vệ`
+  return count === 6 ? 'Chống gian lận tối đa' : `${count}/6 lớp bảo vệ`
 }

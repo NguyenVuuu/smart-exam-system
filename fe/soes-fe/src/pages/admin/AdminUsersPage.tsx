@@ -60,7 +60,8 @@ export default function AdminUsersPage() {
 
   const saveUser = async () => {
     const body = payload()
-    if (!body.code || !body.fullName || !body.email) return toast.error('Vui lòng nhập mã, họ tên và email.')
+    if (editingUser && !body.code) return toast.error('Vui lòng nhập mã tài khoản.')
+    if (!body.fullName || !body.email) return toast.error('Vui lòng nhập họ tên và email.')
     if (body.role === 'TEACHER' && (!body.departmentId || body.departmentId === 'NONE')) {
       return toast.error('Vui lòng chọn bộ môn cho giảng viên.')
     }

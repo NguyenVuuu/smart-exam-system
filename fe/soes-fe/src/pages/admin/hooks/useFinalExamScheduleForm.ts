@@ -1,6 +1,7 @@
-﻿import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { getApiErrorMessage, getApiFieldErrors, type ApiFieldErrors } from '../../../api/errors'
+import { getAdminSystemSettings } from '../api/admin-system-settings.api'
 import {
   distributionOptions,
   PROCTOR_TURNOVER_MINUTES,
@@ -107,10 +108,19 @@ export function useFinalExamScheduleForm({
   const [allowStudentReview, setAllowStudentReview] = useState(
     Boolean(editingSchedule?.allowStudentReview),
   )
+  const [enableTabLock, setEnableTabLock] = useState(
+    editingSchedule?.enableTabLock ?? true,
+  )
+  const [maxTabSwitches, setMaxTabSwitches] = useState(
+    editingSchedule?.maxTabSwitches ?? 3,
+  )
   const [requireFullscreen, setRequireFullscreen] = useState(
     editingSchedule?.requireFullscreen ?? true,
   )
   const [enableWebcam, setEnableWebcam] = useState(editingSchedule?.enableWebcam ?? true)
+  const [enableScreenMonitoring, setEnableScreenMonitoring] = useState(
+    editingSchedule?.enableScreenMonitoring ?? false,
+  )
   const [blockCopyPaste, setBlockCopyPaste] = useState(editingSchedule?.blockCopyPaste ?? true)
   const [blockRightClick, setBlockRightClick] = useState(editingSchedule?.blockRightClick ?? true)
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>(
@@ -118,6 +128,28 @@ export function useFinalExamScheduleForm({
   )
   const [proctorsByCourse, setProctorsByCourse] = useState<Record<string, string[]>>(initialAssignments)
   const [fieldErrors, setFieldErrors] = useState<ApiFieldErrors>({})
+
+  useEffect(() => {
+    if (editingSchedule) return
+    let active = true
+    void getAdminSystemSettings()
+      .then((settings) => {
+        if (!active || !settings?.examDefaults) return
+        const defs = settings.examDefaults
+        if (defs.enableTabLock !== undefined) setEnableTabLock(defs.enableTabLock)
+        if (defs.maxTabSwitches !== undefined) setMaxTabSwitches(defs.maxTabSwitches)
+        if (defs.requireFullscreen !== undefined) setRequireFullscreen(defs.requireFullscreen)
+        if (defs.enableWebcam !== undefined) setEnableWebcam(defs.enableWebcam)
+        if (defs.enableScreenMonitoring !== undefined) setEnableScreenMonitoring(defs.enableScreenMonitoring)
+        if (defs.blockCopyPaste !== undefined) setBlockCopyPaste(defs.blockCopyPaste)
+        if (defs.blockRightClick !== undefined) setBlockRightClick(defs.blockRightClick)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [editingSchedule])
 
   const clearFieldError = (field: string) => {
     setFieldErrors((current) => {
@@ -354,8 +386,11 @@ export function useFinalExamScheduleForm({
       releaseMode: releaseOptions.find((item) => item.value === releaseMode)?.label ?? '',
       resultReleaseAt: releaseMode === 'SCHEDULED' ? releaseAt : undefined,
       allowStudentReview,
+      enableTabLock,
+      maxTabSwitches: enableTabLock ? maxTabSwitches : null,
       requireFullscreen,
       enableWebcam,
+      enableScreenMonitoring,
       blockCopyPaste,
       blockRightClick,
       proctors: [...new Set(assignments.map((assignment) => assignment.teacherName))],
@@ -401,8 +436,11 @@ export function useFinalExamScheduleForm({
       releaseMode,
       releaseAt,
       allowStudentReview,
+      enableTabLock,
+      maxTabSwitches,
       requireFullscreen,
       enableWebcam,
+      enableScreenMonitoring,
       blockCopyPaste,
       blockRightClick,
       selectedCourseIds,
@@ -444,8 +482,11 @@ export function useFinalExamScheduleForm({
       },
       setReleaseAt: (value: string) => { clearFieldError('releaseAt'); setReleaseAt(value) },
       setAllowStudentReview,
+      setEnableTabLock,
+      setMaxTabSwitches,
       setRequireFullscreen,
       setEnableWebcam,
+      setEnableScreenMonitoring,
       setBlockCopyPaste,
       setBlockRightClick,
       toggleCourse,

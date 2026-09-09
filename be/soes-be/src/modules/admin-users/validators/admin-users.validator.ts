@@ -13,7 +13,7 @@ export const usersQuerySchema = z.object({
 
 export const createUserSchema = z.object({
   role: z.enum(['ADMIN', 'TEACHER', 'STUDENT']),
-  code: z.string().trim().min(2).max(30).transform((value) => value.toUpperCase()),
+  code: z.string().trim().max(30).transform((value) => value ? value.toUpperCase() : '').optional().default(''),
   fullName: z.string().trim().min(2).max(150),
   email: z.string().email().optional().nullable(),
   phoneNumber: z.string().trim().max(20).optional().nullable(),

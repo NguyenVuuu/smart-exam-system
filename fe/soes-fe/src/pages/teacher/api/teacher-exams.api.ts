@@ -1,7 +1,7 @@
 import { apiClient } from '../../../api/axios'
 import type {
   TeacherExamDetailDto, TeacherExamDto, TeacherExamPayload,
-  TeacherExamScheduleDto, TeacherExamSchedulePayload,
+  TeacherExamDefaultsDto, TeacherExamScheduleDto, TeacherExamSchedulePayload,
   TeacherSubmissionPage,
 } from '../types/teacher-exam-api.types'
 import type { CameraReportRecord, ProctoringSessionRecord, ViolationRecord } from '../types/teacher-exam.types'
@@ -91,6 +91,10 @@ export const updateTeacherExamStudentVisibility = (
 
 export const getTeacherExamSchedules = (examId: string) =>
   apiClient.get<ApiResponse<TeacherExamScheduleDto[]>>(`/teacher/exams/${examId}/schedules`).then(({ data }) => data.data)
+
+export const getTeacherExamDefaults = () =>
+  apiClient.get<ApiResponse<TeacherExamDefaultsDto>>('/teacher/system-settings/exam-defaults')
+    .then(({ data }) => data.data)
 
 export const createTeacherExamSchedule = (examId: string, payload: TeacherExamSchedulePayload) =>
   apiClient.post<ApiResponse<TeacherExamScheduleDto>>(`/teacher/exams/${examId}/schedules`, payload).then(({ data }) => data.data)

@@ -6,6 +6,7 @@ import * as controller from '../controllers/admin-users.controller'
 
 const router = Router()
 router.use(authenticate, requireAdmin())
+router.get('/users/next-code', asyncHandler(controller.getNextCode))
 router.get('/users', asyncHandler(controller.listUsers))
 router.post('/users', asyncHandler(controller.createUser))
 router.put('/users/:role/:profileId', asyncHandler(controller.updateUser))

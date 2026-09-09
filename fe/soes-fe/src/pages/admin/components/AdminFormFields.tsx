@@ -22,7 +22,7 @@ export function AdminInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-400 ${props.className ?? ''}`}
+      className={`h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-400 disabled:bg-slate-100/90 disabled:text-slate-500 disabled:cursor-not-allowed ${props.className ?? ''}`}
     />
   )
 }

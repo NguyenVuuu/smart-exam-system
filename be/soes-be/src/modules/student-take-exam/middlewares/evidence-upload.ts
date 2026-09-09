@@ -8,11 +8,16 @@ const ALLOWED_EVIDENCE_TYPES = new Set([
   'image/webp',
 ])
 
+export const EVIDENCE_UPLOAD_LIMITS = {
+  files: 3,
+  fileSizeMb: 2,
+} as const
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    files: 3,
-    fileSize: 2 * 1024 * 1024,
+    files: EVIDENCE_UPLOAD_LIMITS.files,
+    fileSize: EVIDENCE_UPLOAD_LIMITS.fileSizeMb * 1024 * 1024,
   },
   fileFilter: (_req, file, callback) => {
     if (!ALLOWED_EVIDENCE_TYPES.has(file.mimetype)) {
@@ -22,7 +27,7 @@ const upload = multer({
 
     callback(null, true)
   },
-}).array('evidence', 3)
+}).array('evidence', EVIDENCE_UPLOAD_LIMITS.files)
 
 export function uploadViolationEvidence(req: Request, res: Response, next: NextFunction): void {
   upload(req, res, (error: unknown) => {

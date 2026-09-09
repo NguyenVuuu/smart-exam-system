@@ -65,7 +65,8 @@ export default function AppSelect<T extends string | number = string>({
 
     setMenuStyle({
       left: rect.left,
-      top: openAbove ? Math.max(viewportPadding, rect.top - maxHeight - gap) : rect.bottom + gap,
+      top: openAbove ? undefined : rect.bottom + gap,
+      bottom: openAbove ? window.innerHeight - rect.top + gap : undefined,
       width: Math.max(rect.width, 200),
       maxHeight,
     })

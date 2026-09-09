@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { useLogin } from '../../auth/hooks/useLogin'
 import { useAuthStore } from '../../store/authStore'
+import { useSystemSettingsStore } from '../../store/systemSettingsStore'
 
 const adminLoginSchema = z.object({
   identifier: z.string().min(1, 'Vui lòng nhập Email hoặc Mã Quản trị viên'),
@@ -51,8 +52,10 @@ export default function AdminLoginPage() {
     navigate('/admin')
   }
 
+  const systemSettings = useSystemSettingsStore((state) => state.settings)
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#070c16] relative overflow-hidden font-sans p-4 select-none">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#070c16] relative overflow-hidden font-sans p-4 select-none">
       {/* Background ambient lighting effects matching Admin Dark theme */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#10b981]/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#059669]/15 rounded-full blur-3xl pointer-events-none" />
@@ -63,26 +66,36 @@ export default function AdminLoginPage() {
         {/* Header Branding */}
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#10b981] text-white font-bold text-xl flex items-center justify-center shadow-lg shadow-[#10b981]/30 shrink-0">
-              S
-            </div>
+            {systemSettings.logoUrl ? (
+              <img
+                src={systemSettings.logoUrl}
+                alt="Logo"
+                className="w-12 h-12 object-contain shrink-0"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-2xl bg-[#10b981] text-white font-bold text-xl flex items-center justify-center shadow-lg shadow-[#10b981]/30 shrink-0">
+                {systemSettings.shortName?.[0] || 'S'}
+              </div>
+            )}
             <div className="text-left">
               <div className="flex items-center gap-2">
-                <span className="text-xl font-bold text-white tracking-tight">SOES</span>
+                <span className="text-xl font-bold text-white tracking-tight">
+                  {systemSettings.shortName || 'SOES'}
+                </span>
                 <span className="text-[10px] font-bold text-[#10b981] bg-[#10b981]/15 border border-[#10b981]/30 px-2 py-0.5 rounded-md uppercase tracking-wider">
                   Quản trị viên
                 </span>
               </div>
-              <span className="text-xs text-slate-400 font-normal block leading-tight mt-0.5">
-                Thi trực tuyến thông minh
+              <span className="text-xs text-slate-400 font-normal block leading-tight mt-0.5 truncate max-w-[200px]" title={systemSettings.slogan}>
+                {systemSettings.slogan || 'Thi trực tuyến thông minh'}
               </span>
             </div>
           </div>
 
           <div className="pt-2">
             <h1 className="text-2xl font-bold text-white tracking-tight">Cổng Đăng Nhập Quản Trị</h1>
-            <p className="text-xs text-slate-400 font-normal mt-1">
-              Hệ thống Quản lý Học vụ & Thẩm định Khảo thí
+            <p className="text-xs text-slate-400 font-normal mt-1 truncate" title={systemSettings.organizationName}>
+              {systemSettings.organizationName || 'Hệ thống Quản lý Học vụ & Thẩm định Khảo thí'}
             </p>
           </div>
         </div>
@@ -197,6 +210,16 @@ export default function AdminLoginPage() {
           </Link>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-6 text-center text-xs text-slate-500 relative z-10">
+        <p>{systemSettings.copyright || '© 2026 SOES - Smart Online Exam System'}</p>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Hotline: <span className="font-semibold text-slate-400">{systemSettings.supportHotline || '1900 6868'}</span>
+          {' · '}
+          Email: <span className="font-semibold text-slate-400">{systemSettings.supportEmail || 'hotro.khaothi@soes.edu.vn'}</span>
+        </p>
+      </footer>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { AppError, ValidationError } from "../../../errors/AppError";
 import { ZodError } from "zod";
-import { geminiConfig, requireGemini } from "../../../lib/gemini";
+import { requireGemini } from "../../../lib/gemini";
 import {
   generatedQuestionsJsonSchema,
   generatedQuestionsSchema,
@@ -30,12 +30,24 @@ function normalizeObjectiveFields(payload: unknown) {
         .replace(/<[^>]+>/g, " ")
         .replace(/\*\*|__/g, "")
         .replace(/^\s*[-*#]+\s*/, "")
-        .replace(/^\s*(?:lý do xếp độ khó|difficulty reason)\s*:\s*/i, "")
+        .replace(/^\s*(?:lý do xếp độ khó|difficulty reason|lý do)\s*:\s*/i, "")
+        .replace(/^\s*(?:mức\s*(?:dễ|trung bình|khó|nhận biết|thông hiểu|vận dụng\s*cao|vận dụng)|easy|medium|hard)\s*:\s*/i, "")
         .replace(/\s+/g, " ")
         .trim();
     }
 
     if (q.type !== "PROGRAMMING") {
+      const primaryText =
+        typeof q.content === "string" && q.content.trim()
+          ? q.content.trim()
+          : typeof q.title === "string" && q.title.trim()
+            ? q.title.trim()
+            : "";
+      if (primaryText) {
+        q.title = primaryText;
+        q.content = primaryText;
+      }
+
       Object.assign(question, {
         language: null,
         timeLimitMs: 2_000,
@@ -82,11 +94,11 @@ function validateGeneratedQuestions(
     if (new Set(normalizedOptions).size !== normalizedOptions.length) {
       errors.push(`${path}.options không được trùng nội dung`);
     }
-    if (
-      question.type !== "PROGRAMMING" &&
-      question.title.trim() !== question.content.trim()
-    ) {
-      errors.push(`${path}.title và content phải giống nhau`);
+    if (question.type !== "PROGRAMMING") {
+      if (question.title.trim() !== question.content.trim()) {
+        question.title = question.content.trim() || question.title.trim();
+        question.content = question.title;
+      }
     }
     if (question.type === "SINGLE_CHOICE") {
       if (question.options.length !== 4)
@@ -189,12 +201,17 @@ function deduplicateQuestions<T extends { title?: string; content?: string }>(qu
   return uniqueList;
 }
 
-export async function generateWithGemini(
-  contents: AiInputContent[],
-  prompt: string,
-  extraction: boolean,
-  questionCount: number,
-) {
+interface GeminiGenerationRequest {
+  contents: AiInputContent[];
+  prompt: string;
+  extraction: boolean;
+  questionCount: number;
+  model: string;
+  timeoutMs: number;
+}
+
+export async function generateWithGemini(request: GeminiGenerationRequest) {
+  const { contents, prompt, extraction, questionCount, model, timeoutMs } = request;
   try {
     const parts = contents.map((content) =>
       content.type === "text"
@@ -221,7 +238,7 @@ export async function generateWithGemini(
 
       try {
         const response = await requireGemini().models.generateContent({
-          model: geminiConfig.model,
+          model,
           contents: [
             ...parts,
             { text: retryInstruction ? `${prompt}\n${retryInstruction}` : prompt },
@@ -231,10 +248,9 @@ export async function generateWithGemini(
             responseMimeType: "application/json",
             responseJsonSchema: generatedQuestionsJsonSchema,
             maxOutputTokens,
-            temperature: 0.2,
             thinkingConfig: { thinkingBudget: 0 },
-            abortSignal: AbortSignal.timeout(geminiConfig.timeoutMs),
-            httpOptions: { timeout: geminiConfig.timeoutMs },
+            abortSignal: AbortSignal.timeout(timeoutMs),
+            httpOptions: { timeout: timeoutMs },
           },
         });
 
@@ -304,7 +320,7 @@ export async function generateWithGemini(
     if (/404|NOT_FOUND|model/i.test(details)) {
       throw new AppError(
         503,
-        `Không tìm thấy Gemini model '${geminiConfig.model}'.`,
+        `Không tìm thấy hoặc mô hình Gemini '${model}' không được hỗ trợ trên API Key hiện tại.`,
       );
     }
     if (/timeout|AbortError|TimeoutError/i.test(details)) {

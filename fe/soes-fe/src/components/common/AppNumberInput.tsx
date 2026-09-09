@@ -29,7 +29,7 @@ export default function AppNumberInput({
           const val = event.target.value
           onChange(val === '' ? ('' as unknown as number) : Number(val))
         }}
-        className={`h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 focus:border-blue-400 focus:outline-none ${
+        className={`h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 focus:border-blue-400 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
           suffix ? 'pr-12' : ''
         } ${className}`}
       />
