@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { EXAM_SCHEDULE_DEFAULTS } from '../../exam-schedules/constants/exam-schedule.defaults'
 
 export const teacherExamScheduleBodySchema = z.object({
   courseOfferingId: z.string().trim().min(1),
@@ -6,9 +7,13 @@ export const teacherExamScheduleBodySchema = z.object({
   durationMinutes: z.coerce.number().int().min(1).max(1440),
   maxAttempts: z.coerce.number().int().min(1).max(10).default(1),
   password: z.string().trim().min(4).max(100).optional().nullable(),
-  requireFullscreen: z.boolean().default(false), enableWebcam: z.boolean().default(false),
-  enableScreenMonitoring: z.boolean().default(false),
-  blockCopyPaste: z.boolean().default(true), blockRightClick: z.boolean().default(true),
+  enableTabLock: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableTabLock),
+  maxTabSwitches: z.coerce.number().int().min(1).max(20).default(EXAM_SCHEDULE_DEFAULTS.maxTabSwitches),
+  requireFullscreen: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.requireFullscreen),
+  enableWebcam: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableWebcam),
+  enableScreenMonitoring: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableScreenMonitoring),
+  blockCopyPaste: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.blockCopyPaste),
+  blockRightClick: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.blockRightClick),
   locationMode: z.enum(['ONLINE', 'CAMPUS']).default('ONLINE'),
   allowedIpRanges: z.array(z.string().trim().min(1)).max(50).default([]),
   distributionMode: z.enum([

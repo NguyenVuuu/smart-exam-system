@@ -11,12 +11,13 @@ const actionLabels: Record<string, string> = {
   UPDATE_EXAM_STUDENT_VISIBILITY: 'Đổi hiển thị đề thi', EXTEND_EXAM_ATTEMPT: 'Gia hạn bài thi',
   AUTO_SUBMIT_EXAM_ATTEMPT: 'Tự động nộp bài', REVIEW_PROCTORING_VIOLATION: 'Xử lý vi phạm',
   INVALIDATE_EXAM_ATTEMPT_BY_PROCTOR: 'Hủy kết quả bài thi', OVERRIDE_EXAM_SCORE: 'Điều chỉnh điểm',
+  UPDATE_SYSTEM_SETTINGS: 'Cập nhật cấu hình hệ thống', RESET_SYSTEM_SETTINGS: 'Khôi phục cài đặt gốc',
 }
 
 const entityLabels: Record<string, string> = {
   User: 'Người dùng', Student: 'Sinh viên', Teacher: 'Giảng viên', Exam: 'Đề thi', Question: 'Câu hỏi',
   QuestionBankItem: 'Câu hỏi dùng chung', CourseOffering: 'Lớp học phần', Material: 'Tài liệu', Post: 'Bài đăng',
-  ExamSchedule: 'Ca thi', ExamAttempt: 'Bài làm', Violation: 'Vi phạm',
+  ExamSchedule: 'Ca thi', ExamAttempt: 'Bài làm', Violation: 'Vi phạm', SystemSettings: 'Cấu hình hệ thống',
 }
 
 export const roleLabels: Record<AuditActorRole, string> = {

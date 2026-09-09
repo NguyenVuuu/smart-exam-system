@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { geminiConfig } from "../../../lib/gemini";
 import { generatedQuestionSchema } from "../schemas/generated-question.schema";
+import { AI_GENERATION_LIMITS } from "../constants/ai-question-generation.constants";
 
 const id = z.string().trim().min(1);
 
@@ -25,8 +25,8 @@ export const generateQuestionsSchema = z
     questionCount: z
       .number()
       .int()
-      .min(1)
-      .max(geminiConfig.maxQuestions)
+      .min(AI_GENERATION_LIMITS.minQuestionsPerRun)
+      .max(AI_GENERATION_LIMITS.maxQuestionsPerRun)
       .optional(),
     difficulty: z.enum(["AUTO", "EASY", "MEDIUM", "HARD"]).default("AUTO"),
   })
@@ -66,7 +66,7 @@ export const saveGeneratedQuestionsSchema = z.object({
       }),
     )
     .min(1)
-    .max(geminiConfig.maxQuestions),
+    .max(AI_GENERATION_LIMITS.maxQuestionsPerRun),
 });
 
 export type GenerateQuestionsBody = z.infer<typeof generateQuestionsSchema>;

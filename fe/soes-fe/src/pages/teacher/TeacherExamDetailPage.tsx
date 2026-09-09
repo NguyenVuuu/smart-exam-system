@@ -33,6 +33,7 @@ import { useTeacherProctoringSessions } from './hooks/useTeacherProctoringSessio
 import ExamDistributionLockDialog from './components/exam-detail/ExamDistributionLockDialog'
 import { useExamDistributionLock } from './hooks/useExamDistributionLock'
 import { useExamStudentVisibility } from './hooks/useExamStudentVisibility'
+import { useTeacherExamDefaults } from './hooks/useTeacherExamDefaults'
 import { Eye, FileCheck, ShieldAlert } from 'lucide-react'
 
 type CourseReviewTab = 'submissions' | 'violations'
@@ -59,6 +60,7 @@ function TeacherExamDetailContent({
 }) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const examDefaults = useTeacherExamDefaults()
   const isCourseSubmissionView = mode === 'course-submissions'
   const initialTab = isCourseSubmissionView || searchParams.get('tab') === 'submissions' ? 'submissions' : 'sessions'
   const [activeTab, setActiveTab] = useState<ExamDetailTab>(initialTab)
@@ -329,11 +331,13 @@ function TeacherExamDetailContent({
           resultReleaseMode: editingSession?.resultReleaseMode ?? resultReleaseMode,
           resultReleaseAt: (editingSession?.resultReleaseAt ?? resultReleaseAt).replace(' ', 'T'),
           allowStudentReview: editingSession?.allowStudentReview ?? false,
-          requireFullscreen: editingSession?.requireFullscreen ?? true,
-          enableWebcam: editingSession?.enableWebcam ?? true,
-          enableScreenMonitoring: editingSession?.enableScreenMonitoring ?? false,
-          blockCopyPaste: editingSession?.blockCopyPaste ?? true,
-          blockRightClick: editingSession?.blockRightClick ?? true,
+          enableTabLock: editingSession?.enableTabLock ?? examDefaults.enableTabLock,
+          maxTabSwitches: editingSession?.maxTabSwitches ?? examDefaults.maxTabSwitches,
+          requireFullscreen: editingSession?.requireFullscreen ?? examDefaults.requireFullscreen,
+          enableWebcam: editingSession?.enableWebcam ?? examDefaults.enableWebcam,
+          enableScreenMonitoring: editingSession?.enableScreenMonitoring ?? examDefaults.enableScreenMonitoring,
+          blockCopyPaste: editingSession?.blockCopyPaste ?? examDefaults.blockCopyPaste,
+          blockRightClick: editingSession?.blockRightClick ?? examDefaults.blockRightClick,
           ipMode: editingSession?.ipMode ?? 'HOME',
           allowedIpRange: editingSession?.allowedIpRange,
           distributionMode:

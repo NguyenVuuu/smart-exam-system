@@ -14,18 +14,29 @@ export async function list(query: UsersQuery) {
   return { items, pagination: toPagination(query.page, query.pageSize, total) }
 }
 
+export async function getNextCode(role: 'ADMIN' | 'TEACHER' | 'STUDENT') {
+  const code = await repo.generateNextUserCode(role)
+  return { code }
+}
+
 export async function create(data: CreateUserBody) {
   if (data.email && await repo.findUserByEmail(data.email)) throw new ConflictError('Email already exists')
+  
+  let userCode = data.code?.trim() ? data.code.trim().toUpperCase() : ''
+  if (!userCode) {
+    userCode = await repo.generateNextUserCode(data.role)
+  }
+
   const duplicate = data.role === 'ADMIN'
-    ? await repo.findAdminByCode(data.code)
+    ? await repo.findAdminByCode(userCode)
     : data.role === 'TEACHER'
-      ? await repo.findTeacherByCode(data.code)
-      : await repo.findStudentByCode(data.code)
+      ? await repo.findTeacherByCode(userCode)
+      : await repo.findStudentByCode(userCode)
   if (duplicate) throw new ConflictError('Account code already exists')
   if (data.role === 'TEACHER' && !data.departmentId) throw new ValidationError('Teacher department is required')
 
   const password = await bcrypt.hash(data.password, saltRounds)
-  return repo.createUser(data, password)
+  return repo.createUser({ ...data, code: userCode }, password)
 }
 
 export async function update(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string, data: UpdateUserBody) {

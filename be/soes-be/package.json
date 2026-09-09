@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/server.ts",
+    "dev": "nodemon --watch src --ext ts,js --ignore src/config/system-settings.json --exec ts-node src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc",
     "prisma:generate": "prisma generate",

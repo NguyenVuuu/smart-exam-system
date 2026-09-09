@@ -94,6 +94,8 @@ export interface TeacherExamScheduleDto {
   resultReleaseAt: string | null
   reviewPolicy: 'NONE' | 'SCORE_ONLY' | 'ANSWERS_NO_KEY' | 'FULL_AFTER_RELEASE'
   hasPassword: boolean
+  enableTabLock: boolean
+  maxTabSwitches: number | null
   requireFullscreen: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
@@ -111,6 +113,8 @@ export interface TeacherExamSchedulePayload {
   durationMinutes: number
   maxAttempts: number
   password?: string | null
+  enableTabLock: boolean
+  maxTabSwitches: number
   requireFullscreen: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
@@ -123,6 +127,16 @@ export interface TeacherExamSchedulePayload {
   resultReleaseMode: 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED'
   resultReleaseAt?: string | null
   allowStudentReview: boolean
+}
+
+export interface TeacherExamDefaultsDto {
+  enableTabLock: boolean
+  maxTabSwitches: number
+  requireFullscreen: boolean
+  enableWebcam: boolean
+  enableScreenMonitoring: boolean
+  blockCopyPaste: boolean
+  blockRightClick: boolean
 }
 
 export interface TeacherExamSubmissionDto {

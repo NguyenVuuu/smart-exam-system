@@ -1,4 +1,4 @@
-﻿import {
+import {
   distributionOptions,
   examModeOptions,
   releaseOptions,
@@ -66,8 +66,11 @@ export default function FinalExamScheduleForm({
         releaseMode={formState.releaseMode}
         releaseAt={formState.releaseAt}
         allowStudentReview={formState.allowStudentReview}
+        enableTabLock={formState.enableTabLock}
+        maxTabSwitches={formState.maxTabSwitches}
         requireFullscreen={formState.requireFullscreen}
         enableWebcam={formState.enableWebcam}
+        enableScreenMonitoring={formState.enableScreenMonitoring}
         blockCopyPaste={formState.blockCopyPaste}
         blockRightClick={formState.blockRightClick}
         fieldErrors={formState.fieldErrors}
@@ -91,8 +94,11 @@ export default function FinalExamScheduleForm({
         onReleaseModeChange={actions.setReleaseMode}
         onReleaseAtChange={actions.setReleaseAt}
         onAllowStudentReviewChange={actions.setAllowStudentReview}
+        onEnableTabLockChange={actions.setEnableTabLock}
+        onMaxTabSwitchesChange={actions.setMaxTabSwitches}
         onRequireFullscreenChange={actions.setRequireFullscreen}
         onEnableWebcamChange={actions.setEnableWebcam}
+        onEnableScreenMonitoringChange={actions.setEnableScreenMonitoring}
         onBlockCopyPasteChange={actions.setBlockCopyPaste}
         onBlockRightClickChange={actions.setBlockRightClick}
       />

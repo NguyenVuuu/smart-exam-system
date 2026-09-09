@@ -13,6 +13,12 @@ export interface StoredUpload {
   publicUrl?: string
 }
 
+interface UploadOptions {
+  publicUrl?: boolean
+  objectName?: string
+  upsert?: boolean
+}
+
 const safeName = (name: string) =>
   name
     .normalize('NFD')
@@ -27,18 +33,19 @@ export async function uploadBufferToBucket(
   bucket: string,
   file: Express.Multer.File,
   prefix: string,
-  options: { publicUrl?: boolean } = {},
+  options: UploadOptions = {},
 ): Promise<StoredUpload> {
   if (!file.buffer?.length) throw new ValidationError('Uploaded file is empty')
 
   const supabase = requireSupabase()
   const originalName = file.originalname || 'file'
   const extension = extname(originalName)
-  const objectName = `${prefix}/${randomUUID()}-${safeName(originalName || `upload${extension}`)}`
+  const objectName = options.objectName
+    ?? `${prefix}/${randomUUID()}-${safeName(originalName || `upload${extension}`)}`
 
   const { error } = await supabase.storage.from(bucket).upload(objectName, file.buffer, {
     contentType: file.mimetype || 'application/octet-stream',
-    upsert: false,
+    upsert: options.upsert ?? false,
   })
   if (error) throw new ValidationError(`Cannot upload file to storage: ${error.message}`)
 

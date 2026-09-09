@@ -1,4 +1,4 @@
-﻿import {
+import {
   AlertCircle,
   BookOpen,
   CalendarClock,
@@ -17,6 +17,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
+import { useSystemSettingsStore } from '../../../store/systemSettingsStore'
 import type { UserPermission } from '../../../types/auth.types'
 
 interface SubNavItem {
@@ -207,6 +208,8 @@ export default function TeacherSidebar() {
     } catch {}
   }
 
+  const systemSettings = useSystemSettingsStore((state) => state.settings)
+
   return (
     <aside
       className={`${
@@ -214,14 +217,26 @@ export default function TeacherSidebar() {
       } z-10 flex shrink-0 select-none flex-col overflow-hidden border-r border-gray-100 bg-white font-sans text-slate-600 transition-[width] duration-200 ease-in-out`}
     >
       {/* Restored Original Logo Header */}
-      <div className="h-16 flex items-center px-4 border-b border-gray-100 shrink-0 overflow-hidden whitespace-nowrap">
-        <div className="flex min-w-0 shrink-0 items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-bold text-base flex items-center justify-center shadow-md shadow-blue-200/50 shrink-0">
-            S
-          </div>
+      <div className={`h-16 flex items-center border-b border-gray-100 shrink-0 overflow-hidden whitespace-nowrap ${
+        isCollapsed ? 'justify-center px-0' : 'px-4'
+      }`}>
+        <div className={`flex items-center shrink-0 min-w-0 ${isCollapsed ? 'justify-center w-full' : 'gap-3'}`}>
+          {systemSettings.logoUrl ? (
+            <img
+              src={systemSettings.logoUrl}
+              alt="Logo"
+              className={`${isCollapsed ? 'w-10 h-10' : 'w-11 h-11'} object-contain shrink-0 mx-auto`}
+            />
+          ) : (
+            <div className={`${isCollapsed ? 'w-10 h-10 text-lg' : 'w-11 h-11 text-xl'} rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center shadow-md shadow-blue-200/50 shrink-0 mx-auto`}>
+              {systemSettings.shortName?.[0] || 'S'}
+            </div>
+          )}
           {!isCollapsed && (
             <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
-              <span className="text-lg font-bold text-gray-900 tracking-tight">SOES</span>
+              <span className="text-xl font-bold text-gray-900 tracking-tight truncate max-w-[110px]" title={systemSettings.organizationName}>
+                {systemSettings.shortName || 'SOES'}
+              </span>
               <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase shrink-0">
                 Giảng viên
               </span>

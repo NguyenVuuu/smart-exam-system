@@ -16,6 +16,11 @@ import { teacherExamsRoutes } from './modules/teacher-exams'
 import { examScheduleRoutes } from './modules/exam-schedules'
 import { adminContentRoutes } from './modules/admin-content'
 import { adminAuditLogRoutes } from './modules/admin-audit-logs'
+import {
+  adminSystemSettingsRoutes,
+  publicSystemSettingsRouter,
+  teacherSystemSettingsRouter,
+} from './modules/admin-system-settings'
 import { aiQuestionGenerationRoutes } from './modules/ai-question-generation'
 import { corsConfig, proxyConfig } from './config'
 import { auditRequestContext } from './middlewares/auditRequestContext'
@@ -50,6 +55,7 @@ app.use(
 
 // ── Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
+app.use('/api/system-settings', publicSystemSettingsRouter)
 app.use('/api/student', studentDashboardRoutes)
 app.use('/api/student', studentSubjectsRoutes)
 app.use('/api/student/course-offerings', studentCourseDetailRoutes)
@@ -59,7 +65,9 @@ app.use('/api/admin', adminUsersRoutes)
 app.use('/api/admin', examScheduleRoutes)
 app.use('/api/admin', adminContentRoutes)
 app.use('/api/admin', adminAuditLogRoutes)
+app.use('/api/admin', adminSystemSettingsRoutes)
 app.use('/api/teacher', teacherCoursesRoutes)
+app.use('/api/teacher', teacherSystemSettingsRouter)
 app.use('/api/teacher', teacherQuestionsRoutes)
 app.use('/api/teacher', teacherExamsRoutes)
 app.use('/api/teacher', aiQuestionGenerationRoutes)

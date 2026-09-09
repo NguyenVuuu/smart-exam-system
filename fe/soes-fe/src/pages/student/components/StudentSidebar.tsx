@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useSystemSettingsStore } from '../../../store/systemSettingsStore'
 
 interface NavItem {
   label: string
@@ -30,6 +31,7 @@ export let persistentStudentIsCollapsed: boolean = false
 export default function StudentSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
+  const systemSettings = useSystemSettingsStore((state) => state.settings)
   const [isCollapsed, setIsCollapsed] = useState<boolean>(
     () => persistentStudentIsCollapsed || window.matchMedia('(max-width: 767px)').matches,
   )
@@ -57,15 +59,27 @@ export default function StudentSidebar() {
         isCollapsed ? 'w-16' : 'w-60'
       } shrink-0 bg-white border-r border-gray-100 flex flex-col font-sans transition-[width] duration-300 ease-in-out overflow-hidden`}
     >
-      {/* Logo Header: Fixed logo position, smooth right-to-left collapse */}
-      <div className="h-16 flex items-center px-3.5 border-b border-gray-100 shrink-0 overflow-hidden whitespace-nowrap">
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-bold text-base flex items-center justify-center shadow-md shadow-blue-200/50 shrink-0">
-            S
-          </div>
+      {/* Logo Header */}
+      <div className={`h-16 flex items-center border-b border-gray-100 shrink-0 overflow-hidden whitespace-nowrap ${
+        isCollapsed ? 'justify-center px-0' : 'px-3.5'
+      }`}>
+        <div className={`flex items-center shrink-0 min-w-0 ${isCollapsed ? 'justify-center w-full' : 'gap-3'}`}>
+          {systemSettings.logoUrl ? (
+            <img
+              src={systemSettings.logoUrl}
+              alt="Logo"
+              className={`${isCollapsed ? 'w-10 h-10' : 'w-11 h-11'} object-contain shrink-0 mx-auto`}
+            />
+          ) : (
+            <div className={`${isCollapsed ? 'w-10 h-10 text-lg' : 'w-11 h-11 text-xl'} rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center shadow-md shadow-blue-200/50 shrink-0 mx-auto`}>
+              {systemSettings.shortName?.[0] || 'S'}
+            </div>
+          )}
           {!isCollapsed && (
-            <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap animate-in fade-in duration-200">
-              <span className="text-lg font-bold text-gray-900 tracking-tight">SOES</span>
+            <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap animate-in fade-in duration-200">
+              <span className="text-xl font-bold text-gray-900 tracking-tight truncate max-w-[100px]" title={systemSettings.organizationName}>
+                {systemSettings.shortName || 'SOES'}
+              </span>
               <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase shrink-0">
                 Sinh viên
               </span>

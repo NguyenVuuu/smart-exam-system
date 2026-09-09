@@ -8,6 +8,9 @@ export const supabaseBuckets = {
   courseMaterials: process.env.SUPABASE_COURSE_MATERIAL_BUCKET || 'course-materials',
   aiSourceFiles: process.env.SUPABASE_AI_SOURCE_BUCKET || 'ai-source-files',
   questionImages: process.env.SUPABASE_QUESTION_IMAGE_BUCKET || 'question-images',
+  systemAssets: process.env.SUPABASE_SYSTEM_ASSET_BUCKET
+    || process.env.SUPABASE_QUESTION_IMAGE_BUCKET
+    || 'question-images',
 }
 
 export const supabase = (() => {

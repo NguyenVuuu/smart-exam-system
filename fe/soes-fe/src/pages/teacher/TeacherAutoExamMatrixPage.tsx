@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
@@ -22,6 +21,8 @@ import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import { autoGenerateTeacherExam, createTeacherExamSchedule, deleteTeacherExam, submitTeacherExam } from './api/teacher-exams.api'
 import { toTeacherSchedulePayload } from './mappers/teacher-exam.mapper'
 import { validateAutoExamConfig } from './utils/teacherValidation.utils'
+import { getApiErrorMessage, getApiFieldErrors, type ApiFieldErrors } from '../../api/errors'
+import { useTeacherExamDefaults } from './hooks/useTeacherExamDefaults'
 
 const DEFAULT_SESSION_CONFIG = {
   maxAttempts: 1,
@@ -29,18 +30,31 @@ const DEFAULT_SESSION_CONFIG = {
   resultReleaseMode: 'MANUAL' as const,
   resultReleaseAt: '',
   allowStudentReview: false,
-  requireFullscreen: true,
-  enableWebcam: true,
-  blockCopyPaste: true,
-  blockRightClick: true,
   ipMode: 'HOME' as const,
   allowedIpRange: '192.168.1.1 - 192.168.1.254',
+}
+
+const AUTO_EXAM_FIELD_ALIASES: Record<string, string> = {
+  title: 'examTitle',
+  subjectId: 'selectedSubject',
+  semesterId: 'selectedSubject',
+  defaultDurationMinutes: 'durationMinutes',
+  totalPoints: 'targetTotalPoints',
+}
+
+function toAutoExamFieldErrors(apiErrors: ApiFieldErrors) {
+  return Object.entries(apiErrors).reduce<Record<string, string>>((result, [field, message]) => {
+    const formField = AUTO_EXAM_FIELD_ALIASES[field] ?? field
+    if (!result[formField]) result[formField] = message
+    return result
+  }, {})
 }
 
 export default function TeacherAutoExamMatrixPage() {
   const navigate = useNavigate()
   const { questions, subjects } = useTeacherQuestions()
   const { courses } = useTeacherCourses()
+  const examDefaults = useTeacherExamDefaults()
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [examTitle, setExamTitle] = useState('')
   const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
@@ -194,10 +208,13 @@ export default function TeacherAutoExamMatrixPage() {
       setDraftStatus('SAVED_DRAFT')
       toast.success('Đã sinh và lưu đề nháp vào Quản lý đề thi.')
     } catch (error) {
-      const message = isAxiosError(error)
-        ? (error.response?.data as { message?: string })?.message || error.message
-        : error instanceof Error ? error.message : 'Không thể sinh đề tự động. Vui lòng thử lại.'
-      toast.error(message)
+      const apiFieldErrors = toAutoExamFieldErrors(getApiFieldErrors(error))
+      setFieldErrors(apiFieldErrors)
+      toast.error(
+        Object.keys(apiFieldErrors).length
+          ? Object.values(apiFieldErrors)[0]
+          : getApiErrorMessage(error, 'Không thể sinh đề tự động. Vui lòng thử lại.'),
+      )
     } finally {
       setIsGenerating(false)
     }
@@ -341,6 +358,7 @@ export default function TeacherAutoExamMatrixPage() {
         defaultConfig={{
           durationMinutes: Number(durationMinutes) || 60,
           ...DEFAULT_SESSION_CONFIG,
+          ...examDefaults,
           distributionMode: 'SHUFFLE_QUESTIONS_AND_OPTIONS',
         }}
         onCreateSessions={async (sessions) => {

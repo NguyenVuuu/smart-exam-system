@@ -25,8 +25,13 @@ function getRefreshSecret(): string {
   return secret
 }
 
-const ACCESS_EXPIRES = '15m'
-const REFRESH_EXPIRES = '7d'
+export const AUTH_TOKEN_LIFETIMES = {
+  accessMinutes: 15,
+  refreshDays: 7,
+} as const
+
+const ACCESS_EXPIRES = `${AUTH_TOKEN_LIFETIMES.accessMinutes}m` as SignOptions['expiresIn']
+const REFRESH_EXPIRES = `${AUTH_TOKEN_LIFETIMES.refreshDays}d` as SignOptions['expiresIn']
 
 export function signAccessToken(payload: JwtPayload): string {
   const options: SignOptions = {
