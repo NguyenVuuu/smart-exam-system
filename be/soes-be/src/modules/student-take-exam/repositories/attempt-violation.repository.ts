@@ -1,4 +1,4 @@
-import type { ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
+import type { FileStorageProvider, ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 
 const cameraStatusViolationTypes = [
@@ -49,6 +49,7 @@ export function findAttemptForViolation(
 }
 
 interface CreateViolationInput {
+  id?: string
   attemptId: string
   violationType: ViolationType
   source: ViolationSource
@@ -70,6 +71,24 @@ interface CreateViolationInput {
 interface AddViolationEvidenceInput {
   violationId: string
   evidences: CreateViolationInput['evidences']
+}
+
+interface SyncedViolation {
+  id: string
+  violationType: ViolationType
+  severity: SeverityLevel
+  detectedAt: Date
+  endedAt: Date | null
+  durationSeconds: number | null
+  evidences: Array<{
+    objectName: string
+    storageProvider: FileStorageProvider
+  }>
+}
+
+export interface ViolationSyncResult {
+  created: SyncedViolation | null
+  ended: SyncedViolation | null
 }
 
 function getCameraViolationType(webcamStatus: WebcamStatus): ViolationType | null {
@@ -125,7 +144,7 @@ function severityRank(severity: SeverityLevel): number {
 export async function syncCameraStatusViolation(attemptId: string, webcamStatus: WebcamStatus, observedAt: Date) {
   const nextViolationType = getCameraViolationType(webcamStatus)
 
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx): Promise<ViolationSyncResult> => {
     const openViolation = await tx.violation.findFirst({
       where: {
         attemptId,
@@ -138,30 +157,33 @@ export async function syncCameraStatusViolation(attemptId: string, webcamStatus:
     })
 
     if (!nextViolationType) {
-      if (!openViolation) return
-      await tx.violation.update({
+      if (!openViolation) return { created: null, ended: null }
+      const ended = await tx.violation.update({
         where: { id: openViolation.id },
         data: {
           endedAt: observedAt,
           durationSeconds: durationSecondsBetween(openViolation.detectedAt, observedAt),
         },
+        select: syncedViolationSelect,
       })
-      return
+      return { created: null, ended }
     }
 
-    if (openViolation?.violationType === nextViolationType) return
+    if (openViolation?.violationType === nextViolationType) return { created: null, ended: null }
 
+    let ended: SyncedViolation | null = null
     if (openViolation) {
-      await tx.violation.update({
+      ended = await tx.violation.update({
         where: { id: openViolation.id },
         data: {
           endedAt: observedAt,
           durationSeconds: durationSecondsBetween(openViolation.detectedAt, observedAt),
         },
+        select: syncedViolationSelect,
       })
     }
 
-    await tx.violation.create({
+    const created = await tx.violation.create({
       data: {
         attemptId,
         violationType: nextViolationType,
@@ -170,14 +192,17 @@ export async function syncCameraStatusViolation(attemptId: string, webcamStatus:
         detectedAt: observedAt,
         description: getCameraViolationDescription(nextViolationType),
       },
+      select: syncedViolationSelect,
     })
+
+    return { created, ended }
   })
 }
 
 export async function syncScreenShareStatusViolation(attemptId: string, screenShareStatus: ScreenShareStatus, observedAt: Date) {
   const nextViolationType = getScreenViolationType(screenShareStatus)
 
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx): Promise<ViolationSyncResult> => {
     const openViolation = await tx.violation.findFirst({
       where: {
         attemptId,
@@ -190,30 +215,33 @@ export async function syncScreenShareStatusViolation(attemptId: string, screenSh
     })
 
     if (!nextViolationType) {
-      if (!openViolation) return
-      await tx.violation.update({
+      if (!openViolation) return { created: null, ended: null }
+      const ended = await tx.violation.update({
         where: { id: openViolation.id },
         data: {
           endedAt: observedAt,
           durationSeconds: durationSecondsBetween(openViolation.detectedAt, observedAt),
         },
+        select: syncedViolationSelect,
       })
-      return
+      return { created: null, ended }
     }
 
-    if (openViolation?.violationType === nextViolationType) return
+    if (openViolation?.violationType === nextViolationType) return { created: null, ended: null }
 
+    let ended: SyncedViolation | null = null
     if (openViolation) {
-      await tx.violation.update({
+      ended = await tx.violation.update({
         where: { id: openViolation.id },
         data: {
           endedAt: observedAt,
           durationSeconds: durationSecondsBetween(openViolation.detectedAt, observedAt),
         },
+        select: syncedViolationSelect,
       })
     }
 
-    await tx.violation.create({
+    const created = await tx.violation.create({
       data: {
         attemptId,
         violationType: nextViolationType,
@@ -222,9 +250,27 @@ export async function syncScreenShareStatusViolation(attemptId: string, screenSh
         detectedAt: observedAt,
         description: getScreenViolationDescription(nextViolationType),
       },
+      select: syncedViolationSelect,
     })
+
+    return { created, ended }
   })
 }
+
+const syncedViolationSelect = {
+  id: true,
+  violationType: true,
+  severity: true,
+  detectedAt: true,
+  endedAt: true,
+  durationSeconds: true,
+  evidences: {
+    select: {
+      objectName: true,
+      storageProvider: true,
+    },
+  },
+} as const
 
 export async function createViolation(input: CreateViolationInput) {
   const isInstantViolation = instantViolationTypes.includes(input.violationType)
@@ -258,6 +304,18 @@ export async function createViolation(input: CreateViolationInput) {
       data: {
         severity: severityRank(input.severity) > severityRank(existing.severity) ? input.severity : existing.severity,
         description: input.description ?? undefined,
+        evidences: {
+          create: input.evidences.map((evidence) => ({
+            evidenceType: evidence.evidenceType,
+            storageProvider: evidence.storageProvider ?? 'MINIO',
+            bucket: evidence.bucket,
+            objectName: evidence.objectName,
+            storagePath: evidence.storagePath,
+            fileName: evidence.fileName,
+            contentType: evidence.contentType,
+            fileSize: evidence.fileSize,
+          })),
+        },
       },
       select: {
         id: true,
@@ -276,6 +334,7 @@ export async function createViolation(input: CreateViolationInput) {
     })
     : await prisma.violation.create({
     data: {
+      id: input.id,
       attemptId: input.attemptId,
       violationType: input.violationType,
       source: input.source,

@@ -71,10 +71,17 @@ export async function findAttemptForHeartbeat(attemptId: string, scheduleId: str
     where: { id: attemptId, examScheduleId: scheduleId, studentId },
     select: {
       id: true,
+      studentId: true,
       status: true,
       deadlineAt: true,
       examSchedule: { select: { enableWebcam: true, enableScreenMonitoring: true } },
       examSession: { select: { lastHeartbeat: true } },
+      student: {
+        select: {
+          studentCode: true,
+          user: { select: { fullName: true } },
+        },
+      },
     },
   })
 }
