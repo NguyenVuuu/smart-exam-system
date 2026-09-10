@@ -32,7 +32,7 @@ export function useTakeExam({
 
   const expirationHandledRef = useRef(false)
   const phaseRef = useRef(phase)
-  const sessionInitializedRef = useRef(false)
+  const autoSubmitExpiredAttemptRef = useRef<() => void>(() => undefined)
 
   const { mutateAsync: saveAnswersApi } = useSaveAnswerMutation()
   const { mutateAsync: submitExamApi } = useSubmitExamMutation()
@@ -135,41 +135,35 @@ export function useTakeExam({
   }, [attemptId, onTimeExpired, saveAnswersToServer, scheduleId, submitExamApi])
 
   useEffect(() => {
-    if (!session?.deadlineAt || sessionInitializedRef.current) return
-
-    const timeoutId = window.setTimeout(() => {
-      const endAt = new Date(session.deadlineAt).getTime()
-      if (isNaN(endAt)) return
-
-      const remaining = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
-      setSecondsRemaining(remaining)
-      sessionInitializedRef.current = true
-
-      if (remaining === 0) {
-        void autoSubmitExpiredAttempt()
-      }
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [autoSubmitExpiredAttempt, session?.deadlineAt])
+    autoSubmitExpiredAttemptRef.current = () => {
+      void autoSubmitExpiredAttempt()
+    }
+  }, [autoSubmitExpiredAttempt])
 
   useEffect(() => {
-    if (phase !== 'IN_PROGRESS' || !session?.deadlineAt || !sessionInitializedRef.current) return
+    if (!session?.deadlineAt) {
+      setSecondsRemaining(0)
+      return
+    }
 
     const endAt = new Date(session.deadlineAt).getTime()
     if (isNaN(endAt)) return
 
-    const intervalId = window.setInterval(() => {
+    const syncRemainingTime = () => {
       const actualRemaining = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
       setSecondsRemaining(actualRemaining)
 
-      if (actualRemaining <= 0) {
-        void autoSubmitExpiredAttempt()
+      if (actualRemaining <= 0 && phaseRef.current === 'IN_PROGRESS') {
+        autoSubmitExpiredAttemptRef.current()
       }
-    }, 1000)
+    }
+
+    expirationHandledRef.current = false
+    syncRemainingTime()
+    const intervalId = window.setInterval(syncRemainingTime, 1000)
 
     return () => window.clearInterval(intervalId)
-  }, [autoSubmitExpiredAttempt, phase, session?.deadlineAt])
+  }, [session?.deadlineAt])
 
   const currentQuestion = session?.questions[currentQuestionIndex] ?? null
 

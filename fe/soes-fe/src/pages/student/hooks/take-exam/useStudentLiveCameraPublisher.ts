@@ -107,7 +107,6 @@ export function useStudentLiveStreamPublisher(input: {
       socket.off('live:ended', handleLiveEnded)
       const sessionId = sessionIdRef.current
       if (sessionId) {
-        socket.emit('live:end', { sessionId })
         void takeExamApi.endStudentLiveSession(input.scheduleId, input.attemptId, sessionId).catch(() => undefined)
       }
       cleanupPeer()
