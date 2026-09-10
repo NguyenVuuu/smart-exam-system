@@ -1,4 +1,5 @@
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
+import { randomUUID } from 'crypto'
 import bcrypt from 'bcrypt'
 import type { ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import { examConfig, minioConfig } from "../../../config";
@@ -64,6 +65,70 @@ function isAttemptOnline(attempt: RunCodeAttempt, now: Date) {
 
 function isAlreadySubmittedStatus(status: string) {
   return ALREADY_SUBMITTED_STATUSES.includes(status as typeof ALREADY_SUBMITTED_STATUSES[number])
+}
+
+function firstEvidenceUrl(evidences: Array<{ objectName: string; storageProvider?: string }>) {
+  const firstEvidence = evidences[0]
+  if (!firstEvidence) return Promise.resolve(null)
+  return firstEvidence.storageProvider === 'LOCAL'
+    ? Promise.resolve(getLocalViolationEvidenceUrl(firstEvidence.objectName))
+    : getViolationEvidenceUrl(firstEvidence.objectName)
+}
+
+async function emitViolationCreatedFromAttempt(
+  scheduleId: string,
+  attemptId: string,
+  attempt: {
+    studentId: string
+    student: { studentCode: string; user: { fullName: string } }
+  },
+  violation: {
+    id: string
+    violationType: string
+    severity: string
+    detectedAt: Date
+    endedAt?: Date | null
+    durationSeconds?: number | null
+    evidences?: Array<{ objectName: string; storageProvider?: string }>
+  },
+  note?: string | null,
+) {
+  const evidenceImageUrl = await firstEvidenceUrl(violation.evidences ?? []).catch(() => null)
+  emitProctoringEvent(scheduleId, 'violation:created', {
+    id: violation.id,
+    scheduleId,
+    attemptId,
+    studentId: attempt.studentId,
+    studentCode: attempt.student.studentCode,
+    studentName: attempt.student.user.fullName,
+    type: violation.violationType,
+    timestamp: violation.detectedAt.toISOString(),
+    severity: violation.severity,
+    endedAt: violation.endedAt ? violation.endedAt.toISOString() : null,
+    durationSeconds: violation.durationSeconds,
+    evidenceImageUrl,
+    note: note ?? null,
+  })
+}
+
+function emitViolationEnded(scheduleId: string, violation: {
+  id: string
+  violationType: string
+  severity: string
+  detectedAt: Date
+  endedAt?: Date | null
+  durationSeconds?: number | null
+  evidenceUrls?: string[]
+}) {
+  emitProctoringEvent(scheduleId, 'violation:ended', {
+    id: violation.id,
+    violationType: violation.violationType,
+    severity: violation.severity,
+    detectedAt: violation.detectedAt,
+    endedAt: violation.endedAt,
+    durationSeconds: violation.durationSeconds,
+    evidenceUrls: violation.evidenceUrls ?? [],
+  })
 }
 
 async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
@@ -843,7 +908,11 @@ export async function sendHeartbeat(
 
   // ── 3. Check deadline (deadlineAt) ───────────────────────────────────────
   if (now >= attemptData.deadlineAt) {
-    throw new ConflictError("Exam attempt has ended")
+    await autoSubmitExpiredAttempt(attemptId, now)
+    return {
+      remainingSeconds: 0,
+      isOnline: false,
+    }
   }
 
   // ── 4. Update ExamSession.lastHeartbeat atomically ─────────────────────────
@@ -855,8 +924,6 @@ export async function sendHeartbeat(
     : 'NOT_REQUIRED'
 
   await repo.upsertExamSessionHeartbeat(attemptId, now, { webcamStatus, screenShareStatus })
-  await repo.syncCameraStatusViolation(attemptId, webcamStatus, now)
-  await repo.syncScreenShareStatusViolation(attemptId, screenShareStatus, now)
   emitProctoringEvent(scheduleId, 'student:heartbeat', {
     attemptId,
     scheduleId,
@@ -915,16 +982,7 @@ export async function recordViolation(
 
   const source = getViolationSource(input.violationType as ViolationType)
   const evidenceType = getViolationEvidenceType(input.violationType as ViolationType)
-  const violation = await repo.createViolation({
-    attemptId,
-    violationType: input.violationType as ViolationType,
-    source,
-    severity: input.severity as SeverityLevel,
-    description: input.description,
-    detectedAt,
-    evidences: [],
-  })
-
+  const violationId = randomUUID()
   let evidenceObjectNames: string[] = []
   let evidenceStorageProvider: 'MINIO' | 'LOCAL' = 'MINIO'
   try {
@@ -934,7 +992,7 @@ export async function recordViolation(
       detectedAt,
       files: evidenceFiles,
       storagePrefix: attempt.examSchedule.proctoringStoragePath,
-      violationId: violation.id,
+      violationId,
     })
   } catch (error) {
     logger.error('Failed to upload violation evidence', {
@@ -952,7 +1010,7 @@ export async function recordViolation(
       detectedAt,
       files: evidenceFiles,
       storagePrefix: attempt.examSchedule.proctoringStoragePath,
-      violationId: violation.id,
+      violationId,
     })
   }
 
@@ -970,29 +1028,30 @@ export async function recordViolation(
       }
     })
 
-  await repo.addViolationEvidence({ violationId: violation.id, evidences })
-  const firstEvidence = evidenceObjectNames[0] ?? null
-  const evidenceImageUrl = firstEvidence
-    ? evidenceStorageProvider === 'LOCAL'
-      ? getLocalViolationEvidenceUrl(firstEvidence)
-      : await getViolationEvidenceUrl(firstEvidence)
-    : null
-  emitProctoringEvent(scheduleId, 'violation:created', {
-    id: violation.id,
+  const violation = await repo.createViolation({
+    id: violationId,
+    attemptId,
+    violationType: input.violationType as ViolationType,
+    source,
+    severity: input.severity as SeverityLevel,
+    description: input.description,
+    detectedAt,
+    evidences,
+  })
+  await emitViolationCreatedFromAttempt(
     scheduleId,
     attemptId,
-    studentId: attempt.studentId,
-    studentCode: attempt.student.studentCode,
-    studentName: attempt.student.user.fullName,
-    type: violation.violationType,
-    timestamp: violation.detectedAt.toISOString(),
-    severity: violation.severity,
-    endedAt: violation.endedAt ? violation.endedAt.toISOString() : null,
-    durationSeconds: violation.durationSeconds,
-    evidenceImageUrl,
-    note: input.description ?? null,
-  })
-  return { ...violation, evidenceUrls: evidenceObjectNames }
+    attempt,
+    {
+      ...violation,
+      evidences: violation.evidenceUrls.map((objectName) => ({
+        objectName,
+        storageProvider: evidenceStorageProvider,
+      })),
+    },
+    input.description ?? null,
+  )
+  return violation
 }
 
 export async function endViolation(
@@ -1019,7 +1078,7 @@ export async function endViolation(
     throw new NotFoundError('Violation not found')
   }
 
-  emitProctoringEvent(scheduleId, 'violation:ended', violation)
+  emitViolationEnded(scheduleId, violation)
   return violation
 }
 
