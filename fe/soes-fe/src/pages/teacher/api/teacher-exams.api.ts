@@ -105,9 +105,9 @@ export const updateTeacherExamSchedule = (examId: string, scheduleId: string, pa
 export const cancelTeacherExamSchedule = (examId: string, scheduleId: string, reason: string) =>
   apiClient.post<ApiResponse<TeacherExamScheduleDto>>(`/teacher/exams/${examId}/schedules/${scheduleId}/cancel`, { reason }).then(({ data }) => data.data)
 
-export const getTeacherExamSubmissions = (examId: string, scheduleId: string, page: number) =>
+export const getTeacherExamSubmissions = (examId: string, scheduleId: string, page: number, pageSize = 10) =>
   apiClient.get<ApiResponse<TeacherSubmissionPage>>(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions`, {
-    params: { page, pageSize: 10 },
+    params: { page, pageSize },
   }).then(({ data }) => data.data)
 
 export const getTeacherExamViolations = (examId: string, scheduleId: string) =>
