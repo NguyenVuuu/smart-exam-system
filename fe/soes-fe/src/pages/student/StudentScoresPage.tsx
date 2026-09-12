@@ -254,19 +254,6 @@ function scoreTone(score: number) {
   return 'text-rose-600'
 }
 
-function calculateWeightedAverage(items: ScoreRow[]) {
-  if (items.length === 0) return null
-
-  const courseIds = [...new Set(items.map((item) => item.courseOfferingId))]
-  const courseAverages = courseIds
-    .map((courseOfferingId) => calculateCourseWeightedAverage(
-      items.filter((item) => item.courseOfferingId === courseOfferingId),
-    ))
-    .filter((score): score is number => score !== null)
-
-  if (courseAverages.length === 0) return null
-  return courseAverages.reduce((total, score) => total + score, 0) / courseAverages.length
-}
 
 function calculateCourseWeightedAverage(items: ScoreRow[]) {
   const quizzes = items
