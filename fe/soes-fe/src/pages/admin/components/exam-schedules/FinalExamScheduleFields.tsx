@@ -24,7 +24,6 @@ interface FinalExamScheduleFieldsProps {
   releaseAt: string
   allowStudentReview: boolean
   enableTabLock: boolean
-  maxTabSwitches: number
   requireFullscreen: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
@@ -52,7 +51,6 @@ interface FinalExamScheduleFieldsProps {
   onReleaseAtChange: (value: string) => void
   onAllowStudentReviewChange: (checked: boolean) => void
   onEnableTabLockChange: (checked: boolean) => void
-  onMaxTabSwitchesChange: (count: number) => void
   onRequireFullscreenChange: (checked: boolean) => void
   onEnableWebcamChange: (checked: boolean) => void
   onEnableScreenMonitoringChange: (checked: boolean) => void
@@ -76,7 +74,6 @@ export default function FinalExamScheduleFields({
   releaseAt,
   allowStudentReview,
   enableTabLock,
-  maxTabSwitches,
   requireFullscreen,
   enableWebcam,
   enableScreenMonitoring,
@@ -104,7 +101,6 @@ export default function FinalExamScheduleFields({
   onReleaseAtChange,
   onAllowStudentReviewChange,
   onEnableTabLockChange,
-  onMaxTabSwitchesChange,
   onRequireFullscreenChange,
   onEnableWebcamChange,
   onEnableScreenMonitoringChange,
@@ -176,7 +172,6 @@ export default function FinalExamScheduleFields({
       <ScheduleRulesPanel
         allowStudentReview={allowStudentReview}
         enableTabLock={enableTabLock}
-        maxTabSwitches={maxTabSwitches}
         requireFullscreen={requireFullscreen}
         enableWebcam={enableWebcam}
         enableScreenMonitoring={enableScreenMonitoring}
@@ -184,7 +179,6 @@ export default function FinalExamScheduleFields({
         blockRightClick={blockRightClick}
         onAllowStudentReviewChange={onAllowStudentReviewChange}
         onEnableTabLockChange={onEnableTabLockChange}
-        onMaxTabSwitchesChange={onMaxTabSwitchesChange}
         onRequireFullscreenChange={onRequireFullscreenChange}
         onEnableWebcamChange={onEnableWebcamChange}
         onEnableScreenMonitoringChange={onEnableScreenMonitoringChange}

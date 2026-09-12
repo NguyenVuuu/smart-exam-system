@@ -22,7 +22,6 @@ export interface GeneralSettings {
 
 export interface ExamDefaultsSettings {
   enableTabLock: boolean
-  maxTabSwitches: number
   requireFullscreen: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean

@@ -28,7 +28,6 @@ export interface ExamSessionDraft {
   resultReleaseAt: string
   allowStudentReview: boolean
   enableTabLock: boolean
-  maxTabSwitches: number
   requireFullscreen: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
@@ -188,19 +187,6 @@ export function ExamSessionForm({
         </div>
 
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
-          {draft.enableTabLock && (
-            <Field label="Số lần chuyển tab tối đa" error={fieldErrors.maxTabSwitches}>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={draft.maxTabSwitches}
-                onChange={(event) => update('maxTabSwitches', Number(event.target.value))}
-                className={whiteInputClassName}
-              />
-            </Field>
-          )}
-
           <div className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
             <Globe size={14} className="text-blue-600" />
             <span>Kiểm soát IP</span>

@@ -27,6 +27,7 @@ const DEFAULT_PUBLIC_SETTINGS: PublicSystemSettings = {
 }
 
 const STORAGE_KEY = 'soes_public_system_settings'
+let brandingRevision = 0
 
 function loadCachedSettings(): PublicSystemSettings {
   try {
@@ -162,6 +163,7 @@ function cropAndScaleFavicon(img: HTMLImageElement): string {
 
 export function updateDocumentBranding(settings: PublicSystemSettings) {
   if (typeof document === 'undefined') return
+  const revision = ++brandingRevision
 
   // Update Title on tab
   const title = settings.shortName
@@ -171,9 +173,11 @@ export function updateDocumentBranding(settings: PublicSystemSettings) {
 
   // Update Favicon on tab
   if (settings.logoUrl) {
+    setFaviconLink(settings.logoUrl, 'image/png')
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
+      if (revision !== brandingRevision) return
       const croppedPng = cropAndScaleFavicon(img)
       if (croppedPng) {
         setFaviconLink(croppedPng, 'image/png')
@@ -182,6 +186,7 @@ export function updateDocumentBranding(settings: PublicSystemSettings) {
       }
     }
     img.onerror = () => {
+      if (revision !== brandingRevision) return
       setFaviconLink(settings.logoUrl, 'image/png')
     }
     img.src = settings.logoUrl

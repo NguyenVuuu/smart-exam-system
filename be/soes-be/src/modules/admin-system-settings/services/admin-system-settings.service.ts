@@ -102,7 +102,7 @@ export async function getAdminSystemSettings(): Promise<AdminSystemSettingsDto> 
     examDefaults: fileConfig.examDefaults,
     codeGeneration,
     runtime: {
-      heartbeatTimeoutSeconds: fileConfig.examDefaults.heartbeatTimeoutSeconds || Math.round(examConfig.heartbeatTimeoutMs / 1000),
+      heartbeatTimeoutSeconds: Math.round(examConfig.heartbeatTimeoutMs / 1000),
       accessTokenMinutes: AUTH_TOKEN_LIFETIMES.accessMinutes,
       refreshTokenDays: AUTH_TOKEN_LIFETIMES.refreshDays,
       evidenceUrlExpiryMinutes: Math.ceil(minioConfig.evidenceUrlExpirySeconds / 60),
@@ -134,6 +134,11 @@ export async function getPublicSystemSettings(): Promise<GeneralSettingsDto> {
 
 export async function getStoredExamDefaultsSettings(): Promise<ExamDefaultsSettingsDto> {
   return (await readSystemSettingsFile()).examDefaults
+}
+
+export async function initializeSystemSettings(): Promise<void> {
+  const settings = await readSystemSettingsFile()
+  examConfig.setHeartbeatTimeoutSeconds(settings.examDefaults.heartbeatTimeoutSeconds)
 }
 
 async function safeWriteAuditLog(
@@ -226,6 +231,7 @@ export async function updateExamDefaultsSettings(
     ...current,
     examDefaults: { ...current.examDefaults, ...payload },
   }))
+  examConfig.setHeartbeatTimeoutSeconds(updated.examDefaults.heartbeatTimeoutSeconds)
   await safeWriteAuditLog(userId, 'UPDATE_SYSTEM_SETTINGS', 'EXAM_DEFAULTS', payload as Record<string, unknown>)
 
   return updated.examDefaults
@@ -287,7 +293,8 @@ export async function updateAiSettings(
 }
 
 export async function resetDefaultSystemSettings(userId: string): Promise<AdminSystemSettingsDto> {
-  await updateSystemSettingsFile(() => createDefaultSystemSettings())
+  const updated = await updateSystemSettingsFile(() => createDefaultSystemSettings())
+  examConfig.setHeartbeatTimeoutSeconds(updated.examDefaults.heartbeatTimeoutSeconds)
 
   await prisma.codeGenerationSetting.upsert({
     where: { id: 'SYSTEM' },

@@ -25,7 +25,7 @@ async function prepareInput(data: ScheduleBody, preserveBlankPassword = false): 
   return {
     ...fields,
     passwordHash,
-    maxTabSwitches: data.maxTabSwitches ?? null,
+    maxTabSwitches: null,
     randomQuestionCount: data.randomQuestionCount ?? null,
     resultReleaseAt: data.resultReleaseAt ?? null,
     reviewStartAt: data.reviewStartAt ?? null,

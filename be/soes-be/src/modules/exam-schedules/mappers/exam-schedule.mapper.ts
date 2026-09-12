@@ -30,7 +30,7 @@ export function toExamScheduleDto(row: ScheduleRow): ExamScheduleDto {
     participantCount: new Set(row.attempts.map(({ studentId }) => studentId)).size,
     submissionCount: row.attempts.filter(({ status }) => submittedStatuses.has(status)).length,
     hasPassword: Boolean(row.passwordHash), exam: row.exam,
-    enableTabLock: row.enableTabLock, maxTabSwitches: row.maxTabSwitches,
+    enableTabLock: row.enableTabLock,
     requireFullscreen: row.requireFullscreen, enableWebcam: row.enableWebcam,
     enableScreenMonitoring: row.enableScreenMonitoring,
     blockCopyPaste: row.blockCopyPaste, blockRightClick: row.blockRightClick,

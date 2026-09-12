@@ -9,11 +9,10 @@
     "timezone": "Asia/Ho_Chi_Minh",
     "dateFormat": "DD/MM/YYYY",
     "defaultLanguage": "vi",
-    "logoUrl": "https://ebgewmxrgwdayskixvwd.supabase.co/storage/v1/object/public/question-images/branding/system-logo-1788976340430.png"
+    "logoUrl": "https://ebgewmxrgwdayskixvwd.supabase.co/storage/v1/object/public/question-images/branding/system-logo-1789180952696.png"
   },
   "examDefaults": {
     "enableTabLock": true,
-    "maxTabSwitches": 3,
     "requireFullscreen": true,
     "enableWebcam": true,
     "enableScreenMonitoring": true,

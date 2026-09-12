@@ -67,7 +67,6 @@ export default function FinalExamScheduleForm({
         releaseAt={formState.releaseAt}
         allowStudentReview={formState.allowStudentReview}
         enableTabLock={formState.enableTabLock}
-        maxTabSwitches={formState.maxTabSwitches}
         requireFullscreen={formState.requireFullscreen}
         enableWebcam={formState.enableWebcam}
         enableScreenMonitoring={formState.enableScreenMonitoring}
@@ -95,7 +94,6 @@ export default function FinalExamScheduleForm({
         onReleaseAtChange={actions.setReleaseAt}
         onAllowStudentReviewChange={actions.setAllowStudentReview}
         onEnableTabLockChange={actions.setEnableTabLock}
-        onMaxTabSwitchesChange={actions.setMaxTabSwitches}
         onRequireFullscreenChange={actions.setRequireFullscreen}
         onEnableWebcamChange={actions.setEnableWebcam}
         onEnableScreenMonitoringChange={actions.setEnableScreenMonitoring}

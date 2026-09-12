@@ -36,7 +36,7 @@ async function toWriteInput(
     maxAttempts: data.maxAttempts,
     passwordHash,
     enableTabLock: data.enableTabLock,
-    maxTabSwitches: data.enableTabLock ? data.maxTabSwitches : null,
+    maxTabSwitches: null,
     requireFullscreen: data.requireFullscreen,
     enableWebcam: data.enableWebcam,
     enableScreenMonitoring: data.enableScreenMonitoring,

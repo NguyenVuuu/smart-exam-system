@@ -22,7 +22,6 @@ export interface GeneralSettingsDto {
 
 export interface ExamDefaultsSettingsDto {
   enableTabLock: boolean
-  maxTabSwitches: number
   requireFullscreen: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
@@ -54,7 +53,6 @@ export interface UpdateGeneralSettingsDto {
 
 export interface UpdateExamDefaultsSettingsDto {
   enableTabLock?: boolean
-  maxTabSwitches?: number
   requireFullscreen?: boolean
   enableWebcam?: boolean
   enableScreenMonitoring?: boolean

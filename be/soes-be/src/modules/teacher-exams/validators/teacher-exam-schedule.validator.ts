@@ -8,7 +8,6 @@ export const teacherExamScheduleBodySchema = z.object({
   maxAttempts: z.coerce.number().int().min(1).max(10).default(1),
   password: z.string().trim().min(4).max(100).optional().nullable(),
   enableTabLock: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableTabLock),
-  maxTabSwitches: z.coerce.number().int().min(1).max(20).default(EXAM_SCHEDULE_DEFAULTS.maxTabSwitches),
   requireFullscreen: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.requireFullscreen),
   enableWebcam: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableWebcam),
   enableScreenMonitoring: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableScreenMonitoring),

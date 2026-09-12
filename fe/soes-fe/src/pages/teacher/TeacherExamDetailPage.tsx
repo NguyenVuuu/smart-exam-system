@@ -332,7 +332,6 @@ function TeacherExamDetailContent({
           resultReleaseAt: (editingSession?.resultReleaseAt ?? resultReleaseAt).replace(' ', 'T'),
           allowStudentReview: editingSession?.allowStudentReview ?? false,
           enableTabLock: editingSession?.enableTabLock ?? examDefaults.enableTabLock,
-          maxTabSwitches: editingSession?.maxTabSwitches ?? examDefaults.maxTabSwitches,
           requireFullscreen: editingSession?.requireFullscreen ?? examDefaults.requireFullscreen,
           enableWebcam: editingSession?.enableWebcam ?? examDefaults.enableWebcam,
           enableScreenMonitoring: editingSession?.enableScreenMonitoring ?? examDefaults.enableScreenMonitoring,

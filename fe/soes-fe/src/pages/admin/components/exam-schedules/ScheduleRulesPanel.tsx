@@ -1,10 +1,9 @@
-import { AlertTriangle, Eye, ShieldCheck } from 'lucide-react'
+import { Eye, ShieldCheck } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 interface ScheduleRulesPanelProps {
   allowStudentReview: boolean
   enableTabLock: boolean
-  maxTabSwitches: number
   requireFullscreen: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
@@ -12,7 +11,6 @@ interface ScheduleRulesPanelProps {
   blockRightClick: boolean
   onAllowStudentReviewChange: (checked: boolean) => void
   onEnableTabLockChange: (checked: boolean) => void
-  onMaxTabSwitchesChange: (count: number) => void
   onRequireFullscreenChange: (checked: boolean) => void
   onEnableWebcamChange: (checked: boolean) => void
   onEnableScreenMonitoringChange: (checked: boolean) => void
@@ -23,7 +21,6 @@ interface ScheduleRulesPanelProps {
 export default function ScheduleRulesPanel({
   allowStudentReview,
   enableTabLock,
-  maxTabSwitches,
   requireFullscreen,
   enableWebcam,
   enableScreenMonitoring,
@@ -31,7 +28,6 @@ export default function ScheduleRulesPanel({
   blockRightClick,
   onAllowStudentReviewChange,
   onEnableTabLockChange,
-  onMaxTabSwitchesChange,
   onRequireFullscreenChange,
   onEnableWebcamChange,
   onEnableScreenMonitoringChange,
@@ -53,23 +49,6 @@ export default function ScheduleRulesPanel({
           <AdminToggle checked={blockRightClick} onChange={onBlockRightClickChange} label="Chặn chuột phải" />
         </div>
 
-        {enableTabLock && (
-          <div className="flex items-center gap-2 pt-2.5 border-t border-gray-100 text-xs text-slate-700">
-            <span className="flex items-center gap-1.5 font-medium">
-              <AlertTriangle size={14} className="text-amber-600" />
-              Số lần chuyển tab tối đa:
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={maxTabSwitches}
-              onChange={(e) => onMaxTabSwitchesChange(Math.max(1, Number(e.target.value) || 1))}
-              className="w-16 h-8 px-2 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-center outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span className="text-slate-500">lần cảnh báo</span>
-          </div>
-        )}
       </div>
 
       {/* Khối Xem lại bài làm */}
