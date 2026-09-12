@@ -102,7 +102,7 @@ export interface ExamScheduleApiDto {
   distributionMode: string; randomQuestionCount: number | null
   resultReleaseMode: string; resultReleaseAt: string | null
   reviewPolicy: string; hasPassword: boolean
-  enableTabLock?: boolean; maxTabSwitches?: number | null
+  enableTabLock?: boolean
   requireFullscreen: boolean; enableWebcam: boolean; enableScreenMonitoring?: boolean
   blockCopyPaste: boolean; blockRightClick: boolean
   exam: { id: string; title: string; subject: { id: string; code: string; name: string; departmentId: string } }
@@ -112,7 +112,7 @@ export interface ExamScheduleApiDto {
 export interface SchedulePayload {
   title: string; examId: string; startTime: string; endTime: string
   durationMinutes: number; maxAttempts: number; password?: string | null
-  enableTabLock: boolean; maxTabSwitches: number | null; requireFullscreen: boolean
+  enableTabLock: boolean; requireFullscreen: boolean
   enableWebcam: boolean; enableScreenMonitoring?: boolean; blockCopyPaste: boolean; blockRightClick: boolean
   locationMode: 'ONLINE' | 'CAMPUS'; allowedIpRanges: string[]
   distributionMode: string; randomQuestionCount: number | null

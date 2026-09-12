@@ -33,7 +33,6 @@ const DEFAULT_DRAFT: ExamSessionDraft = {
   resultReleaseAt: '',
   allowStudentReview: false,
   enableTabLock: true,
-  maxTabSwitches: 3,
   requireFullscreen: true,
   enableWebcam: true,
   enableScreenMonitoring: false,
@@ -86,7 +85,6 @@ function AssignExamToCourseModalContent({
         resultReleaseAt: editingTarget.resultReleaseAt ?? '',
         allowStudentReview: Boolean(editingTarget.allowStudentReview),
         enableTabLock: editingTarget.enableTabLock ?? true,
-        maxTabSwitches: editingTarget.maxTabSwitches ?? 3,
         requireFullscreen: editingTarget.requireFullscreen ?? true,
         enableWebcam: editingTarget.enableWebcam ?? true,
         enableScreenMonitoring: editingTarget.enableScreenMonitoring ?? false,
@@ -138,12 +136,6 @@ function AssignExamToCourseModalContent({
     }
     if (draftSession.maxAttempts < 1) {
       validationErrors.maxAttempts = 'Số lần làm bài phải lớn hơn 0.'
-    }
-    if (
-      draftSession.enableTabLock &&
-      (!Number.isInteger(draftSession.maxTabSwitches) || draftSession.maxTabSwitches < 1 || draftSession.maxTabSwitches > 20)
-    ) {
-      validationErrors.maxTabSwitches = 'Số lần chuyển tab phải là số nguyên từ 1 đến 20.'
     }
     const passwordLength = draftSession.password.trim().length
     if (passwordLength > 0 && (passwordLength < 4 || passwordLength > 100)) {
@@ -200,7 +192,6 @@ function AssignExamToCourseModalContent({
         draftSession.resultReleaseMode === 'SCHEDULED' ? draftSession.resultReleaseAt : undefined,
       allowStudentReview: draftSession.allowStudentReview,
       enableTabLock: draftSession.enableTabLock,
-      maxTabSwitches: draftSession.enableTabLock ? draftSession.maxTabSwitches : undefined,
       requireFullscreen: draftSession.requireFullscreen,
       enableWebcam: draftSession.enableWebcam,
       enableScreenMonitoring: draftSession.enableScreenMonitoring,
@@ -256,7 +247,6 @@ function AssignExamToCourseModalContent({
       resultReleaseAt: session.resultReleaseAt ?? '',
       allowStudentReview: Boolean(session.allowStudentReview),
       enableTabLock: session.enableTabLock ?? true,
-      maxTabSwitches: session.maxTabSwitches ?? 3,
       requireFullscreen: session.requireFullscreen ?? true,
       enableWebcam: session.enableWebcam ?? true,
       enableScreenMonitoring: session.enableScreenMonitoring ?? false,
@@ -302,7 +292,6 @@ function AssignExamToCourseModalContent({
         endTime: apiErrors.endTime,
         durationMinutes: apiErrors.durationMinutes,
         maxAttempts: apiErrors.maxAttempts,
-        maxTabSwitches: apiErrors.maxTabSwitches,
         password: apiErrors.password,
         resultReleaseAt: apiErrors.resultReleaseAt,
         allowedIpRange: apiErrors.allowedIpRanges,

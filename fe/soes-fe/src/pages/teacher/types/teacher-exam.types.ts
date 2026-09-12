@@ -59,7 +59,6 @@ export interface ExamSchedule {
   resultReleaseAt?: string
   allowStudentReview?: boolean
   enableTabLock?: boolean
-  maxTabSwitches?: number
   requireFullscreen?: boolean
   enableWebcam?: boolean
   enableScreenMonitoring?: boolean

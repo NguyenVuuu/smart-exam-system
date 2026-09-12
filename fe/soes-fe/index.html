@@ -2,9 +2,34 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link id="app-favicon" rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SOES - Smart Online Exam System</title>
+    <script>
+      (() => {
+        const cacheKey = 'soes_public_system_settings'
+        try {
+          const settings = JSON.parse(localStorage.getItem(cacheKey) || 'null')
+          if (!settings || typeof settings !== 'object') return
+
+          const shortName = typeof settings.shortName === 'string' ? settings.shortName.trim() : ''
+          const description = typeof settings.slogan === 'string' && settings.slogan.trim()
+            ? settings.slogan.trim()
+            : typeof settings.organizationName === 'string' && settings.organizationName.trim()
+              ? settings.organizationName.trim()
+              : 'Smart Online Exam System'
+          if (shortName) document.title = `${shortName} - ${description}`
+
+          const logoUrl = typeof settings.logoUrl === 'string' ? settings.logoUrl.trim() : ''
+          if (/^(https?:\/\/|data:image\/)/i.test(logoUrl)) {
+            const favicon = document.getElementById('app-favicon')
+            if (favicon) favicon.href = logoUrl
+          }
+        } catch {
+          localStorage.removeItem(cacheKey)
+        }
+      })()
+    </script>
     <!-- Google Fonts: Roboto -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

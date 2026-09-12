@@ -4,7 +4,6 @@ import type { TeacherExamDefaultsDto } from '../types/teacher-exam-api.types'
 
 const FALLBACK_DEFAULTS: TeacherExamDefaultsDto = {
   enableTabLock: true,
-  maxTabSwitches: 3,
   requireFullscreen: true,
   enableWebcam: true,
   enableScreenMonitoring: false,

@@ -55,13 +55,12 @@ export function createDefaultSystemSettings(): StoredSystemSettings {
     },
     examDefaults: {
       enableTabLock: true,
-      maxTabSwitches: 3,
       requireFullscreen: true,
       enableWebcam: true,
       enableScreenMonitoring: false,
       blockCopyPaste: true,
       blockRightClick: true,
-      heartbeatTimeoutSeconds: Math.round(examConfig.heartbeatTimeoutMs / 1000) || 30,
+      heartbeatTimeoutSeconds: Math.round(examConfig.defaultHeartbeatTimeoutMs / 1000) || 30,
     },
     ai: {
       model: geminiConfig.model,

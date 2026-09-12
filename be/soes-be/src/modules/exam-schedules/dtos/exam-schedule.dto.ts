@@ -15,7 +15,6 @@ export interface ExamScheduleDto {
   submissionCount: number;
   hasPassword: boolean;
   enableTabLock: boolean;
-  maxTabSwitches: number | null;
   requireFullscreen: boolean;
   enableWebcam: boolean;
   enableScreenMonitoring: boolean;

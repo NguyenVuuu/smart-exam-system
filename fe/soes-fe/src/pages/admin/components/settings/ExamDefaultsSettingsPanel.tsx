@@ -1,10 +1,25 @@
-import { AlertTriangle, Camera, CopySlash, Lock, Monitor, MonitorUp, MousePointer, Save, Wifi } from 'lucide-react'
+import { Camera, CopySlash, Lock, Monitor, MonitorUp, MousePointer, Save, Wifi } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '../../../../api/errors'
 import { updateExamDefaultsSettings } from '../../api/admin-system-settings.api'
 import type { ExamDefaultsSettings } from '../../types/admin-system-settings.types'
 import AdminButton from '../AdminButton'
+
+const HEARTBEAT_TIMEOUT_MIN_SECONDS = 10
+const HEARTBEAT_TIMEOUT_MAX_SECONDS = 300
+
+function getHeartbeatTimeoutError(value: string): string | null {
+  if (value.trim() === '') return 'Vui lòng nhập ngưỡng timeout.'
+
+  const seconds = Number(value)
+  if (!Number.isInteger(seconds)) return 'Ngưỡng timeout phải là số nguyên.'
+  if (seconds < HEARTBEAT_TIMEOUT_MIN_SECONDS || seconds > HEARTBEAT_TIMEOUT_MAX_SECONDS) {
+    return `Ngưỡng timeout phải từ ${HEARTBEAT_TIMEOUT_MIN_SECONDS} đến ${HEARTBEAT_TIMEOUT_MAX_SECONDS} giây.`
+  }
+
+  return null
+}
 
 export default function ExamDefaultsSettingsPanel({
   settings,
@@ -14,13 +29,22 @@ export default function ExamDefaultsSettingsPanel({
   onUpdated: () => void
 }) {
   const [form, setForm] = useState<ExamDefaultsSettings>(settings)
+  const [heartbeatTimeoutInput, setHeartbeatTimeoutInput] = useState(String(settings.heartbeatTimeoutSeconds))
+  const [heartbeatTimeoutTouched, setHeartbeatTimeoutTouched] = useState(false)
   const [saving, setSaving] = useState(false)
+  const heartbeatTimeoutError = getHeartbeatTimeoutError(heartbeatTimeoutInput)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setHeartbeatTimeoutTouched(true)
+    if (heartbeatTimeoutError) return
+
     setSaving(true)
     try {
-      await updateExamDefaultsSettings(form)
+      await updateExamDefaultsSettings({
+        ...form,
+        heartbeatTimeoutSeconds: Number(heartbeatTimeoutInput),
+      })
       toast.success('Đã lưu quy tắc thi & an ninh mặc định thành công')
       onUpdated()
     } catch (error) {
@@ -40,30 +64,6 @@ export default function ExamDefaultsSettingsPanel({
           checked={form.enableTabLock}
           onChange={(checked) => setForm({ ...form, enableTabLock: checked })}
         />
-
-        <div className="flex flex-col justify-between gap-2 rounded-lg border border-gray-200/80 bg-white p-4 shadow-2xs">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
-              <AlertTriangle size={17} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Số lần chuyển tab tối đa cho phép</p>
-              <p className="text-xs text-slate-500 mt-0.5">Ngưỡng mặc định được lưu cho ca thi để theo dõi và xử lý vi phạm.</p>
-            </div>
-          </div>
-          <div className="mt-2 flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              max={20}
-              disabled={!form.enableTabLock}
-              value={form.maxTabSwitches}
-              onChange={(e) => setForm({ ...form, maxTabSwitches: Math.max(1, Number(e.target.value) || 1) })}
-              className="w-24 h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-slate-900 text-center outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span className="text-xs font-medium text-slate-600">lần cảnh báo</span>
-          </div>
-        </div>
 
         <ToggleCard
           icon={<Monitor size={18} className="text-blue-600" />}
@@ -115,17 +115,31 @@ export default function ExamDefaultsSettingsPanel({
               <p className="text-xs text-slate-500 mt-0.5">Thời gian không nhận được tín hiệu ping từ máy thí sinh trước khi chuyển sang trạng thái "Mất kết nối".</p>
             </div>
           </div>
-          <div className="mt-2 flex items-center gap-3">
-            <input
-              type="number"
-              min={10}
-              max={300}
-              step={5}
-              value={form.heartbeatTimeoutSeconds}
-              onChange={(e) => setForm({ ...form, heartbeatTimeoutSeconds: Math.max(10, Number(e.target.value) || 30) })}
-              className="w-24 h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-slate-900 text-center outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span className="text-xs font-medium text-slate-600">giây (Khuyến nghị: 30 - 60s)</span>
+          <div className="mt-2">
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={HEARTBEAT_TIMEOUT_MIN_SECONDS}
+                max={HEARTBEAT_TIMEOUT_MAX_SECONDS}
+                step={5}
+                value={heartbeatTimeoutInput}
+                onBlur={() => setHeartbeatTimeoutTouched(true)}
+                onChange={(e) => setHeartbeatTimeoutInput(e.target.value)}
+                aria-invalid={heartbeatTimeoutTouched && Boolean(heartbeatTimeoutError)}
+                aria-describedby={heartbeatTimeoutError ? 'heartbeat-timeout-error' : undefined}
+                className={`w-24 h-9 px-3 rounded-lg border bg-white text-sm font-semibold text-slate-900 text-center outline-none focus:ring-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                  heartbeatTimeoutTouched && heartbeatTimeoutError
+                    ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
+                    : 'border-gray-200 focus:border-emerald-500 focus:ring-emerald-100'
+                }`}
+              />
+              <span className="text-xs font-medium text-slate-600">giây (Khuyến nghị: 30 - 60s)</span>
+            </div>
+            {heartbeatTimeoutTouched && heartbeatTimeoutError && (
+              <p id="heartbeat-timeout-error" className="mt-1.5 text-xs font-medium text-red-600">
+                {heartbeatTimeoutError}
+              </p>
+            )}
           </div>
         </div>
       </div>

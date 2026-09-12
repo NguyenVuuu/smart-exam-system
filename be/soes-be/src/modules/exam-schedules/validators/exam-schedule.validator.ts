@@ -16,8 +16,6 @@ export const scheduleBodySchema = z.object({
   durationMinutes: z.coerce.number().int().min(1).max(1440), maxAttempts: z.coerce.number().int().min(1).max(10),
   password: z.string().trim().min(4).max(100).optional().nullable(),
   enableTabLock: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableTabLock),
-  maxTabSwitches: z.coerce.number().int().min(0).max(100).optional().nullable()
-    .default(EXAM_SCHEDULE_DEFAULTS.maxTabSwitches),
   requireFullscreen: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.requireFullscreen),
   enableWebcam: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableWebcam),
   enableScreenMonitoring: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableScreenMonitoring),

@@ -15,7 +15,6 @@ export const updateGeneralSettingsSchema = z.object({
 
 export const updateExamDefaultsSchema = z.object({
   enableTabLock: z.boolean().optional(),
-  maxTabSwitches: z.number().int().min(1, 'Số lần chuyển tab tối thiểu là 1').max(20, 'Số lần chuyển tab tối đa là 20').optional(),
   requireFullscreen: z.boolean().optional(),
   enableWebcam: z.boolean().optional(),
   enableScreenMonitoring: z.boolean().optional(),

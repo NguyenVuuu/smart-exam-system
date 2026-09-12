@@ -111,9 +111,6 @@ export function useFinalExamScheduleForm({
   const [enableTabLock, setEnableTabLock] = useState(
     editingSchedule?.enableTabLock ?? true,
   )
-  const [maxTabSwitches, setMaxTabSwitches] = useState(
-    editingSchedule?.maxTabSwitches ?? 3,
-  )
   const [requireFullscreen, setRequireFullscreen] = useState(
     editingSchedule?.requireFullscreen ?? true,
   )
@@ -137,7 +134,6 @@ export function useFinalExamScheduleForm({
         if (!active || !settings?.examDefaults) return
         const defs = settings.examDefaults
         if (defs.enableTabLock !== undefined) setEnableTabLock(defs.enableTabLock)
-        if (defs.maxTabSwitches !== undefined) setMaxTabSwitches(defs.maxTabSwitches)
         if (defs.requireFullscreen !== undefined) setRequireFullscreen(defs.requireFullscreen)
         if (defs.enableWebcam !== undefined) setEnableWebcam(defs.enableWebcam)
         if (defs.enableScreenMonitoring !== undefined) setEnableScreenMonitoring(defs.enableScreenMonitoring)
@@ -387,7 +383,6 @@ export function useFinalExamScheduleForm({
       resultReleaseAt: releaseMode === 'SCHEDULED' ? releaseAt : undefined,
       allowStudentReview,
       enableTabLock,
-      maxTabSwitches: enableTabLock ? maxTabSwitches : null,
       requireFullscreen,
       enableWebcam,
       enableScreenMonitoring,
@@ -437,7 +432,6 @@ export function useFinalExamScheduleForm({
       releaseAt,
       allowStudentReview,
       enableTabLock,
-      maxTabSwitches,
       requireFullscreen,
       enableWebcam,
       enableScreenMonitoring,
@@ -483,7 +477,6 @@ export function useFinalExamScheduleForm({
       setReleaseAt: (value: string) => { clearFieldError('releaseAt'); setReleaseAt(value) },
       setAllowStudentReview,
       setEnableTabLock,
-      setMaxTabSwitches,
       setRequireFullscreen,
       setEnableWebcam,
       setEnableScreenMonitoring,

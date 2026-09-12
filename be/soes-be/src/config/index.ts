@@ -34,15 +34,42 @@ export const proxyConfig = {
   },
 } as const
 
+const HEARTBEAT_TIMEOUT_MIN_SECONDS = 10
+const HEARTBEAT_TIMEOUT_MAX_SECONDS = 300
+let configuredHeartbeatTimeoutMs: number | null = null
+
+function getEnvironmentHeartbeatTimeoutMs(): number {
+  const timeout = Number.parseInt(process.env.HEARTBEAT_TIMEOUT ?? '15000', 10)
+  return Number.isFinite(timeout) && timeout > 0 ? timeout : 15000
+}
+
 export const examConfig = {
   /**
    * How long (in milliseconds) since the last heartbeat before a student
-   * session is considered offline. Used by Get Attempt Status (API 5).
-   * Env var: HEARTBEAT_TIMEOUT (value in ms)
+   * session is considered offline. The system setting takes precedence over
+   * HEARTBEAT_TIMEOUT (value in ms), which remains the startup fallback.
    * Default: 15000 (15 seconds)
    */
   get heartbeatTimeoutMs(): number {
-    return parseInt(process.env.HEARTBEAT_TIMEOUT ?? '15000', 10)
+    return configuredHeartbeatTimeoutMs ?? getEnvironmentHeartbeatTimeoutMs()
+  },
+
+  get defaultHeartbeatTimeoutMs(): number {
+    return getEnvironmentHeartbeatTimeoutMs()
+  },
+
+  setHeartbeatTimeoutSeconds(seconds: unknown): void {
+    if (
+      typeof seconds !== 'number'
+      || !Number.isInteger(seconds)
+      || seconds < HEARTBEAT_TIMEOUT_MIN_SECONDS
+      || seconds > HEARTBEAT_TIMEOUT_MAX_SECONDS
+    ) {
+      configuredHeartbeatTimeoutMs = null
+      return
+    }
+
+    configuredHeartbeatTimeoutMs = seconds * 1000
   },
 } as const
 
