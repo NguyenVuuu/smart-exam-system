@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { clearRefreshTokenCookie, setRefreshTokenCookie } from '../../../utils/cookie'
 import { authenticate } from '../middlewares/authenticate'
-import { loginSchema } from '../validators/auth.validator'
+import { changePasswordSchema, loginSchema, updateMeSchema } from '../validators/auth.validator'
 import * as authService from '../services/auth.service'
 import { UnauthorizedError } from '../../../errors/AppError'
 
@@ -67,6 +67,26 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
     const { id, role } = req.user!
     const user = await authService.getMe(id, role)
     res.status(200).json({ success: true, message: 'OK', data: user })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id, role } = req.user!
+    const user = await authService.updateMe(id, role, updateMeSchema.parse(req.body))
+    res.status(200).json({ success: true, message: 'Profile updated', data: user })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id, profileId, role } = req.user!
+    await authService.changePassword(id, profileId, role, changePasswordSchema.parse(req.body))
+    res.status(200).json({ success: true, message: 'Password changed' })
   } catch (err) {
     next(err)
   }

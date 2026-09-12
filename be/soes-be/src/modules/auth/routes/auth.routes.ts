@@ -8,5 +8,7 @@ router.post('/login', authController.login)
 router.post('/refresh-token', authController.refreshToken)
 router.post('/logout', authController.logout)
 router.get('/me', authenticate, authController.getMe)
+router.patch('/me', authenticate, authController.updateMe)
+router.patch('/me/password', authenticate, authController.changePassword)
 
 export default router
