@@ -168,6 +168,7 @@ export default function StudentTakeExamPage() {
     requestFullscreen,
   } = useExamIntegrityGuard({
     enabled: phase === 'IN_PROGRESS' && Boolean(session),
+    enableTabLock: session?.integritySettings.enableTabLock ?? false,
     blockCopyPaste: session?.integritySettings.blockCopyPaste ?? false,
     blockRightClick: session?.integritySettings.blockRightClick ?? false,
     requireFullscreen: session?.integritySettings.requireFullscreen ?? false,

@@ -4,6 +4,7 @@ import type { RecordViolationPayload, RecordViolationResponse } from '../../api/
 
 interface UseExamIntegrityGuardOptions {
   enabled: boolean
+  enableTabLock: boolean
   blockCopyPaste: boolean
   blockRightClick: boolean
   requireFullscreen?: boolean
@@ -36,6 +37,7 @@ const TAB_SWITCH_CAPTURE_DELAY_MS = 450
 
 export function useExamIntegrityGuard({
   enabled,
+  enableTabLock,
   blockCopyPaste,
   blockRightClick,
   requireFullscreen = true,
@@ -299,7 +301,7 @@ export function useExamIntegrityGuard({
   }, [captureScreenEvidence, enabled, fullscreenExitCountdown, reportSevereFullscreenExit, requireFullscreen])
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !enableTabLock) return
 
     const reportTabSwitch = (description: string, baseSeverity: RecordViolationPayload['severity']) => {
       const now = Date.now()
@@ -353,7 +355,7 @@ export function useExamIntegrityGuard({
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('blur', handleWindowBlur)
     }
-  }, [captureScreenEvidence, enabled, reportSevereFullscreenExit, reportViolation])
+  }, [captureScreenEvidence, enableTabLock, enabled, reportSevereFullscreenExit, reportViolation])
 
   useEffect(() => {
     if (!enabled || inactivityMs <= 0) return
