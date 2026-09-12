@@ -20,6 +20,7 @@ export interface ExamContentResult {
 }
 
 export interface ExamIntegritySettings {
+  enableTabLock: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
   requireFullscreen: boolean

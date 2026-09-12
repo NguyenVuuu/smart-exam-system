@@ -32,6 +32,40 @@ export async function findUserById(userId: string): Promise<User | null> {
   })
 }
 
+export async function findUserByEmail(email: string): Promise<User | null> {
+  return prisma.user.findFirst({
+    where: { email },
+  })
+}
+
+export async function updateUserContact(
+  userId: string,
+  data: { email?: string | null; phoneNumber?: string | null },
+): Promise<User> {
+  return prisma.user.update({
+    where: { id: userId },
+    data,
+  })
+}
+
+export async function updateProfilePassword(
+  role: string,
+  profileId: string,
+  password: string,
+): Promise<void> {
+  if (role === 'STUDENT') {
+    await prisma.student.update({ where: { id: profileId }, data: { password } })
+    return
+  }
+
+  if (role === 'TEACHER') {
+    await prisma.teacher.update({ where: { id: profileId }, data: { password } })
+    return
+  }
+
+  await prisma.admin.update({ where: { id: profileId }, data: { password } })
+}
+
 export async function findStudentByUserId(userId: string): Promise<StudentWithUser | null> {
   return prisma.student.findUnique({
     where: { userId },

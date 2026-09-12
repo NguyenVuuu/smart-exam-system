@@ -172,6 +172,7 @@ export interface AttemptStatus {
 const BASE_URL = '/student/exam-schedules'
 
 interface ApiExamIntegritySettings {
+  enableTabLock?: boolean
   enableWebcam?: boolean
   enableScreenMonitoring?: boolean
   requireFullscreen?: boolean
@@ -239,6 +240,7 @@ export const takeExamApi = {
     return {
       ...data,
       integritySettings: {
+        enableTabLock: data.integritySettings?.enableTabLock ?? false,
         enableWebcam: data.integritySettings?.enableWebcam ?? false,
         enableScreenMonitoring: data.integritySettings?.enableScreenMonitoring ?? false,
         requireFullscreen: data.integritySettings?.requireFullscreen ?? false,

@@ -36,7 +36,7 @@ export function findAttemptForViolation(
       id: true,
       status: true,
       deadlineAt: true,
-      examSchedule: { select: { proctoringStoragePath: true } },
+      examSchedule: { select: { enableTabLock: true, proctoringStoragePath: true } },
       studentId: true,
       student: {
         select: {

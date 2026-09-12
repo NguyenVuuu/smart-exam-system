@@ -11,9 +11,11 @@ import {
 } from '../../../utils/jwt'
 import type { LoginRequestDto, LoginResponseDto, UserProfileDto } from '../dtos/auth.dto'
 import { toAdminProfileDto, toStudentProfileDto, toTeacherProfileDto } from '../mappers/auth.mapper'
+import type { ChangePasswordInput, UpdateMeInput } from '../validators/auth.validator'
 import * as repo from '../repositories/auth.repository'
 
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60 // 7 days
+const saltRounds = 10
 
 function buildJwtPayload(profile: UserProfileDto): JwtPayload {
   return {
@@ -164,4 +166,50 @@ export async function getMe(userId: string, role: string): Promise<UserProfileDt
   const admin = await repo.findAdminByUserId(userId)
   if (!admin) throw new UnauthorizedError('User not found')
   return toAdminProfileDto(admin)
+}
+
+export async function updateMe(userId: string, role: string, input: UpdateMeInput): Promise<UserProfileDto> {
+  const email = input.email?.trim() || null
+  const phoneNumber = input.phoneNumber?.trim() || null
+
+  if (email) {
+    const existing = await repo.findUserByEmail(email)
+    if (existing && existing.id !== userId) throw new ConflictError('Email already exists')
+  }
+
+  await repo.updateUserContact(userId, { email, phoneNumber })
+  return getMe(userId, role)
+}
+
+export async function changePassword(
+  userId: string,
+  profileId: string,
+  role: string,
+  input: ChangePasswordInput,
+): Promise<void> {
+  const resolved = await resolveCurrentProfile(userId, role)
+  if (!resolved || resolved.profile.profileId !== profileId) throw new UnauthorizedError('User not found')
+
+  const passwordMatch = await bcrypt.compare(input.currentPassword, resolved.password)
+  if (!passwordMatch) throw new UnauthorizedError('Current password is incorrect')
+
+  await repo.updateProfilePassword(role, profileId, await bcrypt.hash(input.newPassword, saltRounds))
+}
+
+async function resolveCurrentProfile(userId: string, role: string): Promise<ResolvedProfile | null> {
+  if (role === 'STUDENT') {
+    const student = await repo.findStudentByUserId(userId)
+    if (!student) return null
+    return { profile: toStudentProfileDto(student), password: student.password, status: student.status }
+  }
+
+  if (role === 'TEACHER') {
+    const teacher = await repo.findTeacherByUserId(userId)
+    if (!teacher) return null
+    return { profile: toTeacherProfileDto(teacher), password: teacher.password, status: teacher.status }
+  }
+
+  const admin = await repo.findAdminByUserId(userId)
+  if (!admin) return null
+  return { profile: toAdminProfileDto(admin), password: admin.password, status: admin.status }
 }

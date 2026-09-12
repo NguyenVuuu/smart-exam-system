@@ -17,6 +17,7 @@ export interface UserProfileDto {
   profileId: string
   fullName: string
   email: string | null
+  phoneNumber: string | null
   avatarUrl: string | null
   role: AccountRole
   // role-specific codes

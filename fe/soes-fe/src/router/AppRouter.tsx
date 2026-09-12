@@ -16,7 +16,11 @@ import LoginPage from '../pages/auth/LoginPage'
 import StudentCourseDetailPage from '../pages/student/StudentCourseDetailPage'
 import StudentDashboard from '../pages/student/StudentDashboard'
 import StudentExamDetailPage from '../pages/student/StudentExamDetailPage'
+import StudentExamsPage from '../pages/student/StudentExamsPage'
 import StudentExamResultPage from '../pages/student/StudentExamResultPage'
+import StudentNotificationsPage from '../pages/student/StudentNotificationsPage'
+import StudentScoresPage from '../pages/student/StudentScoresPage'
+import StudentSettingsPage from '../pages/student/StudentSettingsPage'
 import StudentPostDetailPage from '../pages/student/StudentPostDetailPage'
 import StudentTakeExamPage from '../pages/student/StudentTakeExamPage'
 import StudentSubjectsPage from '../pages/student/StudentSubjectsPage'
@@ -313,6 +317,38 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['STUDENT']}>
               <StudentSubjectsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/exams"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentExamsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/scores"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentScoresPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/notifications"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentNotificationsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/settings"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentSettingsPage />
             </RoleRoute>
           }
         />

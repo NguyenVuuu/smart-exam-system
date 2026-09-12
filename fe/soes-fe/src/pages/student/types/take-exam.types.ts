@@ -37,6 +37,7 @@ export interface TakeExamSession {
 }
 
 export interface TakeExamIntegritySettings {
+  enableTabLock: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
   requireFullscreen: boolean

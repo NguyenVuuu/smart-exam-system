@@ -601,6 +601,7 @@ export async function getExamContent(
     remainingSeconds,
     deadlineAt:       attempt.deadlineAt,
     integritySettings: {
+      enableTabLock: attempt.examSchedule.enableTabLock,
       enableWebcam: attempt.examSchedule.enableWebcam,
       enableScreenMonitoring: attempt.examSchedule.enableScreenMonitoring,
       requireFullscreen: attempt.examSchedule.requireFullscreen,
@@ -973,6 +974,9 @@ export async function recordViolation(
   const now = new Date()
   if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
     throw new ConflictError('Exam attempt has ended')
+  }
+  if (input.violationType === 'TAB_SWITCH' && !attempt.examSchedule.enableTabLock) {
+    throw new ConflictError('Tab switch monitoring is disabled for this exam schedule')
   }
 
   const detectedAt = input.detectedAt ? new Date(input.detectedAt) : now

@@ -11,6 +11,7 @@ export interface User {
   profileId: string
   fullName: string
   email: string | null
+  phoneNumber?: string | null
   avatarUrl: string | null
   role: UserRole
   studentCode: string | null

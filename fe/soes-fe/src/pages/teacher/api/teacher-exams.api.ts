@@ -8,6 +8,17 @@ import type { CameraReportRecord, ProctoringSessionRecord, ViolationRecord } fro
 import type { Question } from '../types/teacher-question-bank.types'
 
 interface ApiResponse<T> { success: boolean; data: T }
+export interface TeacherPaginationMeta {
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
+export interface TeacherViolationPage {
+  items: ViolationRecord[]
+  pagination: TeacherPaginationMeta
+}
 
 export async function getTeacherExams() {
   const response = await apiClient.get<ApiResponse<{ items: TeacherExamDto[] }>>('/teacher/exams', {
@@ -111,7 +122,7 @@ export const getTeacherExamSubmissions = (examId: string, scheduleId: string, pa
   }).then(({ data }) => data.data)
 
 export const getTeacherExamViolations = (examId: string, scheduleId: string) =>
-  apiClient.get<ApiResponse<{ items: ViolationRecord[] }>>(`/teacher/exams/${examId}/schedules/${scheduleId}/violations`, {
+  apiClient.get<ApiResponse<TeacherViolationPage>>(`/teacher/exams/${examId}/schedules/${scheduleId}/violations`, {
     params: { page: 1, pageSize: 100 },
   }).then(({ data }) => data.data.items)
 
@@ -124,11 +135,19 @@ export const getTeacherLiveProctoringSessions = (scheduleId: string) =>
     `/teacher/proctoring/schedules/${scheduleId}/sessions`,
   ).then(({ data }) => data.data)
 
-export const getTeacherLiveProctoringViolations = (scheduleId: string) =>
-  apiClient.get<ApiResponse<{ items: ViolationRecord[] }>>(
+export const getTeacherLiveProctoringViolations = (
+  scheduleId: string,
+  params: {
+    page?: number
+    pageSize?: number
+    studentId?: string
+    violationType?: ViolationRecord['type']
+  } = {},
+) =>
+  apiClient.get<ApiResponse<TeacherViolationPage>>(
     `/teacher/proctoring/schedules/${scheduleId}/violations`,
-    { params: { page: 1, pageSize: 100 } },
-  ).then(({ data }) => data.data.items)
+    { params: { page: params.page ?? 1, pageSize: params.pageSize ?? 20, studentId: params.studentId, violationType: params.violationType } },
+  ).then(({ data }) => data.data)
 
 export interface TeacherLiveCameraSession {
   id: string
@@ -160,6 +179,24 @@ export const captureTeacherLiveEvidence = (attemptId: string, streamType: 'WEBCA
     { headers: { 'Content-Type': 'multipart/form-data' } },
   ).then(({ data }) => data.data)
 }
+
+export interface TeacherExtendAttemptTimeResult {
+  attemptId: string
+  extraMinutes: number
+  newDeadline: string
+  studentName: string
+  reason: string
+}
+
+export const extendTeacherAttemptTime = (
+  attemptId: string,
+  extraMinutes: number,
+  reason: string,
+) => apiClient.post<ApiResponse<TeacherExtendAttemptTimeResult>>('/teacher/exams/proctoring/extend-time', {
+  attemptId,
+  extraMinutes,
+  reason,
+}).then(({ data }) => data.data)
 
 export const getTeacherLiveCameraSession = (sessionId: string) =>
   apiClient.get<ApiResponse<TeacherLiveCameraSession>>(`/teacher/proctoring/live/${sessionId}`)
