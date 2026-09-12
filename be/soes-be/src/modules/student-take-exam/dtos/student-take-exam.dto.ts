@@ -54,6 +54,7 @@ export interface GetExamContentResponseDto {
 }
 
 export interface ExamIntegritySettingsDto {
+  enableTabLock: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
   requireFullscreen: boolean

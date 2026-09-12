@@ -34,6 +34,7 @@ export async function findAttemptWithContent(
           title: true,
           durationMinutes: true,
           endTime: true,
+          enableTabLock: true,
           enableWebcam: true,
           enableScreenMonitoring: true,
           requireFullscreen: true,
