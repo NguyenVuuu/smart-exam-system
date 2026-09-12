@@ -180,9 +180,20 @@ export function listSubmissions(scheduleId: string, courseOfferingIds: string[],
   ])
 }
 
-export function listViolations(scheduleId: string, courseOfferingIds: string[], page: number, pageSize: number) {
+export function listViolations(
+  scheduleId: string,
+  courseOfferingIds: string[],
+  page: number,
+  pageSize: number,
+  filters: { studentId?: string; violationType?: Prisma.ViolationWhereInput['violationType'] } = {},
+) {
   const where: Prisma.ViolationWhereInput = {
-    attempt: { examScheduleId: scheduleId, courseOfferingId: { in: courseOfferingIds } },
+    attempt: {
+      examScheduleId: scheduleId,
+      courseOfferingId: { in: courseOfferingIds },
+      ...(filters.studentId ? { studentId: filters.studentId } : {}),
+    },
+    ...(filters.violationType ? { violationType: filters.violationType } : {}),
   }
   return Promise.all([
     prisma.violation.count({ where }),

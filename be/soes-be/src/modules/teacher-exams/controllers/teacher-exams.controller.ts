@@ -7,7 +7,7 @@ import * as gradingService from '../services/teacher-exam-grading.service'
 import * as lifecycleService from '../services/teacher-exam-lifecycle.service'
 import { autoGenerateExamSchema, examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, examStudentVisibilitySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
 import { teacherExamScheduleBodySchema, teacherScheduleCancellationSchema } from '../validators/teacher-exam-schedule.validator'
-import { invalidateAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
+import { invalidateAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
 
 const idParam = z.object({ id: z.string().min(1) })
 const scheduleOnlyParam = z.object({ scheduleId: z.string().min(1) })
@@ -67,7 +67,7 @@ export const listSubmissions = async (req: Request, res: Response) => {
 }
 export const listViolations = async (req: Request, res: Response) => {
   const { id, scheduleId } = gradingParams.parse(req.params)
-  send(res, await gradingService.listViolations(req.user!.profileId, id, scheduleId, submissionQuerySchema.parse(req.query)))
+  send(res, await gradingService.listViolations(req.user!.profileId, id, scheduleId, violationQuerySchema.parse(req.query)))
 }
 export const listProctoringSessions = async (req: Request, res: Response) => {
   const { id, scheduleId } = gradingParams.parse(req.params)
@@ -79,7 +79,7 @@ export const listLiveProctoringSessions = async (req: Request, res: Response) =>
 }
 export const listLiveProctoringViolations = async (req: Request, res: Response) => {
   const { scheduleId } = scheduleOnlyParam.parse(req.params)
-  send(res, await gradingService.listLiveProctoringViolations(req.user!.profileId, scheduleId, submissionQuerySchema.parse(req.query)))
+  send(res, await gradingService.listLiveProctoringViolations(req.user!.profileId, scheduleId, violationQuerySchema.parse(req.query)))
 }
 export const requestLiveCamera = async (req: Request, res: Response) => {
   const { attemptId } = liveAttemptParam.parse(req.params)

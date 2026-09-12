@@ -6,7 +6,7 @@ import { toPagination } from '../../../utils/pagination'
 import { computeScheduleStatus } from '../../exam-schedules/mappers/exam-schedule.mapper'
 import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
 import * as repo from '../repositories/teacher-exam-grading.repository'
-import type { InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
+import type { InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
 import { emitProctoringEvent } from '../../proctoring/proctoring-realtime.events'
 
@@ -39,11 +39,14 @@ export async function list(teacherId: string, examId: string, scheduleId: string
   }
 }
 
-export async function listViolations(teacherId: string, examId: string, scheduleId: string, query: SubmissionQuery) {
+export async function listViolations(teacherId: string, examId: string, scheduleId: string, query: ViolationQuery) {
   const schedule = await repo.findViolationScheduleAccess(teacherId, examId, scheduleId)
   if (!schedule) throw new NotFoundError('Exam schedule not found')
   const courseOfferingIds = schedule.scheduleCourses.map((course) => course.courseOfferingId)
-  const [total, rows] = await repo.listViolations(scheduleId, courseOfferingIds, query.page, query.pageSize)
+  const [total, rows] = await repo.listViolations(scheduleId, courseOfferingIds, query.page, query.pageSize, {
+    studentId: query.studentId,
+    violationType: query.violationType,
+  })
   const items = await Promise.all(rows.map(async (row) => {
     const firstEvidence = row.evidences[0] ?? null
     let evidenceImageUrl: string | null = null
@@ -143,7 +146,7 @@ export async function listLiveProctoringSessions(teacherId: string, scheduleId: 
   }
 }
 
-export async function listLiveProctoringViolations(teacherId: string, scheduleId: string, query: SubmissionQuery) {
+export async function listLiveProctoringViolations(teacherId: string, scheduleId: string, query: ViolationQuery) {
   const schedule = await repo.findViolationScheduleAccessBySchedule(teacherId, scheduleId)
   if (!schedule) throw new NotFoundError('Exam schedule not found')
   return listViolations(teacherId, schedule.examId, scheduleId, query)
