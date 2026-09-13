@@ -36,7 +36,7 @@ export default function SubjectCard({ subject }: SubjectCardProps) {
       <div className="flex items-center gap-4 text-xs text-gray-500">
         <div className="flex items-center gap-1">
           <BookOpen size={13} />
-          <span>{subject.materialCount} tài liệu</span>
+          <span>{subject.postCount} bài đăng</span>
         </div>
         <div className="flex items-center gap-1">
           <ClipboardList size={13} />

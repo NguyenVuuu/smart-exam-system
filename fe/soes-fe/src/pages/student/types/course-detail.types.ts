@@ -126,3 +126,17 @@ export interface ScoreItem {
 export interface ScoresResponse {
   items: ScoreItem[]
 }
+
+export interface CourseMaterial {
+  id: string
+  title: string | null
+  fileName: string
+  fileType: string
+  fileSize: string
+  contentType: string
+  uploadedAt: string
+}
+
+export interface MaterialsResponse {
+  items: CourseMaterial[]
+}

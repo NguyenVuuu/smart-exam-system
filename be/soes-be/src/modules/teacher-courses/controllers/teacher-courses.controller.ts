@@ -10,6 +10,7 @@ import * as postService from "../services/teacher-course-post.service";
 import {
   postBodySchema,
   postPinSchema,
+  postStatusSchema,
 } from "../validators/teacher-course-post.validator";
 
 export const listCourses = async (req: Request, res: Response) =>
@@ -147,6 +148,19 @@ export const pinPost = async (req: Request, res: Response) => {
       id,
       postId!,
       postPinSchema.parse(req.body).isPinned,
+    ),
+  );
+};
+
+export const updatePostStatus = async (req: Request, res: Response) => {
+  const { id, postId } = postParams.parse(req.params);
+  send(
+    res,
+    await postService.setStatus(
+      req.user!.profileId,
+      id,
+      postId!,
+      postStatusSchema.parse(req.body).status,
     ),
   );
 };

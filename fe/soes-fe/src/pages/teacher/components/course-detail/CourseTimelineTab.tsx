@@ -1,4 +1,4 @@
-import { Download, Edit3, Paperclip, Pin, PinOff, Send, Trash2, X } from 'lucide-react'
+import { Download, Edit3, Eye, EyeOff, Paperclip, Pin, PinOff, Send, Trash2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import type { CourseAnnouncement } from '../../types/teacher-course.types'
@@ -9,15 +9,17 @@ import DeleteCoursePostDialog from './DeleteCoursePostDialog'
 interface Props {
   announcements: CourseAnnouncement[]
   onCreate: (payload: { title: string; content: string; attachments?: File[] }) => Promise<void>
-  onUpdate: (id: string, payload: { title: string; content: string; attachments?: File[]; removedAttachmentIds?: string[] }) => Promise<void>
+  onUpdate: (id: string, payload: { title: string; content: string; status?: 'DRAFT' | 'PUBLISHED'; attachments?: File[]; removedAttachmentIds?: string[] }) => Promise<void>
   onPin: (id: string, pinned: boolean) => Promise<void>
+  onStatusChange: (id: string, status: 'DRAFT' | 'PUBLISHED') => Promise<void>
   onDelete: (id: string) => Promise<void>
   onDownload: (postId: string, attachmentId: string, fileName: string) => Promise<void>
 }
 
-export default function CourseTimelineTab({ announcements, onCreate, onUpdate, onPin, onDelete, onDownload }: Props) {
+export default function CourseTimelineTab({ announcements, onCreate, onUpdate, onPin, onStatusChange, onDelete, onDownload }: Props) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [postStatus, setPostStatus] = useState<'DRAFT' | 'PUBLISHED'>('PUBLISHED')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<CourseAnnouncement | null>(null)
   const [saving, setSaving] = useState(false)
@@ -38,6 +40,7 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
   const reset = () => {
     setTitle('')
     setContent('')
+    setPostStatus('PUBLISHED')
     setEditingId(null)
     setExistingAttachments([])
     setRemovedAttachmentIds([])
@@ -70,6 +73,7 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
         await onUpdate(editingId, {
           title: title.trim(),
           content: content.trim(),
+          status: postStatus,
           attachments,
           removedAttachmentIds,
         })
@@ -93,6 +97,7 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
     setEditingId(post.id)
     setTitle(post.title)
     setContent(post.content)
+    setPostStatus(post.status)
     setExistingAttachments(post.attachedFiles ?? [])
     setRemovedAttachmentIds([])
     setAttachments([])
@@ -100,6 +105,16 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
   }
 
   const maxNewFiles = Math.max(0, 5 - existingAttachments.length)
+
+  const toggleStatus = async (post: CourseAnnouncement) => {
+    const nextStatus = post.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+    try {
+      await onStatusChange(post.id, nextStatus)
+      toast.success(nextStatus === 'DRAFT' ? 'Đã ẩn bài đăng.' : 'Đã hiển thị bài đăng.')
+    } catch {
+      toast.error('Không thể cập nhật trạng thái bài đăng.')
+    }
+  }
 
   const sortedAnnouncements = useMemo(() => {
     return [...announcements].sort((a, b) => {
@@ -247,9 +262,11 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
           <article
             key={post.id}
             className={`rounded-xl border bg-white p-5 shadow-xs transition-all ${
-              post.pinned
-                ? 'border-blue-300 bg-blue-50/25 ring-1 ring-blue-500/10'
-                : 'border-gray-200/80 hover:border-gray-300'
+              post.status === 'DRAFT'
+                ? 'border-slate-200 bg-slate-50/80 opacity-90'
+                : post.pinned
+                  ? 'border-blue-300 bg-blue-50/25 ring-1 ring-blue-500/10'
+                  : 'border-gray-200/80 hover:border-gray-300'
             }`}
           >
             <div className="flex items-start justify-between gap-3">
@@ -266,11 +283,22 @@ export default function CourseTimelineTab({ announcements, onCreate, onUpdate, o
                         <Pin size={11} className="text-blue-600" /> Đã ghim
                       </span>
                     )}
+                    {post.status === 'DRAFT' && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                        <EyeOff size={11} /> Đang ẩn
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1">
+                <IconButton
+                  title={post.status === 'PUBLISHED' ? 'Ẩn bài đăng' : 'Hiển thị bài đăng'}
+                  onClick={() => void toggleStatus(post)}
+                >
+                  {post.status === 'PUBLISHED' ? <EyeOff size={15} /> : <Eye size={15} />}
+                </IconButton>
                 <IconButton
                   title={post.pinned ? 'Bỏ ghim' : 'Ghim bài đăng'}
                   onClick={() => void onPin(post.id, !post.pinned)}

@@ -2,6 +2,7 @@ import { apiClient } from '../../../api/axios'
 import type {
   CourseHeader,
   ExamDetail,
+  MaterialsResponse,
   MembersResponse,
   PostDetail,
   ScoresResponse,
@@ -78,4 +79,19 @@ export async function getScores(courseOfferingId: string): Promise<ScoresRespons
     `/student/course-offerings/${courseOfferingId}/scores`,
   )
   return data.data
+}
+
+export async function getMaterials(courseOfferingId: string): Promise<MaterialsResponse> {
+  const { data } = await apiClient.get<ApiResponse<MaterialsResponse>>(
+    `/student/course-offerings/${courseOfferingId}/materials`,
+  )
+  return data.data
+}
+
+export async function downloadMaterial(courseOfferingId: string, materialId: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(
+    `/student/course-offerings/${courseOfferingId}/materials/${materialId}`,
+    { responseType: 'blob' },
+  )
+  return data
 }

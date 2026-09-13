@@ -1,18 +1,15 @@
 import { BarChart3, RefreshCw, Search, Trophy, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getScores } from './api/student-course-detail.api'
+import type React from 'react'
+import { getStudentScores, type StudentScore } from './api/student-portal.api'
 import { getStudentSubjects } from './api/student-subjects.api'
 import AppSelect from '../../components/common/AppSelect'
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
-import type { ExamType, ScoreItem } from './types/course-detail.types'
+import type { ExamType } from './types/course-detail.types'
 import type { SemesterOption, SubjectCard } from './types/subjects.types'
 
-interface ScoreRow extends ScoreItem {
-  courseOfferingId: string
-  courseCode: string
-  subjectName: string
-}
+type ScoreRow = StudentScore
 
 const EXAM_TYPE_LABELS: Record<ExamType, string> = {
   MIDTERM: 'Giữa kỳ',
@@ -45,22 +42,13 @@ export default function StudentScoresPage() {
         subjectData.semesterOptions.find((semester) => semester.isCurrent)?.id ||
         subjectData.semesterOptions[0]?.id ||
         ''
+
+      const scoreData = await getStudentScores({ semesterId: resolvedSemesterId || undefined })
       setSemesterOptions(subjectData.semesterOptions)
       setSelectedSemesterId(resolvedSemesterId)
       setSubjects(subjectData.items)
       setSelectedCourseOfferingId('ALL')
-      const scoreGroups = await Promise.all(
-        subjectData.items.map(async (subject) => {
-          const data = await getScores(subject.courseOfferingId).catch(() => ({ items: [] }))
-          return data.items.map((score) => ({
-            ...score,
-            courseOfferingId: subject.courseOfferingId,
-            courseCode: subject.subjectCode,
-            subjectName: subject.subjectName,
-          }))
-        }),
-      )
-      setScores(scoreGroups.flat())
+      setScores(scoreData.items)
     } catch {
       setError('Không thể tải điểm số.')
     } finally {
@@ -68,6 +56,7 @@ export default function StudentScoresPage() {
     }
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
 
   const handleSemesterChange = (semesterId: string) => {
@@ -162,24 +151,24 @@ export default function StudentScoresPage() {
                   buttonClassName="rounded-xl text-sm"
                 />
                 <div className="flex h-10 w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-600 lg:w-80">
-                <Search size={16} className="shrink-0 text-slate-400" />
-                <input
-                  value={keyword}
-                  onChange={(event) => setKeyword(event.target.value)}
-                  placeholder="Tìm môn học hoặc bài thi..."
-                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
-                />
-                {keyword && (
-                  <button type="button" onClick={() => setKeyword('')} className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-gray-100 hover:text-slate-700">
-                    <X size={14} />
-                  </button>
-                )}
+                  <Search size={16} className="shrink-0 text-slate-400" />
+                  <input
+                    value={keyword}
+                    onChange={(event) => setKeyword(event.target.value)}
+                    placeholder="Tìm môn học hoặc bài thi..."
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                  {keyword && (
+                    <button type="button" onClick={() => setKeyword('')} className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-gray-100 hover:text-slate-700">
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
             {loading && <Message icon={<BarChart3 size={34} />} text="Đang tải điểm số..." />}
-            {!loading && error && <Message icon={<BarChart3 size={34} />} text={error} action={load} />}
+            {!loading && error && <Message icon={<BarChart3 size={34} />} text={error} action={() => load(selectedSemesterId)} />}
             {!loading && !error && filteredScores.length === 0 && (
               <Message icon={<Trophy size={34} />} text="Chưa có điểm phù hợp để hiển thị." />
             )}
@@ -253,7 +242,6 @@ function scoreTone(score: number) {
   if (score >= 5) return 'text-amber-600'
   return 'text-rose-600'
 }
-
 
 function calculateCourseWeightedAverage(items: ScoreRow[]) {
   const quizzes = items

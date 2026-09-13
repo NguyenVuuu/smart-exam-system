@@ -1,17 +1,60 @@
 import { Bell, CheckCircle2, RefreshCw } from 'lucide-react'
-import { useStudentDashboard } from './hooks/useStudentDashboard'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  getStudentNotifications,
+  markAllStudentNotificationsRead,
+  markStudentNotificationRead,
+  type StudentNotification,
+} from './api/student-portal.api'
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
 
-const DOT_TONE = {
-  green: 'bg-emerald-500',
-  yellow: 'bg-amber-400',
-  red: 'bg-rose-500',
-} as const
-
 export default function StudentNotificationsPage() {
-  const { isLoading, error, notifications } = useStudentDashboard()
-  const unreadCount = notifications.filter((item) => item.dot !== 'yellow').length
+  const [notifications, setNotifications] = useState<StudentNotification[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const data = await getStudentNotifications({ page: 1, pageSize: 50 })
+      setNotifications(data.items)
+    } catch {
+      setError('Không thể tải thông báo.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void load() }, [load])
+
+  const unreadCount = useMemo(() => notifications.filter((item) => !item.isRead).length, [notifications])
+
+  const markRead = async (item: StudentNotification) => {
+    if (item.isRead) return
+    setNotifications((current) => current.map((entry) => (
+      entry.id === item.id ? { ...entry, isRead: true } : entry
+    )))
+    try {
+      await markStudentNotificationRead(item.id)
+    } catch {
+      setNotifications((current) => current.map((entry) => (
+        entry.id === item.id ? { ...entry, isRead: false } : entry
+      )))
+    }
+  }
+
+  const markAllRead = async () => {
+    const previous = notifications
+    setNotifications((current) => current.map((item) => ({ ...item, isRead: true })))
+    try {
+      await markAllStudentNotificationsRead()
+    } catch {
+      setNotifications(previous)
+    }
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
@@ -19,19 +62,39 @@ export default function StudentNotificationsPage() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <StudentTopBar />
         <main className="min-w-0 flex-1 space-y-5 overflow-y-auto px-6 py-7 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <Bell size={22} />
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <Bell size={22} />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-slate-950">Thông báo</h1>
+                <p className="mt-0.5 text-sm text-slate-500">Các cập nhật quan trọng từ lớp học phần và hệ thống thi.</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-950">Thông báo</h1>
-              <p className="mt-0.5 text-sm text-slate-500">Các cập nhật quan trọng từ lớp học phần và hệ thống thi.</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={markAllRead}
+                disabled={isLoading || unreadCount === 0}
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <CheckCircle2 size={15} /> Đánh dấu đã đọc
+              </button>
+              <button
+                type="button"
+                onClick={() => void load()}
+                disabled={isLoading}
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <RefreshCw size={15} /> Làm mới
+              </button>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Metric label="Tổng thông báo" value={notifications.length} tone="text-blue-600" />
-            <Metric label="Cần chú ý" value={unreadCount} tone="text-emerald-600" />
+            <Metric label="Chưa đọc" value={unreadCount} tone="text-emerald-600" />
           </div>
 
           <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -50,16 +113,20 @@ export default function StudentNotificationsPage() {
             {!isLoading && !error && notifications.length > 0 && (
               <div className="divide-y divide-gray-100">
                 {notifications.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50/70">
-                    <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${DOT_TONE[item.dot]}`} />
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => void markRead(item)}
+                    className="flex w-full items-start gap-3 px-5 py-4 text-left hover:bg-gray-50/70"
+                  >
+                    <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.isRead ? 'bg-slate-300' : 'bg-blue-500'}`} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-900">{item.message}</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {item.dot === 'yellow' ? 'Đã đọc' : 'Thông báo mới'}
-                      </p>
+                      <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                      <p className="mt-1 text-sm text-slate-600">{item.content}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatDateTime(item.createdAt)}</p>
                     </div>
-                    {item.dot === 'yellow' && <CheckCircle2 size={17} className="shrink-0 text-slate-300" />}
-                  </div>
+                    {item.isRead && <CheckCircle2 size={17} className="shrink-0 text-slate-300" />}
+                  </button>
                 ))}
               </div>
             )}
@@ -86,4 +153,16 @@ function Message({ text }: { text: string }) {
       <span>{text}</span>
     </div>
   )
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }

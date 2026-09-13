@@ -18,4 +18,5 @@ export const postBodySchema = z.object({
 })
 
 export const postPinSchema = z.object({ isPinned: z.boolean() })
+export const postStatusSchema = z.object({ status: z.enum(['DRAFT', 'PUBLISHED']) })
 export type PostBody = z.infer<typeof postBodySchema>
