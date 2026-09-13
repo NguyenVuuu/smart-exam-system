@@ -7,6 +7,8 @@ const router = Router()
 
 router.get('/:courseOfferingId', authenticate, requireStudent(), controller.getCourseHeader)
 router.get('/:courseOfferingId/timeline', authenticate, requireStudent(), controller.getTimeline)
+router.get('/:courseOfferingId/materials', authenticate, requireStudent(), controller.getMaterials)
+router.get('/:courseOfferingId/materials/:materialId', authenticate, requireStudent(), controller.downloadMaterial)
 router.get('/:courseOfferingId/posts/:postId', authenticate, requireStudent(), controller.getPostDetail)
 router.get('/:courseOfferingId/exam-schedules/:scheduleId', authenticate, requireStudent(), controller.getExamDetail)
 router.get('/:courseOfferingId/members', authenticate, requireStudent(), controller.getMembers)

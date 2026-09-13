@@ -19,6 +19,7 @@ router.get('/course-offerings/:id/gradebook', asyncHandler(controller.getGradebo
 router.post('/course-offerings/:id/posts', uploadPostAttachments, asyncHandler(controller.createPost))
 router.put('/course-offerings/:id/posts/:postId', uploadPostAttachments, asyncHandler(controller.updatePost))
 router.patch('/course-offerings/:id/posts/:postId/pin', asyncHandler(controller.pinPost))
+router.patch('/course-offerings/:id/posts/:postId/status', asyncHandler(controller.updatePostStatus))
 router.delete('/course-offerings/:id/posts/:postId', asyncHandler(controller.deletePost))
 router.get('/course-offerings/:id/posts/:postId/attachments/:attachmentId', asyncHandler(controller.downloadPostAttachment))
 router.get('/proctor-assignments', asyncHandler(controller.listProctorAssignments))

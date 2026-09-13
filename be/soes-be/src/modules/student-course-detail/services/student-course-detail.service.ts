@@ -8,6 +8,8 @@ import { StudentCourseDetailRepository } from "../repositories/student-course-de
 import { StudentCourseDetailMapper } from "../mappers/student-course-detail.mapper";
 import { NotFoundError } from "../../../errors/AppError";
 import { MemberRole } from "../types/student-course-detail.types";
+import { downloadBufferFromBucket } from "../../../services/storage.service";
+import { supabaseBuckets } from "../../../lib/supabase";
 
 const repo = new StudentCourseDetailRepository();
 const mapper = new StudentCourseDetailMapper();
@@ -83,6 +85,30 @@ export class StudentCourseDetailService {
     return mapper.toPostDetailResponse(row);
   }
 
+  async getMaterials(studentId: string, courseOfferingId: string) {
+    const materials = await repo.findMaterials(courseOfferingId, studentId)
+    return {
+      items: materials.map((material) => ({
+        id: material.id,
+        title: material.title,
+        fileName: material.fileName,
+        fileType: this.fileType(material.contentType),
+        fileSize: this.fileSize(material.fileSize),
+        contentType: material.contentType,
+        uploadedAt: material.createdAt,
+      })),
+    }
+  }
+
+  async downloadMaterial(studentId: string, courseOfferingId: string, materialId: string) {
+    const material = await repo.findMaterial(courseOfferingId, studentId, materialId)
+    if (!material) throw new NotFoundError('Material not found')
+    return {
+      ...material,
+      buffer: await downloadBufferFromBucket(supabaseBuckets.courseMaterials, material.storagePath),
+    }
+  }
+
   // ────────────────────────────────────────────────────────────
   // Exam Detail
   // ────────────────────────────────────────────────────────────
@@ -130,6 +156,19 @@ export class StudentCourseDetailService {
     return {
       items: scores.map((score) => mapper.toScoreResponse(score)),
     };
+  }
+
+  private fileType(contentType: string): string {
+    if (contentType.includes('pdf')) return 'PDF'
+    if (contentType.includes('word')) return 'DOCX'
+    if (contentType.includes('presentation')) return 'PPTX'
+    return contentType.split('/')[1]?.toUpperCase() || 'FILE'
+  }
+
+  private fileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
   }
 }
 

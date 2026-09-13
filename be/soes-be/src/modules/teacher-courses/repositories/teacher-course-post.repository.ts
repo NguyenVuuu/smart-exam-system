@@ -34,6 +34,11 @@ export const updatePost = (id: string, data: PostBody, attachments: PostAttachme
 export const setPostPinned = (id: string, isPinned: boolean) => prisma.post.update({
   where: { id }, data: { isPinned }, include: postInclude,
 })
+export const setPostStatus = (id: string, status: 'DRAFT' | 'PUBLISHED') => prisma.post.update({
+  where: { id },
+  data: { status, publishedAt: status === 'PUBLISHED' ? new Date() : null },
+  include: postInclude,
+})
 export const findAttachment = (teacherId: string, courseId: string, postId: string, attachmentId: string) =>
   prisma.postAttachment.findFirst({
     where: { id: attachmentId, postId, post: { courseOfferingId: courseId, courseOffering: { teacherId } } },

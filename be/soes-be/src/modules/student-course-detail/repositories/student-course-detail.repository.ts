@@ -78,63 +78,75 @@ export class StudentCourseDetailRepository {
       throw new NotFoundError('Not found')
     }
 
-    const posts = await prisma.post.findMany({
-      where: {
-        courseOfferingId,
-        status: PostStatus.PUBLISHED,
-        publishedAt: { not: null },
-      },
-      select: {
-        id: true,
-        courseOfferingId: true,
-        title: true,
-        publishedAt: true,
-        updatedAt: true,
-        createdAt: true,
-        createdBy: {
-          select: {
-            user: {
-              select: {
-                fullName: true,
-              },
-            },
-          },
-        },
-        attachments: {
-          select: { id: true },
-        },
-      },
-      orderBy: {
-        publishedAt: 'desc',
-      },
-    })
+    const takeForMerge = (page - 1) * pageSize + pageSize
+    const postWhere = {
+      courseOfferingId,
+      status: PostStatus.PUBLISHED,
+      publishedAt: { not: null },
+    }
+    const scheduleWhere = {
+      ...studentVisibleScheduleWhere(),
+      scheduleCourses: { some: { courseOfferingId } },
+    }
 
-    const schedules = await prisma.examSchedule.findMany({
-      where: {
-        ...studentVisibleScheduleWhere(),
-        scheduleCourses: { some: { courseOfferingId } },
-      },
-      select: {
-        id: true,
-        title: true,
-        publishedAt: true,
-        startTime: true,
-        endTime: true,
-        durationMinutes: true,
-        exam: {
-          select: {
-            createdBy: {
-              select: {
-                user: { select: { fullName: true } },
+    const [totalPosts, totalExams, posts, schedules] = await Promise.all([
+      prisma.post.count({ where: postWhere }),
+      prisma.examSchedule.count({ where: scheduleWhere }),
+      prisma.post.findMany({
+        where: postWhere,
+        take: takeForMerge,
+        select: {
+          id: true,
+          courseOfferingId: true,
+          title: true,
+          publishedAt: true,
+          updatedAt: true,
+          createdAt: true,
+          createdBy: {
+            select: {
+              user: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+          },
+          attachments: {
+            select: { id: true },
+          },
+        },
+        orderBy: [
+          { publishedAt: 'desc' },
+          { createdAt: 'desc' },
+        ],
+      }),
+      prisma.examSchedule.findMany({
+        where: scheduleWhere,
+        take: takeForMerge,
+        select: {
+          id: true,
+          title: true,
+          publishedAt: true,
+          startTime: true,
+          endTime: true,
+          durationMinutes: true,
+          createdAt: true,
+          exam: {
+            select: {
+              createdBy: {
+                select: {
+                  user: { select: { fullName: true } },
+                },
               },
             },
           },
         },
-      },
-      orderBy: {
-        publishedAt: 'desc',
-      },
-    })
+        orderBy: [
+          { publishedAt: 'desc' },
+          { createdAt: 'desc' },
+        ],
+      }),
+    ])
 
     return {
       posts,
@@ -143,8 +155,8 @@ export class StudentCourseDetailRepository {
         courseOfferingId,
         createdBy: schedule.exam.createdBy,
       })),
-      totalPosts: posts.length,
-      totalExams: schedules.length,
+      totalPosts,
+      totalExams,
     }
   }
 
@@ -207,6 +219,38 @@ export class StudentCourseDetailRepository {
       edited,
       attachments,
     }
+  }
+
+  async findMaterials(courseOfferingId: string, studentId: string): Promise<MaterialRow[]> {
+    await this.findCourseHeader(courseOfferingId, studentId)
+    return prisma.material.findMany({
+      where: { courseOfferingId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        fileName: true,
+        fileSize: true,
+        contentType: true,
+        createdAt: true,
+      },
+    })
+  }
+
+  async findMaterial(courseOfferingId: string, studentId: string, materialId: string) {
+    await this.findCourseHeader(courseOfferingId, studentId)
+    return prisma.material.findFirst({
+      where: { id: materialId, courseOfferingId },
+      select: {
+        id: true,
+        title: true,
+        fileName: true,
+        fileSize: true,
+        contentType: true,
+        storagePath: true,
+        createdAt: true,
+      },
+    })
   }
 
   // ────────────────────────────────────────────────────────────
@@ -520,6 +564,15 @@ export interface PostDetailRow {
     fileSize: string
     downloadUrl: string
   }[]
+}
+
+export interface MaterialRow {
+  id: string
+  title: string | null
+  fileName: string
+  fileSize: number
+  contentType: string
+  createdAt: Date
 }
 
 export interface ExamDetailRow {

@@ -54,6 +54,7 @@ export function toTeacherCourseDetail(dto: TeacherCourseDetailApiDto): TeacherCo
     materials: dto.materials.map((material) => toCourseMaterial(material, dto)),
     announcements: dto.posts.map((post) => ({
       id: post.id, title: post.title, content: post.content,
+      status: post.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED',
       createdAt: dateTime(post.publishedAt ?? post.createdAt), teacherName: post.teacherName,
       pinned: post.isPinned,
       attachedFiles: post.attachments.map((file) => ({ id: file.id, name: file.fileName, size: fileSize(file.fileSize) })),

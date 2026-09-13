@@ -1,22 +1,20 @@
-import { AlertCircle, CalendarClock, CheckCircle2, ClipboardList, Clock, Eye, Play, RefreshCw, Search, Timer, X } from 'lucide-react'
+import { AlertCircle, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Eye, Play, RefreshCw, Search, Timer, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getExamDetail, getTimeline } from './api/student-course-detail.api'
-import { getStudentSubjects } from './api/student-subjects.api'
+import {
+  getStudentExamSchedules,
+  type StudentExamSchedule,
+  type StudentExamStatusCounts,
+} from './api/student-portal.api'
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
-import type { ExamDetail, ExamTimelineItem } from './types/course-detail.types'
-import type { SubjectCard } from './types/subjects.types'
+import type { Pagination } from './types/course-detail.types'
 
 type ExamFilter = 'ALL' | 'OPEN' | 'UPCOMING' | 'COMPLETED' | 'EXPIRED'
+type StudentExamListItem = StudentExamSchedule
 
-interface StudentExamListItem extends ExamTimelineItem {
-  courseCode: string
-  subjectName: string
-  teacherName: string
-  detail?: ExamDetail
-}
+const PAGE_SIZE = 10
 
 const FILTERS: Array<{ value: ExamFilter; label: string }> = [
   { value: 'ALL', label: 'Tất cả' },
@@ -25,6 +23,13 @@ const FILTERS: Array<{ value: ExamFilter; label: string }> = [
   { value: 'COMPLETED', label: 'Đã hoàn thành' },
   { value: 'EXPIRED', label: 'Đã quá hạn' },
 ]
+
+const EMPTY_COUNTS: StudentExamStatusCounts = {
+  OPEN: 0,
+  UPCOMING: 0,
+  COMPLETED: 0,
+  EXPIRED: 0,
+}
 
 const statusMeta: Record<Exclude<ExamFilter, 'ALL'>, { label: string; tone: string; icon: React.ReactNode }> = {
   OPEN: { label: 'Đang mở', tone: 'bg-emerald-50 text-emerald-700 ring-emerald-100', icon: <Timer size={14} /> },
@@ -35,91 +40,63 @@ const statusMeta: Record<Exclude<ExamFilter, 'ALL'>, { label: string; tone: stri
 
 export default function StudentExamsPage() {
   const navigate = useNavigate()
-  const [subjects, setSubjects] = useState<SubjectCard[]>([])
   const [exams, setExams] = useState<StudentExamListItem[]>([])
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: PAGE_SIZE, totalItems: 0, totalPages: 1 })
+  const [statusCounts, setStatusCounts] = useState<StudentExamStatusCounts>(EMPTY_COUNTS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [keyword, setKeyword] = useState('')
+  const [appliedKeyword, setAppliedKeyword] = useState('')
   const [filter, setFilter] = useState<ExamFilter>('ALL')
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setAppliedKeyword(keyword.trim())
+      setPage(1)
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [keyword])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const subjectData = await getStudentSubjects({ page: 1, pageSize: 100 })
-      setSubjects(subjectData.items)
-
-      const timelineResults = await Promise.all(
-        subjectData.items.map(async (subject) => {
-          const timeline = await getTimeline(subject.courseOfferingId, { page: 1, pageSize: 100 })
-          const examItems = timeline.items
-            .filter((item): item is ExamTimelineItem => item.type === 'EXAM')
-          const details = await Promise.all(
-            examItems.map((item) =>
-              getExamDetail(subject.courseOfferingId, item.id).catch(() => null),
-            ),
-          )
-
-          return examItems.map((item, index) => ({
-            ...item,
-            courseCode: subject.subjectCode,
-            subjectName: subject.subjectName,
-            teacherName: subject.teacherName,
-            detail: details[index] ?? undefined,
-          }))
-        }),
-      )
-
-      setExams(timelineResults.flat())
+      const data = await getStudentExamSchedules({
+        page,
+        pageSize: PAGE_SIZE,
+        status: filter,
+        keyword: appliedKeyword || undefined,
+      })
+      setExams(data.items)
+      setPagination(data.pagination)
+      setStatusCounts(data.statusCounts)
     } catch {
       setError('Không thể tải danh sách bài thi.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [appliedKeyword, filter, page])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
 
-  const sortedExams = useMemo(() => [...exams].sort((first, second) => {
-    const firstStatus = getExamStatus(first)
-    const secondStatus = getExamStatus(second)
-    const priority: Record<Exclude<ExamFilter, 'ALL'>, number> = {
-      OPEN: 1,
-      UPCOMING: 2,
-      COMPLETED: 3,
-      EXPIRED: 4,
-    }
-    const priorityDiff = priority[firstStatus] - priority[secondStatus]
-    if (priorityDiff !== 0) return priorityDiff
-    return new Date(first.startTime).getTime() - new Date(second.startTime).getTime()
-  }), [exams])
-
-  const filteredExams = useMemo(() => {
-    const normalizedKeyword = keyword.trim().toLocaleLowerCase('vi')
-    return sortedExams.filter((exam) => {
-      const status = getExamStatus(exam)
-      const matchesFilter = filter === 'ALL' || status === filter
-      const matchesKeyword = !normalizedKeyword || [
-        exam.title,
-        exam.courseCode,
-        exam.subjectName,
-        exam.teacherName,
-      ].some((value) => value.toLocaleLowerCase('vi').includes(normalizedKeyword))
-      return matchesFilter && matchesKeyword
-    })
-  }, [filter, keyword, sortedExams])
-
   const stats = useMemo(() => ({
-    OPEN: exams.filter((exam) => getExamStatus(exam) === 'OPEN').length,
-    UPCOMING: exams.filter((exam) => getExamStatus(exam) === 'UPCOMING').length,
-    COMPLETED: exams.filter((exam) => getExamStatus(exam) === 'COMPLETED').length,
-    EXPIRED: exams.filter((exam) => getExamStatus(exam) === 'EXPIRED').length,
-  }), [exams])
+    OPEN: statusCounts.OPEN,
+    UPCOMING: statusCounts.UPCOMING,
+    COMPLETED: statusCounts.COMPLETED,
+    EXPIRED: statusCounts.EXPIRED,
+  }), [statusCounts])
+
+  const handleFilterChange = (value: ExamFilter) => {
+    setFilter(value)
+    setPage(1)
+  }
 
   const openExam = (exam: StudentExamListItem) => {
-    if (exam.detail?.status === 'SUBMITTED') {
+    if (exam.status === 'COMPLETED') {
       navigate(`/student/course-offerings/${exam.courseOfferingId}/exam-schedules/${exam.id}/result`, {
-        state: { attemptId: exam.detail.attemptId },
+        state: { attemptId: exam.attemptId },
       })
       return
     }
@@ -167,7 +144,7 @@ export default function StudentExamsPage() {
                   <button
                     key={item.value}
                     type="button"
-                    onClick={() => setFilter(item.value)}
+                    onClick={() => handleFilterChange(item.value)}
                     className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
                       filter === item.value
                         ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
@@ -201,66 +178,68 @@ export default function StudentExamsPage() {
 
             {loading && <ExamMessage text="Đang tải danh sách bài thi..." />}
             {!loading && error && <ExamMessage text={error} action={load} />}
-            {!loading && !error && filteredExams.length === 0 && (
-              <ExamMessage text={subjects.length === 0 ? 'Bạn chưa có lớp học phần nào.' : 'Không có bài thi phù hợp với bộ lọc.'} />
+            {!loading && !error && exams.length === 0 && (
+              <ExamMessage text="Không có bài thi phù hợp với bộ lọc." />
             )}
-            {!loading && !error && filteredExams.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse text-left text-sm">
-                  <thead className="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold uppercase text-slate-500">
-                    <tr>
-                      <th className="whitespace-nowrap px-5 py-3">Bài thi</th>
-                      <th className="whitespace-nowrap px-5 py-3">Học phần</th>
-                      <th className="whitespace-nowrap px-5 py-3">Thời gian</th>
-                      <th className="whitespace-nowrap px-5 py-3">Thời lượng</th>
-                      <th className="whitespace-nowrap px-5 py-3">Trạng thái</th>
-                      <th className="whitespace-nowrap px-5 py-3 text-right">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredExams.map((exam) => {
-                      const status = getExamStatus(exam)
-                      const meta = statusMeta[status]
-                      const action = getExamAction(exam)
+            {!loading && !error && exams.length > 0 && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse text-left text-sm">
+                    <thead className="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold uppercase text-slate-500">
+                      <tr>
+                        <th className="whitespace-nowrap px-5 py-3">Bài thi</th>
+                        <th className="whitespace-nowrap px-5 py-3">Học phần</th>
+                        <th className="whitespace-nowrap px-5 py-3">Thời gian</th>
+                        <th className="whitespace-nowrap px-5 py-3">Thời lượng</th>
+                        <th className="whitespace-nowrap px-5 py-3">Trạng thái</th>
+                        <th className="whitespace-nowrap px-5 py-3 text-right">Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {exams.map((exam) => {
+                        const meta = statusMeta[exam.status]
+                        const action = getExamAction(exam)
 
-                      return (
-                        <tr key={`${exam.courseOfferingId}-${exam.id}`} className="hover:bg-gray-50/70">
-                          <td className="px-5 py-4">
-                            <p className="font-bold text-slate-900">{exam.title}</p>
-                            <p className="mt-0.5 text-xs text-slate-500">Giảng viên: {exam.teacherName}</p>
-                          </td>
-                          <td className="whitespace-nowrap px-5 py-4">
-                            <p className="font-semibold text-slate-800">{exam.courseCode}</p>
-                            <p className="mt-0.5 text-xs text-slate-500">{exam.subjectName}</p>
-                          </td>
-                          <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatExamTime(exam)}</td>
-                          <td className="whitespace-nowrap px-5 py-4 text-slate-600">{exam.durationMinutes} phút</td>
-                          <td className="whitespace-nowrap px-5 py-4">
-                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.tone}`}>
-                              {meta.icon}
-                              {meta.label}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() => openExam(exam)}
-                              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
-                                action.primary
-                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                              }`}
-                            >
-                              {action.primary ? <Play size={14} /> : <Eye size={14} />}
-                              {action.label}
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        return (
+                          <tr key={`${exam.courseOfferingId}-${exam.id}`} className="hover:bg-gray-50/70">
+                            <td className="px-5 py-4">
+                              <p className="font-bold text-slate-900">{exam.title}</p>
+                              <p className="mt-0.5 text-xs text-slate-500">Giảng viên: {exam.teacherName}</p>
+                            </td>
+                            <td className="whitespace-nowrap px-5 py-4">
+                              <p className="font-semibold text-slate-800">{exam.courseCode}</p>
+                              <p className="mt-0.5 text-xs text-slate-500">{exam.subjectName}</p>
+                            </td>
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatExamTime(exam)}</td>
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-600">{exam.durationMinutes} phút</td>
+                            <td className="whitespace-nowrap px-5 py-4">
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.tone}`}>
+                                {meta.icon}
+                                {meta.label}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => openExam(exam)}
+                                className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+                                  action.primary
+                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                }`}
+                              >
+                                {action.primary ? <Play size={14} /> : <Eye size={14} />}
+                                {action.label}
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <ExamPagination pagination={pagination} onPageChange={setPage} />
+              </>
             )}
           </section>
         </main>
@@ -292,25 +271,40 @@ function ExamMessage({ text, action }: { text: string; action?: () => void }) {
   )
 }
 
-function getExamStatus(exam: StudentExamListItem): Exclude<ExamFilter, 'ALL'> {
-  if (exam.detail?.status === 'SUBMITTED') return 'COMPLETED'
-  if (exam.detail?.status === 'EXPIRED') return 'EXPIRED'
-  if (exam.detail?.status === 'AVAILABLE') return 'OPEN'
-  if (exam.detail?.status === 'NOT_STARTED') return 'UPCOMING'
+function ExamPagination({ pagination, onPageChange }: { pagination: Pagination; onPageChange: (page: number) => void }) {
+  if (pagination.totalPages <= 1) return null
 
-  const now = Date.now()
-  const start = new Date(exam.startTime).getTime()
-  const end = new Date(exam.endTime).getTime()
-  if (Number.isNaN(start) || Number.isNaN(end)) return 'EXPIRED'
-  if (now < start) return 'UPCOMING'
-  if (now <= end) return 'OPEN'
-  return 'EXPIRED'
+  return (
+    <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs font-medium text-slate-500">
+        Trang {pagination.page}/{pagination.totalPages} · {pagination.totalItems} bài thi
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, pagination.page - 1))}
+          disabled={pagination.page <= 1}
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-slate-600 hover:bg-gray-50 disabled:opacity-50"
+        >
+          <ChevronLeft size={15} /> Trước
+        </button>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(pagination.totalPages, pagination.page + 1))}
+          disabled={pagination.page >= pagination.totalPages}
+          className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-slate-600 hover:bg-gray-50 disabled:opacity-50"
+        >
+          Sau <ChevronRight size={15} />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function getExamAction(exam: StudentExamListItem) {
-  if (exam.detail?.canResume) return { label: 'Tiếp tục', primary: true }
-  if (exam.detail?.canStart) return { label: 'Vào thi', primary: true }
-  if (exam.detail?.status === 'SUBMITTED') return { label: 'Xem kết quả', primary: false }
+  if (exam.canResume) return { label: 'Tiếp tục', primary: true }
+  if (exam.canStart) return { label: 'Vào thi', primary: true }
+  if (exam.status === 'COMPLETED') return { label: 'Xem kết quả', primary: false }
   return { label: 'Xem chi tiết', primary: false }
 }
 

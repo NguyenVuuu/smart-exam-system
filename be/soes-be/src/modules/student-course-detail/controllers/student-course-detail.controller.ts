@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { studentCourseDetailService } from "../services/student-course-detail.service";
 import { NotFoundError } from "../../../errors/AppError";
+import { membersQuerySchema, timelineQuerySchema } from "../validators/student-course-detail.validator";
 
 export async function getCourseHeader(
   req: Request,
@@ -34,8 +35,7 @@ export async function getTimeline(
   try {
     const studentId = req.user!.profileId;
     const courseOfferingId = req.params.courseOfferingId as string;
-    const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 10;
+    const { page, pageSize } = timelineQuerySchema.parse(req.query);
 
     const data = await studentCourseDetailService.getTimeline(
       studentId,
@@ -84,6 +84,48 @@ export async function getPostDetail(
   }
 }
 
+export async function getMaterials(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const studentId = req.user!.profileId;
+    const courseOfferingId = req.params.courseOfferingId as string;
+    const data = await studentCourseDetailService.getMaterials(studentId, courseOfferingId);
+
+    res.status(200).json({
+      success: true,
+      message: "Materials loaded successfully",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function downloadMaterial(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const studentId = req.user!.profileId;
+    const courseOfferingId = req.params.courseOfferingId as string;
+    const materialId = req.params.materialId as string;
+    const file = await studentCourseDetailService.downloadMaterial(studentId, courseOfferingId, materialId);
+
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+    );
+    res.send(file.buffer);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getExamDetail(
   req: Request,
   res: Response,
@@ -122,8 +164,7 @@ export async function getMembers(
   try {
     const studentId = req.user!.profileId;
     const courseOfferingId = req.params.courseOfferingId as string;
-    const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const { page, pageSize } = membersQuerySchema.parse(req.query);
 
     const data = await studentCourseDetailService.getMembers(
       studentId,

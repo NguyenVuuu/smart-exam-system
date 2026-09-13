@@ -49,6 +49,11 @@ export async function setPinned(teacherId: string, courseId: string, postId: str
   return toPostDto(await repo.setPostPinned(postId, isPinned))
 }
 
+export async function setStatus(teacherId: string, courseId: string, postId: string, status: 'DRAFT' | 'PUBLISHED') {
+  await requirePost(teacherId, courseId, postId)
+  return toPostDto(await repo.setPostStatus(postId, status))
+}
+
 export async function remove(teacherId: string, courseId: string, postId: string) {
   await requirePost(teacherId, courseId, postId)
   const attachments = await repo.deletePost(postId)

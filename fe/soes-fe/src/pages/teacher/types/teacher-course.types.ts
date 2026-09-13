@@ -46,6 +46,7 @@ export interface CourseAnnouncement {
   id: string
   title: string
   content: string
+  status: 'DRAFT' | 'PUBLISHED'
   attachedFiles?: Array<{ id: string; name: string; size: string }>
   createdAt: string
   teacherName: string

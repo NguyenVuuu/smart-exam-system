@@ -9,6 +9,7 @@ import {
   pinCoursePost,
   toggleCourseMaterialAi,
   updateCoursePost,
+  updateCoursePostStatus,
   uploadCourseMaterials,
   type PostPayload,
 } from '../api/teacher-courses.api'
@@ -53,6 +54,7 @@ export function useTeacherCourseDetail(id?: string) {
     createPost: (payload: PostPayload) => mutatePost(() => createCoursePost(id!, payload)),
     updatePost: (postId: string, payload: PostPayload) => mutatePost(() => updateCoursePost(id!, postId, payload)),
     pinPost: (postId: string, pinned: boolean) => mutatePost(() => pinCoursePost(id!, postId, pinned)),
+    setPostStatus: (postId: string, status: 'DRAFT' | 'PUBLISHED') => mutatePost(() => updateCoursePostStatus(id!, postId, status)),
     deletePost: (postId: string) => mutatePost(() => deleteCoursePost(id!, postId)),
     downloadAttachment: (postId: string, attachmentId: string, fileName: string) =>
       downloadCoursePostAttachment(id!, postId, attachmentId, fileName),

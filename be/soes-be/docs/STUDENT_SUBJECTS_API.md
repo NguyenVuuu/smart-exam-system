@@ -51,7 +51,7 @@ Authorization: Bearer <accessToken>
         "subjectCode": "JAVA101",
         "subjectName": "Lập trình Java",
         "teacherName": "Tran Thi Bich",
-        "materialCount": 3,
+        "postCount": 3,
         "examCount": 5
       }
     ],
@@ -83,7 +83,7 @@ Authorization: Bearer <accessToken>
 | `subjectCode` | Mã môn học (ví dụ: JAVA101) |
 | `subjectName` | Tên môn học |
 | `teacherName` | Tên giảng viên phụ trách lớp |
-| `materialCount` | Số tài liệu đã tải lên trong lớp |
+| `postCount` | Số bài đăng đã công khai trong lớp |
 | `examCount` | Số bài thi trong lớp mà student được phép nhìn thấy |
 
 ### `pagination`

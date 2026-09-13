@@ -35,15 +35,16 @@ export async function getTeacherProctorAssignments() {
 export type PostPayload = {
   title: string
   content: string
+  status?: 'DRAFT' | 'PUBLISHED'
   attachments?: File[]
   removedAttachmentIds?: string[]
 }
 
-const postFormData = ({ title, content, attachments = [], removedAttachmentIds = [] }: PostPayload) => {
+const postFormData = ({ title, content, status = 'PUBLISHED', attachments = [], removedAttachmentIds = [] }: PostPayload) => {
   const form = new FormData()
   form.set('title', title)
   form.set('content', content)
-  form.set('status', 'PUBLISHED')
+  form.set('status', status)
   if (removedAttachmentIds.length) {
     form.set('removedAttachmentIds', JSON.stringify(removedAttachmentIds))
   }
@@ -67,6 +68,9 @@ export const updateCoursePost = async (courseId: string, postId: string, payload
 
 export const pinCoursePost = (courseId: string, postId: string, isPinned: boolean) => apiClient
   .patch(`/teacher/course-offerings/${courseId}/posts/${postId}/pin`, { isPinned })
+
+export const updateCoursePostStatus = (courseId: string, postId: string, status: 'DRAFT' | 'PUBLISHED') => apiClient
+  .patch(`/teacher/course-offerings/${courseId}/posts/${postId}/status`, { status })
 
 export const deleteCoursePost = (courseId: string, postId: string) => apiClient
   .delete(`/teacher/course-offerings/${courseId}/posts/${postId}`)

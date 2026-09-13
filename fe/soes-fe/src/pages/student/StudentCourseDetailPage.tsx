@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import CourseHeader from './components/course-detail/CourseHeader'
 import CourseTabs, { type CourseTab } from './components/course-detail/CourseTabs'
+import MaterialsList from './components/course-detail/materials/MaterialsList'
 import MembersList from './components/course-detail/members/MembersList'
 import ScoreTable from './components/course-detail/scores/ScoreTable'
 import Timeline from './components/course-detail/timeline/Timeline'
@@ -80,6 +81,9 @@ export default function StudentCourseDetailPage() {
               {/* Tab content */}
               {activeTab === 'timeline' && (
                 <Timeline courseOfferingId={courseOfferingId ?? ''} />
+              )}
+              {activeTab === 'materials' && (
+                <MaterialsList courseOfferingId={courseOfferingId ?? ''} />
               )}
               {activeTab === 'members' && (
                 <MembersList courseOfferingId={courseOfferingId ?? ''} />

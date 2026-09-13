@@ -4,7 +4,7 @@ export interface SubjectCard {
   subjectCode: string
   subjectName: string
   teacherName: string
-  materialCount: number
+  postCount: number
   examCount: number
 }
 

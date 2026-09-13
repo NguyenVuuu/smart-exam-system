@@ -1,4 +1,4 @@
-export type CourseTab = 'timeline' | 'members' | 'scores'
+export type CourseTab = 'timeline' | 'materials' | 'members' | 'scores'
 
 interface CourseTabsProps {
   activeTab: CourseTab
@@ -7,6 +7,7 @@ interface CourseTabsProps {
 
 const TABS: { key: CourseTab; label: string }[] = [
   { key: 'timeline', label: 'Bài đăng' },
+  { key: 'materials', label: 'Tài liệu' },
   { key: 'members', label: 'Thành viên' },
   { key: 'scores', label: 'Điểm' },
 ]
