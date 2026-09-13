@@ -70,7 +70,7 @@ export async function findStudentSubjects(params: SubjectQueryParams) {
               select: { user: { select: { fullName: true } } },
             },
             _count: {
-              select: { materials: true },
+              select: { posts: { where: { status: 'PUBLISHED' } } },
             },
             scheduleCourses: {
               where: {
