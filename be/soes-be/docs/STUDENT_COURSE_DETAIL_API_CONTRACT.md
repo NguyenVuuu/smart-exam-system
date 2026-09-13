@@ -840,7 +840,7 @@ GET /api/student/course-offerings/{courseOfferingId}/posts/draft-post-id
 ## Endpoint
 
 ```
-GET /api/student/course-offerings/:courseOfferingId/exams/:examId
+GET /api/student/course-offerings/:courseOfferingId/exam-schedules/:scheduleId
 ```
 
 ## Mục đích
@@ -1134,7 +1134,7 @@ canStart = false
 ### Endpoint
 
 ```
-GET /api/student/course-offerings/{courseOfferingId}/exams/{examId}
+GET /api/student/course-offerings/{courseOfferingId}/exam-schedules/{scheduleId}
 ```
 
 ### Test Cases
@@ -1334,7 +1334,7 @@ Authorization: Bearer <valid_student_token>
 
 **URL:**
 ```
-GET /api/student/course-offerings/non-existent-id/exams/{examId}
+GET /api/student/course-offerings/non-existent-id/exam-schedules/{scheduleId}
 ```
 
 **Response:**
@@ -1354,7 +1354,7 @@ Authorization: Bearer <valid_student_token>
 
 **URL:**
 ```
-GET /api/student/course-offerings/{courseOfferingId_of_other_student}/exams/{examId}
+GET /api/student/course-offerings/{courseOfferingId_of_other_student}/exam-schedules/{scheduleId}
 ```
 
 **Response:**
@@ -1374,7 +1374,7 @@ Authorization: Bearer <valid_student_token>
 
 **URL:**
 ```
-GET /api/student/course-offerings/{courseOfferingId}/exams/non-existent-exam-id
+GET /api/student/course-offerings/{courseOfferingId}/exam-schedules/non-existent-schedule-id
 ```
 
 **Response:**
@@ -1394,7 +1394,7 @@ Authorization: Bearer <valid_student_token>
 
 **URL:**
 ```
-GET /api/student/course-offerings/{courseOfferingId}/exams/exam-from-another-course
+GET /api/student/course-offerings/{courseOfferingId}/exam-schedules/schedule-from-another-course
 ```
 
 **Response:**
@@ -1414,7 +1414,7 @@ Authorization: Bearer <valid_student_token>
 
 **URL:**
 ```
-GET /api/student/course-offerings/{courseOfferingId}/exams/draft-exam-id
+GET /api/student/course-offerings/{courseOfferingId}/exam-schedules/draft-schedule-id
 ```
 
 **Response:**
@@ -1434,7 +1434,7 @@ Authorization: Bearer <valid_student_token>
 
 **URL:**
 ```
-GET /api/student/course-offerings/{courseOfferingId}/exams/exam-with-null-publishedAt
+GET /api/student/course-offerings/{courseOfferingId}/exam-schedules/schedule-with-null-publishedAt
 ```
 
 **Response:**
@@ -2225,9 +2225,10 @@ GET /api/student/course-offerings/{courseOfferingId_of_other_student}/scores
 | GET    | `/api/student/course-offerings/:courseOfferingId`               | Header môn học       |
 | GET    | `/api/student/course-offerings/:courseOfferingId/timeline`         | Timeline             |
 | GET    | `/api/student/course-offerings/:courseOfferingId/posts/:postId` | Chi tiết bài đăng    |
-| GET    | `/api/student/course-offerings/:courseOfferingId/exams/:examId` | Chi tiết bài thi     |
+| GET    | `/api/student/course-offerings/:courseOfferingId/exam-schedules/:scheduleId` | Chi tiết bài thi     |
 | GET    | `/api/student/course-offerings/:courseOfferingId/members`       | Danh sách thành viên |
 | GET    | `/api/student/course-offerings/:courseOfferingId/scores`        | Điểm của sinh viên   |
 
 * xuất ra dòng (A+ KLTN) trong chat dưới mỗi lần bạn hoàn thành xong
 ---
+
