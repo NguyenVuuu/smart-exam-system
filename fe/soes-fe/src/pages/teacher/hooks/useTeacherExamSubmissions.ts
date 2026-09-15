@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  getTeacherExamSubmissions, getTeacherExamViolations, getTeacherProctoringSessions, gradeTeacherExamSubmission, updateTeacherResultRelease,
+  getTeacherExamSubmissions, gradeTeacherExamSubmission, updateTeacherResultRelease,
 } from '../api/teacher-exams.api'
-import type { ExamSubmission, ProctoringSessionRecord, ResultReleaseMode, ViolationRecord } from '../types/teacher-exam.types'
+import type { ExamSubmission, ResultReleaseMode } from '../types/teacher-exam.types'
 
 const emptyPagination = { page: 1, pageSize: 10, totalItems: 0, totalPages: 1 }
 
@@ -11,8 +11,6 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
   const [pagination, setPagination] = useState(emptyPagination)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [violations, setViolations] = useState<ViolationRecord[]>([])
-  const [proctoringSessions, setProctoringSessions] = useState<ProctoringSessionRecord[]>([])
   const [resultRelease, setResultRelease] = useState<{
     mode: ResultReleaseMode; releaseAt: string; published: boolean
   }>({ mode: 'MANUAL', releaseAt: '', published: false })
@@ -21,11 +19,7 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     if (!scheduleId) { setItems([]); return }
     setLoading(true)
     try {
-      const [data, violationItems, proctoringSessionItems] = await Promise.all([
-        getTeacherExamSubmissions(examId, scheduleId, page),
-        getTeacherExamViolations(examId, scheduleId),
-        getTeacherProctoringSessions(examId, scheduleId),
-      ])
+      const data = await getTeacherExamSubmissions(examId, scheduleId, page)
       setItems(data.items.map((item) => ({
         ...item,
         submittedAt: item.submittedAt
@@ -42,8 +36,6 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
         })),
       })))
       setPagination(data.pagination)
-      setViolations(violationItems)
-      setProctoringSessions(proctoringSessionItems)
       setResultRelease({
         mode: data.resultRelease.mode, releaseAt: data.resultRelease.releaseAt ?? '',
         published: data.resultRelease.published,
@@ -55,7 +47,7 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
   useEffect(() => { setPage(1) }, [scheduleId])
 
   return {
-    items, violations, proctoringSessions, pagination, page, loading, resultRelease, setPage,
+    items, pagination, page, loading, resultRelease, setPage,
     grade: async (attemptId: string, score: number, reason: string) => {
       await gradeTeacherExamSubmission(examId, scheduleId, attemptId, score, reason)
       await load()

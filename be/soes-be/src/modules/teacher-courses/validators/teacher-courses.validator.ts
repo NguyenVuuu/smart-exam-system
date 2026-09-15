@@ -14,5 +14,12 @@ export const courseCollectionQuerySchema = z.object({
   keyword: z.string().trim().max(200).optional(),
 })
 
+export const proctorAssignmentsQuerySchema = z.object({
+  ...paginationFields,
+  keyword: z.string().trim().max(200).optional(),
+  status: z.enum(['SCHEDULED', 'OPEN', 'CLOSED']).optional(),
+})
+
 export type TeacherCoursesQuery = z.infer<typeof teacherCoursesQuerySchema>
 export type CourseCollectionQuery = z.infer<typeof courseCollectionQuerySchema>
+export type ProctorAssignmentsQuery = z.infer<typeof proctorAssignmentsQuerySchema>

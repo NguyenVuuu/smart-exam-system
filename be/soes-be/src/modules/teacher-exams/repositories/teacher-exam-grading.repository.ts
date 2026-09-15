@@ -185,13 +185,25 @@ export function listViolations(
   courseOfferingIds: string[],
   page: number,
   pageSize: number,
-  filters: { studentId?: string; violationType?: Prisma.ViolationWhereInput['violationType'] } = {},
+  filters: {
+    keyword?: string
+    studentId?: string
+    violationType?: Prisma.ViolationWhereInput['violationType']
+  } = {},
 ) {
   const where: Prisma.ViolationWhereInput = {
     attempt: {
       examScheduleId: scheduleId,
       courseOfferingId: { in: courseOfferingIds },
       ...(filters.studentId ? { studentId: filters.studentId } : {}),
+      ...(filters.keyword ? {
+        student: {
+          OR: [
+            { studentCode: { contains: filters.keyword, mode: 'insensitive' } },
+            { user: { fullName: { contains: filters.keyword, mode: 'insensitive' } } },
+          ],
+        },
+      } : {}),
     },
     ...(filters.violationType ? { violationType: filters.violationType } : {}),
   }

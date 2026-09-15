@@ -1,5 +1,6 @@
-import { Calendar, Clock, Eye, GraduationCap, ShieldCheck, X } from 'lucide-react'
+import { Calendar, Clock, GraduationCap, X } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
+import ProctorAssignmentAction from '../proctoring/ProctorAssignmentAction'
 import type {
   ProctorAssignmentApiDto,
   ProctorAssignmentStatus,
@@ -98,30 +99,14 @@ export default function TeacherDayDetailModal({
                       </div>
                     </div>
 
-                    {(isLive || item.status === 'SCHEDULED') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose()
-                          onOpenProctoring(item)
-                        }}
-                        className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-all shadow-2xs ${
-                          isLive
-                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        {isLive ? (
-                          <>
-                            <ShieldCheck size={16} /> Vào giám sát
-                          </>
-                        ) : (
-                          <>
-                            <Eye size={16} /> Xem chi tiết
-                          </>
-                        )}
-                      </button>
-                    )}
+                    <ProctorAssignmentAction
+                      assignment={item}
+                      variant="label"
+                      onOpen={(assignment) => {
+                        onClose()
+                        onOpenProctoring(assignment)
+                      }}
+                    />
                   </div>
 
                   <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-600 border-t border-gray-100 pt-2.5">

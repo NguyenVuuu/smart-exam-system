@@ -209,7 +209,7 @@ export default function DataTable<T>({
                             } ${col.className || ''}`}
                         >
                           {col.render
-                            ? col.render(item, (currentPage - 1) * pageSize + index)
+                            ? col.render(item, (activePage - 1) * pageSize + index)
                             : col.accessorKey
                               ? String(item[col.accessorKey] ?? '')
                               : null}

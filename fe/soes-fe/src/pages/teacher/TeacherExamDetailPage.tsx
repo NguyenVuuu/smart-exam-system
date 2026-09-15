@@ -12,6 +12,13 @@ import ExamSessionDetailModal from './components/exam-detail/session/ExamSession
 import { ExamDetailBackButton } from './components/exam-detail/ExamDetailBackButton'
 import { ExamDetailHeader } from './components/exam-detail/ExamDetailHeader'
 import { ExamDetailTabs, type ExamDetailTab } from './components/exam-detail/ExamDetailTabsNav'
+import {
+  CourseSubmissionHeader,
+  CourseReviewTabs,
+  CourseReviewUnavailable,
+  CourseViolationLog,
+  type CourseReviewTab,
+} from './components/exam-detail/CourseExamReviewSection'
 import { ExamOverviewTab } from './components/exam-detail/ExamOverviewTab'
 import { ExamProctoringTab } from './components/exam-detail/ExamProctoringTab'
 import { ExamSubmissionsTab } from './components/exam-detail/ExamSubmissionsTab'
@@ -22,21 +29,21 @@ import type {
   ExamSchedule,
   ExamSubmission,
   ResultReleaseMode,
-  ViolationRecord,
 } from './types/teacher-exam.types'
+import { copyTeacherExam } from './api/teacher-exams.api'
 import { toast } from 'sonner'
 import { useTeacherExamDetail } from './hooks/useTeacherExamDetail'
 import { useTeacherExamSchedules } from './hooks/useTeacherExamSchedules'
 import CancelTeacherScheduleDialog from './components/exam-detail/CancelTeacherScheduleDialog'
 import { useTeacherExamSubmissions } from './hooks/useTeacherExamSubmissions'
-import { useTeacherProctoringSessions } from './hooks/useTeacherProctoringSessions'
+import { useTeacherExamViolations } from './hooks/useTeacherExamViolations'
 import ExamDistributionLockDialog from './components/exam-detail/ExamDistributionLockDialog'
 import { useExamDistributionLock } from './hooks/useExamDistributionLock'
 import { useExamStudentVisibility } from './hooks/useExamStudentVisibility'
 import { useTeacherExamDefaults } from './hooks/useTeacherExamDefaults'
-import { Eye, FileCheck, ShieldAlert } from 'lucide-react'
 
-type CourseReviewTab = 'submissions' | 'violations'
+const isClosedSession = (session?: ExamSchedule | null) =>
+  Boolean(session && (session.status === 'CLOSED' || (session.endTime && new Date(session.endTime) <= new Date())))
 
 export default function TeacherExamDetailPage({ mode = 'management' }: { mode?: 'management' | 'course-submissions' }) {
   const { examId, courseOfferingId } = useParams<{ examId: string; courseOfferingId?: string }>()
@@ -94,7 +101,13 @@ function TeacherExamDetailContent({
     : selectedSession?.courseCode
   const selectedSessionClosed = isClosedSession(selectedSession)
   const submissionData = useTeacherExamSubmissions(exam.id, selectedSessionClosed ? selectedSessionId : '')
-  const proctoringData = useTeacherProctoringSessions(exam.id, selectedSessionId)
+  const violationLogVisible = isCourseSubmissionView
+    ? courseReviewTab === 'violations'
+    : activeTab === 'proctoring'
+  const violationData = useTeacherExamViolations(
+    exam.id,
+    selectedSessionClosed && violationLogVisible ? selectedSessionId : '',
+  )
   const hasVisibleSession = visibleSessions.length > 0
   const reviewUnavailableTitle = schedulesLoading
     ? 'Đang tải ca thi'
@@ -153,13 +166,28 @@ function TeacherExamDetailContent({
     setSelectedSessionId(sessionId)
   }
 
+  const handleCopyExam = async () => {
+    try {
+      const copied = await copyTeacherExam(exam.id)
+      toast.success('Đã sao chép đề thi thành công')
+      navigate(`/teacher/exams/${copied.id}/edit`)
+    } catch {
+      toast.error('Không thể sao chép đề thi')
+    }
+  }
+
   const renderActiveTab = () => {
     if (isFinalManagementView) return null
 
     if (isCourseSubmissionView && courseReviewTab === 'violations') {
       return selectedSessionClosed ? (
         <CourseViolationLog
-          violations={submissionData.violations}
+          violations={violationData.items}
+          pagination={violationData.pagination}
+          loading={violationData.loading}
+          error={violationData.error}
+          onPageChange={violationData.setPage}
+          onRefresh={violationData.reload}
           onViewEvidence={setSelectedEvidenceUrl}
         />
       ) : (
@@ -177,41 +205,42 @@ function TeacherExamDetailContent({
         return (
           <ExamSessionsTab
             sessions={sessions}
-            canCreate={canManageSchedules}
             onCreateSession={() => {
               setEditingSession(null)
               setIsAssignModalOpen(true)
             }}
-            onViewSession={setViewingSession}
-            onEditSession={
-              canManageSchedules
-                ? (session) => {
-                    setEditingSession(session)
-                    setIsAssignModalOpen(true)
-                  }
-                : undefined
-            }
-            onDeleteSession={
-              canManageSchedules
-                ? (sessionId) => setCancellingSession(sessions.find(({ id }) => id === sessionId) ?? null)
-                : undefined
-            }
+            onViewSession={(session) => setViewingSession(session)}
+            onEditSession={(session) => {
+              setEditingSession(session)
+              setIsAssignModalOpen(true)
+            }}
+            onDeleteSession={(sessionId) => {
+              const targetSession = sessions.find((s) => s.id === sessionId)
+              if (targetSession) setCancellingSession(targetSession)
+            }}
+            canCreate={canManageSchedules}
           />
         )
       }
+      case 'overview':
+        return <ExamOverviewTab exam={exam} resultReleaseText={resultReleaseText} />
       case 'proctoring':
         return (
           <ExamProctoringTab
-            violations={submissionData.violations}
-            proctoringSessions={proctoringData.items}
-            isLoadingProctoringSessions={proctoringData.loading}
+            violations={violationData.items}
             sessions={sessions}
             selectedSessionId={selectedSessionId}
             onSessionChange={selectSession}
             onViewEvidence={setSelectedEvidenceUrl}
+            pagination={violationData.pagination}
+            loading={violationData.loading}
+            error={violationData.error}
+            onPageChange={violationData.setPage}
+            onRefresh={violationData.reload}
           />
         )
       case 'submissions':
+      default:
         return (
           <ExamSubmissionsTab
             submissions={submissionData.items}
@@ -223,8 +252,8 @@ function TeacherExamDetailContent({
             resultReleaseAt={resultReleaseAt}
             isResultsPublished={isResultsPublished}
             onResultReleaseModeChange={changeResultReleaseMode}
-            onResultReleaseAtChange={(value) => void submissionData.release({ mode: 'SCHEDULED', releaseAt: value, published: false })}
-            onResultsPublishedChange={(value) => void submissionData.release({ mode: 'MANUAL', releaseAt: '', published: value })}
+            onResultReleaseAtChange={(at) => void submissionData.release({ mode: resultReleaseMode, releaseAt: at, published: isResultsPublished })}
+            onResultsPublishedChange={(pub) => void submissionData.release({ mode: resultReleaseMode, releaseAt: resultReleaseAt, published: pub })}
             onViewSubmission={setViewingSubmission}
             onEditSubmission={openScoreOverride}
             loading={submissionData.loading}
@@ -236,70 +265,68 @@ function TeacherExamDetailContent({
             unavailableDescription={reviewUnavailableDescription}
           />
         )
-      case 'overview':
-        return <ExamOverviewTab exam={exam} resultReleaseText={resultReleaseText} />
-      default:
-        return null
     }
   }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
-
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="mx-auto max-w-7xl space-y-6">
+            <ExamDetailBackButton
+              onBack={() => navigate('/teacher/exams')}
+              label={isCourseSubmissionView ? 'Quay lại danh sách bài thi' : 'Quay lại quản lý đề thi'}
+            />
 
-        <main className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">
-          <ExamDetailBackButton
-            onBack={() => navigate(isCourseSubmissionView && courseOfferingId ? `/teacher/courses/${courseOfferingId}` : '/teacher/exams')}
-            label={isCourseSubmissionView ? 'Quay lại lớp học phần' : 'Quay lại quản lý đề thi'}
-          />
-          {isCourseSubmissionView ? (
-            <>
-              <CourseSubmissionHeader
-                exam={exam}
-                courseCode={selectedCourseCode ?? selectedSession?.courseCode}
-              />
-              <CourseReviewTabs activeTab={courseReviewTab} onChange={setCourseReviewTab} />
-            </>
-          ) : (
-            <>
+            {isCourseSubmissionView ? (
+              <CourseSubmissionHeader exam={exam} courseCode={selectedCourseCode} />
+            ) : (
               <ExamDetailHeader
                 exam={exam}
                 onEdit={() => navigate(`/teacher/exams/${exam.id}/edit`)}
-                onPublish={() => {
-                  setEditingSession(null)
-                  setIsAssignModalOpen(true)
-                }}
+                onPublish={() => void 0}
                 onPreview={() => setIsPreviewOpen(true)}
-                onCopy={() => navigate(`/teacher/exams/create?copyFrom=${exam.id}`)}
-                onToggleStudentVisibility={() => void studentVisibility.update(
-                  exam.studentVisibility === 'HIDDEN' ? 'VISIBLE' : 'HIDDEN',
-                )}
-                visibilitySaving={studentVisibility.saving}
+                onCopy={() => void handleCopyExam()}
+                onToggleStudentVisibility={() => void studentVisibility.update(exam.studentVisibility === 'VISIBLE' ? 'HIDDEN' : 'VISIBLE')}
                 onLockDistribution={distributionLock.requestLock}
                 onUnlockDistribution={distributionLock.requestUnlock}
-                contentOnly={isFinalManagementView}
+                visibilitySaving={studentVisibility.saving}
               />
-              {!isFinalManagementView && <ExamDetailTabs activeTab={activeTab} onChange={setActiveTab} />}
-            </>
-          )}
-          {renderActiveTab()}
+            )}
+
+            {isCourseSubmissionView ? (
+              <CourseReviewTabs
+                activeTab={courseReviewTab}
+                onChange={setCourseReviewTab}
+              />
+            ) : (
+              <ExamDetailTabs
+                activeTab={activeTab}
+                onChange={setActiveTab}
+              />
+            )}
+
+            {renderActiveTab()}
+          </div>
         </main>
       </div>
 
       <ScoreOverrideModal
         submission={selectedSubmission}
+        maxScore={exam.totalPoints}
         overrideScoreInput={overrideScoreInput}
         overrideReason={overrideReason}
-        maxScore={exam.totalPoints}
         onScoreChange={setOverrideScoreInput}
         onReasonChange={setOverrideReason}
         onClose={() => setSelectedSubmission(null)}
         onApply={() => void applyScoreOverride()}
       />
-      <EvidenceImageModal imageUrl={selectedEvidenceUrl} onClose={() => setSelectedEvidenceUrl(null)} />
+      <EvidenceImageModal
+        imageUrl={selectedEvidenceUrl}
+        onClose={() => setSelectedEvidenceUrl(null)}
+      />
       <StudentSubmissionReviewModal
         exam={exam}
         submission={viewingSubmission}
@@ -377,181 +404,6 @@ function TeacherExamDetailContent({
       />
     </div>
   )
-}
-
-function CourseSubmissionHeader({ exam, courseCode }: { exam: Exam; courseCode?: string }) {
-  return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-      <p className="text-xs font-semibold uppercase text-blue-600">Kết quả ca thi</p>
-      <div className="mt-2 min-w-0">
-        <h1 className="truncate text-xl font-semibold leading-7 text-gray-950" title={exam.title}>
-          {exam.title}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {courseCode ? `${courseCode} • ` : ''}{exam.subjectName} • {exam.totalPoints} điểm
-        </p>
-      </div>
-    </section>
-  )
-}
-
-function CourseReviewTabs({
-  activeTab,
-  onChange,
-}: {
-  activeTab: CourseReviewTab
-  onChange: (tab: CourseReviewTab) => void
-}) {
-  const tabs = [
-    { id: 'submissions' as const, label: 'Bài nộp & Phúc khảo', icon: FileCheck },
-    { id: 'violations' as const, label: 'Nhật ký vi phạm', icon: ShieldAlert },
-  ]
-
-  return (
-    <nav className="flex gap-1 border-b border-gray-200" aria-label="Nội dung bài thi của lớp">
-      {tabs.map(({ id, label, icon: Icon }) => {
-        const active = activeTab === id
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id)}
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-              active
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'
-            }`}
-          >
-            <Icon size={17} />
-            {label}
-          </button>
-        )
-      })}
-    </nav>
-  )
-}
-
-function CourseReviewUnavailable({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
-      <p className="text-base font-semibold text-gray-900">{title}</p>
-      <p className="mt-1 text-sm text-gray-500">{description}</p>
-    </div>
-  )
-}
-
-const violationTypeLabels: Record<ViolationRecord['type'], string> = {
-  TAB_SWITCH: 'Chuyển tab',
-  FULLSCREEN_EXIT: 'Thoát toàn màn hình',
-  COPY_PASTE: 'Sao chép hoặc dán',
-  RIGHT_CLICK: 'Chuột phải',
-  NO_FACE: 'Không nhận diện khuôn mặt',
-  MULTIPLE_FACES: 'Phát hiện nhiều khuôn mặt',
-  LOOKING_AWAY: 'Sinh viên nhìn lệch khỏi màn hình',
-  CAMERA_BLOCKED: 'Camera bị che hoặc chặn',
-  CAMERA_DISCONNECTED: 'Camera tắt hoặc mất kết nối',
-  CAMERA_PERMISSION_DENIED: 'Quyền camera bị từ chối',
-  SCREEN_SHARE_STOPPED: 'Dừng chia sẻ màn hình',
-  SCREEN_PERMISSION_DENIED: 'Từ chối chia sẻ màn hình',
-  PROCTOR_WEBCAM_CAPTURE: 'Giám thị chụp webcam',
-  PROCTOR_SCREEN_CAPTURE: 'Giám thị chụp màn hình',
-  IP_CHANGED: 'Thay đổi địa chỉ IP',
-  HEARTBEAT_MISSED: 'Mất kết nối giám sát',
-  MULTIPLE_ACTIVE_SESSIONS: 'Nhiều phiên thi hoạt động',
-  INACTIVITY: 'Không hoạt động',
-}
-
-const violationSeverityLabels: Record<ViolationRecord['severity'], string> = {
-  LOW: 'Thấp',
-  MEDIUM: 'Trung bình',
-  HIGH: 'Cao',
-}
-
-const violationSeverityClasses: Record<ViolationRecord['severity'], string> = {
-  LOW: 'bg-gray-100 text-gray-700',
-  MEDIUM: 'bg-amber-50 text-amber-700',
-  HIGH: 'bg-rose-50 text-rose-700',
-}
-
-function CourseViolationLog({
-  violations,
-  onViewEvidence,
-}: {
-  violations: ViolationRecord[]
-  onViewEvidence: (url: string) => void
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-          <ShieldAlert size={18} />
-        </span>
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">Nhật ký vi phạm của lớp</h2>
-          <p className="text-sm text-gray-500">Chỉ hiển thị sự kiện của sinh viên trong ca thi đang xem.</p>
-        </div>
-      </div>
-
-      {violations.length === 0 ? (
-        <div className="px-6 py-10 text-center text-sm text-gray-500">
-          Chưa ghi nhận vi phạm trong ca thi này.
-        </div>
-      ) : (
-        <div className="divide-y divide-gray-100">
-          {violations.map((violation) => (
-            <div key={violation.id} className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.3fr)_150px_130px_110px_44px] md:items-center">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-gray-900">{violation.studentName}</p>
-                <p className="text-xs text-gray-500">{violation.studentCode}</p>
-              </div>
-              <p className="text-sm text-gray-700">{violationTypeLabels[violation.type]}</p>
-              <p className="text-sm text-gray-500">{formatViolationTime(violation.timestamp)}</p>
-              <p className="text-sm text-gray-500">{formatViolationDuration(violation)}</p>
-              <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${violationSeverityClasses[violation.severity]}`}>
-                {violationSeverityLabels[violation.severity]}
-              </span>
-              {violation.evidenceImageUrl ? (
-                <button
-                  type="button"
-                  title="Xem bằng chứng"
-                  onClick={() => onViewEvidence(violation.evidenceImageUrl!)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
-                >
-                  <Eye size={17} />
-                </button>
-              ) : <span />}
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  )
-}
-
-function formatViolationTime(value: string) {
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value))
-}
-
-function formatViolationDuration(violation: ViolationRecord) {
-  if (violation.durationSeconds === null && violation.endedAt === null) return 'Đang diễn ra'
-  if (violation.durationSeconds === undefined || violation.durationSeconds === null) return '-'
-
-  if (violation.durationSeconds < 60) return `${violation.durationSeconds}s`
-
-  const minutes = Math.floor(violation.durationSeconds / 60)
-  const seconds = violation.durationSeconds % 60
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`
-}
-
-function isClosedSession(session?: ExamSchedule) {
-  if (!session || session.status === 'DRAFT' || session.status === 'CANCELLED') return false
-  return session.status === 'CLOSED' || new Date(session.endTime).getTime() <= Date.now()
 }
 
 function ExamDetailState({ message, onRetry }: { message: string; onRetry?: () => void }) {

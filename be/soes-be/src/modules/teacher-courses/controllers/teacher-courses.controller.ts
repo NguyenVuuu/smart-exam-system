@@ -3,6 +3,7 @@ import { sendSuccess as send } from "../../../utils/httpResponse";
 import * as service from "../services/teacher-courses.service";
 import {
   courseCollectionQuerySchema,
+  proctorAssignmentsQuerySchema,
   teacherCoursesQuerySchema,
 } from "../validators/teacher-courses.validator";
 import { z } from "zod";
@@ -30,7 +31,13 @@ export const getCourse = async (req: Request, res: Response) =>
     ),
   );
 export const listProctorAssignments = async (req: Request, res: Response) =>
-  send(res, await service.listProctorAssignments(req.user!.profileId));
+  send(
+    res,
+    await service.listProctorAssignments(
+      req.user!.profileId,
+      proctorAssignmentsQuerySchema.parse(req.query),
+    ),
+  );
 export const listStudents = async (req: Request, res: Response) =>
   send(
     res,

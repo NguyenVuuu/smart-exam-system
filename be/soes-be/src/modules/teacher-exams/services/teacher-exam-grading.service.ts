@@ -44,6 +44,7 @@ export async function listViolations(teacherId: string, examId: string, schedule
   if (!schedule) throw new NotFoundError('Exam schedule not found')
   const courseOfferingIds = schedule.scheduleCourses.map((course) => course.courseOfferingId)
   const [total, rows] = await repo.listViolations(scheduleId, courseOfferingIds, query.page, query.pageSize, {
+    keyword: query.keyword,
     studentId: query.studentId,
     violationType: query.violationType,
   })

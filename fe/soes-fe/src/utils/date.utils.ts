@@ -36,11 +36,13 @@ export function updateClientSystemDateTimeSettings(timezone?: string, dateFormat
 export interface ParsedDateTime {
   date: string // YYYY-MM-DD
   time: string // HH:mm
+  timeWithSeconds: string // HH:mm:ss
   day: string
   month: string
   year: string
   hours: string
   minutes: string
+  seconds: string
   isValid: boolean
 }
 
@@ -49,7 +51,7 @@ export interface ParsedDateTime {
  */
 export function parseDateTimeParts(value?: string | null, customTimezone?: string): ParsedDateTime {
   if (!value) {
-    return { date: '', time: '', day: '', month: '', year: '', hours: '', minutes: '', isValid: false }
+    return { date: '', time: '', timeWithSeconds: '', day: '', month: '', year: '', hours: '', minutes: '', seconds: '', isValid: false }
   }
 
   const dateObj = new Date(value)
@@ -63,6 +65,7 @@ export function parseDateTimeParts(value?: string | null, customTimezone?: strin
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
         hour12: false,
       })
       const parts = formatter.formatToParts(dateObj)
@@ -71,15 +74,18 @@ export function parseDateTimeParts(value?: string | null, customTimezone?: strin
       const year = parts.find((p) => p.type === 'year')?.value || '1970'
       const hours = parts.find((p) => p.type === 'hour')?.value || '00'
       const minutes = parts.find((p) => p.type === 'minute')?.value || '00'
+      const seconds = parts.find((p) => p.type === 'second')?.value || '00'
 
       return {
         date: `${year}-${month}-${day}`,
         time: `${hours}:${minutes}`,
+        timeWithSeconds: `${hours}:${minutes}:${seconds}`,
         day,
         month,
         year,
         hours,
         minutes,
+        seconds,
         isValid: true,
       }
     } catch {
@@ -88,15 +94,18 @@ export function parseDateTimeParts(value?: string | null, customTimezone?: strin
       const day = String(dateObj.getDate()).padStart(2, '0')
       const hours = String(dateObj.getHours()).padStart(2, '0')
       const minutes = String(dateObj.getMinutes()).padStart(2, '0')
+      const seconds = String(dateObj.getSeconds()).padStart(2, '0')
 
       return {
         date: `${year}-${month}-${day}`,
         time: `${hours}:${minutes}`,
+        timeWithSeconds: `${hours}:${minutes}:${seconds}`,
         day,
         month,
         year,
         hours,
         minutes,
+        seconds,
         isValid: true,
       }
     }
@@ -106,15 +115,18 @@ export function parseDateTimeParts(value?: string | null, customTimezone?: strin
   const [rawDate = '', rawTime = ''] = value.includes('T') ? value.split('T') : value.split(' ')
   const [year = '', month = '', day = ''] = rawDate.split('-')
   const time = rawTime.slice(0, 5)
+  const seconds = rawTime.slice(6, 8) || '00'
 
   return {
     date: rawDate,
     time,
+    timeWithSeconds: `${time}:${seconds}`,
     day,
     month,
     year,
     hours: time.slice(0, 2),
     minutes: time.slice(3, 5),
+    seconds,
     isValid: Boolean(rawDate),
   }
 }
@@ -150,12 +162,31 @@ export function formatTime(value?: string | null): string {
 }
 
 /**
- * Định dạng ngày và giờ theo cấu hình hệ thống
+ * Định dạng giờ có giây: HH:mm:ss
+ */
+export function formatTimeWithSeconds(value?: string | null): string {
+  const parts = parseDateTimeParts(value)
+  if (!parts.isValid) return '-'
+  return parts.timeWithSeconds
+}
+
+/**
+ * Định dạng ngày và giờ theo cấu hình hệ thống (HH:mm DD/MM/YYYY hoặc theo customFormat)
  */
 export function formatDateTime(value?: string | null, customFormat?: DateFormatPattern): string {
   const parts = parseDateTimeParts(value)
   if (!parts.isValid) return '-'
   return `${renderFormattedDate(parts.day, parts.month, parts.year, customFormat)} ${parts.time}`
+}
+
+/**
+ * Định dạng ngày giờ chi tiết bao gồm giây (dùng cho nhật ký vi phạm, giám sát ca thi):
+ * Ví dụ: 17:25:07 07/09/2026
+ */
+export function formatViolationDateTime(value?: string | null, customFormat?: DateFormatPattern): string {
+  const parts = parseDateTimeParts(value)
+  if (!parts.isValid) return '-'
+  return `${parts.timeWithSeconds} ${renderFormattedDate(parts.day, parts.month, parts.year, customFormat)}`
 }
 
 /**

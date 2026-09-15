@@ -82,7 +82,8 @@ export default function TeacherInvigilationSchedulePage() {
   }, [filteredAssignments, page])
 
   const openProctoring = (assignment: ProctorAssignmentApiDto) => {
-    navigate(`/teacher/proctoring?scheduleId=${encodeURIComponent(assignment.scheduleId)}&courseOfferingId=${encodeURIComponent(assignment.courseOffering.id)}`)
+    const tab = assignment.status === 'CLOSED' ? 'violations' : 'live'
+    navigate(`/teacher/proctoring?scheduleId=${encodeURIComponent(assignment.scheduleId)}&courseOfferingId=${encodeURIComponent(assignment.courseOffering.id)}&tab=${tab}&scheduleStatus=${assignment.status}&from=invigilation`)
   }
 
   const handleSelectDay = (date: Date, items: ProctorAssignmentApiDto[]) => {
