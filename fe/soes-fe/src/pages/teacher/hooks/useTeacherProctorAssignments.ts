@@ -1,25 +1,27 @@
-import { useCallback, useEffect, useState } from 'react'
-import { getTeacherProctorAssignments } from '../api/teacher-courses.api'
-import type { ProctorAssignmentApiDto } from '../types/teacher-course-api.types'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { getTeacherProctorAssignments, type ProctorAssignmentQuery } from '../api/teacher-courses.api'
+import type { TeacherPage } from '../types/teacher-course-api.types'
 
-export function useTeacherProctorAssignments() {
-  const [assignments, setAssignments] = useState<ProctorAssignmentApiDto[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+const defaultQuery: ProctorAssignmentQuery = { page: 1, pageSize: 100 }
+const emptyPagination: TeacherPage<never>['pagination'] = {
+  page: 1,
+  pageSize: 100,
+  totalItems: 0,
+  totalPages: 1,
+}
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setAssignments(await getTeacherProctorAssignments())
-    } catch {
-      setError('Không thể tải lịch coi thi được phân công.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+export function useTeacherProctorAssignments(query: ProctorAssignmentQuery = defaultQuery) {
+  const assignmentsQuery = useQuery({
+    queryKey: ['teacher-proctor-assignments', query],
+    queryFn: () => getTeacherProctorAssignments(query),
+    placeholderData: keepPreviousData,
+  })
 
-  useEffect(() => { void load() }, [load])
-
-  return { assignments, loading, error, retry: load }
+  return {
+    assignments: assignmentsQuery.data?.items ?? [],
+    pagination: assignmentsQuery.data?.pagination ?? emptyPagination,
+    loading: assignmentsQuery.isPending || assignmentsQuery.isFetching,
+    error: assignmentsQuery.isError ? 'Không thể tải lịch coi thi được phân công.' : null,
+    retry: assignmentsQuery.refetch,
+  }
 }

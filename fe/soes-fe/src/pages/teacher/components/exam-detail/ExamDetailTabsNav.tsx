@@ -1,4 +1,4 @@
-﻿import { CalendarClock, Clock, FileCheck, ShieldAlert } from 'lucide-react'
+import { CalendarClock, Clock, FileCheck, ShieldAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 export type ExamDetailTab = 'sessions' | 'overview' | 'submissions' | 'proctoring'
@@ -9,7 +9,7 @@ const detailTabs: Array<{
   icon: ReactNode
 }> = [
   { id: 'sessions', label: 'Ca thi / Lớp áp dụng', icon: <CalendarClock size={18} /> },
-  { id: 'proctoring', label: 'Giám sát Real-time & Bằng chứng Webcam', icon: <ShieldAlert size={18} /> },
+  { id: 'proctoring', label: 'Nhật ký vi phạm & Bằng chứng', icon: <ShieldAlert size={18} /> },
   { id: 'submissions', label: 'Bài nộp & Phúc khảo', icon: <FileCheck size={18} /> },
   { id: 'overview', label: 'Tổng quan cài đặt', icon: <Clock size={18} /> },
 ]

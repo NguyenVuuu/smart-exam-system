@@ -1,5 +1,5 @@
-import { Eye, ShieldCheck } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
+import ProctorAssignmentAction from '../proctoring/ProctorAssignmentAction'
 import type {
   ProctorAssignmentApiDto,
   ProctorAssignmentStatus,
@@ -54,25 +54,7 @@ export default function TeacherScheduleTableView({
                   {assignment.source === 'ASSIGNED' ? 'Được phân công' : 'Tự tạo ca thi'}
                 </td>
                 <td className="px-6 py-4 text-right">
-                  {assignment.status === 'OPEN' || assignment.status === 'SCHEDULED' ? (
-                    <button
-                      type="button"
-                      onClick={() => onOpenProctoring(assignment)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
-                      title={assignment.status === 'OPEN' ? 'Vào giám sát' : 'Xem ca thi'}
-                      aria-label={assignment.status === 'OPEN' ? 'Vào giám sát' : 'Xem ca thi'}
-                    >
-                      {assignment.status === 'OPEN' ? (
-                        <ShieldCheck size={18} className="text-emerald-600" />
-                      ) : (
-                        <Eye size={18} />
-                      )}
-                    </button>
-                  ) : (
-                    <span className="inline-block px-3 text-xs text-slate-400 font-normal select-none">
-                      -
-                    </span>
-                  )}
+                  <ProctorAssignmentAction assignment={assignment} variant="icon" onOpen={onOpenProctoring} />
                 </td>
               </tr>
             )

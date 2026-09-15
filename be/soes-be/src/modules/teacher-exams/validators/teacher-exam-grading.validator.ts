@@ -22,6 +22,7 @@ const violationTypeSchema = z.enum([
 export const submissionQuerySchema = z.object(paginationFields)
 export const violationQuerySchema = z.object({
   ...paginationFields,
+  keyword: z.string().trim().max(100).optional(),
   studentId: z.string().trim().min(1).optional(),
   violationType: violationTypeSchema.optional(),
 })

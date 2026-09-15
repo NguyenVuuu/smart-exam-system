@@ -1,6 +1,6 @@
 import { toPagination } from '../../../utils/pagination'
 import * as repo from '../repositories/teacher-courses.repository'
-import type { CourseCollectionQuery, TeacherCoursesQuery } from '../validators/teacher-courses.validator'
+import type { CourseCollectionQuery, ProctorAssignmentsQuery, TeacherCoursesQuery } from '../validators/teacher-courses.validator'
 import { toProctorAssignmentDto, toTeacherCourseDto } from '../mappers/teacher-course.mapper'
 import { ConflictError, NotFoundError, ValidationError } from '../../../errors/AppError'
 import { toTeacherCourseDetailDto } from '../mappers/teacher-course.mapper'
@@ -22,9 +22,12 @@ export async function list(teacherId: string, query: TeacherCoursesQuery) {
   }
 }
 
-export async function listProctorAssignments(teacherId: string) {
-  const { rows, teacherUserId } = await repo.listProctorAssignments(teacherId)
-  return rows.map((row) => toProctorAssignmentDto(row, teacherId, teacherUserId))
+export async function listProctorAssignments(teacherId: string, query: ProctorAssignmentsQuery) {
+  const { total, rows, teacherUserId } = await repo.listProctorAssignments(teacherId, query)
+  return {
+    items: rows.map((row) => toProctorAssignmentDto(row, teacherId, teacherUserId)),
+    pagination: toPagination(query.page, query.pageSize, total),
+  }
 }
 
 export async function get(teacherId: string, courseOfferingId: string) {

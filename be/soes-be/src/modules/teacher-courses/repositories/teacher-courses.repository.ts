@@ -1,6 +1,6 @@
 import prisma from '../../../lib/prisma'
 import type { Prisma } from '@prisma/client'
-import type { CourseCollectionQuery, TeacherCoursesQuery } from '../validators/teacher-courses.validator'
+import type { CourseCollectionQuery, ProctorAssignmentsQuery, TeacherCoursesQuery } from '../validators/teacher-courses.validator'
 
 export const teacherCourseInclude = {
   semester: { select: { id: true, code: true, name: true, status: true } },
@@ -66,18 +66,42 @@ export function findTeacherCourseDetail(teacherId: string, courseOfferingId: str
   })
 }
 
-export async function listProctorAssignments(teacherId: string) {
+function proctorAssignmentStatusWhere(status: ProctorAssignmentsQuery['status'], now: Date): Prisma.ExamScheduleWhereInput {
+  const published: Prisma.ExamScheduleWhereInput = { status: { notIn: ['DRAFT', 'CANCELLED'] } }
+  if (status === 'SCHEDULED') return { ...published, startTime: { gt: now } }
+  if (status === 'OPEN') return { ...published, startTime: { lte: now }, endTime: { gt: now } }
+  if (status === 'CLOSED') return { ...published, endTime: { lte: now } }
+  return published
+}
+
+export async function listProctorAssignments(teacherId: string, query: ProctorAssignmentsQuery) {
   const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, select: { userId: true } })
-  if (!teacher) return { rows: [], teacherUserId: null }
-  const rows = await prisma.examScheduleCourse.findMany({
-    where: {
-      examSchedule: { status: { notIn: ['DRAFT', 'CANCELLED'] } },
-      OR: [{ proctors: { some: { teacherId } } }, { examSchedule: { createdById: teacher.userId } }],
-    },
-    select: proctorAssignmentSelect,
-    orderBy: { examSchedule: { startTime: 'asc' } },
-  })
-  return { rows, teacherUserId: teacher.userId }
+  if (!teacher) return { total: 0, rows: [], teacherUserId: null }
+
+  const where: Prisma.ExamScheduleCourseWhereInput = {
+    examSchedule: proctorAssignmentStatusWhere(query.status, new Date()),
+    AND: [
+      { OR: [{ proctors: { some: { teacherId } } }, { examSchedule: { createdById: teacher.userId } }] },
+      ...(query.keyword ? [{ OR: [
+        { examSchedule: { title: { contains: query.keyword, mode: 'insensitive' as const } } },
+        { examSchedule: { exam: { title: { contains: query.keyword, mode: 'insensitive' as const } } } },
+        { courseOffering: { code: { contains: query.keyword, mode: 'insensitive' as const } } },
+        { courseOffering: { subject: { name: { contains: query.keyword, mode: 'insensitive' as const } } } },
+      ] }] : []),
+    ],
+  }
+
+  const [total, rows] = await Promise.all([
+    prisma.examScheduleCourse.count({ where }),
+    prisma.examScheduleCourse.findMany({
+      where,
+      select: proctorAssignmentSelect,
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+      orderBy: { examSchedule: { startTime: query.status === 'SCHEDULED' ? 'asc' : 'desc' } },
+    }),
+  ])
+  return { total, rows, teacherUserId: teacher.userId }
 }
 
 export function listCourseStudents(teacherId: string, courseOfferingId: string, query: CourseCollectionQuery) {

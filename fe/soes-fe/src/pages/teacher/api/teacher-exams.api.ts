@@ -121,10 +121,14 @@ export const getTeacherExamSubmissions = (examId: string, scheduleId: string, pa
     params: { page, pageSize },
   }).then(({ data }) => data.data)
 
-export const getTeacherExamViolations = (examId: string, scheduleId: string) =>
+export const getTeacherExamViolations = (
+  examId: string,
+  scheduleId: string,
+  params: { page?: number; pageSize?: number } = {},
+) =>
   apiClient.get<ApiResponse<TeacherViolationPage>>(`/teacher/exams/${examId}/schedules/${scheduleId}/violations`, {
-    params: { page: 1, pageSize: 100 },
-  }).then(({ data }) => data.data.items)
+    params: { page: params.page ?? 1, pageSize: params.pageSize ?? 10 },
+  }).then(({ data }) => data.data)
 
 export const getTeacherProctoringSessions = (examId: string, scheduleId: string) =>
   apiClient.get<ApiResponse<{ items: ProctoringSessionRecord[] }>>(`/teacher/exams/${examId}/schedules/${scheduleId}/proctoring-sessions`)
@@ -140,13 +144,22 @@ export const getTeacherLiveProctoringViolations = (
   params: {
     page?: number
     pageSize?: number
+    keyword?: string
     studentId?: string
     violationType?: ViolationRecord['type']
   } = {},
 ) =>
   apiClient.get<ApiResponse<TeacherViolationPage>>(
     `/teacher/proctoring/schedules/${scheduleId}/violations`,
-    { params: { page: params.page ?? 1, pageSize: params.pageSize ?? 20, studentId: params.studentId, violationType: params.violationType } },
+    {
+      params: {
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 10,
+        keyword: params.keyword,
+        studentId: params.studentId,
+        violationType: params.violationType,
+      },
+    },
   ).then(({ data }) => data.data)
 
 export interface TeacherLiveCameraSession {
