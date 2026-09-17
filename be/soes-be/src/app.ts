@@ -17,6 +17,7 @@ import { teacherExamsRoutes } from './modules/teacher-exams'
 import { examScheduleRoutes } from './modules/exam-schedules'
 import { adminContentRoutes } from './modules/admin-content'
 import { adminAuditLogRoutes } from './modules/admin-audit-logs'
+import { adminMonitoringRoutes } from './modules/admin-monitoring'
 import {
   adminSystemSettingsRoutes,
   publicSystemSettingsRouter,
@@ -67,6 +68,7 @@ app.use('/api/admin', adminUsersRoutes)
 app.use('/api/admin', examScheduleRoutes)
 app.use('/api/admin', adminContentRoutes)
 app.use('/api/admin', adminAuditLogRoutes)
+app.use('/api/admin', adminMonitoringRoutes)
 app.use('/api/admin', adminSystemSettingsRoutes)
 app.use('/api/teacher', teacherCoursesRoutes)
 app.use('/api/teacher', teacherSystemSettingsRouter)
