@@ -163,6 +163,7 @@ export function useTeacherGradeAppeals() {
     appeals, pagination, status, replies, selectedAppeal, selectedExam, selectedSubmission,
     score, reason, loading: loadedQueryKey !== queryKey, loadingSubmission, savingScore,
     setPage: (page: number) => setPagination((current) => ({ ...current, page })),
+    refresh: () => setRefreshVersion((current) => current + 1),
     changeStatus, updateReply, updateAppeal, openSubmission, closeSubmission,
     setScore, setReason, saveScore,
   }

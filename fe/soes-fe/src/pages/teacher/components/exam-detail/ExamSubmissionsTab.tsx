@@ -1,4 +1,5 @@
 import { Eye } from 'lucide-react'
+import AppBadge from '../../../../components/common/AppBadge'
 import AppSelect from '../../../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import { formatSessionRange } from '../../../../utils/date.utils'
@@ -69,16 +70,54 @@ export function ExamSubmissionsTab({
       render: (s) => <span className="text-sm font-medium text-gray-600">{s.submittedAt}</span>,
     },
     {
-      header: 'Điểm Tự Động',
-      width: '130px',
+      header: 'Điểm Trước Phúc Khảo',
+      width: '160px',
       align: 'center',
       render: (s) => <span className="text-sm font-medium text-gray-700">{s.autoScore === null ? '-' : `${s.autoScore}đ`}</span>,
     },
     {
-      header: 'Điểm Chính Thức',
+      header: 'Điểm Sau Phúc Khảo',
+      width: '160px',
+      align: 'center',
+      render: (s) =>
+        s.regradeRequest?.status === 'RESOLVED' && s.manualScoreOverride != null ? (
+          <span className="rounded-lg bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900">
+            {s.manualScoreOverride}đ
+          </span>
+        ) : (
+          <span className="text-sm text-gray-400">-</span>
+        ),
+    },
+    {
+      header: 'Điểm Chốt',
       width: '120px',
       align: 'center',
       render: (s) => <span className="text-sm font-bold text-gray-900">{s.finalScore === null ? '-' : `${s.finalScore}đ`}</span>,
+    },
+    {
+      header: 'Phúc Khảo',
+      width: '140px',
+      align: 'center',
+      render: (s) => {
+        if (!s.regradeRequest) return <span className="text-sm text-gray-400">-</span>
+        const labels = {
+          PENDING: 'Chờ xử lý',
+          IN_REVIEW: 'Đang xử lý',
+          RESOLVED: 'Đã xử lý',
+          REJECTED: 'Đã từ chối',
+        }
+        const tones = {
+          PENDING: 'blue',
+          IN_REVIEW: 'amber',
+          RESOLVED: 'emerald',
+          REJECTED: 'rose',
+        } as const
+        return (
+          <AppBadge tone={tones[s.regradeRequest.status]} className="px-2.5 py-1 text-xs font-semibold">
+            {labels[s.regradeRequest.status]}
+          </AppBadge>
+        )
+      },
     },
     {
       header: 'Thao tác',
@@ -107,7 +146,7 @@ export function ExamSubmissionsTab({
           <div>
             <p className="text-base font-semibold text-gray-900">Ca thi đang xem</p>
             <p className="mt-0.5 text-sm text-gray-500">
-              Bài nộp và điểm chính thức được quản lý theo từng ca thi.
+              Bài nộp, điểm trước và sau phúc khảo được theo dõi theo từng ca thi.
             </p>
           </div>
           <AppSelect

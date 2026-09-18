@@ -23,8 +23,9 @@ export function useTeacherGradeReport() {
   const [selectedExamId, setSelectedExamId] = useState('')
   const [selectedScheduleId, setSelectedScheduleId] = useState('')
   const [searchKeyword, setSearchKeyword] = useState('')
+  const [refreshVersion, setRefreshVersion] = useState(0)
   const [loadedSubmissionKey, setLoadedSubmissionKey] = useState('')
-  const submissionKey = `${selectedExamId}:${selectedScheduleId}`
+  const submissionKey = `${selectedExamId}:${selectedScheduleId}:${refreshVersion}`
 
   useEffect(() => {
     getTeacherExams()
@@ -102,6 +103,7 @@ export function useTeacherGradeReport() {
     selectExam,
     selectSchedule,
     setSearchKeyword,
+    refresh: () => setRefreshVersion((current) => current + 1),
     exportCsv: () => exportGradeCsv(filteredRows, selectedExam?.title ?? ''),
   }
 }

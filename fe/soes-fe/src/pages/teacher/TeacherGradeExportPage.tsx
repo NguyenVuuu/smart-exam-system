@@ -1,4 +1,4 @@
-import { FileDown, GraduationCap } from 'lucide-react'
+import { FileDown, GraduationCap, RefreshCw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
@@ -23,12 +23,24 @@ export default function TeacherGradeExportPage() {
   const report = useTeacherGradeReport()
   const appeal = useTeacherGradeAppeals()
   const notificationCount = useTeacherNotificationsStore((state) => state.items.length)
+  const notificationsLoading = useTeacherNotificationsStore((state) => state.loading)
+  const refreshNotifications = useTeacherNotificationsStore((state) => state.load)
 
   const changeTab = (tab: GradeReportTab) => {
     const nextParams = new URLSearchParams(searchParams)
     if (tab === 'reports') nextParams.delete('tab')
     else nextParams.set('tab', tab)
     setSearchParams(nextParams, { replace: true })
+  }
+
+  const refreshing = activeTab === 'reports'
+    ? report.loading
+    : activeTab === 'appeals' ? appeal.loading : notificationsLoading
+
+  const refreshActiveTab = () => {
+    if (activeTab === 'reports') report.refresh()
+    else if (activeTab === 'appeals') appeal.refresh()
+    else void refreshNotifications()
   }
 
   return (
@@ -42,16 +54,28 @@ export default function TeacherGradeExportPage() {
               title="Kết quả & Phúc khảo"
               description="Theo dõi kết quả, phân tích phổ điểm, xuất dữ liệu và xử lý yêu cầu phúc khảo."
               icon={<GraduationCap size={20} />}
-              actions={activeTab === 'reports' ? (
-                <button
-                  type="button"
-                  onClick={report.exportCsv}
-                  disabled={report.rows.length === 0}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <FileDown size={16} /> Xuất CSV
-                </button>
-              ) : undefined}
+              actions={
+                <>
+                  <button
+                    type="button"
+                    onClick={refreshActiveTab}
+                    disabled={refreshing}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> Làm mới
+                  </button>
+                  {activeTab === 'reports' && (
+                    <button
+                      type="button"
+                      onClick={report.exportCsv}
+                      disabled={report.rows.length === 0}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <FileDown size={16} /> Xuất CSV
+                    </button>
+                  )}
+                </>
+              }
             />
 
             <GradeReportTabs

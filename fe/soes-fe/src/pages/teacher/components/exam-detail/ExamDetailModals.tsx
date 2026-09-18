@@ -211,9 +211,10 @@ export function StudentSubmissionReviewModal({
         </div>
 
         <div className="p-6 space-y-4 overflow-hidden flex flex-col min-h-0">
-          <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
             <PreviewStat label="Chấm tự động" value={submission.autoScore === null ? '-' : `${submission.autoScore}đ`} />
-            <PreviewStat label="Điểm chính thức" value={submission.finalScore === null ? '-' : `${submission.finalScore}đ`} />
+            <PreviewStat label="Điểm phúc khảo" value={submission.manualScoreOverride != null ? `${submission.manualScoreOverride}đ` : '-'} />
+            <PreviewStat label="Điểm chốt" value={submission.finalScore === null ? '-' : `${submission.finalScore}đ`} />
             <PreviewStat label="Trạng thái" value={submission.status} />
           </div>
 
@@ -224,6 +225,24 @@ export function StudentSubmissionReviewModal({
                   {section.title}: <strong>{section.score}/{section.maxScore}đ</strong>
                 </span>
               ))}
+            </div>
+          )}
+
+          {(submission.regradeRequest || submission.scoreAdjustments?.length) && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+              {submission.regradeRequest && (
+                <p>
+                  <span className="font-semibold">Yêu cầu phúc khảo:</span> {submission.regradeRequest.reason}
+                </p>
+              )}
+              {submission.scoreAdjustments?.length ? (
+                <p className="mt-1">
+                  <span className="font-semibold">Lịch sử điều chỉnh:</span>{' '}
+                  {submission.scoreAdjustments.map((adjustment) =>
+                    `${adjustment.oldScore}đ → ${adjustment.newScore}đ, ${adjustment.adjustedBy} (${adjustment.adjustedAt})`,
+                  ).join(' • ')}
+                </p>
+              ) : null}
             </div>
           )}
 
