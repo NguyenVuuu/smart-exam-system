@@ -5,6 +5,7 @@ import type { submissionInclude } from '../repositories/teacher-exam-grading.rep
 type SubmissionRow = Prisma.ExamAttemptGetPayload<{ include: typeof submissionInclude }>
 
 export function toExamSubmissionDto(row: SubmissionRow): ExamSubmissionDto {
+  const gradeAppeal = row.gradeAppeals[0]
   const latestSubmissionByQuestion = new Map(
     row.programmingSubmissions.map((submission) => [submission.examQuestionId, submission]),
   )
@@ -43,6 +44,13 @@ export function toExamSubmissionDto(row: SubmissionRow): ExamSubmissionDto {
     autoScore: row.autoScore === null ? null : Number(row.autoScore),
     manualScoreOverride: row.manualScore === null ? null : Number(row.manualScore),
     finalScore: row.totalScore === null ? null : Number(row.totalScore), status: row.status,
+    regradeRequest: gradeAppeal ? {
+      status: gradeAppeal.status,
+      reason: gradeAppeal.reason,
+      submittedAt: gradeAppeal.createdAt,
+      resolution: gradeAppeal.teacherReply,
+      resolvedAt: gradeAppeal.handledAt,
+    } : undefined,
     sectionScores: [...sections.values()],
     answers: [...answerByQuestion.values()],
     codingResults: [...latestSubmissionByQuestion.values()].flatMap((submission) =>

@@ -87,6 +87,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
   setProctoringEmitter({
     emitToSchedule: (scheduleId, event, payload) => io?.to(scheduleRoom(scheduleId)).emit(event, payload),
     emitToAttempt: (attemptId, event, payload) => io?.to(attemptRoom(attemptId)).emit(event, payload),
+    emitToTeacher: (teacherId, event, payload) => io?.to(teacherRoom(teacherId)).emit(event, payload),
   })
 
   io.on('connection', (socket) => {

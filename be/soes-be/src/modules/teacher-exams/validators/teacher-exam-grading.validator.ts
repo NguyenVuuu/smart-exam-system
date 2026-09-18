@@ -37,7 +37,7 @@ export const resultReleaseSchema = z.object({
 })
 
 export const violationReviewSchema = z.object({
-  reviewStatus: z.enum(['PENDING', 'CONFIRMED', 'DISMISSED']),
+  reviewStatus: z.enum(['PENDING', 'REVIEWED', 'CONFIRMED', 'DISMISSED', 'WARNED', 'FORCE_SUBMITTED', 'INVALIDATED']),
   reviewNote: z.string().trim().max(1000).optional().nullable(),
 })
 

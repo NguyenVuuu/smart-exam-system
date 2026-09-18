@@ -11,6 +11,13 @@ export interface ExamSubmissionDto {
   manualScoreOverride: number | null
   finalScore: number | null
   status: string
+  regradeRequest?: {
+    status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
+    reason: string
+    submittedAt: Date
+    resolution: string | null
+    resolvedAt: Date | null
+  }
   sectionScores: Array<{ id: string; title: string; score: number; maxScore: number }>
   answers: Array<{
     questionId: string
