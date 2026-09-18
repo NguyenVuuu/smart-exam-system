@@ -121,6 +121,18 @@ export const getTeacherExamSubmissions = (examId: string, scheduleId: string, pa
     params: { page, pageSize },
   }).then(({ data }) => data.data)
 
+export async function getAllTeacherExamSubmissions(examId: string, scheduleId: string) {
+  const pageSize = 100
+  const firstPage = await getTeacherExamSubmissions(examId, scheduleId, 1, pageSize)
+  if (firstPage.pagination.totalPages <= 1) return firstPage.items
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.pagination.totalPages - 1 }, (_, index) =>
+      getTeacherExamSubmissions(examId, scheduleId, index + 2, pageSize),
+    ),
+  )
+  return [firstPage, ...remainingPages].flatMap((page) => page.items)
+}
+
 export const getTeacherExamViolations = (
   examId: string,
   scheduleId: string,

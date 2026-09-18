@@ -1,4 +1,4 @@
-import AppBadge from '../../../../components/common/AppBadge'
+import { Eye } from 'lucide-react'
 import AppSelect from '../../../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import { formatSessionRange } from '../../../../utils/date.utils'
@@ -16,13 +16,14 @@ export function ExamSubmissionsTab({
   onResultReleaseModeChange,
   onResultReleaseAtChange,
   onResultsPublishedChange,
+  onViewSubmission,
   loading,
   pagination,
   onPageChange,
   canReview = true,
   showSessionSelector = true,
   unavailableTitle = 'Ca thi chưa kết thúc',
-  unavailableDescription = 'Bài nộp và điểm phúc khảo chỉ được mở sau khi ca thi kết thúc.',
+  unavailableDescription = 'Bài nộp và kết quả chỉ được mở sau khi ca thi kết thúc.',
 }: {
   submissions: ExamSubmission[]
   sessions: ExamSchedule[]
@@ -35,6 +36,7 @@ export function ExamSubmissionsTab({
   onResultReleaseModeChange: (mode: ResultReleaseMode) => void
   onResultReleaseAtChange: (value: string) => void
   onResultsPublishedChange: (value: boolean) => void
+  onViewSubmission: (submission: ExamSubmission) => void
   loading: boolean
   pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
   onPageChange: (page: number) => void
@@ -57,7 +59,9 @@ export function ExamSubmissionsTab({
     },
     {
       header: 'Họ và Tên',
-      render: (s) => <span className="text-sm font-bold text-gray-900">{s.studentName}</span>,
+      width: '200px',
+      className: 'whitespace-nowrap',
+      render: (s) => <span className="whitespace-nowrap text-sm font-bold text-gray-900">{s.studentName}</span>,
     },
     {
       header: 'Thời Gian Nộp',
@@ -65,62 +69,33 @@ export function ExamSubmissionsTab({
       render: (s) => <span className="text-sm font-medium text-gray-600">{s.submittedAt}</span>,
     },
     {
-      header: 'Điểm Trước Phúc Khảo',
-      width: '160px',
+      header: 'Điểm Tự Động',
+      width: '130px',
       align: 'center',
       render: (s) => <span className="text-sm font-medium text-gray-700">{s.autoScore === null ? '-' : `${s.autoScore}đ`}</span>,
     },
     {
-      header: 'Điểm Sau Phúc Khảo',
-      width: '160px',
-      align: 'center',
-      render: (s) =>
-        s.regradeRequest?.status === 'RESOLVED' && s.manualScoreOverride != null ? (
-          <span className="rounded-lg bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900">
-            {s.manualScoreOverride}đ
-          </span>
-        ) : (
-          <span className="text-sm text-gray-400">-</span>
-        ),
-    },
-    {
-      header: 'Điểm Chốt',
+      header: 'Điểm Chính Thức',
       width: '120px',
       align: 'center',
       render: (s) => <span className="text-sm font-bold text-gray-900">{s.finalScore === null ? '-' : `${s.finalScore}đ`}</span>,
     },
     {
-      header: 'Phúc Khảo',
-      width: '140px',
-      align: 'center',
-      render: (s) => {
-        if (!s.regradeRequest) return <span className="text-sm text-gray-400">-</span>
-        const labels = {
-          PENDING: 'Chờ xử lý',
-          IN_REVIEW: 'Đang xử lý',
-          RESOLVED: 'Đã xử lý',
-          REJECTED: 'Đã từ chối',
-        }
-        const tones = {
-          PENDING: 'blue',
-          IN_REVIEW: 'amber',
-          RESOLVED: 'emerald',
-          REJECTED: 'rose',
-        } as const
-        return (
-          <AppBadge tone={tones[s.regradeRequest.status]} className="px-2.5 py-1 text-xs font-semibold">
-            {labels[s.regradeRequest.status]}
-          </AppBadge>
-        )
-      },
-    },
-    {
-      header: 'Lời nhắn của giảng viên',
-      width: '260px',
-      render: (s) => s.regradeRequest?.resolution ? (
-        <span className="text-sm leading-5 text-gray-700">{s.regradeRequest.resolution}</span>
-      ) : (
-        <span className="text-sm text-gray-400">-</span>
+      header: 'Thao tác',
+      width: '88px',
+      align: 'right',
+      render: (submission) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onViewSubmission(submission)}
+            title="Xem bài làm"
+            aria-label={`Xem bài làm của ${submission.studentName}`}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            <Eye size={17} />
+          </button>
+        </div>
       ),
     },
   ]
@@ -132,7 +107,7 @@ export function ExamSubmissionsTab({
           <div>
             <p className="text-base font-semibold text-gray-900">Ca thi đang xem</p>
             <p className="mt-0.5 text-sm text-gray-500">
-              Bài nộp, điểm trước phúc khảo, điểm sau phúc khảo và phản hồi được quản lý theo từng ca.
+              Bài nộp và điểm chính thức được quản lý theo từng ca thi.
             </p>
           </div>
           <AppSelect

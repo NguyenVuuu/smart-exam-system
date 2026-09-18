@@ -28,7 +28,7 @@ export function CourseReviewTabs({
   onChange: (tab: CourseReviewTab) => void
 }) {
   const tabs = [
-    { id: 'submissions' as const, label: 'Bài Nộp & Điểm Phúc Khảo', icon: FileCheck },
+    { id: 'submissions' as const, label: 'Bài nộp & Kết quả', icon: FileCheck },
     { id: 'violations' as const, label: 'Nhật ký vi phạm', icon: ShieldAlert },
   ]
 

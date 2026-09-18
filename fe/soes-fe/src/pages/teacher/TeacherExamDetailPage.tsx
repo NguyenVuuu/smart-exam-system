@@ -3,7 +3,6 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   EvidenceImageModal,
   ExamPreviewModal,
-  ScoreOverrideModal,
   StudentSubmissionReviewModal,
 } from './components/exam-detail/ExamDetailModals'
 import ExamSessionsTab from './components/exam-detail/ExamSessionsTab'
@@ -115,13 +114,10 @@ function TeacherExamDetailContent({
       ? 'Ca thi chưa kết thúc'
       : 'Không tìm thấy ca thi của lớp'
   const reviewUnavailableDescription = hasVisibleSession
-    ? 'Bài nộp, phúc khảo và nhật ký vi phạm chỉ được mở sau khi ca thi kết thúc.'
+    ? 'Bài nộp, kết quả và nhật ký vi phạm chỉ được mở sau khi ca thi kết thúc.'
     : 'Lớp học phần này chưa được gán vào ca thi hoặc bạn không phụ trách lớp.'
   const { mode: resultReleaseMode, releaseAt: resultReleaseAt, published: isResultsPublished } = submissionData.resultRelease
-  const [selectedSubmission, setSelectedSubmission] = useState<ExamSubmission | null>(null)
   const [viewingSubmission, setViewingSubmission] = useState<ExamSubmission | null>(null)
-  const [overrideScoreInput, setOverrideScoreInput] = useState(0)
-  const [overrideReason, setOverrideReason] = useState('')
   const [selectedEvidenceUrl, setSelectedEvidenceUrl] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -139,22 +135,6 @@ function TeacherExamDetailContent({
       : isResultsPublished
       ? 'Đã công bố điểm thủ công cho sinh viên'
       : 'Đang ẩn điểm, giảng viên sẽ công bố sau'
-
-  const openScoreOverride = (submission: ExamSubmission) => {
-    setSelectedSubmission(submission)
-    setOverrideScoreInput(submission.finalScore ?? submission.autoScore ?? 0)
-    setOverrideReason(submission.overrideReason ?? '')
-  }
-
-  const applyScoreOverride = async () => {
-    if (!selectedSubmission || overrideReason.trim().length < 5) return
-    try {
-      await submissionData.grade(selectedSubmission.attemptId, overrideScoreInput, overrideReason.trim())
-      setSelectedSubmission(null)
-      setOverrideReason('')
-      toast.success('Đã cập nhật điểm và lưu lịch sử điều chỉnh.')
-    } catch { toast.error('Không thể cập nhật điểm bài nộp.') }
-  }
 
   const changeResultReleaseMode = (mode: ResultReleaseMode) => {
     void submissionData.release({
@@ -254,6 +234,7 @@ function TeacherExamDetailContent({
             onResultReleaseModeChange={changeResultReleaseMode}
             onResultReleaseAtChange={(at) => void submissionData.release({ mode: resultReleaseMode, releaseAt: at, published: isResultsPublished })}
             onResultsPublishedChange={(pub) => void submissionData.release({ mode: resultReleaseMode, releaseAt: resultReleaseAt, published: pub })}
+            onViewSubmission={setViewingSubmission}
             loading={submissionData.loading}
             pagination={submissionData.pagination}
             onPageChange={submissionData.setPage}
@@ -311,16 +292,6 @@ function TeacherExamDetailContent({
         </main>
       </div>
 
-      <ScoreOverrideModal
-        submission={selectedSubmission}
-        maxScore={exam.totalPoints}
-        overrideScoreInput={overrideScoreInput}
-        overrideReason={overrideReason}
-        onScoreChange={setOverrideScoreInput}
-        onReasonChange={setOverrideReason}
-        onClose={() => setSelectedSubmission(null)}
-        onApply={() => void applyScoreOverride()}
-      />
       <EvidenceImageModal
         imageUrl={selectedEvidenceUrl}
         onClose={() => setSelectedEvidenceUrl(null)}
@@ -329,10 +300,6 @@ function TeacherExamDetailContent({
         exam={exam}
         submission={viewingSubmission}
         onClose={() => setViewingSubmission(null)}
-        onEditScore={(submission) => {
-          setViewingSubmission(null)
-          openScoreOverride(submission)
-        }}
       />
       <ExamPreviewModal
         exam={exam}
