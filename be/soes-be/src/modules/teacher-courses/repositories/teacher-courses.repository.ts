@@ -74,14 +74,68 @@ function proctorAssignmentStatusWhere(status: ProctorAssignmentsQuery['status'],
   return published
 }
 
+function proctorAssignmentScheduleWhere(
+  query: ProctorAssignmentsQuery,
+  now: Date,
+): Prisma.ExamScheduleWhereInput {
+  return {
+    AND: [
+      proctorAssignmentStatusWhere(query.status, now),
+      {
+        ...(query.to && { startTime: { lt: query.to } }),
+        ...(query.from && { endTime: { gt: query.from } }),
+      },
+    ],
+  }
+}
+
+function proctorAssignmentAccessWhere(
+  teacherId: string,
+  teacherUserId: string,
+  semesterId: string,
+): Prisma.ExamScheduleCourseWhereInput {
+  return {
+    courseOffering: { semesterId },
+    OR: [
+      { proctors: { some: { teacherId } } },
+      { examSchedule: { createdById: teacherUserId } },
+    ],
+  }
+}
+
+async function countProctorAssignmentsByStatus(
+  accessWhere: Prisma.ExamScheduleCourseWhereInput,
+  now: Date,
+) {
+  const statusWhere = (status?: ProctorAssignmentsQuery['status']): Prisma.ExamScheduleCourseWhereInput => ({
+    AND: [accessWhere, { examSchedule: proctorAssignmentStatusWhere(status, now) }],
+  })
+  const [total, scheduled, open, closed] = await Promise.all([
+    prisma.examScheduleCourse.count({ where: statusWhere() }),
+    prisma.examScheduleCourse.count({ where: statusWhere('SCHEDULED') }),
+    prisma.examScheduleCourse.count({ where: statusWhere('OPEN') }),
+    prisma.examScheduleCourse.count({ where: statusWhere('CLOSED') }),
+  ])
+  return { total, scheduled, open, closed }
+}
+
 export async function listProctorAssignments(teacherId: string, query: ProctorAssignmentsQuery) {
   const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, select: { userId: true } })
-  if (!teacher) return { total: 0, rows: [], teacherUserId: null }
+  if (!teacher || !query.semesterId) {
+    return {
+      total: 0,
+      rows: [],
+      teacherUserId: teacher?.userId ?? null,
+      summary: { total: 0, scheduled: 0, open: 0, closed: 0 },
+    }
+  }
 
+  const now = new Date()
+  const accessWhere = proctorAssignmentAccessWhere(teacherId, teacher.userId, query.semesterId)
   const where: Prisma.ExamScheduleCourseWhereInput = {
-    examSchedule: proctorAssignmentStatusWhere(query.status, new Date()),
     AND: [
-      { OR: [{ proctors: { some: { teacherId } } }, { examSchedule: { createdById: teacher.userId } }] },
+      accessWhere,
+      { examSchedule: proctorAssignmentScheduleWhere(query, now) },
       ...(query.keyword ? [{ OR: [
         { examSchedule: { title: { contains: query.keyword, mode: 'insensitive' as const } } },
         { examSchedule: { exam: { title: { contains: query.keyword, mode: 'insensitive' as const } } } },
@@ -91,7 +145,7 @@ export async function listProctorAssignments(teacherId: string, query: ProctorAs
     ],
   }
 
-  const [total, rows] = await Promise.all([
+  const [total, rows, summary] = await Promise.all([
     prisma.examScheduleCourse.count({ where }),
     prisma.examScheduleCourse.findMany({
       where,
@@ -100,8 +154,9 @@ export async function listProctorAssignments(teacherId: string, query: ProctorAs
       take: query.pageSize,
       orderBy: { examSchedule: { startTime: query.status === 'SCHEDULED' ? 'asc' : 'desc' } },
     }),
+    countProctorAssignmentsByStatus(accessWhere, now),
   ])
-  return { total, rows, teacherUserId: teacher.userId }
+  return { total, rows, teacherUserId: teacher.userId, summary }
 }
 
 export function listCourseStudents(teacherId: string, courseOfferingId: string, query: CourseCollectionQuery) {

@@ -6,14 +6,12 @@ import {
   MessageSquareWarning,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { toast } from "sonner";
 import {
   useGetExamAttemptResult,
   useGetExamAttemptStatus,
 } from "./hooks/take-exam/useTakeExamApi";
-import { takeExamApi, type GradeAppeal } from "./api/student-take-exam.api";
+import type { GradeAppeal } from "./api/student-take-exam.api";
 import StudentSidebar from "./components/StudentSidebar";
 import StudentTopBar from "./components/StudentTopBar";
 import ExamScorePanel from "./components/exam-result/ExamScorePanel";
@@ -23,6 +21,7 @@ import {
   getAttemptStatusLabel,
   isCompletedAttemptStatus,
 } from "./utils/attemptStatus";
+import { useStudentGradeAppeals } from "./hooks/useStudentGradeAppeals";
 
 export default function StudentExamResultPage() {
   const { courseOfferingId, scheduleId } = useParams<{
@@ -47,52 +46,15 @@ export default function StudentExamResultPage() {
     attemptId ?? "",
     !!scheduleId && !!attemptId,
   );
-  const [appeals, setAppeals] = useState<GradeAppeal[]>([]);
-  const [appealReason, setAppealReason] = useState("");
-  const [isAppealSubmitting, setIsAppealSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!scheduleId || !attemptId) return;
-    takeExamApi
-      .listGradeAppeals(scheduleId, attemptId)
-      .then(setAppeals)
-      .catch(() => undefined);
-  }, [attemptId, scheduleId]);
-
-  const hasOpenAppeal = appeals.some(
-    (appeal) => appeal.status === "PENDING" || appeal.status === "IN_REVIEW",
-  );
-  const hasAnyAppeal = appeals.length > 0;
-
-  async function handleCreateAppeal() {
-    if (hasAnyAppeal) {
-      toast.warning("Mỗi bài thi chỉ được gửi phúc khảo một lần.");
-      return;
-    }
-    if (!scheduleId || !attemptId || appealReason.trim().length < 10) {
-      toast.warning("Vui lòng nhập lý do phúc khảo rõ hơn.");
-      return;
-    }
-    setIsAppealSubmitting(true);
-    try {
-      const created = await takeExamApi.createGradeAppeal(
-        scheduleId,
-        attemptId,
-        {
-          reason: appealReason.trim(),
-        },
-      );
-      setAppeals((current) => [created, ...current]);
-      setAppealReason("");
-      toast.success("Đã gửi yêu cầu phúc khảo.");
-    } catch {
-      toast.error(
-        "Không thể gửi phúc khảo. Có thể bạn đang có yêu cầu chưa xử lý.",
-      );
-    } finally {
-      setIsAppealSubmitting(false);
-    }
-  }
+  const {
+    appeals,
+    reason: appealReason,
+    setReason: setAppealReason,
+    isSubmitting: isAppealSubmitting,
+    hasAnyAppeal,
+    hasOpenAppeal,
+    submit: handleCreateAppeal,
+  } = useStudentGradeAppeals(scheduleId, attemptId);
 
   function handleBack() {
     if (courseOfferingId) {

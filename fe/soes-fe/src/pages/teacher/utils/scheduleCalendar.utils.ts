@@ -1,5 +1,15 @@
 import type { ProctorAssignmentApiDto } from '../types/teacher-course-api.types'
 
+export function getCalendarDateRange(visibleMonth: Date) {
+  const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
+  const mondayOffset = (firstDay.getDay() + 6) % 7
+  const from = new Date(firstDay)
+  from.setDate(firstDay.getDate() - mondayOffset)
+  const to = new Date(from)
+  to.setDate(from.getDate() + 42)
+  return { from: from.toISOString(), to: to.toISOString() }
+}
+
 export interface CalendarDayCell {
   date: Date
   dateString: string

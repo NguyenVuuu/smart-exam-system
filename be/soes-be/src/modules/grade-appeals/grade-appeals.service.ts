@@ -2,7 +2,7 @@ import prisma from '../../lib/prisma'
 import type { Prisma } from '@prisma/client'
 import { ConflictError, NotFoundError } from '../../errors/AppError'
 import { toPagination } from '../../utils/pagination'
-import { emitTeacherEvent } from '../proctoring/proctoring-realtime.events'
+import { emitStudentEvent, emitTeacherEvent } from '../proctoring/proctoring-realtime.events'
 import type { CreateGradeAppealBody, TeacherGradeAppealQuery, UpdateGradeAppealBody } from './grade-appeals.validator'
 
 const completedStatuses = ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED', 'INVALIDATED'] as const
@@ -169,6 +169,7 @@ export async function updateTeacherAppeal(teacherId: string, appealId: string, b
   })
   const dto = toDto(row)
   emitTeacherEvent(teacherId, 'grade_appeal:updated', dto)
+  emitStudentEvent(row.studentId, 'grade_appeal:updated', dto)
   return dto
 }
 

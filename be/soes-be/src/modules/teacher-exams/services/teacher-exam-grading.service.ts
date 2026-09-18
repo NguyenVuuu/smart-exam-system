@@ -9,7 +9,7 @@ import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
 import * as repo from '../repositories/teacher-exam-grading.repository'
 import type { InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
-import { emitProctoringEvent, emitTeacherEvent } from '../../proctoring/proctoring-realtime.events'
+import { emitProctoringEvent, emitStudentEvent, emitTeacherEvent } from '../../proctoring/proctoring-realtime.events'
 
 function currentWebcamStatus(status: WebcamStatus, isActive: boolean): WebcamStatus {
   return !isActive && status === 'ACTIVE' ? 'DISCONNECTED' : status
@@ -425,13 +425,15 @@ export async function grade(
   const result = await repo.overrideScore(teacherId, userId, examId, scheduleId, attemptId, data.score, data.reason)
   if (!result) throw new NotFoundError('Exam submission not found')
   const dto = toExamSubmissionDto(result)
-  emitTeacherEvent(teacherId, 'grade_appeal:updated', {
+  const appealUpdate = {
     attemptId,
     scheduleId,
     status: 'RESOLVED',
     teacherReply: data.reason,
     score: data.score,
-  })
+  }
+  emitTeacherEvent(teacherId, 'grade_appeal:updated', appealUpdate)
+  if (appeal) emitStudentEvent(appeal.studentId, 'grade_appeal:updated', appealUpdate)
   return dto
 }
 

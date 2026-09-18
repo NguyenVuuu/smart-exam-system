@@ -51,13 +51,22 @@ export interface TeacherPage<T> {
 }
 
 export interface TeacherCoursesResponse extends TeacherPage<TeacherCourseApiDto> {
-  semesterOptions: Array<{
-    id: string
-    code: string
-    name: string
-    status: 'UPCOMING' | 'ACTIVE' | 'CLOSED'
-  }>
+  semesterOptions: SemesterOptionApiDto[]
   currentSemesterId: string | null
+}
+
+export interface SemesterOptionApiDto {
+  id: string
+  code: string
+  name: string
+  status: 'UPCOMING' | 'ACTIVE' | 'CLOSED'
+}
+
+export interface ProctorAssignmentsResponse extends TeacherPage<ProctorAssignmentApiDto> {
+  semesterOptions: SemesterOptionApiDto[]
+  currentSemesterId: string | null
+  selectedSemesterId: string | null
+  summary: { total: number; scheduled: number; open: number; closed: number }
 }
 
 export type CourseStudentApiDto = TeacherCourseDetailApiDto['students'][number]

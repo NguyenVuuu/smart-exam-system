@@ -1,9 +1,9 @@
 import { apiClient } from '../../../api/axios'
 import type {
-  ProctorAssignmentApiDto,
   ProctorAssignmentStatus,
   CourseExamApiDto, CourseStudentApiDto, TeacherPage,
   TeacherCoursesResponse,
+  ProctorAssignmentsResponse,
   TeacherCourseDetailApiDto,
   CourseGradebookApiDto,
 } from '../types/teacher-course-api.types'
@@ -31,10 +31,13 @@ export interface ProctorAssignmentQuery {
   pageSize: number
   keyword?: string
   status?: Exclude<ProctorAssignmentStatus, 'CANCELLED'>
+  semesterId?: string
+  from?: string
+  to?: string
 }
 
 export async function getTeacherProctorAssignments(query: ProctorAssignmentQuery) {
-  const response = await apiClient.get<ApiResponse<TeacherPage<ProctorAssignmentApiDto>>>(
+  const response = await apiClient.get<ApiResponse<ProctorAssignmentsResponse>>(
     '/teacher/proctor-assignments',
     { params: query },
   )

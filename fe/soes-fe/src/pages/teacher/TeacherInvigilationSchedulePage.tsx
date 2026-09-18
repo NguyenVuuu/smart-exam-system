@@ -1,6 +1,7 @@
 import { Calendar, CalendarClock, List, RefreshCw, Search, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useDebounce } from 'use-debounce'
 import AppSelect from '../../components/common/AppSelect'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherPagination from './components/TeacherPagination'
@@ -16,6 +17,7 @@ import type {
   ProctorAssignmentApiDto,
   ProctorAssignmentStatus,
 } from './types/teacher-course-api.types'
+import { getCalendarDateRange } from './utils/scheduleCalendar.utils'
 
 const statusMeta: Record<ProctorAssignmentStatus, { label: string; tone: 'blue' | 'emerald' | 'gray' | 'rose' }> = {
   SCHEDULED: { label: 'Đã lên lịch', tone: 'blue' },
@@ -24,62 +26,43 @@ const statusMeta: Record<ProctorAssignmentStatus, { label: string; tone: 'blue' 
   CANCELLED: { label: 'Đã hủy', tone: 'rose' },
 }
 
-const STATUS_PRIORITY: Record<ProctorAssignmentStatus, number> = {
-  OPEN: 1,
-  SCHEDULED: 2,
-  CLOSED: 3,
-  CANCELLED: 4,
-}
-
 const PAGE_SIZE = 10
+type ScheduleFilterStatus = 'ALL' | Exclude<ProctorAssignmentStatus, 'CANCELLED'>
 
 export default function TeacherInvigilationSchedulePage() {
   const navigate = useNavigate()
-  const { assignments, loading, error, retry } = useTeacherProctorAssignments()
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar')
-  const [status, setStatus] = useState('ALL')
+  const [status, setStatus] = useState<ScheduleFilterStatus>('ALL')
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null)
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date())
+  const [debouncedKeyword] = useDebounce(keyword.trim(), 300)
+  const calendarRange = useMemo(() => getCalendarDateRange(visibleMonth), [visibleMonth])
+  const assignmentQuery = useMemo(() => ({
+    page: viewMode === 'table' ? page : 1,
+    pageSize: viewMode === 'table' ? PAGE_SIZE : 100,
+    semesterId: selectedSemesterId ?? undefined,
+    ...(viewMode === 'table' ? {
+      keyword: debouncedKeyword || undefined,
+      status: status === 'ALL' ? undefined : status,
+    } : calendarRange),
+  }), [calendarRange, debouncedKeyword, page, selectedSemesterId, status, viewMode])
+  const {
+    assignments,
+    pagination,
+    semesterOptions,
+    currentSemesterId,
+    selectedSemesterId: serverSelectedSemesterId,
+    summary,
+    loading,
+    refreshing,
+    error,
+    retry,
+  } = useTeacherProctorAssignments(assignmentQuery)
+  const effectiveSemesterId = selectedSemesterId ?? serverSelectedSemesterId ?? currentSemesterId ?? ''
 
-  // State for Day Detail Modal in Calendar View
   const [selectedDay, setSelectedDay] = useState<{ date: Date; items: ProctorAssignmentApiDto[] } | null>(null)
-
-  const filteredAssignments = useMemo(() => {
-    const normalizedKeyword = keyword.trim().toLocaleLowerCase('vi')
-    const filtered = assignments.filter((assignment) => {
-      const matchesStatus = status === 'ALL' || assignment.status === status
-      const matchesKeyword = !normalizedKeyword || [
-        assignment.title,
-        assignment.courseOffering.code,
-        assignment.courseOffering.subjectName,
-      ].some((value) => value.toLocaleLowerCase('vi').includes(normalizedKeyword))
-      return matchesStatus && matchesKeyword
-    })
-
-    return filtered.sort((a, b) => {
-      const pA = STATUS_PRIORITY[a.status] ?? 99
-      const pB = STATUS_PRIORITY[b.status] ?? 99
-      if (pA !== pB) return pA - pB
-
-      const timeA = new Date(a.startTime).getTime()
-      const timeB = new Date(b.startTime).getTime()
-
-      // For CLOSED exams, show most recently closed first (descending)
-      if (a.status === 'CLOSED' && b.status === 'CLOSED') {
-        return timeB - timeA
-      }
-
-      // For OPEN and SCHEDULED, show soonest first (ascending)
-      return timeA - timeB
-    })
-  }, [assignments, keyword, status])
-
-  const totalPages = Math.max(1, Math.ceil(filteredAssignments.length / PAGE_SIZE))
-
-  const paginatedAssignments = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return filteredAssignments.slice(start, start + PAGE_SIZE)
-  }, [filteredAssignments, page])
 
   const openProctoring = (assignment: ProctorAssignmentApiDto) => {
     const tab = assignment.status === 'CLOSED' ? 'violations' : 'live'
@@ -90,7 +73,7 @@ export default function TeacherInvigilationSchedulePage() {
     setSelectedDay({ date, items })
   }
 
-  const handleStatusChange = (newStatus: string) => {
+  const handleStatusChange = (newStatus: ScheduleFilterStatus) => {
     setStatus(newStatus)
     setPage(1)
   }
@@ -103,6 +86,19 @@ export default function TeacherInvigilationSchedulePage() {
   const handleReset = () => {
     setStatus('ALL')
     setKeyword('')
+    setSelectedSemesterId(null)
+    setPage(1)
+  }
+
+  const handleSemesterChange = (semesterId: string) => {
+    setSelectedSemesterId(semesterId)
+    setSelectedDay(null)
+    setPage(1)
+  }
+
+  const handleViewModeChange = (mode: 'calendar' | 'table') => {
+    setViewMode(mode)
+    setSelectedDay(null)
     setPage(1)
   }
 
@@ -119,13 +115,24 @@ export default function TeacherInvigilationSchedulePage() {
           />
 
           {/* Quick stats counter */}
-          <TeacherScheduleStats assignments={assignments} />
+          <TeacherScheduleStats summary={summary} />
 
           <TeacherTablePanel>
             {/* Unified Fixed-Position Toolbar */}
             <div className="flex flex-col gap-3 border-b border-gray-100 bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
               {/* Left Side: Filter (Table mode) or Hint (Calendar mode) */}
               <div className="flex flex-wrap items-center gap-3">
+                <AppSelect
+                  value={effectiveSemesterId}
+                  onChange={handleSemesterChange}
+                  className="w-64"
+                  disabled={semesterOptions.length === 0}
+                  placeholder="Chưa có học kỳ hiện tại"
+                  options={semesterOptions.map((semester) => ({
+                    value: semester.id,
+                    label: `${semester.name}${semester.status === 'ACTIVE' ? ' (Hiện tại)' : ''}`,
+                  }))}
+                />
                 {viewMode === 'table' ? (
                   <AppSelect
                     value={status}
@@ -155,7 +162,7 @@ export default function TeacherInvigilationSchedulePage() {
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
                       title="Làm mới bộ lọc"
                     >
-                      <RefreshCw size={16} />
+                      <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
                     </button>
 
                     <div className="flex h-10 w-full min-w-[240px] sm:w-72 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-600">
@@ -183,7 +190,7 @@ export default function TeacherInvigilationSchedulePage() {
                 <div className="flex items-center rounded-xl border border-gray-200 bg-gray-100/70 p-1 shadow-2xs">
                   <button
                     type="button"
-                    onClick={() => setViewMode('calendar')}
+                    onClick={() => handleViewModeChange('calendar')}
                     className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-semibold transition-all ${
                       viewMode === 'calendar'
                         ? 'bg-white text-blue-700 shadow-xs font-bold'
@@ -195,7 +202,7 @@ export default function TeacherInvigilationSchedulePage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setViewMode('table')}
+                    onClick={() => handleViewModeChange('table')}
                     className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-semibold transition-all ${
                       viewMode === 'table'
                         ? 'bg-white text-blue-700 shadow-xs font-bold'
@@ -217,23 +224,28 @@ export default function TeacherInvigilationSchedulePage() {
                 <div className="p-3 sm:p-4">
                   <TeacherCalendarView
                     assignments={assignments}
+                    visibleMonth={visibleMonth}
                     selectedDate={selectedDay?.date}
+                    onVisibleMonthChange={(date) => {
+                      setVisibleMonth(date)
+                      setSelectedDay(null)
+                    }}
                     onSelectDay={handleSelectDay}
                   />
                 </div>
-              ) : filteredAssignments.length === 0 ? (
+              ) : assignments.length === 0 ? (
                 <ScheduleMessage message="Không có ca thi phù hợp với bộ lọc." />
               ) : (
                 <>
                   <TeacherScheduleTableView
-                    assignments={paginatedAssignments}
+                    assignments={assignments}
                     statusMeta={statusMeta}
                     onOpenProctoring={openProctoring}
                   />
                   <TeacherPagination
-                    page={page}
-                    totalPages={totalPages}
-                    totalItems={filteredAssignments.length}
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
                     onChange={setPage}
                   />
                 </>

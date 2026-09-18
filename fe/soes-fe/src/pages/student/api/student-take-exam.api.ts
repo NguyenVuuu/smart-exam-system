@@ -48,6 +48,7 @@ export interface AttemptResult {
 
 export interface GradeAppeal {
   id: string
+  attemptId: string
   reason: string
   status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
   teacherReply: string | null
