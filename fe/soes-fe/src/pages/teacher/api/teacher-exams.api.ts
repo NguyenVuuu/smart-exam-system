@@ -279,9 +279,13 @@ export interface TeacherGradeAppeal {
 }
 
 export const getTeacherGradeAppeals = (params: { status?: TeacherGradeAppeal['status'] | 'ALL'; page?: number; pageSize?: number } = {}) =>
-  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
+  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; openCount: number; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
     params: { status: params.status ?? 'ALL', page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
   }).then(({ data }) => data.data)
+
+export const getTeacherGradeAppeal = (appealId: string) =>
+  apiClient.get<ApiResponse<TeacherGradeAppeal>>(`/teacher/grade-appeals/${appealId}`)
+    .then(({ data }) => data.data)
 
 export const updateTeacherGradeAppeal = (
   appealId: string,

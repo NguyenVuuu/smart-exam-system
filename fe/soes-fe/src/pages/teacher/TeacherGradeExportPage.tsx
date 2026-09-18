@@ -1,9 +1,8 @@
 import { FileDown, GraduationCap, RefreshCw } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
-import GradeAppealReviewPanel from './components/grade-export/GradeAppealReviewPanel'
 import GradeAppealsPanel from './components/grade-export/GradeAppealsPanel'
 import GradeReportPanel from './components/grade-export/GradeReportPanel'
 import GradeReportTabs, { type GradeReportTab } from './components/grade-export/GradeReportTabs'
@@ -18,11 +17,12 @@ function activeTabFrom(params: URLSearchParams): GradeReportTab {
 }
 
 export default function TeacherGradeExportPage() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = activeTabFrom(searchParams)
   const report = useTeacherGradeReport()
   const appeal = useTeacherGradeAppeals()
-  const notificationCount = useTeacherNotificationsStore((state) => state.items.length)
+  const notificationCount = useTeacherNotificationsStore((state) => state.unreadCount)
   const notificationsLoading = useTeacherNotificationsStore((state) => state.loading)
   const refreshNotifications = useTeacherNotificationsStore((state) => state.load)
 
@@ -80,7 +80,7 @@ export default function TeacherGradeExportPage() {
 
             <GradeReportTabs
               activeTab={activeTab}
-              appealCount={appeal.pagination.totalItems}
+              appealCount={appeal.openCount}
               notificationCount={notificationCount}
               onChange={changeTab}
             />
@@ -104,35 +104,18 @@ export default function TeacherGradeExportPage() {
               )}
 
               {activeTab === 'appeals' && (
-                <div className="space-y-5">
-                  <GradeAppealsPanel
-                    appeals={appeal.appeals}
-                    pagination={appeal.pagination}
-                    status={appeal.status}
-                    replies={appeal.replies}
-                    loading={appeal.loading}
-                    onStatusChange={appeal.changeStatus}
-                    onPageChange={appeal.setPage}
-                    onReplyChange={appeal.updateReply}
-                    onOpenSubmission={appeal.openSubmission}
-                    onUpdateAppeal={appeal.updateAppeal}
-                  />
-                  {appeal.selectedAppeal && (
-                    <GradeAppealReviewPanel
-                      appeal={appeal.selectedAppeal}
-                      exam={appeal.selectedExam}
-                      submission={appeal.selectedSubmission}
-                      score={appeal.score}
-                      reason={appeal.reason}
-                      loading={appeal.loadingSubmission}
-                      saving={appeal.savingScore}
-                      onScoreChange={appeal.setScore}
-                      onReasonChange={appeal.setReason}
-                      onClose={appeal.closeSubmission}
-                      onSave={appeal.saveScore}
-                    />
-                  )}
-                </div>
+                <GradeAppealsPanel
+                  appeals={appeal.appeals}
+                  pagination={appeal.pagination}
+                  status={appeal.status}
+                  replies={appeal.replies}
+                  loading={appeal.loading}
+                  onStatusChange={appeal.changeStatus}
+                  onPageChange={appeal.setPage}
+                  onReplyChange={appeal.updateReply}
+                  onReviewAppeal={(selectedAppeal) => navigate(`/teacher/grading-reports/appeals/${selectedAppeal.id}`)}
+                  onUpdateAppeal={appeal.updateAppeal}
+                />
               )}
 
               {activeTab === 'notifications' && (

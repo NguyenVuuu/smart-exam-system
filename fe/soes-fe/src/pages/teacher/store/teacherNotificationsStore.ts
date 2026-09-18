@@ -9,6 +9,7 @@ import {
 
 interface TeacherNotificationsState {
   items: TeacherNotification[]
+  totalCount: number
   unreadCount: number
   loading: boolean
   error: string | null
@@ -25,6 +26,7 @@ type TeacherNotificationsStore = TeacherNotificationsState & TeacherNotification
 export const useTeacherNotificationsStore = create<TeacherNotificationsStore>()(
   subscribeWithSelector((set, get) => ({
     items: [],
+    totalCount: 0,
     unreadCount: 0,
     loading: true,
     error: null,
@@ -32,7 +34,12 @@ export const useTeacherNotificationsStore = create<TeacherNotificationsStore>()(
       set({ loading: true, error: null })
       try {
         const page = await getTeacherNotifications(20)
-        set({ items: page.items, unreadCount: page.unreadCount, loading: false })
+        set({
+          items: page.items,
+          totalCount: page.pagination.totalItems,
+          unreadCount: page.unreadCount,
+          loading: false,
+        })
       } catch {
         set({ loading: false, error: 'Không thể tải thông báo.' })
       }

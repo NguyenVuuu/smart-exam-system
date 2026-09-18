@@ -1,21 +1,10 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { getTeacherExamSubmissions, updateTeacherResultRelease } from '../api/teacher-exams.api'
-import type { TeacherExamSubmissionDto } from '../types/teacher-exam-api.types'
+import { toExamSubmission } from '../mappers/teacher-exam.mapper'
 import type { ExamSubmission, ResultReleaseMode } from '../types/teacher-exam.types'
 
 const EMPTY_PAGINATION = { page: 1, pageSize: 10, totalItems: 0, totalPages: 1 }
-
-function submissionFrom(dto: TeacherExamSubmissionDto): ExamSubmission {
-  return {
-    ...dto,
-    submittedAt: dto.submittedAt
-      ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(dto.submittedAt))
-      : '-',
-    answers: dto.answers.map((answer) => ({ ...answer, sourceCode: answer.sourceCode ?? undefined })),
-    codingResults: dto.codingResults.map((record) => ({ ...record, actualOutput: record.actualOutput ?? '' })),
-  }
-}
 
 export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
   const [items, setItems] = useState<ExamSubmission[]>([])
@@ -36,7 +25,12 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     getTeacherExamSubmissions(examId, scheduleId, page)
       .then((response) => {
         if (!active) return
-        setItems(response.items.map(submissionFrom))
+        setItems(response.items.map((submission) => ({
+          ...toExamSubmission(submission),
+          submittedAt: submission.submittedAt
+            ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(submission.submittedAt))
+            : '-',
+        })))
         setPagination(response.pagination)
         setResultRelease({
           mode: response.resultRelease.mode,

@@ -1,10 +1,11 @@
-import { BellRing, CheckCheck, ChevronRight, Inbox } from 'lucide-react'
+import { CheckCheck, ChevronRight, Inbox } from 'lucide-react'
 import type { TeacherNotification } from '../../api/teacher-notifications.api'
 import { useTeacherNotificationsStore } from '../../store/teacherNotificationsStore'
 import { formatTeacherNotificationTime } from '../../utils/teacher-notification.utils'
 
 export default function TeacherNotificationsPanel({ onViewAppeals }: { onViewAppeals: () => void }) {
   const notifications = useTeacherNotificationsStore((state) => state.items)
+  const totalCount = useTeacherNotificationsStore((state) => state.totalCount)
   const unreadCount = useTeacherNotificationsStore((state) => state.unreadCount)
   const loading = useTeacherNotificationsStore((state) => state.loading)
   const error = useTeacherNotificationsStore((state) => state.error)
@@ -22,12 +23,12 @@ export default function TeacherNotificationsPanel({ onViewAppeals }: { onViewApp
       <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
-            <BellRing size={19} />
+            <Inbox size={19} />
           </span>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-950">Thông báo giảng dạy</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              {notifications.length} thông báo · {unreadCount} chưa đọc
+              {totalCount} thông báo · {unreadCount} chưa đọc
             </p>
           </div>
         </div>
@@ -64,17 +65,13 @@ function NotificationRow({ notification, onClick }: { notification: TeacherNotif
     <button
       type="button"
       onClick={onClick}
-      className={`group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-50 ${
+      className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-50 ${
         notification.isRead ? 'bg-white' : 'border-l-2 border-l-blue-600 bg-blue-50/40 pl-[18px]'
       }`}
     >
-      <span className={`mt-0.5 grid h-9 w-9 place-items-center rounded-lg ${
-        notification.isRead ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700'
-      }`}>
-        <BellRing size={16} />
-      </span>
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {!notification.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />}
           <span className="truncate text-sm font-semibold text-slate-950">{notification.title}</span>
           {!notification.isRead && (
             <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-blue-700">Mới</span>

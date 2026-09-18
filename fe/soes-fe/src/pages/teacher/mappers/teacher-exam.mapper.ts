@@ -1,5 +1,5 @@
-import type { TeacherExamDetailDto, TeacherExamDto, TeacherExamScheduleDto, TeacherExamSchedulePayload } from '../types/teacher-exam-api.types'
-import type { Exam, ExamSchedule, ExamStatus, ExamType } from '../types/teacher-exam.types'
+import type { TeacherExamDetailDto, TeacherExamDto, TeacherExamScheduleDto, TeacherExamSchedulePayload, TeacherExamSubmissionDto } from '../types/teacher-exam-api.types'
+import type { Exam, ExamSchedule, ExamStatus, ExamSubmission, ExamType } from '../types/teacher-exam.types'
 
 const statusOf = (dto: TeacherExamDto): ExamStatus => {
   if (dto.approvalStatus === 'PENDING') return 'PENDING_APPROVAL'
@@ -95,6 +95,19 @@ export const toExamSchedule = (dto: TeacherExamScheduleDto): ExamSchedule => {
     proctorIds: course?.proctors.map(({ id }) => id) ?? [], status: dto.status,
   }
 }
+
+export const toExamSubmission = (dto: TeacherExamSubmissionDto): ExamSubmission => ({
+  ...dto,
+  submittedAt: dto.submittedAt ?? '',
+  answers: dto.answers.map((answer) => ({
+    ...answer,
+    sourceCode: answer.sourceCode ?? undefined,
+  })),
+  codingResults: dto.codingResults.map((record) => ({
+    ...record,
+    actualOutput: record.actualOutput ?? '',
+  })),
+})
 
 export const toTeacherSchedulePayload = (schedule: ExamSchedule): TeacherExamSchedulePayload => ({
   courseOfferingId: schedule.courseOfferingId,

@@ -26,6 +26,13 @@ router.get(
   controller.listTeacherAppeals,
 )
 
+router.get(
+  '/grade-appeals/:appealId',
+  authenticate,
+  requireTeacher(),
+  controller.getTeacherAppeal,
+)
+
 router.patch(
   '/grade-appeals/:appealId',
   authenticate,

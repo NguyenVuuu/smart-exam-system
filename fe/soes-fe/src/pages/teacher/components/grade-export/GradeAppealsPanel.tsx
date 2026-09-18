@@ -14,7 +14,7 @@ interface GradeAppealsPanelProps {
   onStatusChange: (status: GradeAppealStatus) => void
   onPageChange: (page: number) => void
   onReplyChange: (appealId: string, reply: string) => void
-  onOpenSubmission: (appeal: TeacherGradeAppeal) => void
+  onReviewAppeal: (appeal: TeacherGradeAppeal) => void
   onUpdateAppeal: (appealId: string, status: 'IN_REVIEW' | 'REJECTED') => void
 }
 
@@ -53,7 +53,7 @@ export default function GradeAppealsPanel({
   onStatusChange,
   onPageChange,
   onReplyChange,
-  onOpenSubmission,
+  onReviewAppeal,
   onUpdateAppeal,
 }: GradeAppealsPanelProps) {
   return (
@@ -87,7 +87,7 @@ export default function GradeAppealsPanel({
               appeal={appeal}
               reply={replies[appeal.id] ?? ''}
               onReplyChange={onReplyChange}
-              onOpenSubmission={onOpenSubmission}
+              onReviewAppeal={onReviewAppeal}
               onUpdateAppeal={onUpdateAppeal}
             />
           ))}
@@ -110,13 +110,13 @@ function AppealRow({
   appeal,
   reply,
   onReplyChange,
-  onOpenSubmission,
+  onReviewAppeal,
   onUpdateAppeal,
 }: {
   appeal: TeacherGradeAppeal
   reply: string
   onReplyChange: (appealId: string, reply: string) => void
-  onOpenSubmission: (appeal: TeacherGradeAppeal) => void
+  onReviewAppeal: (appeal: TeacherGradeAppeal) => void
   onUpdateAppeal: (appealId: string, status: 'IN_REVIEW' | 'REJECTED') => void
 }) {
   const open = isOpenAppeal(appeal.status)
@@ -159,7 +159,7 @@ function AppealRow({
               <button type="button" onClick={() => onUpdateAppeal(appeal.id, 'REJECTED')} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50">
                 Từ chối
               </button>
-              <button type="button" onClick={() => onOpenSubmission(appeal)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+              <button type="button" onClick={() => onReviewAppeal(appeal)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
                 <Eye size={15} /> Xem bài và chấm lại
               </button>
             </>

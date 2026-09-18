@@ -1,19 +1,17 @@
-import { Save, X } from 'lucide-react'
+import { Save } from 'lucide-react'
 import type { TeacherGradeAppeal } from '../../api/teacher-exams.api'
 import type { Exam, ExamSubmission } from '../../types/teacher-exam.types'
 import SubmissionAnswerList from '../exam-detail/SubmissionAnswerList'
 
 interface GradeAppealReviewPanelProps {
   appeal: TeacherGradeAppeal
-  exam: Exam | null
-  submission: ExamSubmission | null
+  exam: Exam
+  submission: ExamSubmission
   score: number
-  reason: string
-  loading: boolean
+  conclusion: string
   saving: boolean
   onScoreChange: (score: number) => void
-  onReasonChange: (reason: string) => void
-  onClose: () => void
+  onConclusionChange: (conclusion: string) => void
   onSave: () => void
 }
 
@@ -22,55 +20,36 @@ export default function GradeAppealReviewPanel({
   exam,
   submission,
   score,
-  reason,
-  loading,
+  conclusion,
   saving,
   onScoreChange,
-  onReasonChange,
-  onClose,
+  onConclusionChange,
   onSave,
 }: GradeAppealReviewPanelProps) {
   const editable = appeal.status === 'PENDING' || appeal.status === 'IN_REVIEW'
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <ReviewHeader appeal={appeal} onClose={onClose} />
-      {loading && <PanelMessage message="Đang tải bài nộp..." />}
-      {!loading && (!exam || !submission) && <PanelMessage message="Không tìm thấy dữ liệu bài nộp để chấm lại." />}
-      {!loading && exam && submission && (
-        <div className="grid min-h-[560px] lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-h-0 border-b border-slate-100 lg:border-b-0 lg:border-r">
-            <ScoreSummary appeal={appeal} submission={submission} />
-            <SubmissionAnswerList exam={exam} submission={submission} />
+      <div className="grid min-h-[620px] lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-h-0 border-b border-slate-100 lg:border-b-0 lg:border-r">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-slate-950">Bài làm đã nộp</h2>
+            <p className="mt-1 text-xs text-slate-500">Đối chiếu đáp án, điểm từng câu và kết quả chấm tự động.</p>
           </div>
-          <ReviewForm
-            appeal={appeal}
-            score={score}
-            reason={reason}
-            editable={editable}
-            saving={saving}
-            onScoreChange={onScoreChange}
-            onReasonChange={onReasonChange}
-            onSave={onSave}
-          />
+          <ScoreSummary appeal={appeal} submission={submission} />
+          <SubmissionAnswerList exam={exam} submission={submission} />
         </div>
-      )}
-    </section>
-  )
-}
-
-function ReviewHeader({ appeal, onClose }: { appeal: TeacherGradeAppeal; onClose: () => void }) {
-  return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
-      <div className="min-w-0">
-        <h2 className="text-sm font-semibold text-slate-950">Xem bài và chấm phúc khảo</h2>
-        <p className="mt-1 truncate text-xs text-slate-500">
-          {appeal.student.fullName} · {appeal.student.studentCode} · {appeal.exam.title}
-        </p>
+        <ReviewForm
+          appeal={appeal}
+          score={score}
+          conclusion={conclusion}
+          editable={editable}
+          saving={saving}
+          onScoreChange={onScoreChange}
+          onConclusionChange={onConclusionChange}
+          onSave={onSave}
+        />
       </div>
-      <button type="button" onClick={onClose} title="Đóng" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-        <X size={17} />
-      </button>
-    </div>
+    </section>
   )
 }
 
@@ -95,24 +74,28 @@ function ScoreSummary({ appeal, submission }: { appeal: TeacherGradeAppeal; subm
 function ReviewForm({
   appeal,
   score,
-  reason,
+  conclusion,
   editable,
   saving,
   onScoreChange,
-  onReasonChange,
+  onConclusionChange,
   onSave,
 }: {
   appeal: TeacherGradeAppeal
   score: number
-  reason: string
+  conclusion: string
   editable: boolean
   saving: boolean
   onScoreChange: (score: number) => void
-  onReasonChange: (reason: string) => void
+  onConclusionChange: (conclusion: string) => void
   onSave: () => void
 }) {
   return (
-    <div className="space-y-4 p-5">
+    <aside className="space-y-4 bg-slate-50/50 p-5 lg:sticky lg:top-0 lg:self-start">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-950">Kết luận phúc khảo</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-500">Ghi nhận điểm chính thức và phản hồi gửi đến sinh viên.</p>
+      </div>
       <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
         <strong>Lý do sinh viên:</strong> {appeal.reason}
       </div>
@@ -131,8 +114,8 @@ function ReviewForm({
       <Field label="Kết luận chấm lại">
         <textarea
           rows={5}
-          value={reason}
-          onChange={(event) => onReasonChange(event.target.value)}
+          value={conclusion}
+          onChange={(event) => onConclusionChange(event.target.value)}
           disabled={!editable}
           className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           placeholder="Nêu kết quả kiểm tra và lý do điều chỉnh điểm..."
@@ -147,7 +130,7 @@ function ReviewForm({
           Yêu cầu này đã hoàn tất và được lưu trong lịch sử.
         </p>
       )}
-    </div>
+    </aside>
   )
 }
 
@@ -158,8 +141,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   )
-}
-
-function PanelMessage({ message }: { message: string }) {
-  return <div className="px-5 py-12 text-center text-sm text-slate-400">{message}</div>
 }
