@@ -69,6 +69,8 @@ export default function StudentTakeExamPage() {
   const [runCodeErrorQuestionId, setRunCodeErrorQuestionId] = useState<string | null>(null)
   const previousWebcamStatusRef = useRef<ExamSessionWebcamStatus | null>(null)
   const previousScreenStatusRef = useRef<ExamSessionScreenShareStatus | null>(null)
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
 
   const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId)
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
@@ -145,6 +147,27 @@ export default function StudentTakeExamPage() {
     onTimeExpired: handleTimeExpired,
     onSubmitted: handleSubmitted
   })
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true)
+      toast.success('Kết nối đã khôi phục', { description: 'Hệ thống sẽ tiếp tục tự động lưu bài.' })
+    }
+    const handleOffline = () => {
+      setIsOnline(false)
+      toast.warning('Mất kết nối mạng', { description: 'Bạn vẫn có thể tiếp tục làm bài, hệ thống sẽ thử lưu lại khi có mạng.' })
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (saveState === 'SAVED') setLastSavedAt(new Date().toISOString())
+  }, [saveState])
 
   const handleViolationDetected = useCallback((payload: RecordViolationPayload) => {
     if (!scheduleId || !attemptId) return undefined
@@ -455,6 +478,15 @@ export default function StudentTakeExamPage() {
 
             <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_270px]">
               <section className="min-w-0 space-y-4">
+                <ExamRuntimeStatusBar
+                  saveState={saveState}
+                  lastSavedAt={lastSavedAt}
+                  isOnline={isOnline}
+                  webcamStatus={toSessionWebcamStatus(webcamStatus, webcamStream, session.integritySettings.enableWebcam)}
+                  screenShareStatus={toSessionScreenShareStatus(screenStatus, screenStream, session.integritySettings.enableScreenMonitoring)}
+                  isFullscreenActive={isFullscreenActive}
+                  requireFullscreen={session.integritySettings.requireFullscreen}
+                />
                 <TakeExamProgress
                   answeredCount={answeredCount}
                   totalQuestions={session.questions.length}
@@ -555,4 +587,70 @@ export default function StudentTakeExamPage() {
       />
     </div>
   )
+}
+
+function ExamRuntimeStatusBar({
+  saveState,
+  lastSavedAt,
+  isOnline,
+  webcamStatus,
+  screenShareStatus,
+  isFullscreenActive,
+  requireFullscreen,
+}: {
+  saveState: string
+  lastSavedAt: string | null
+  isOnline: boolean
+  webcamStatus: ExamSessionWebcamStatus
+  screenShareStatus: ExamSessionScreenShareStatus
+  isFullscreenActive: boolean
+  requireFullscreen: boolean
+}) {
+  const savedText = saveState === 'SAVING'
+    ? 'Đang lưu bài...'
+    : lastSavedAt
+      ? `Đã lưu lúc ${new Date(lastSavedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+      : 'Chưa có thay đổi cần lưu'
+
+  const items = [
+    { label: savedText, ok: saveState !== 'SAVING' },
+    { label: isOnline ? 'Mạng ổn định' : 'Mất kết nối, đang thử lại', ok: isOnline },
+    { label: webcamStatusLabel(webcamStatus), ok: webcamStatus === 'ACTIVE' || webcamStatus === 'NOT_REQUIRED' },
+    { label: screenStatusLabel(screenShareStatus), ok: screenShareStatus === 'ACTIVE' || screenShareStatus === 'NOT_REQUIRED' },
+    { label: requireFullscreen ? (isFullscreenActive ? 'Đang toàn màn hình' : 'Đã thoát toàn màn hình') : 'Không yêu cầu toàn màn hình', ok: !requireFullscreen || isFullscreenActive },
+  ]
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+      <div className="grid gap-2 text-[11px] font-semibold text-slate-600 sm:grid-cols-2 xl:grid-cols-5">
+        {items.map((item) => (
+          <div key={item.label} className="flex min-h-8 items-center gap-2 rounded-lg bg-slate-50 px-3">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${item.ok ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <span className="truncate">{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function webcamStatusLabel(status: ExamSessionWebcamStatus) {
+  switch (status) {
+    case 'NOT_REQUIRED': return 'Không yêu cầu camera'
+    case 'ACTIVE': return 'Camera đang hoạt động'
+    case 'PENDING_PERMISSION': return 'Đang chờ quyền camera'
+    case 'PERMISSION_DENIED': return 'Camera bị từ chối'
+    case 'BLOCKED': return 'Camera bị che'
+    default: return 'Camera đã tắt'
+  }
+}
+
+function screenStatusLabel(status: ExamSessionScreenShareStatus) {
+  switch (status) {
+    case 'NOT_REQUIRED': return 'Không yêu cầu chia sẻ màn hình'
+    case 'ACTIVE': return 'Đang chia sẻ màn hình'
+    case 'PENDING_PERMISSION': return 'Đang chờ chia sẻ màn hình'
+    case 'PERMISSION_DENIED': return 'Chia sẻ màn hình bị từ chối'
+    default: return 'Chia sẻ màn hình đã dừng'
+  }
 }
