@@ -1,4 +1,5 @@
 import { Check, Code, Edit, Eye, EyeOff, X } from 'lucide-react'
+import HtmlContent from '../../../../components/common/HtmlContent'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../constants/programmingLanguages'
 import type { Exam, ExamSubmission } from '../../types/teacher-exam.types'
 import { examStatusLabel } from '../../constants/examStatus'
@@ -173,9 +174,10 @@ function ExamPreviewQuestion({ item }: { item: Exam['questions'][number] }) {
         {isProgramming && (
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase text-gray-400">Mô tả bài toán</p>
-            <p className="whitespace-pre-wrap rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs font-medium leading-6 text-gray-800">
-              {question.content}
-            </p>
+            <HtmlContent
+              content={question.content}
+              className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs font-medium leading-6 text-gray-800"
+            />
           </div>
         )}
       </div>
