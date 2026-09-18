@@ -1,3 +1,4 @@
+import { Eye } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import AppSelect from '../../../../components/common/AppSelect'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
@@ -16,13 +17,14 @@ export function ExamSubmissionsTab({
   onResultReleaseModeChange,
   onResultReleaseAtChange,
   onResultsPublishedChange,
+  onViewSubmission,
   loading,
   pagination,
   onPageChange,
   canReview = true,
   showSessionSelector = true,
   unavailableTitle = 'Ca thi chưa kết thúc',
-  unavailableDescription = 'Bài nộp và điểm phúc khảo chỉ được mở sau khi ca thi kết thúc.',
+  unavailableDescription = 'Bài nộp và kết quả chỉ được mở sau khi ca thi kết thúc.',
 }: {
   submissions: ExamSubmission[]
   sessions: ExamSchedule[]
@@ -35,6 +37,7 @@ export function ExamSubmissionsTab({
   onResultReleaseModeChange: (mode: ResultReleaseMode) => void
   onResultReleaseAtChange: (value: string) => void
   onResultsPublishedChange: (value: boolean) => void
+  onViewSubmission: (submission: ExamSubmission) => void
   loading: boolean
   pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
   onPageChange: (page: number) => void
@@ -57,7 +60,9 @@ export function ExamSubmissionsTab({
     },
     {
       header: 'Họ và Tên',
-      render: (s) => <span className="text-sm font-bold text-gray-900">{s.studentName}</span>,
+      width: '200px',
+      className: 'whitespace-nowrap',
+      render: (s) => <span className="whitespace-nowrap text-sm font-bold text-gray-900">{s.studentName}</span>,
     },
     {
       header: 'Thời Gian Nộp',
@@ -115,12 +120,21 @@ export function ExamSubmissionsTab({
       },
     },
     {
-      header: 'Lời nhắn của giảng viên',
-      width: '260px',
-      render: (s) => s.regradeRequest?.resolution ? (
-        <span className="text-sm leading-5 text-gray-700">{s.regradeRequest.resolution}</span>
-      ) : (
-        <span className="text-sm text-gray-400">-</span>
+      header: 'Thao tác',
+      width: '88px',
+      align: 'right',
+      render: (submission) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onViewSubmission(submission)}
+            title="Xem bài làm"
+            aria-label={`Xem bài làm của ${submission.studentName}`}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            <Eye size={17} />
+          </button>
+        </div>
       ),
     },
   ]
@@ -132,7 +146,7 @@ export function ExamSubmissionsTab({
           <div>
             <p className="text-base font-semibold text-gray-900">Ca thi đang xem</p>
             <p className="mt-0.5 text-sm text-gray-500">
-              Bài nộp, điểm trước phúc khảo, điểm sau phúc khảo và phản hồi được quản lý theo từng ca.
+              Bài nộp, điểm trước và sau phúc khảo được theo dõi theo từng ca thi.
             </p>
           </div>
           <AppSelect

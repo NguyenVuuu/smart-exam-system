@@ -138,10 +138,23 @@ export function useLiveProctorSocket({
         : item))
     }
 
-    const handleOffline = (payload: { attemptId: string; lastHeartbeatAt?: string; isOnline: false }) => {
+    const handleOffline = (payload: {
+      attemptId: string
+      attemptStatus?: ProctoringSessionRecord['attemptStatus']
+      lastHeartbeatAt?: string
+      isOnline: false
+    }) => {
       setSessions((current) => current.map((item) => item.attemptId === payload.attemptId
-        ? { ...item, isOnline: false, lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt }
+        ? {
+            ...item,
+            attemptStatus: payload.attemptStatus ?? item.attemptStatus,
+            isOnline: false,
+            webcamStatus: item.webcamStatus === 'ACTIVE' ? 'DISCONNECTED' : item.webcamStatus,
+            screenShareStatus: item.screenShareStatus === 'ACTIVE' ? 'STOPPED' : item.screenShareStatus,
+            lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt,
+          }
         : item))
+      if (payload.attemptId === liveAttemptId) stopLive()
     }
 
     const handleViolationCreated = (payload: ViolationRecord) => {
@@ -209,7 +222,7 @@ export function useLiveProctorSocket({
       socket.off('live:student_candidate', handleStudentCandidate)
       socket.off('live:ended', handleLiveEnded)
     }
-  }, [debouncedViolationSearch, scheduleId, selectedViolationStudentId, selectedViolationType, setScheduleTitle, setSessions, setViolationPagination, setViolations, stopLive, violationPage])
+  }, [debouncedViolationSearch, liveAttemptId, scheduleId, selectedViolationStudentId, selectedViolationType, setScheduleTitle, setSessions, setViolationPagination, setViolations, stopLive, violationPage])
 
   const startLive = async (session: ProctoringSessionRecord, streamType: LiveStreamType) => {
     if (liveAttemptId && (liveAttemptId !== session.attemptId || liveStreamType !== streamType)) stopLive()

@@ -34,25 +34,31 @@ const columns: ColumnDef<StudentGradeRow>[] = [
   {
     header: 'MSSV',
     accessorKey: 'studentCode',
-    className: 'font-medium text-gray-900',
+    width: '130px',
+    className: 'whitespace-nowrap font-medium text-blue-700',
   },
   {
     header: 'Họ và tên',
     accessorKey: 'studentName',
-    className: 'font-medium text-gray-900',
+    width: '220px',
+    className: 'whitespace-nowrap font-medium text-gray-900',
   },
   {
     header: 'Mã lớp HP',
     accessorKey: 'classCode',
-    className: 'text-gray-600',
+    width: '150px',
+    className: 'whitespace-nowrap text-gray-600',
   },
   {
     header: 'Thời gian nộp',
     render: (row) => formatDateTime(row.submittedAt),
-    className: 'text-gray-500 text-xs',
+    width: '175px',
+    className: 'whitespace-nowrap text-gray-500 text-xs',
   },
   {
-    header: 'Điểm số (Hệ 10)',
+    header: 'Điểm hệ 10',
+    width: '120px',
+    align: 'center',
     render: (row) => (
       <span className="font-bold text-gray-900">
         {row.totalScore.toFixed(2)}
@@ -61,6 +67,8 @@ const columns: ColumnDef<StudentGradeRow>[] = [
   },
   {
     header: 'Điểm chữ',
+    width: '105px',
+    align: 'center',
     render: (row) => (
       <AppBadge tone={letterGradeTone[row.letterGrade] || 'blue'}>
         {row.letterGrade}
@@ -69,6 +77,8 @@ const columns: ColumnDef<StudentGradeRow>[] = [
   },
   {
     header: 'Trạng thái',
+    width: '130px',
+    className: 'whitespace-nowrap',
     render: (row) => (
       <span className="text-xs text-gray-600">
         {statusLabel[row.status] || row.status}
@@ -90,6 +100,7 @@ export default function GradeExportTable({ rows, loading }: GradeExportTableProp
       keyExtractor={(item) => item.id}
       isLoading={loading}
       emptyText="Không tìm thấy sinh viên nào trong danh sách."
+      embedded
     />
   )
 }

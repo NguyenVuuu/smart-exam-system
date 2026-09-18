@@ -234,9 +234,10 @@ export default function TeacherLiveProctorPage() {
   }, [extensionTarget])
 
   const liveStudent = sessions.find((session) => session.attemptId === liveAttemptId) ?? null
-  const onlineCount = sessions.filter((session) => session.isOnline).length
-  const cameraActiveCount = sessions.filter((session) => session.webcamStatus === 'ACTIVE').length
-  const screenActiveCount = sessions.filter((session) => session.screenShareStatus === 'ACTIVE').length
+  const activeSessions = sessions.filter((session) => session.attemptStatus === 'IN_PROGRESS' && session.isOnline)
+  const onlineCount = activeSessions.length
+  const cameraActiveCount = activeSessions.filter((session) => session.webcamStatus === 'ACTIVE').length
+  const screenActiveCount = activeSessions.filter((session) => session.screenShareStatus === 'ACTIVE').length
   const totalViolationCount = sessions.reduce((total, session) => total + session.violationCount, 0)
 
   return (

@@ -1,15 +1,22 @@
 import { Bell, ChevronDown, HelpCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
+import type { TeacherNotification } from '../api/teacher-notifications.api'
+import { useTeacherNotifications } from '../hooks/useTeacherNotifications'
+import TeacherNotificationsMenu from './TeacherNotificationsMenu'
 import { persistentTeacherIsCollapsed } from './TeacherSidebar'
 
 export default function TeacherTopBar() {
   const user = useAuthStore((s) => s.user)
+  const navigate = useNavigate()
   const { logout } = useLogout()
+  const { items: notifications, unreadCount, loading, error, load, markRead, markAllRead } = useTeacherNotifications()
   const [openUserMenu, setOpenUserMenu] = useState(false)
   const [openNotifications, setOpenNotifications] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => persistentTeacherIsCollapsed)
+  const notificationsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleToggle = () => {
@@ -19,10 +26,33 @@ export default function TeacherTopBar() {
     return () => window.removeEventListener('toggle-sidebar', handleToggle)
   }, [])
 
-  const notifications = [
-    { id: '1', title: 'Sinh viên nộp bài', desc: 'Nguyễn Văn A đã nộp bài thi Giữa Kỳ Java', time: '5 phút trước', unread: true },
-    { id: '2', title: 'Cảnh báo vi phạm thi', desc: 'Phát hiện không thấy mặt tại Kỳ thi C++ 01', time: '12 phút trước', unread: true },
-  ]
+  useEffect(() => {
+    if (!openNotifications) return
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !notificationsRef.current?.contains(event.target)) {
+        setOpenNotifications(false)
+      }
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenNotifications(false)
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [openNotifications])
+
+  const selectNotification = (notification: TeacherNotification) => {
+    void markRead(notification.id)
+    setOpenNotifications(false)
+    if (notification.title.toLocaleLowerCase('vi').includes('phúc khảo')) {
+      navigate('/teacher/grading-reports?tab=appeals')
+    }
+  }
 
   return (
     <header className="relative flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 font-sans text-slate-800">
@@ -51,41 +81,47 @@ export default function TeacherTopBar() {
         </button>
 
         {/* Notification Bell */}
-        <div className="relative">
+        <div ref={notificationsRef} className="relative">
           <button
-            onClick={() => setOpenNotifications((p) => !p)}
+            onClick={() => {
+              setOpenNotifications((current) => !current)
+              setOpenUserMenu(false)
+            }}
             className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-800"
             title="Thông báo"
           >
             <Bell size={19} />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
+            {unreadCount > 0 && (
+              <span className="absolute right-0 top-0 inline-flex min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-4 text-white ring-2 ring-white">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {openNotifications && (
-            <div className="absolute right-0 top-11 z-20 w-72 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl">
-              <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-950">Thông báo giảng dạy</span>
-                <span className="text-xs text-blue-600 font-medium cursor-pointer">Đã đọc</span>
-              </div>
-              <div className="max-h-60 overflow-y-auto divide-y divide-gray-50">
-                {notifications.map((item) => (
-                  <div key={item.id} className="p-3 text-xs hover:bg-gray-50 cursor-pointer">
-                    <div className="flex justify-between items-start mb-0.5">
-                      <span className="font-semibold text-slate-900">{item.title}</span>
-                      <span className="text-xs text-gray-400">{item.time}</span>
-                    </div>
-                    <p className="text-xs text-slate-500">{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TeacherNotificationsMenu
+              notifications={notifications.slice(0, 5)}
+              unreadCount={unreadCount}
+              loading={loading}
+              error={error}
+              onMarkAllRead={() => void markAllRead()}
+              onRetry={() => void load()}
+              onSelect={selectNotification}
+              onViewAll={() => {
+                setOpenNotifications(false)
+                navigate('/teacher/grading-reports?tab=notifications')
+              }}
+            />
           )}
         </div>
 
         {/* User Account */}
         <div className="relative">
           <button
-            onClick={() => setOpenUserMenu((p) => !p)}
+            onClick={() => {
+              setOpenUserMenu((current) => !current)
+              setOpenNotifications(false)
+            }}
             className="flex items-center gap-2.5 rounded-full p-1 pr-2.5 transition-colors hover:bg-gray-50"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-xs">

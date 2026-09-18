@@ -64,7 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Lịch coi thi', icon: <CalendarClock size={19} />, path: '/teacher/invigilation-schedule' },
       { label: 'Giám sát ca thi', icon: <ShieldAlert size={19} />, path: '/teacher/proctoring' },
-      { label: 'Thống kê phổ điểm', icon: <FileSpreadsheet size={19} />, path: '/teacher/grading-reports' },
+      { label: 'Kết quả & Phúc khảo', icon: <FileSpreadsheet size={19} />, path: '/teacher/grading-reports' },
     ],
   },
   {

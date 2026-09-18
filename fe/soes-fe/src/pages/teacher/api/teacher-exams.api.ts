@@ -121,6 +121,18 @@ export const getTeacherExamSubmissions = (examId: string, scheduleId: string, pa
     params: { page, pageSize },
   }).then(({ data }) => data.data)
 
+export async function getAllTeacherExamSubmissions(examId: string, scheduleId: string) {
+  const pageSize = 100
+  const firstPage = await getTeacherExamSubmissions(examId, scheduleId, 1, pageSize)
+  if (firstPage.pagination.totalPages <= 1) return firstPage.items
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.pagination.totalPages - 1 }, (_, index) =>
+      getTeacherExamSubmissions(examId, scheduleId, index + 2, pageSize),
+    ),
+  )
+  return [firstPage, ...remainingPages].flatMap((page) => page.items)
+}
+
 export const getTeacherExamViolations = (
   examId: string,
   scheduleId: string,
@@ -267,9 +279,13 @@ export interface TeacherGradeAppeal {
 }
 
 export const getTeacherGradeAppeals = (params: { status?: TeacherGradeAppeal['status'] | 'ALL'; page?: number; pageSize?: number } = {}) =>
-  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
+  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; openCount: number; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
     params: { status: params.status ?? 'ALL', page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
   }).then(({ data }) => data.data)
+
+export const getTeacherGradeAppeal = (appealId: string) =>
+  apiClient.get<ApiResponse<TeacherGradeAppeal>>(`/teacher/grade-appeals/${appealId}`)
+    .then(({ data }) => data.data)
 
 export const updateTeacherGradeAppeal = (
   appealId: string,

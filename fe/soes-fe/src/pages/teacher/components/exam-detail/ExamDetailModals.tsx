@@ -1,103 +1,9 @@
-import { Check, Code, Edit, Eye, EyeOff, X } from 'lucide-react'
+import { Check, Code, Eye, EyeOff, X } from 'lucide-react'
+import HtmlContent from '../../../../components/common/HtmlContent'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../constants/programmingLanguages'
 import type { Exam, ExamSubmission } from '../../types/teacher-exam.types'
 import { examStatusLabel } from '../../constants/examStatus'
 import SubmissionAnswerList from './SubmissionAnswerList'
-
-export function ScoreOverrideModal({
-  submission,
-  overrideScoreInput,
-  overrideReason,
-  maxScore,
-  onScoreChange,
-  onReasonChange,
-  onClose,
-  onApply,
-}: {
-  submission: ExamSubmission | null
-  overrideScoreInput: number
-  overrideReason: string
-  maxScore: number
-  onScoreChange: (score: number) => void
-  onReasonChange: (reason: string) => void
-  onClose: () => void
-  onApply: () => void
-}) {
-  if (!submission) return null
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150 font-sans">
-      <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-gray-100">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3 font-sans">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-              <Edit size={16} />
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-gray-900">Chấm phúc khảo</h3>
-              <p className="text-xs text-gray-500">Điều chỉnh điểm chính thức cho bài nộp của thí sinh sau ca thi</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-3.5 text-xs">
-          <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 grid grid-cols-2 gap-3">
-            <div>
-              <span className="text-gray-400 text-xs block">Thí sinh:</span>
-              <span className="font-bold text-gray-900">{submission.studentName}</span>
-              <span className="text-blue-600 block text-xs font-semibold">MSSV: {submission.studentCode}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 text-xs block">Điểm tự động:</span>
-              <span className="text-xs font-bold text-gray-900">{submission.autoScore ?? '-'} / {maxScore}đ</span>
-              <span className="text-emerald-600 block text-xs font-medium">Nộp lúc {submission.submittedAt}</span>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block font-bold text-gray-700">Điểm phúc khảo (Tối đa {maxScore}):</label>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max={maxScore}
-              value={overrideScoreInput}
-              onChange={(e) => onScoreChange(Number(e.target.value))}
-              className="w-full bg-gray-50 border border-gray-200 text-xs font-bold rounded-xl p-3 text-blue-700 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block font-semibold text-gray-700">Lý do phúc khảo / điều chỉnh điểm:</label>
-            <textarea
-              rows={2}
-              value={overrideReason}
-              onChange={(event) => onReasonChange(event.target.value)}
-              placeholder="Ví dụ: Điều chỉnh do sai sót định dạng output ở test case câu 2..."
-              className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl p-2.5 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors">
-            Hủy bỏ
-          </button>
-          <button
-            onClick={onApply}
-            disabled={overrideReason.trim().length < 5 || overrideScoreInput < 0 || overrideScoreInput > maxScore}
-            className="px-5 py-2 bg-blue-600 text-white font-semibold text-xs rounded-xl hover:bg-blue-700 shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Lưu điểm phúc khảo
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export { default as EvidenceImageModal } from '../proctoring/EvidenceImageModal'
 
@@ -173,9 +79,10 @@ function ExamPreviewQuestion({ item }: { item: Exam['questions'][number] }) {
         {isProgramming && (
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase text-gray-400">Mô tả bài toán</p>
-            <p className="whitespace-pre-wrap rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs font-medium leading-6 text-gray-800">
-              {question.content}
-            </p>
+            <HtmlContent
+              content={question.content}
+              className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-xs font-medium leading-6 text-gray-800"
+            />
           </div>
         )}
       </div>
@@ -281,12 +188,10 @@ export function StudentSubmissionReviewModal({
   exam,
   submission,
   onClose,
-  onEditScore,
 }: {
   exam: Exam
   submission: ExamSubmission | null
   onClose: () => void
-  onEditScore: (submission: ExamSubmission) => void
 }) {
   if (!submission) return null
 
@@ -306,7 +211,7 @@ export function StudentSubmissionReviewModal({
         </div>
 
         <div className="p-6 space-y-4 overflow-hidden flex flex-col min-h-0">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
             <PreviewStat label="Chấm tự động" value={submission.autoScore === null ? '-' : `${submission.autoScore}đ`} />
             <PreviewStat label="Điểm phúc khảo" value={submission.manualScoreOverride != null ? `${submission.manualScoreOverride}đ` : '-'} />
             <PreviewStat label="Điểm chốt" value={submission.finalScore === null ? '-' : `${submission.finalScore}đ`} />
@@ -342,15 +247,8 @@ export function StudentSubmissionReviewModal({
           )}
 
           <div className="border border-gray-100 rounded-xl overflow-hidden flex flex-col min-h-0 flex-1">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+            <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
               <span className="text-sm font-semibold text-gray-900">Bài làm đã nộp</span>
-              <button
-                type="button"
-                onClick={() => onEditScore(submission)}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors"
-              >
-                <Edit size={14} /> Chấm phúc khảo
-              </button>
             </div>
 
             <SubmissionAnswerList exam={exam} submission={submission} />

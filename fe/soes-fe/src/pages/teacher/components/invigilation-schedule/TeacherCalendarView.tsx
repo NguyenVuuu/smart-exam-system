@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type {
   ProctorAssignmentApiDto,
 } from '../../types/teacher-course-api.types'
@@ -22,27 +22,29 @@ const WEEKDAYS = [
 
 interface TeacherCalendarViewProps {
   assignments: ProctorAssignmentApiDto[]
+  visibleMonth: Date
   selectedDate?: Date | null
+  onVisibleMonthChange: (date: Date) => void
   onSelectDay: (date: Date, assignments: ProctorAssignmentApiDto[]) => void
 }
 
 export default function TeacherCalendarView({
   assignments,
+  visibleMonth,
   selectedDate,
+  onVisibleMonthChange,
   onSelectDay,
 }: TeacherCalendarViewProps) {
-  const [currentDate, setCurrentDate] = useState<Date>(() => selectedDate ?? new Date())
-
   const calendarDays = useMemo(() => {
-    return getCalendarDays(currentDate, assignments)
-  }, [currentDate, assignments])
+    return getCalendarDays(visibleMonth, assignments)
+  }, [visibleMonth, assignments])
 
   const selectedDateStr = useMemo(() => {
     return selectedDate ? formatDateToYMD(selectedDate) : null
   }, [selectedDate])
 
-  const currentMonth = currentDate.getMonth()
-  const currentYear = currentDate.getFullYear()
+  const currentMonth = visibleMonth.getMonth()
+  const currentYear = visibleMonth.getFullYear()
 
   const currentMonthTitle = useMemo(() => {
     const m = String(currentMonth + 1).padStart(2, '0')
@@ -50,15 +52,15 @@ export default function TeacherCalendarView({
   }, [currentMonth, currentYear])
 
   const goToPrevMonth = () => {
-    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
+    onVisibleMonthChange(new Date(currentYear, currentMonth - 1, 1))
   }
 
   const goToNextMonth = () => {
-    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
+    onVisibleMonthChange(new Date(currentYear, currentMonth + 1, 1))
   }
 
   const goToToday = () => {
-    setCurrentDate(new Date())
+    onVisibleMonthChange(new Date())
   }
 
   // Count assignments in current viewing month

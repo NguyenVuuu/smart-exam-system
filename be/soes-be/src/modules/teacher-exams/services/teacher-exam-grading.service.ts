@@ -1,3 +1,4 @@
+import type { ScreenShareStatus, WebcamStatus } from '@prisma/client'
 import { ConflictError, NotFoundError, ValidationError } from '../../../errors/AppError'
 import { examConfig, minioConfig } from '../../../config'
 import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
@@ -8,7 +9,15 @@ import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
 import * as repo from '../repositories/teacher-exam-grading.repository'
 import type { InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
-import { emitProctoringEvent, emitTeacherEvent } from '../../proctoring/proctoring-realtime.events'
+import { emitProctoringEvent, emitStudentEvent, emitTeacherEvent } from '../../proctoring/proctoring-realtime.events'
+
+function currentWebcamStatus(status: WebcamStatus, isActive: boolean): WebcamStatus {
+  return !isActive && status === 'ACTIVE' ? 'DISCONNECTED' : status
+}
+
+function currentScreenShareStatus(status: ScreenShareStatus, isActive: boolean): ScreenShareStatus {
+  return !isActive && status === 'ACTIVE' ? 'STOPPED' : status
+}
 
 async function requireSchedule(teacherId: string, examId: string, scheduleId: string) {
   const schedule = await repo.findScheduleAccess(teacherId, examId, scheduleId)
@@ -97,8 +106,11 @@ export async function listProctoringSessions(teacherId: string, examId: string, 
   return {
     items: rows.map((row) => {
       const lastHeartbeat = row.examSession?.lastHeartbeat ?? null
-      const isOnline = lastHeartbeat !== null &&
+      const isInProgress = row.status === 'IN_PROGRESS'
+      const isOnline = isInProgress && lastHeartbeat !== null &&
         now.getTime() - lastHeartbeat.getTime() <= examConfig.heartbeatTimeoutMs
+      const webcamStatus = row.examSession?.webcamStatus ?? 'NOT_REQUIRED'
+      const screenShareStatus = row.examSession?.screenShareStatus ?? 'NOT_REQUIRED'
 
       const lastViolation = row.violations[0] ?? null
 
@@ -111,8 +123,8 @@ export async function listProctoringSessions(teacherId: string, examId: string, 
         attemptStatus: row.status,
         isOnline,
         ipAddress: row.examSession?.ipAddress ?? null,
-        webcamStatus: row.examSession?.webcamStatus ?? 'NOT_REQUIRED',
-        screenShareStatus: row.examSession?.screenShareStatus ?? 'NOT_REQUIRED',
+        webcamStatus: currentWebcamStatus(webcamStatus, isOnline),
+        screenShareStatus: currentScreenShareStatus(screenShareStatus, isOnline),
         lastHeartbeatAt: lastHeartbeat,
         lastWebcamHeartbeatAt: row.examSession?.lastWebcamHeartbeatAt ?? null,
         lastScreenHeartbeatAt: row.examSession?.lastScreenHeartbeatAt ?? null,
@@ -413,13 +425,15 @@ export async function grade(
   const result = await repo.overrideScore(teacherId, userId, examId, scheduleId, attemptId, data.score, data.reason)
   if (!result) throw new NotFoundError('Exam submission not found')
   const dto = toExamSubmissionDto(result)
-  emitTeacherEvent(teacherId, 'grade_appeal:updated', {
+  const appealUpdate = {
     attemptId,
     scheduleId,
     status: 'RESOLVED',
     teacherReply: data.reason,
     score: data.score,
-  })
+  }
+  emitTeacherEvent(teacherId, 'grade_appeal:updated', appealUpdate)
+  if (appeal) emitStudentEvent(appeal.studentId, 'grade_appeal:updated', appealUpdate)
   return dto
 }
 

@@ -10,7 +10,7 @@ const detailTabs: Array<{
 }> = [
   { id: 'sessions', label: 'Ca thi / Lớp áp dụng', icon: <CalendarClock size={18} /> },
   { id: 'proctoring', label: 'Nhật ký vi phạm & Bằng chứng', icon: <ShieldAlert size={18} /> },
-  { id: 'submissions', label: 'Bài Nộp & Điểm Phúc Khảo', icon: <FileCheck size={18} /> },
+  { id: 'submissions', label: 'Bài nộp & Kết quả', icon: <FileCheck size={18} /> },
   { id: 'overview', label: 'Tổng quan cài đặt', icon: <Clock size={18} /> },
 ]
 

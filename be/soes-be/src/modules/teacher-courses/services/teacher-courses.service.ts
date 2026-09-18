@@ -23,10 +23,24 @@ export async function list(teacherId: string, query: TeacherCoursesQuery) {
 }
 
 export async function listProctorAssignments(teacherId: string, query: ProctorAssignmentsQuery) {
-  const { total, rows, teacherUserId } = await repo.listProctorAssignments(teacherId, query)
+  const semesterOptions = await repo.listSemesterOptions()
+  const currentSemesterId = semesterOptions.find(({ status }) => status === 'ACTIVE')?.id ?? null
+  const selectedSemesterId = query.semesterId ?? currentSemesterId
+  if (query.semesterId && !semesterOptions.some(({ id }) => id === query.semesterId)) {
+    throw new ValidationError('Semester not found')
+  }
+
+  const { total, rows, teacherUserId, summary } = await repo.listProctorAssignments(
+    teacherId,
+    { ...query, semesterId: selectedSemesterId ?? undefined },
+  )
   return {
     items: rows.map((row) => toProctorAssignmentDto(row, teacherId, teacherUserId)),
     pagination: toPagination(query.page, query.pageSize, total),
+    semesterOptions,
+    currentSemesterId,
+    selectedSemesterId,
+    summary,
   }
 }
 

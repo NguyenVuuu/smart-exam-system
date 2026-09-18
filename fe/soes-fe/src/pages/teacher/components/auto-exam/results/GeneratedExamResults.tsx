@@ -58,11 +58,11 @@ export default function GeneratedExamResults({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {generatedExams.map((exam) => (
+        {generatedExams.map((exam, index) => (
           <div key={exam.id} className="p-5 border border-gray-100 rounded-2xl bg-gray-50/60 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="px-3 py-1 bg-blue-600 text-white font-semibold text-xs rounded-lg">
-                Đề đã sinh ({exam.id})
+              <span className="px-3 py-1 bg-blue-600 text-white font-semibold text-xs rounded-lg shadow-2xs">
+                {generatedExams.length > 1 ? `Đề sinh tự động #${index + 1}` : 'Đề thi sinh tự động'}
               </span>
               <span className="text-sm font-bold text-gray-800">{exam.totalPoints} điểm</span>
             </div>

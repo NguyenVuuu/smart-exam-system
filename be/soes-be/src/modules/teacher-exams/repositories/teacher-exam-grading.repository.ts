@@ -281,7 +281,7 @@ export function listProctoringSessions(scheduleId: string, courseOfferingIds: st
 export function findGradeAppealByAttempt(attemptId: string) {
   return prisma.gradeAppeal.findFirst({
     where: { attemptId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, studentId: true },
   })
 }
 

@@ -1,7 +1,8 @@
 import prisma from '../../lib/prisma'
+import type { Prisma } from '@prisma/client'
 import { ConflictError, NotFoundError } from '../../errors/AppError'
 import { toPagination } from '../../utils/pagination'
-import { emitTeacherEvent } from '../proctoring/proctoring-realtime.events'
+import { emitStudentEvent, emitTeacherEvent } from '../proctoring/proctoring-realtime.events'
 import type { CreateGradeAppealBody, TeacherGradeAppealQuery, UpdateGradeAppealBody } from './grade-appeals.validator'
 
 const completedStatuses = ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED', 'INVALIDATED'] as const
@@ -100,9 +101,8 @@ export async function listStudentAppeals(studentId: string, scheduleId: string, 
   return { items: rows.map(toDto) }
 }
 
-export async function listTeacherAppeals(teacherId: string, query: TeacherGradeAppealQuery) {
-  const where = {
-    ...(query.status === 'ALL' ? {} : { status: query.status }),
+function teacherAppealAccess(teacherId: string): Prisma.GradeAppealWhereInput {
+  return {
     attempt: {
       examSchedule: {
         scheduleCourses: {
@@ -116,8 +116,18 @@ export async function listTeacherAppeals(teacherId: string, query: TeacherGradeA
       },
     },
   }
-  const [total, rows] = await Promise.all([
+}
+
+export async function listTeacherAppeals(teacherId: string, query: TeacherGradeAppealQuery) {
+  const where = {
+    ...teacherAppealAccess(teacherId),
+    ...(query.status === 'ALL' ? {} : { status: query.status }),
+  }
+  const [total, openCount, rows] = await Promise.all([
     prisma.gradeAppeal.count({ where }),
+    prisma.gradeAppeal.count({
+      where: { ...teacherAppealAccess(teacherId), status: { in: ['PENDING', 'IN_REVIEW'] } },
+    }),
     prisma.gradeAppeal.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -126,26 +136,21 @@ export async function listTeacherAppeals(teacherId: string, query: TeacherGradeA
       include: includeAppeal(),
     }),
   ])
-  return { items: rows.map(toDto), pagination: toPagination(query.page, query.pageSize, total) }
+  return { items: rows.map(toDto), openCount, pagination: toPagination(query.page, query.pageSize, total) }
+}
+
+export async function getTeacherAppeal(teacherId: string, appealId: string) {
+  const row = await prisma.gradeAppeal.findFirst({
+    where: { id: appealId, ...teacherAppealAccess(teacherId) },
+    include: includeAppeal(),
+  })
+  if (!row) throw new NotFoundError('Grade appeal not found')
+  return toDto(row)
 }
 
 export async function updateTeacherAppeal(teacherId: string, appealId: string, body: UpdateGradeAppealBody) {
   const appeal = await prisma.gradeAppeal.findFirst({
-    where: {
-      id: appealId,
-      attempt: {
-        examSchedule: {
-          scheduleCourses: {
-            some: {
-              OR: [
-                { courseOffering: { teacherId } },
-                { proctors: { some: { teacherId } } },
-              ],
-            },
-          },
-        },
-      },
-    },
+    where: { id: appealId, ...teacherAppealAccess(teacherId) },
   })
   if (!appeal) throw new NotFoundError('Grade appeal not found')
   if (!['PENDING', 'IN_REVIEW'].includes(appeal.status)) {
@@ -164,6 +169,7 @@ export async function updateTeacherAppeal(teacherId: string, appealId: string, b
   })
   const dto = toDto(row)
   emitTeacherEvent(teacherId, 'grade_appeal:updated', dto)
+  emitStudentEvent(row.studentId, 'grade_appeal:updated', dto)
   return dto
 }
 

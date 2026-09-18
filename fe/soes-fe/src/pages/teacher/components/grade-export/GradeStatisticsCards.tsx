@@ -1,4 +1,5 @@
-import { BarChart2, CheckCircle2, Users } from 'lucide-react'
+import { BarChart3, CheckCircle2, Gauge, Users } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 export interface GradeStatisticsCardsProps {
   totalSubmissions: number
@@ -17,57 +18,64 @@ export default function GradeStatisticsCards({
   passCount,
   passRate,
 }: GradeStatisticsCardsProps) {
+  const statistics = [
+    {
+      label: 'Tổng bài nộp',
+      value: totalSubmissions,
+      note: 'Sinh viên đã hoàn thành',
+      icon: <Users size={17} />,
+      tone: 'bg-blue-50 text-blue-600',
+    },
+    {
+      label: 'Điểm trung bình',
+      value: totalSubmissions > 0 ? avgScore.toFixed(2) : '-',
+      note: 'Theo thang điểm 10',
+      icon: <BarChart3 size={17} />,
+      tone: 'bg-cyan-50 text-cyan-700',
+    },
+    {
+      label: 'Cao nhất / Thấp nhất',
+      value: totalSubmissions > 0 ? `${maxScore.toFixed(1)} / ${minScore.toFixed(1)}` : '-',
+      note: 'Khoảng điểm ghi nhận',
+      icon: <Gauge size={17} />,
+      tone: 'bg-amber-50 text-amber-700',
+    },
+    {
+      label: 'Tỷ lệ đạt',
+      value: totalSubmissions > 0 ? `${passRate}%` : '-',
+      note: `${passCount}/${totalSubmissions} sinh viên đạt từ 4.0`,
+      icon: <CheckCircle2 size={17} />,
+      tone: 'bg-emerald-50 text-emerald-700',
+    },
+  ]
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase text-gray-500">Tổng bài nộp</p>
-          <div className="rounded-xl bg-blue-50 p-2 text-blue-600">
-            <Users size={16} />
-          </div>
-        </div>
-        <p className="mt-2 text-2xl font-bold text-gray-900">{totalSubmissions}</p>
-        <p className="mt-1 text-xs text-gray-400">Đã hoàn thành</p>
-      </div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {statistics.map((statistic) => <StatisticCard key={statistic.label} {...statistic} />)}
+    </div>
+  )
+}
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase text-gray-500">Điểm trung bình</p>
-          <div className="rounded-xl bg-purple-50 p-2 text-purple-600">
-            <BarChart2 size={16} />
-          </div>
-        </div>
-        <p className="mt-2 text-2xl font-bold text-gray-900">
-          {totalSubmissions > 0 ? avgScore.toFixed(2) : '-'}
-        </p>
-        <p className="mt-1 text-xs text-gray-400">Thang điểm 10</p>
+function StatisticCard({
+  label,
+  value,
+  note,
+  icon,
+  tone,
+}: {
+  label: string
+  value: string | number
+  note: string
+  icon: ReactNode
+  tone: string
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold text-slate-500">{label}</p>
+        <span className={`grid h-9 w-9 place-items-center rounded-lg ${tone}`}>{icon}</span>
       </div>
-
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase text-gray-500">Cao nhất / Thấp nhất</p>
-          <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
-            <CheckCircle2 size={16} />
-          </div>
-        </div>
-        <p className="mt-2 text-2xl font-bold text-gray-900">
-          {totalSubmissions > 0 ? `${maxScore.toFixed(1)} / ${minScore.toFixed(1)}` : '-'}
-        </p>
-        <p className="mt-1 text-xs text-gray-400">Max / Min</p>
-      </div>
-
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-2xs">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase text-gray-500">Tỷ lệ đạt (≥ 4.0)</p>
-          <div className="rounded-xl bg-amber-50 p-2 text-amber-600">
-            <CheckCircle2 size={16} />
-          </div>
-        </div>
-        <p className="mt-2 text-2xl font-bold text-gray-900">
-          {totalSubmissions > 0 ? `${passRate}%` : '-'}
-        </p>
-        <p className="mt-1 text-xs text-gray-400">{passCount}/{totalSubmissions} sinh viên</p>
-      </div>
+      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+      <p className="mt-1 truncate text-xs text-slate-400" title={note}>{note}</p>
     </div>
   )
 }

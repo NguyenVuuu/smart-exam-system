@@ -26,6 +26,7 @@ let io: Server | null = null
 const scheduleRoom = (scheduleId: string) => `proctoring:schedule:${scheduleId}`
 const attemptRoom = (attemptId: string) => `proctoring:attempt:${attemptId}`
 const teacherRoom = (teacherId: string) => `proctoring:teacher:${teacherId}`
+const studentRoom = (studentId: string) => `proctoring:student:${studentId}`
 
 function socketUser(socket: Socket): SocketUser {
   return socket.data.user as SocketUser
@@ -88,11 +89,13 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
     emitToSchedule: (scheduleId, event, payload) => io?.to(scheduleRoom(scheduleId)).emit(event, payload),
     emitToAttempt: (attemptId, event, payload) => io?.to(attemptRoom(attemptId)).emit(event, payload),
     emitToTeacher: (teacherId, event, payload) => io?.to(teacherRoom(teacherId)).emit(event, payload),
+    emitToStudent: (studentId, event, payload) => io?.to(studentRoom(studentId)).emit(event, payload),
   })
 
   io.on('connection', (socket) => {
     const user = socketUser(socket)
     if (user.role === 'TEACHER') void socket.join(teacherRoom(user.profileId))
+    if (user.role === 'STUDENT') void socket.join(studentRoom(user.profileId))
 
     socket.on('proctoring:join_schedule', async ({ scheduleId }: { scheduleId: string }, ack?: (data: unknown) => void) => {
       try {

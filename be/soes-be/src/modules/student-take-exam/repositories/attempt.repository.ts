@@ -1,6 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { randomInt } from 'crypto'
-import type { ScreenShareStatus, WebcamStatus } from '@prisma/client'
+import type { Prisma, ScreenShareStatus, WebcamStatus } from '@prisma/client'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 
 export async function countAttemptsForSchedule(scheduleId: string, studentId: string) {
@@ -102,6 +102,21 @@ export interface CreateAttemptInput {
   screenShareStatus: ScreenShareStatus
 }
 
+async function closeExamSession(transaction: Prisma.TransactionClient, attemptId: string) {
+  await transaction.examSession.updateMany({
+    where: { attemptId },
+    data: { isOnline: false },
+  })
+  await transaction.examSession.updateMany({
+    where: { attemptId, webcamStatus: 'ACTIVE' },
+    data: { webcamStatus: 'DISCONNECTED' },
+  })
+  await transaction.examSession.updateMany({
+    where: { attemptId, screenShareStatus: 'ACTIVE' },
+    data: { screenShareStatus: 'STOPPED' },
+  })
+}
+
 function shuffled<T>(items: T[]): T[] {
   const result = [...items]
   for (let index = result.length - 1; index > 0; index--) {
@@ -182,15 +197,19 @@ export async function submitAttempt(
   studentId: string,
   submittedAt: Date,
 ) {
-  return prisma.examAttempt.updateMany({
-    where: {
-      id: attemptId,
-      examScheduleId: scheduleId,
-      studentId,
-      status: 'IN_PROGRESS',
-      deadlineAt: { gt: submittedAt },
-    },
-    data: { status: 'SUBMITTED', submittedAt, endedBy: 'STUDENT' },
+  return prisma.$transaction(async (transaction) => {
+    const updated = await transaction.examAttempt.updateMany({
+      where: {
+        id: attemptId,
+        examScheduleId: scheduleId,
+        studentId,
+        status: 'IN_PROGRESS',
+        deadlineAt: { gt: submittedAt },
+      },
+      data: { status: 'SUBMITTED', submittedAt, endedBy: 'STUDENT' },
+    })
+    if (updated.count > 0) await closeExamSession(transaction, attemptId)
+    return updated
   })
 }
 
@@ -228,10 +247,7 @@ export async function autoSubmitAttemptWithAudit(attemptId: string, submittedAt:
 
     if (updated.count === 0) return null
 
-    await tx.examSession.updateMany({
-      where: { attemptId },
-      data: { isOnline: false },
-    })
+    await closeExamSession(tx, attemptId)
 
     await writeAuditLog(tx, {
       userId: attempt.student.userId,
@@ -249,6 +265,7 @@ export async function autoSubmitAttemptWithAudit(attemptId: string, submittedAt:
 
     return {
       attemptId: attempt.id,
+      scheduleId: attempt.examScheduleId,
       submittedAt,
     }
   })

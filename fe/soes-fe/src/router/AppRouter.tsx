@@ -33,6 +33,7 @@ import TeacherDepartmentApprovalPage from '../pages/teacher/TeacherDepartmentApp
 import TeacherExamDetailPage from '../pages/teacher/TeacherExamDetailPage'
 import TeacherExamEditorPage from '../pages/teacher/TeacherExamEditorPage'
 import TeacherExamsPage from '../pages/teacher/TeacherExamsPage'
+import TeacherGradeAppealReviewPage from '../pages/teacher/TeacherGradeAppealReviewPage'
 import TeacherGradeExportPage from '../pages/teacher/TeacherGradeExportPage'
 import TeacherInvigilationSchedulePage from '../pages/teacher/TeacherInvigilationSchedulePage'
 import TeacherLiveProctorPage from '../pages/teacher/TeacherLiveProctorPage'
@@ -299,6 +300,14 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['TEACHER']}>
               <TeacherGradeExportPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/teacher/grading-reports/appeals/:appealId"
+          element={
+            <RoleRoute allowedRoles={['TEACHER']}>
+              <TeacherGradeAppealReviewPage />
             </RoleRoute>
           }
         />

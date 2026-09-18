@@ -26,6 +26,11 @@ export const listTeacherAppeals = async (req: Request, res: Response) => {
   send(res, await service.listTeacherAppeals(req.user!.profileId, teacherGradeAppealQuerySchema.parse(req.query)))
 }
 
+export const getTeacherAppeal = async (req: Request, res: Response) => {
+  const { appealId } = appealParams.parse(req.params)
+  send(res, await service.getTeacherAppeal(req.user!.profileId, appealId))
+}
+
 export const updateTeacherAppeal = async (req: Request, res: Response) => {
   const { appealId } = appealParams.parse(req.params)
   send(res, await service.updateTeacherAppeal(
