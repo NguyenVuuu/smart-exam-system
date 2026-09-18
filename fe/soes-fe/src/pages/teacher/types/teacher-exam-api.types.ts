@@ -141,6 +141,13 @@ export interface TeacherExamSubmissionDto {
   studentCode: string; studentName: string; submittedAt: string | null
   autoScore: number | null; manualScoreOverride: number | null; finalScore: number | null
   status: 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'INVALIDATED'
+  regradeRequest?: {
+    status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
+    reason: string
+    submittedAt: string
+    resolution: string | null
+    resolvedAt: string | null
+  }
   sectionScores: Array<{ id: string; title: string; score: number; maxScore: number }>
   answers: Array<{
     questionId: string; selectedOptionIds: string[]; sourceCode: string | null; score: number | null

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { getSocket } from '../../../api/socket'
 import {
   getTeacherExamSubmissions, gradeTeacherExamSubmission, updateTeacherResultRelease,
 } from '../api/teacher-exams.api'
@@ -45,6 +46,20 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
 
   useEffect(() => { void load() }, [load])
   useEffect(() => { setPage(1) }, [scheduleId])
+  useEffect(() => {
+    if (!scheduleId) return
+    const socket = getSocket()
+    const reloadIfCurrentSchedule = (payload: { scheduleId?: string; exam?: { scheduleId?: string } }) => {
+      if ((payload.scheduleId ?? payload.exam?.scheduleId) === scheduleId) void load()
+    }
+
+    socket.on('grade_appeal:created', reloadIfCurrentSchedule)
+    socket.on('grade_appeal:updated', reloadIfCurrentSchedule)
+    return () => {
+      socket.off('grade_appeal:created', reloadIfCurrentSchedule)
+      socket.off('grade_appeal:updated', reloadIfCurrentSchedule)
+    }
+  }, [load, scheduleId])
 
   return {
     items, pagination, page, loading, resultRelease, setPage,
