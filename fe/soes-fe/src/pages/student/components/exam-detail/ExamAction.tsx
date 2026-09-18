@@ -124,14 +124,27 @@ export default function ExamAction({ data }: ExamActionProps) {
 
   return (
     <>
-      <button
-        type="button"
-        disabled={isStarting}
-        onClick={handleStartExam}
-        className="w-full rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-semibold text-white shadow-sm shadow-blue-200 transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-      >
-        {isStarting ? 'Đang xử lý...' : label}
-      </button>
+      <div className="w-full space-y-3 sm:w-auto">
+        {(data.enableWebcam || data.enableScreenMonitoring || data.requiresPassword) && (
+          <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-[11px] text-blue-900">
+            <p className="font-bold">Kiểm tra trước khi vào thi</p>
+            <div className="mt-2 grid gap-1.5">
+              {data.enableWebcam && <span>Camera phải bật và thấy rõ khuôn mặt.</span>}
+              {data.enableScreenMonitoring && <span>Chọn chia sẻ toàn bộ màn hình, không chọn tab hoặc cửa sổ riêng.</span>}
+              {data.requiresPassword && <span>Chuẩn bị mật khẩu ca thi do giảng viên cung cấp.</span>}
+              <span>Giữ kết nối mạng ổn định; hệ thống sẽ tự lưu trong lúc làm bài.</span>
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          disabled={isStarting}
+          onClick={handleStartExam}
+          className="w-full rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-semibold text-white shadow-sm shadow-blue-200 transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        >
+          {isStarting ? 'Đang xử lý...' : label}
+        </button>
+      </div>
 
       <WebcamCheckDialog
         isOpen={isWebcamDialogOpen}

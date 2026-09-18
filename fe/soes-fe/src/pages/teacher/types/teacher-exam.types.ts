@@ -124,11 +124,11 @@ export interface GradeAdjustment {
 }
 
 export interface RegradeRequest {
-  status: 'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'CLOSED'
+  status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
   reason: string
   submittedAt: string
-  resolution?: string
-  resolvedAt?: string
+  resolution?: string | null
+  resolvedAt?: string | null
 }
 
 export interface ExamSubmission {
@@ -188,6 +188,9 @@ export interface ViolationRecord {
   endedAt?: string | null
   durationSeconds?: number | null
   severity: 'LOW' | 'MEDIUM' | 'HIGH'
+  reviewStatus?: 'PENDING' | 'REVIEWED' | 'CONFIRMED' | 'DISMISSED' | 'WARNED' | 'FORCE_SUBMITTED' | 'INVALIDATED'
+  reviewNote?: string | null
+  reviewedAt?: string | null
   evidenceImageUrl?: string
   note?: string
 }

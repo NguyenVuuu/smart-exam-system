@@ -254,8 +254,6 @@ function TeacherExamDetailContent({
             onResultReleaseModeChange={changeResultReleaseMode}
             onResultReleaseAtChange={(at) => void submissionData.release({ mode: resultReleaseMode, releaseAt: at, published: isResultsPublished })}
             onResultsPublishedChange={(pub) => void submissionData.release({ mode: resultReleaseMode, releaseAt: resultReleaseAt, published: pub })}
-            onViewSubmission={setViewingSubmission}
-            onEditSubmission={openScoreOverride}
             loading={submissionData.loading}
             pagination={submissionData.pagination}
             onPageChange={submissionData.setPage}

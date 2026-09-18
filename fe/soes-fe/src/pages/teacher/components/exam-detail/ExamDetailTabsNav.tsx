@@ -10,7 +10,7 @@ const detailTabs: Array<{
 }> = [
   { id: 'sessions', label: 'Ca thi / Lớp áp dụng', icon: <CalendarClock size={18} /> },
   { id: 'proctoring', label: 'Nhật ký vi phạm & Bằng chứng', icon: <ShieldAlert size={18} /> },
-  { id: 'submissions', label: 'Bài nộp & Phúc khảo', icon: <FileCheck size={18} /> },
+  { id: 'submissions', label: 'Bài Nộp & Điểm Phúc Khảo', icon: <FileCheck size={18} /> },
   { id: 'overview', label: 'Tổng quan cài đặt', icon: <Clock size={18} /> },
 ]
 
@@ -27,9 +27,9 @@ export function ExamDetailTabs({
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${
+          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-all ${
             activeTab === tab.id
-              ? 'border-blue-600 text-blue-600 font-bold'
+              ? 'border-blue-600 font-bold text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-900'
           }`}
         >

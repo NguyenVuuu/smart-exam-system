@@ -1,6 +1,7 @@
 type ProctoringEmitter = {
   emitToSchedule(scheduleId: string, event: string, payload: unknown): void
   emitToAttempt(attemptId: string, event: string, payload: unknown): void
+  emitToTeacher(teacherId: string, event: string, payload: unknown): void
 }
 
 let emitter: ProctoringEmitter | null = null
@@ -15,4 +16,8 @@ export function emitProctoringEvent(scheduleId: string, event: string, payload: 
 
 export function emitAttemptEvent(attemptId: string, event: string, payload: unknown) {
   emitter?.emitToAttempt(attemptId, event, payload)
+}
+
+export function emitTeacherEvent(teacherId: string, event: string, payload: unknown) {
+  emitter?.emitToTeacher(teacherId, event, payload)
 }

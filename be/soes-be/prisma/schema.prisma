@@ -35,6 +35,7 @@ model Student {
   userId       String        @unique
   enrollments  Enrollment[]  @relation("StudentEnrollments")
   examAttempts ExamAttempt[] @relation("StudentExamAttempts")
+  gradeAppeals GradeAppeal[] @relation("StudentGradeAppeals")
   user         User          @relation(fields: [userId], references: [id])
 }
 
@@ -55,6 +56,7 @@ model Teacher {
   questionBankReviews  QuestionBankItem[]    @relation("QuestionBankTeacherReviews")
   questionBankRemovals QuestionBankItem[]    @relation("QuestionBankTeacherRemovals")
   examReviews          Exam[]                @relation("TeacherExamReviews")
+  handledGradeAppeals  GradeAppeal[]         @relation("TeacherGradeAppealHandlers")
   proctorAssignments   ExamScheduleProctor[]
   department           Department?           @relation("DepartmentTeachers", fields: [departmentId], references: [id])
   user                 User                  @relation(fields: [userId], references: [id])
@@ -587,12 +589,34 @@ model ExamAttempt {
   studentAnswers         StudentAnswer[]
   programmingSubmissions ProgrammingSubmission[]
   violations             Violation[]
+  gradeAppeals           GradeAppeal[]
 
   @@unique([examScheduleId, studentId, attemptNo])
   @@index([studentId])
   @@index([examScheduleId])
   @@index([courseOfferingId])
   @@index([invalidatedById])
+}
+
+model GradeAppeal {
+  id             String            @id @default(uuid())
+  reason         String
+  status         GradeAppealStatus @default(PENDING)
+  teacherReply   String?
+  handledAt      DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  attemptId      String
+  studentId      String
+  handledById    String?
+  attempt        ExamAttempt       @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  student        Student           @relation("StudentGradeAppeals", fields: [studentId], references: [id])
+  handledBy      Teacher?          @relation("TeacherGradeAppealHandlers", fields: [handledById], references: [id])
+
+  @@unique([attemptId])
+  @@index([studentId, createdAt])
+  @@index([handledById])
+  @@index([status])
 }
 
 model ExamAttemptQuestion {
@@ -1067,8 +1091,19 @@ enum ViolationDetectedBy {
 
 enum ViolationReviewStatus {
   PENDING
+  REVIEWED
   CONFIRMED
   DISMISSED
+  WARNED
+  FORCE_SUBMITTED
+  INVALIDATED
+}
+
+enum GradeAppealStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  REJECTED
 }
 
 enum ViolationEvidenceType {

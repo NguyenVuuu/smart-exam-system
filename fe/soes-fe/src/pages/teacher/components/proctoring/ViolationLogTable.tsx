@@ -11,6 +11,16 @@ const severityTone: Record<ViolationRecord['severity'], 'blue' | 'amber' | 'rose
   HIGH: 'rose',
 }
 
+const reviewTone: Record<NonNullable<ViolationRecord['reviewStatus']>, 'gray' | 'blue' | 'amber' | 'rose' | 'emerald'> = {
+  PENDING: 'gray',
+  REVIEWED: 'blue',
+  CONFIRMED: 'rose',
+  DISMISSED: 'emerald',
+  WARNED: 'amber',
+  FORCE_SUBMITTED: 'rose',
+  INVALIDATED: 'rose',
+}
+
 function formatViolationDuration(violation: ViolationRecord): string {
   if (violation.durationSeconds === null && violation.endedAt === null) return 'Đang diễn ra'
   const seconds = violation.durationSeconds
@@ -35,6 +45,7 @@ export interface ViolationLogTableProps {
     totalPages: number
   }
   onPageChange?: (page: number) => void
+  onReviewViolation?: (violationId: string, status: NonNullable<ViolationRecord['reviewStatus']>) => void
 }
 
 export default function ViolationLogTable({
@@ -46,6 +57,7 @@ export default function ViolationLogTable({
   emptyText = 'Chưa ghi nhận vi phạm nào trong ca thi này.',
   pagination,
   onPageChange,
+  onReviewViolation,
 }: ViolationLogTableProps) {
   if (error) {
     return (
@@ -82,6 +94,7 @@ export default function ViolationLogTable({
             <th className="whitespace-nowrap px-5 py-3">Sinh viên</th>
             <th className="whitespace-nowrap px-5 py-3">Loại vi phạm</th>
             <th className="whitespace-nowrap px-5 py-3">Mức độ</th>
+            <th className="whitespace-nowrap px-5 py-3">Xử lý</th>
             <th className="whitespace-nowrap px-5 py-3">Thời lượng</th>
             <th className="whitespace-nowrap px-5 py-3 text-right">Bằng chứng</th>
           </tr>
@@ -105,6 +118,21 @@ export default function ViolationLogTable({
                 <AppBadge tone={severityTone[violation.severity] ?? 'gray'}>
                   {violation.severity}
                 </AppBadge>
+              </td>
+              <td className="px-5 py-4">
+                <div className="space-y-2">
+                  <AppBadge tone={reviewTone[violation.reviewStatus ?? 'PENDING'] ?? 'gray'}>
+                    {reviewStatusLabel(violation.reviewStatus ?? 'PENDING')}
+                  </AppBadge>
+                  {onReviewViolation && (
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" onClick={() => onReviewViolation(violation.id, 'REVIEWED')} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-50">Đã xem</button>
+                      <button type="button" onClick={() => onReviewViolation(violation.id, 'DISMISSED')} className="rounded-md border border-emerald-200 px-2 py-1 text-[10px] font-bold text-emerald-700 hover:bg-emerald-50">Bỏ qua</button>
+                      <button type="button" onClick={() => onReviewViolation(violation.id, 'WARNED')} className="rounded-md border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-700 hover:bg-amber-50">Cảnh cáo</button>
+                      <button type="button" onClick={() => onReviewViolation(violation.id, 'CONFIRMED')} className="rounded-md border border-rose-200 px-2 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-50">Xác nhận</button>
+                    </div>
+                  )}
+                </div>
               </td>
               <td className="whitespace-nowrap px-5 py-4 text-slate-600 font-medium">
                 {formatViolationDuration(violation)}
@@ -143,4 +171,17 @@ export default function ViolationLogTable({
       )}
     </div>
   )
+}
+
+function reviewStatusLabel(status: NonNullable<ViolationRecord['reviewStatus']>) {
+  switch (status) {
+    case 'PENDING': return 'Chưa xem'
+    case 'REVIEWED': return 'Đã xem'
+    case 'CONFIRMED': return 'Xác nhận'
+    case 'DISMISSED': return 'Bỏ qua'
+    case 'WARNED': return 'Đã cảnh cáo'
+    case 'FORCE_SUBMITTED': return 'Buộc nộp'
+    case 'INVALIDATED': return 'Hủy bài'
+    default: return status
+  }
 }

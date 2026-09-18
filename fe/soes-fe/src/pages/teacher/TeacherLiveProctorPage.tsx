@@ -25,6 +25,7 @@ import {
   extendTeacherAttemptTime,
   getTeacherLiveProctoringSessions,
   getTeacherLiveProctoringViolations,
+  reviewTeacherViolation,
 } from './api/teacher-exams.api'
 import type { ProctoringSessionRecord, ViolationRecord } from './types/teacher-exam.types'
 import type { TeacherPaginationMeta } from './api/teacher-exams.api'
@@ -40,6 +41,19 @@ const emptyViolationPagination: TeacherPaginationMeta = {
   pageSize: VIOLATION_PAGE_SIZE,
   totalItems: 0,
   totalPages: 1,
+}
+
+function reviewStatusLabel(status: NonNullable<ViolationRecord['reviewStatus']>) {
+  switch (status) {
+    case 'PENDING': return 'Chưa xem'
+    case 'REVIEWED': return 'Đã xem'
+    case 'CONFIRMED': return 'Xác nhận vi phạm'
+    case 'DISMISSED': return 'Bỏ qua vi phạm'
+    case 'WARNED': return 'Đã cảnh cáo sinh viên'
+    case 'FORCE_SUBMITTED': return 'Buộc nộp bài'
+    case 'INVALIDATED': return 'Hủy bài'
+    default: return status
+  }
 }
 
 export default function TeacherLiveProctorPage() {
@@ -61,6 +75,7 @@ export default function TeacherLiveProctorPage() {
   const [sessions, setSessions] = useState<ProctoringSessionRecord[]>([])
   const [violations, setViolations] = useState<ViolationRecord[]>([])
   const [scheduleTitle, setScheduleTitle] = useState('Ca thi')
+  const [examId, setExamId] = useState('')
   const [scheduleEnded, setScheduleEnded] = useState(() => params.get('scheduleStatus') === 'CLOSED')
   const [liveSearchQuery, setLiveSearchQuery] = useState('')
   const [violationSearchQuery, setViolationSearchQuery] = useState('')
@@ -124,6 +139,7 @@ export default function TeacherLiveProctorPage() {
     ]).then(([sessionData, violationItems]) => {
       if (!active) return
       const hasEnded = new Date(sessionData.schedule.endTime).getTime() <= Date.now()
+      setExamId(sessionData.schedule.examId)
       setScheduleTitle(sessionData.schedule.title)
       setScheduleEnded(hasEnded)
       if (hasEnded) setActiveTab('violations')
@@ -141,6 +157,25 @@ export default function TeacherLiveProctorPage() {
       active = false
     }
   }, [debouncedViolationSearch, requestKey, scheduleId, selectedViolationStudentId, selectedViolationType, violationPage])
+
+  const handleReviewViolation = useCallback(async (
+    violationId: string,
+    reviewStatus: NonNullable<ViolationRecord['reviewStatus']>,
+  ) => {
+    if (!examId || !scheduleId) return
+    try {
+      await reviewTeacherViolation(examId, scheduleId, violationId, {
+        reviewStatus,
+        reviewNote: reviewStatusLabel(reviewStatus),
+      })
+      setViolations((current) => current.map((violation) => violation.id === violationId
+        ? { ...violation, reviewStatus, reviewNote: reviewStatusLabel(reviewStatus), reviewedAt: new Date().toISOString() }
+        : violation))
+      toast.success('Đã cập nhật xử lý vi phạm.')
+    } catch {
+      toast.error('Không thể cập nhật xử lý vi phạm.')
+    }
+  }, [examId, scheduleId])
 
   useEffect(() => {
     if (!scheduleId) return
@@ -361,6 +396,7 @@ export default function TeacherLiveProctorPage() {
                     pagination={violationPagination}
                     onPageChange={setViolationPage}
                     onRefresh={() => setRefreshVersion((current) => current + 1)}
+                    onReviewViolation={handleReviewViolation}
                   />
                 </TeacherTablePanel>
               )}

@@ -8,7 +8,7 @@ import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
 import * as repo from '../repositories/teacher-exam-grading.repository'
 import type { InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
-import { emitProctoringEvent } from '../../proctoring/proctoring-realtime.events'
+import { emitProctoringEvent, emitTeacherEvent } from '../../proctoring/proctoring-realtime.events'
 
 async function requireSchedule(teacherId: string, examId: string, scheduleId: string) {
   const schedule = await repo.findScheduleAccess(teacherId, examId, scheduleId)
@@ -70,6 +70,9 @@ export async function listViolations(teacherId: string, examId: string, schedule
       id: row.id, scheduleId, attemptId: row.attemptId, studentId: row.attempt.studentId,
       studentCode: row.attempt.student.studentCode, studentName: row.attempt.student.user.fullName,
       type: row.violationType, timestamp: row.detectedAt, severity: row.severity,
+      reviewStatus: row.reviewStatus,
+      reviewNote: row.reviewNote,
+      reviewedAt: row.reviewedAt,
       endedAt: row.endedAt,
       durationSeconds: row.durationSeconds,
       evidenceImageUrl,
@@ -403,9 +406,21 @@ export async function grade(
   if (data.score > Number(schedule.exam.totalPoints)) {
     throw new ValidationError('Score cannot exceed exam total points')
   }
+  const appeal = await repo.findGradeAppealByAttempt(attemptId)
+  if (appeal && !['PENDING', 'IN_REVIEW'].includes(appeal.status)) {
+    throw new ConflictError('This grade appeal has already been completed')
+  }
   const result = await repo.overrideScore(teacherId, userId, examId, scheduleId, attemptId, data.score, data.reason)
   if (!result) throw new NotFoundError('Exam submission not found')
-  return toExamSubmissionDto(result)
+  const dto = toExamSubmissionDto(result)
+  emitTeacherEvent(teacherId, 'grade_appeal:updated', {
+    attemptId,
+    scheduleId,
+    status: 'RESOLVED',
+    teacherReply: data.reason,
+    score: data.score,
+  })
+  return dto
 }
 
 export async function release(

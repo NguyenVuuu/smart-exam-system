@@ -241,8 +241,41 @@ export const reviewTeacherViolation = (
   examId: string,
   scheduleId: string,
   violationId: string,
-  payload: { reviewStatus: 'PENDING' | 'CONFIRMED' | 'DISMISSED'; reviewNote?: string | null },
+  payload: { reviewStatus: 'PENDING' | 'REVIEWED' | 'CONFIRMED' | 'DISMISSED' | 'WARNED' | 'FORCE_SUBMITTED' | 'INVALIDATED'; reviewNote?: string | null },
 ) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/violations/${violationId}/review`, payload)
+
+export interface TeacherGradeAppeal {
+  id: string
+  reason: string
+  status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
+  teacherReply: string | null
+  handledAt: string | null
+  createdAt: string
+  updatedAt: string
+  attemptId: string
+  student: { id: string; studentCode: string; fullName: string }
+  exam: {
+    examId: string
+    scheduleId: string
+    courseOfferingId: string
+    title: string
+    scheduleTitle: string
+    score: number | null
+    maxScore: number
+    submittedAt: string | null
+  }
+}
+
+export const getTeacherGradeAppeals = (params: { status?: TeacherGradeAppeal['status'] | 'ALL'; page?: number; pageSize?: number } = {}) =>
+  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
+    params: { status: params.status ?? 'ALL', page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
+  }).then(({ data }) => data.data)
+
+export const updateTeacherGradeAppeal = (
+  appealId: string,
+  payload: { status: 'IN_REVIEW' | 'REJECTED'; teacherReply?: string },
+) => apiClient.patch<ApiResponse<TeacherGradeAppeal>>(`/teacher/grade-appeals/${appealId}`, payload)
+  .then(({ data }) => data.data)
 
 export const invalidateTeacherAttempt = (
   examId: string,

@@ -46,6 +46,16 @@ export interface AttemptResult {
   reviewItems: AttemptReviewItem[]
 }
 
+export interface GradeAppeal {
+  id: string
+  reason: string
+  status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
+  teacherReply: string | null
+  handledAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AttemptReviewOption {
   id: string
   content: string
@@ -307,6 +317,25 @@ export const takeExamApi = {
   getAttemptResult: async (scheduleId: string, attemptId: string): Promise<AttemptResult> => {
     const response = await axios.get<BaseResponse<AttemptResult>>(
       `${BASE_URL}/${scheduleId}/attempts/${attemptId}/result`,
+    )
+    return response.data.data
+  },
+
+  listGradeAppeals: async (scheduleId: string, attemptId: string): Promise<GradeAppeal[]> => {
+    const response = await axios.get<BaseResponse<{ items: GradeAppeal[] }>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/appeals`,
+    )
+    return response.data.data.items
+  },
+
+  createGradeAppeal: async (
+    scheduleId: string,
+    attemptId: string,
+    data: { reason: string },
+  ): Promise<GradeAppeal> => {
+    const response = await axios.post<BaseResponse<GradeAppeal>>(
+      `${BASE_URL}/${scheduleId}/attempts/${attemptId}/appeals`,
+      data,
     )
     return response.data.data
   },

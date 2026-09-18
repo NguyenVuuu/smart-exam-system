@@ -18,6 +18,10 @@ export const submissionInclude = {
     include: { testResults: { include: { testCase: true } } },
     orderBy: { submissionNo: 'desc' as const },
   },
+  gradeAppeals: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
+  },
 }
 
 const scheduleCourseAccess = (teacherId: string): Prisma.ExamScheduleCourseWhereInput => ({
@@ -121,13 +125,16 @@ export function createManualProctorViolation(input: {
       detectedAt: input.detectedAt,
       description: input.description ?? null,
     },
-    select: {
-      id: true,
-      violationType: true,
-      severity: true,
-      detectedAt: true,
-      endedAt: true,
-      durationSeconds: true,
+      select: {
+        id: true,
+        violationType: true,
+        severity: true,
+        reviewStatus: true,
+        reviewNote: true,
+        reviewedAt: true,
+        detectedAt: true,
+        endedAt: true,
+        durationSeconds: true,
     },
   })
 }
@@ -271,13 +278,20 @@ export function listProctoringSessions(scheduleId: string, courseOfferingIds: st
   })
 }
 
+export function findGradeAppealByAttempt(attemptId: string) {
+  return prisma.gradeAppeal.findFirst({
+    where: { attemptId },
+    select: { id: true, status: true },
+  })
+}
+
 export function updateViolationReview(input: {
   teacherId: string
   userId: string
   examId: string
   scheduleId: string
   violationId: string
-  reviewStatus: 'PENDING' | 'CONFIRMED' | 'DISMISSED'
+  reviewStatus: 'PENDING' | 'REVIEWED' | 'CONFIRMED' | 'DISMISSED' | 'WARNED' | 'FORCE_SUBMITTED' | 'INVALIDATED'
   reviewNote?: string | null
 }) {
   return prisma.$transaction(async (tx) => {
@@ -431,6 +445,15 @@ export function overrideScore(
       where: { id: attemptId },
       data: { manualScore: score, totalScore: score, status: 'GRADED', version: { increment: 1 } },
       include: submissionInclude,
+    })
+    await tx.gradeAppeal.updateMany({
+      where: { attemptId },
+      data: {
+        status: 'RESOLVED',
+        teacherReply: reason,
+        handledById: teacherId,
+        handledAt: new Date(),
+      },
     })
     await writeAuditLog(tx, {
       userId, action: 'OVERRIDE_EXAM_SCORE', entityType: 'ExamAttempt', entityId: attemptId,

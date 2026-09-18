@@ -18,6 +18,7 @@ import { examScheduleRoutes } from './modules/exam-schedules'
 import { adminContentRoutes } from './modules/admin-content'
 import { adminAuditLogRoutes } from './modules/admin-audit-logs'
 import { adminMonitoringRoutes } from './modules/admin-monitoring'
+import gradeAppealsRoutes from './modules/grade-appeals/grade-appeals.routes'
 import {
   adminSystemSettingsRoutes,
   publicSystemSettingsRouter,
@@ -62,6 +63,7 @@ app.use('/api/student', studentDashboardRoutes)
 app.use('/api/student', studentSubjectsRoutes)
 app.use('/api/student/course-offerings', studentCourseDetailRoutes)
 app.use('/api/student', studentTakeExamRoutes)
+app.use('/api/student', gradeAppealsRoutes)
 app.use('/api/student', studentPortalRoutes)
 app.use('/api/admin', adminAcademicRoutes)
 app.use('/api/admin', adminUsersRoutes)
@@ -74,6 +76,7 @@ app.use('/api/teacher', teacherCoursesRoutes)
 app.use('/api/teacher', teacherSystemSettingsRouter)
 app.use('/api/teacher', teacherQuestionsRoutes)
 app.use('/api/teacher', teacherExamsRoutes)
+app.use('/api/teacher', gradeAppealsRoutes)
 app.use('/api/teacher', aiQuestionGenerationRoutes)
 
 // ── Health check ──────────────────────────────────────────

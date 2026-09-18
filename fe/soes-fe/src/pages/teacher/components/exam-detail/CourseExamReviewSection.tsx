@@ -28,7 +28,7 @@ export function CourseReviewTabs({
   onChange: (tab: CourseReviewTab) => void
 }) {
   const tabs = [
-    { id: 'submissions' as const, label: 'Bài nộp & Phúc khảo', icon: FileCheck },
+    { id: 'submissions' as const, label: 'Bài Nộp & Điểm Phúc Khảo', icon: FileCheck },
     { id: 'violations' as const, label: 'Nhật ký vi phạm', icon: ShieldAlert },
   ]
 
@@ -41,7 +41,7 @@ export function CourseReviewTabs({
             key={id}
             type="button"
             onClick={() => onChange(id)}
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors cursor-pointer ${
+            className={`inline-flex cursor-pointer items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
               active
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800'
