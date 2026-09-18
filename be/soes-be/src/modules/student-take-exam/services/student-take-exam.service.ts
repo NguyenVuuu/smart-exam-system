@@ -140,6 +140,12 @@ export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date
   const result = await repo.autoSubmitAttemptWithAudit(attemptId, now)
   if (!result) return null
 
+  emitProctoringEvent(result.scheduleId, 'student:offline', {
+    attemptId,
+    scheduleId: result.scheduleId,
+    attemptStatus: 'AUTO_SUBMITTED',
+    isOnline: false,
+  })
   await gradeAutoSubmittedAttempt(attemptId)
   logger.info('Exam attempt auto-submitted by timeout', {
     attemptId,
@@ -740,6 +746,12 @@ export async function submitExam(
 
   // ── Update succeeded → return success ─────────────────────────────────────
   if (updated.count > 0) {
+    emitProctoringEvent(scheduleId, 'student:offline', {
+      attemptId,
+      scheduleId,
+      attemptStatus: 'SUBMITTED',
+      isOnline: false,
+    })
     await gradeProgrammingAnswers(attemptId)
     await gradeObjectiveAnswers(attemptId)
     return { attemptId, submittedAt: now };
