@@ -1,5 +1,6 @@
 import { Bell, CheckCircle2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { getSocket } from '../../api/socket'
 import {
   getStudentNotifications,
   markAllStudentNotificationsRead,
@@ -29,6 +30,21 @@ export default function StudentNotificationsPage() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const socket = getSocket()
+    const handleNotificationCreated = (notification: StudentNotification) => {
+      setNotifications((current) => (
+        current.some((item) => item.id === notification.id)
+          ? current
+          : [notification, ...current].slice(0, 50)
+      ))
+    }
+
+    socket.on('notification:created', handleNotificationCreated)
+    return () => {
+      socket.off('notification:created', handleNotificationCreated)
+    }
+  }, [])
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.isRead).length, [notifications])
 
