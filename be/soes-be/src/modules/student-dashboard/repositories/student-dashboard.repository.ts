@@ -49,7 +49,7 @@ export async function findReleasedAttempts(studentId: string) {
   return prisma.examAttempt.findMany({
     where: {
       studentId,
-      status: { in: ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+      status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
       totalScore: { not: null },
       ...releasedResultWhere(),
     },
@@ -85,7 +85,7 @@ export async function findClassAveragesBySchedule(
   const attempts = await prisma.examAttempt.findMany({
     where: {
       examScheduleId: { in: scheduleIds },
-      status: { in: ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+      status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
       totalScore: { not: null },
       ...releasedResultWhere(),
     },

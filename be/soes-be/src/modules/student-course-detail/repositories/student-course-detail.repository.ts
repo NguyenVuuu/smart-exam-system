@@ -453,7 +453,7 @@ export class StudentCourseDetailRepository {
         courseOfferingId,
         studentId,
         totalScore: { not: null },
-        status: { in: ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+        status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
         examSchedule: releasedResultScheduleWhere(),
       },
       select: {
