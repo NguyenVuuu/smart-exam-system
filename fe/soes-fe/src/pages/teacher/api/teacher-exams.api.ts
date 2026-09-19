@@ -217,7 +217,7 @@ export const extendTeacherAttemptTime = (
   attemptId: string,
   extraMinutes: number,
   reason: string,
-) => apiClient.post<ApiResponse<TeacherExtendAttemptTimeResult>>('/teacher/exams/proctoring/extend-time', {
+) => apiClient.post<ApiResponse<TeacherExtendAttemptTimeResult>>('/teacher/proctoring/extend-time', {
   attemptId,
   extraMinutes,
   reason,
