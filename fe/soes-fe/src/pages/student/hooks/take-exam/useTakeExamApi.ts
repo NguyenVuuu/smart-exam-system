@@ -87,7 +87,8 @@ export function useGetExamAttemptResult(scheduleId: string, attemptId: string, e
     queryKey: takeExamQueryKeys.result(scheduleId, attemptId),
     queryFn: () => takeExamApi.getAttemptResult(scheduleId, attemptId),
     enabled: enabled && !!scheduleId && !!attemptId,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
   })
 }
 
