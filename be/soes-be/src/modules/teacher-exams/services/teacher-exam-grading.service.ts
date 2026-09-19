@@ -10,6 +10,7 @@ import * as repo from '../repositories/teacher-exam-grading.repository'
 import type { InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
 import { emitProctoringEvent, emitStudentEvent, emitTeacherEvent } from '../../proctoring/proctoring-realtime.events'
+import { notifyUsers } from '../../notifications/notifications.service'
 
 function currentWebcamStatus(status: WebcamStatus, isActive: boolean): WebcamStatus {
   return !isActive && status === 'ACTIVE' ? 'DISCONNECTED' : status
@@ -17,6 +18,10 @@ function currentWebcamStatus(status: WebcamStatus, isActive: boolean): WebcamSta
 
 function currentScreenShareStatus(status: ScreenShareStatus, isActive: boolean): ScreenShareStatus {
   return !isActive && status === 'ACTIVE' ? 'STOPPED' : status
+}
+
+function isScreenEvidenceViolation(type: string): boolean {
+  return type === 'TAB_SWITCH' || type === 'FULLSCREEN_EXIT'
 }
 
 async function requireSchedule(teacherId: string, examId: string, scheduleId: string) {
@@ -85,6 +90,9 @@ export async function listViolations(teacherId: string, examId: string, schedule
       endedAt: row.endedAt,
       durationSeconds: row.durationSeconds,
       evidenceImageUrl,
+      evidenceText: !evidenceImageUrl && !schedule.enableScreenMonitoring && isScreenEvidenceViolation(row.violationType)
+        ? 'Không có ảnh vì ca thi không cấu hình share màn hình'
+        : null,
       note: row.description,
     }
   }))
@@ -359,6 +367,11 @@ export async function invalidateAttempt(
   })
   if (!result) throw new NotFoundError('Exam attempt not found')
   emitProctoringEvent(scheduleId, 'attempt:invalidated', result)
+  await notifyUsers(
+    [result.student.userId],
+    'Bài thi bị xử lý vi phạm',
+    `Bài thi "${result.examSchedule.title}" của bạn đã bị xử lý vi phạm. Lý do: ${data.reason}`,
+  )
   return result
 }
 
@@ -451,6 +464,10 @@ export async function release(
     ...data, releaseAt: data.releaseAt ? new Date(data.releaseAt) : null,
   })
   if (!result) throw new NotFoundError('Exam schedule not found')
+  if (result.resultsPublishedAt) {
+    const userIds = await repo.listScheduleStudentUserIds(scheduleId)
+    await notifyUsers(userIds, 'Điểm đã được công bố', `Điểm bài thi "${result.title}" đã được công bố. Bạn có thể xem trong mục điểm.`)
+  }
   return {
     mode: result.resultReleaseMode, releaseAt: result.resultReleaseAt,
     published: Boolean(result.resultsPublishedAt),

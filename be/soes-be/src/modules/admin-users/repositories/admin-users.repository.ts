@@ -204,6 +204,14 @@ export const createEnrollments = (
   skipDuplicates: true,
 })
 
+export async function listStudentUserIds(studentIds: string[]) {
+  const rows = await prisma.student.findMany({
+    where: { id: { in: studentIds } },
+    select: { userId: true },
+  })
+  return rows.map((row) => row.userId)
+}
+
 export function listCourseEnrollments(courseOfferingId: string, query: EnrollmentQuery) {
   const where: Prisma.EnrollmentWhereInput = {
     courseOfferingId,
