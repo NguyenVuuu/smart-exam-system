@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { takeExamApi, type ExamViolationType, type RecordViolationPayload } from '../../api/student-take-exam.api'
 import type { ExamWebcamStatus } from './useExamWebcam'
-import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
+import { captureExamWebcamSnapshot, isExamWebcamStreamLive } from '../../utils/exam-webcam'
 import type { FaceLandmarker, FaceLandmarkerResult, Matrix, NormalizedLandmark } from '@mediapipe/tasks-vision'
 
 type WebcamIssueType = Extract<
@@ -80,8 +80,6 @@ const DESCRIPTION: Record<WebcamIssueType, string> = {
   LOOKING_AWAY: 'Student face direction moved away from the exam screen for longer than the configured threshold.',
 }
 
-const CAMERA_STATUS_ISSUES: WebcamIssueType[] = ['CAMERA_DISCONNECTED', 'CAMERA_PERMISSION_DENIED', 'CAMERA_BLOCKED']
-
 let faceLandmarkerPromise: Promise<FaceLandmarker> | null = null
 
 function issueFromWebcamStatus(status: ExamWebcamStatus): WebcamIssueType | null {
@@ -132,6 +130,7 @@ async function captureTrackEvidence(stream: MediaStream | null): Promise<File | 
 async function buildEvidenceFiles(video: HTMLVideoElement | null, stream: MediaStream | null): Promise<File[] | undefined> {
   const snapshot = await captureVideoEvidence(video).catch(() => null)
     ?? await captureTrackEvidence(stream).catch(() => null)
+    ?? await captureExamWebcamSnapshot().catch(() => null)
   return snapshot ? [snapshot] : undefined
 }
 
@@ -266,7 +265,7 @@ export function useWebcamViolationMonitor(input: {
         severity: SEVERITY[type],
         description: DESCRIPTION[type],
         detectedAt: new Date(observedAt).toISOString(),
-        evidenceFiles: CAMERA_STATUS_ISSUES.includes(type) ? undefined : await buildEvidenceFiles(video, input.stream),
+        evidenceFiles: await buildEvidenceFiles(video, input.stream),
       }).catch(() => null)
 
       if (!cancelled && response) {

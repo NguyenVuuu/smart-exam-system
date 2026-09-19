@@ -192,6 +192,7 @@ export interface ViolationRecord {
   reviewNote?: string | null
   reviewedAt?: string | null
   evidenceImageUrl?: string
+  evidenceText?: string | null
   note?: string
 }
 
