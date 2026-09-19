@@ -879,10 +879,6 @@ export async function getAttemptResult(
         ? 'GRADING'
         : 'AVAILABLE'
 
-  const reviewItems = available && ['ANSWERS_NO_KEY', 'FULL_AFTER_RELEASE'].includes(schedule.reviewPolicy)
-    ? buildReviewItems(attempt, schedule.reviewPolicy === 'FULL_AFTER_RELEASE')
-    : []
-
   return {
     available,
     releaseMode: schedule.resultReleaseMode,
@@ -890,8 +886,9 @@ export async function getAttemptResult(
     score: available ? Number(attempt.totalScore) : null,
     maxScore: available ? maxScore : null,
     reviewPolicy: available ? schedule.reviewPolicy : null,
+    reviewConsumed: false,
     reason,
-    reviewItems,
+    reviewItems: [],
   }
 }
 

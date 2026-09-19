@@ -82,6 +82,14 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
     )
   }
 
+  if (result.reviewConsumed) {
+    return (
+      <div className="rounded-lg border border-gray-100 bg-white p-4 text-sm text-gray-600">
+        Lượt xem lại bài làm chỉ khả dụng một lần ngay sau khi nộp bài và đã được sử dụng.
+      </div>
+    )
+  }
+
   const showAnswerKey = result.reviewPolicy === 'FULL_AFTER_RELEASE'
 
   return (

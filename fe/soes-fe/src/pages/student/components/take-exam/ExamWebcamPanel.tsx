@@ -1,5 +1,5 @@
 import { Camera, LoaderCircle, ShieldAlert } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { ExamWebcamStatus } from '../../hooks/take-exam/useExamWebcam'
 import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
 
@@ -22,9 +22,35 @@ const webcamStatusLabels: Partial<Record<ExamWebcamStatus, string>> = {
 export default function ExamWebcamPanel({ required, stream, status, errorMessage, onEnableCamera }: ExamWebcamPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  useEffect(() => {
-    if (videoRef.current) videoRef.current.srcObject = stream
+  const attachPreviewStream = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+    if (video.srcObject !== stream) video.srcObject = stream
+    if (!stream || !isExamWebcamStreamLive(stream)) return
+    void video.play().catch(() => undefined)
   }, [stream])
+
+  useEffect(() => {
+    attachPreviewStream()
+  }, [attachPreviewStream])
+
+  useEffect(() => {
+    if (!required) return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') attachPreviewStream()
+    }
+
+    window.addEventListener('focus', attachPreviewStream)
+    window.addEventListener('pageshow', attachPreviewStream)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', attachPreviewStream)
+      window.removeEventListener('pageshow', attachPreviewStream)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [attachPreviewStream, required])
 
   if (!required) return null
 

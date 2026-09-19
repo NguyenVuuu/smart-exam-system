@@ -1,18 +1,38 @@
-import { AlertCircle, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Eye, Play, RefreshCw, Search, Timer, X } from 'lucide-react'
+import {
+  AlertCircle,
+  Calendar,
+  CalendarClock,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Clock,
+  Eye,
+  List,
+  Play,
+  RefreshCw,
+  Search,
+  Timer,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type React from 'react'
 import { useNavigate } from 'react-router-dom'
+import AppSelect from '../../components/common/AppSelect'
 import {
   getStudentExamSchedules,
   type StudentExamSchedule,
   type StudentExamStatusCounts,
 } from './api/student-portal.api'
+import { getStudentSubjects } from './api/student-subjects.api'
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
 import type { Pagination } from './types/course-detail.types'
+import type { SemesterOption } from './types/subjects.types'
 
 type ExamFilter = 'ALL' | 'OPEN' | 'UPCOMING' | 'COMPLETED' | 'EXPIRED'
 type StudentExamListItem = StudentExamSchedule
+type StudentViewMode = 'CALENDAR' | 'LIST'
 
 const PAGE_SIZE = 10
 
@@ -23,6 +43,8 @@ const FILTERS: Array<{ value: ExamFilter; label: string }> = [
   { value: 'COMPLETED', label: 'Đã hoàn thành' },
   { value: 'EXPIRED', label: 'Đã quá hạn' },
 ]
+
+const WEEKDAYS = ['THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7', 'CHỦ NHẬT']
 
 const EMPTY_COUNTS: StudentExamStatusCounts = {
   OPEN: 0,
@@ -43,12 +65,17 @@ export default function StudentExamsPage() {
   const [exams, setExams] = useState<StudentExamListItem[]>([])
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: PAGE_SIZE, totalItems: 0, totalPages: 1 })
   const [statusCounts, setStatusCounts] = useState<StudentExamStatusCounts>(EMPTY_COUNTS)
+  const [semesterOptions, setSemesterOptions] = useState<SemesterOption[]>([])
+  const [selectedSemesterId, setSelectedSemesterId] = useState('')
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date())
+  const [selectedDay, setSelectedDay] = useState<{ date: Date; items: StudentExamListItem[] } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [keyword, setKeyword] = useState('')
   const [appliedKeyword, setAppliedKeyword] = useState('')
   const [filter, setFilter] = useState<ExamFilter>('ALL')
   const [page, setPage] = useState(1)
+  const [viewMode, setViewMode] = useState<StudentViewMode>('CALENDAR')
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -58,15 +85,34 @@ export default function StudentExamsPage() {
     return () => window.clearTimeout(timer)
   }, [keyword])
 
+  useEffect(() => {
+    let cancelled = false
+    getStudentSubjects({ page: 1, pageSize: 1 })
+      .then((data) => {
+        if (cancelled) return
+        setSemesterOptions(data.semesterOptions)
+        const currentId = data.currentSemesterId || data.semesterOptions.find((semester) => semester.isCurrent)?.id || data.semesterOptions[0]?.id || ''
+        setSelectedSemesterId((prev) => prev || currentId)
+      })
+      .catch(() => {
+        if (!cancelled) setSemesterOptions([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const data = await getStudentExamSchedules({
-        page,
-        pageSize: PAGE_SIZE,
+        page: viewMode === 'LIST' ? page : 1,
+        pageSize: viewMode === 'LIST' ? PAGE_SIZE : 100,
         status: filter,
-        keyword: appliedKeyword || undefined,
+        semesterId: selectedSemesterId || undefined,
+        keyword: viewMode === 'LIST' ? appliedKeyword || undefined : undefined,
       })
       setExams(data.items)
       setPagination(data.pagination)
@@ -76,9 +122,8 @@ export default function StudentExamsPage() {
     } finally {
       setLoading(false)
     }
-  }, [appliedKeyword, filter, page])
+  }, [appliedKeyword, filter, page, selectedSemesterId, viewMode])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
 
   const stats = useMemo(() => ({
@@ -90,6 +135,18 @@ export default function StudentExamsPage() {
 
   const handleFilterChange = (value: ExamFilter) => {
     setFilter(value)
+    setPage(1)
+  }
+
+  const handleViewModeChange = (mode: StudentViewMode) => {
+    setViewMode(mode)
+    setSelectedDay(null)
+    setPage(1)
+  }
+
+  const handleSemesterChange = (semesterId: string) => {
+    setSelectedSemesterId(semesterId)
+    setSelectedDay(null)
     setPage(1)
   }
 
@@ -126,7 +183,7 @@ export default function StudentExamsPage() {
               disabled={loading}
               className="inline-flex w-fit items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
-              <RefreshCw size={15} /> Làm mới
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Làm mới
             </button>
           </div>
 
@@ -138,41 +195,103 @@ export default function StudentExamsPage() {
           </div>
 
           <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-gray-100 p-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap gap-2">
-                {FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => handleFilterChange(item.value)}
-                    className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
-                      filter === item.value
-                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
-                        : 'bg-gray-50 text-slate-600 hover:bg-gray-100 hover:text-slate-900'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+            <div className="flex flex-col gap-3 border-b border-gray-100 bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                <AppSelect
+                  value={selectedSemesterId}
+                  onChange={handleSemesterChange}
+                  className="w-64"
+                  disabled={semesterOptions.length === 0}
+                  placeholder="Chưa có học kỳ hiện tại"
+                  options={semesterOptions.map((semester) => ({
+                    value: semester.id,
+                    label: `${semester.name}${semester.isCurrent ? ' (Hiện tại)' : ''}`,
+                  }))}
+                />
+                {viewMode === 'LIST' ? (
+                  <div className="flex flex-wrap gap-2">
+                    {FILTERS.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => handleFilterChange(item.value)}
+                        className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
+                          filter === item.value
+                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                            : 'bg-gray-50 text-slate-600 hover:bg-gray-100 hover:text-slate-900'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs font-medium text-slate-500 sm:text-sm">
+                    Nhấp vào bất kỳ ngày nào trên lịch để xem chi tiết các ca thi.
+                  </p>
+                )}
               </div>
 
-              <div className="flex h-10 w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-600 lg:w-80">
-                <Search size={16} className="shrink-0 text-slate-400" />
-                <input
-                  value={keyword}
-                  onChange={(event) => setKeyword(event.target.value)}
-                  placeholder="Tìm bài thi, môn học, giảng viên..."
-                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
-                />
-                {keyword && (
+              <div className="flex flex-wrap items-center gap-2.5">
+                {viewMode === 'LIST' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void load()}
+                      disabled={loading}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50"
+                      title="Làm mới bộ lọc"
+                    >
+                      <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                    </button>
+
+                    <div className="flex h-10 w-full min-w-[240px] items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-600 sm:w-72">
+                      <Search size={16} className="shrink-0 text-slate-400" />
+                      <input
+                        value={keyword}
+                        onChange={(event) => setKeyword(event.target.value)}
+                        placeholder="Tìm bài thi, môn hoặc giảng viên..."
+                        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                      />
+                      {keyword && (
+                        <button
+                          type="button"
+                          onClick={() => setKeyword('')}
+                          className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-gray-100 hover:text-slate-700"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                <div className="flex items-center rounded-xl border border-gray-200 bg-gray-100/70 p-1 shadow-2xs">
                   <button
                     type="button"
-                    onClick={() => setKeyword('')}
-                    className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-gray-100 hover:text-slate-700"
+                    onClick={() => handleViewModeChange('CALENDAR')}
+                    className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-semibold transition-all ${
+                      viewMode === 'CALENDAR'
+                        ? 'bg-white font-bold text-blue-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
                   >
-                    <X size={14} />
+                    <Calendar size={16} />
+                    <span>Dạng Lịch</span>
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange('LIST')}
+                    className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-semibold transition-all ${
+                      viewMode === 'LIST'
+                        ? 'bg-white font-bold text-blue-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <List size={16} />
+                    <span>Dạng Bảng</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -181,67 +300,35 @@ export default function StudentExamsPage() {
             {!loading && !error && exams.length === 0 && (
               <ExamMessage text="Không có bài thi phù hợp với bộ lọc." />
             )}
-            {!loading && !error && exams.length > 0 && (
+            {!loading && !error && exams.length > 0 && viewMode === 'CALENDAR' && (
+              <div className="p-3 sm:p-4">
+                <StudentExamCalendar
+                  exams={exams}
+                  visibleMonth={visibleMonth}
+                  selectedDate={selectedDay?.date}
+                  onVisibleMonthChange={(date) => {
+                    setVisibleMonth(date)
+                    setSelectedDay(null)
+                  }}
+                  onSelectDay={(date, items) => setSelectedDay({ date, items })}
+                />
+              </div>
+            )}
+            {!loading && !error && exams.length > 0 && viewMode === 'LIST' && (
               <>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse text-left text-sm">
-                    <thead className="border-b border-gray-100 bg-gray-50 text-[11px] font-semibold uppercase text-slate-500">
-                      <tr>
-                        <th className="whitespace-nowrap px-5 py-3">Bài thi</th>
-                        <th className="whitespace-nowrap px-5 py-3">Học phần</th>
-                        <th className="whitespace-nowrap px-5 py-3">Thời gian</th>
-                        <th className="whitespace-nowrap px-5 py-3">Thời lượng</th>
-                        <th className="whitespace-nowrap px-5 py-3">Trạng thái</th>
-                        <th className="whitespace-nowrap px-5 py-3 text-right">Hành động</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {exams.map((exam) => {
-                        const meta = statusMeta[exam.status]
-                        const action = getExamAction(exam)
-
-                        return (
-                          <tr key={`${exam.courseOfferingId}-${exam.id}`} className="hover:bg-gray-50/70">
-                            <td className="px-5 py-4">
-                              <p className="font-bold text-slate-900">{exam.title}</p>
-                              <p className="mt-0.5 text-xs text-slate-500">Giảng viên: {exam.teacherName}</p>
-                            </td>
-                            <td className="whitespace-nowrap px-5 py-4">
-                              <p className="font-semibold text-slate-800">{exam.courseCode}</p>
-                              <p className="mt-0.5 text-xs text-slate-500">{exam.subjectName}</p>
-                            </td>
-                            <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatExamTime(exam)}</td>
-                            <td className="whitespace-nowrap px-5 py-4 text-slate-600">{exam.durationMinutes} phút</td>
-                            <td className="whitespace-nowrap px-5 py-4">
-                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.tone}`}>
-                                {meta.icon}
-                                {meta.label}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() => openExam(exam)}
-                                className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
-                                  action.primary
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                                }`}
-                              >
-                                {action.primary ? <Play size={14} /> : <Eye size={14} />}
-                                {action.label}
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <StudentExamTable exams={exams} onOpenExam={openExam} />
                 <ExamPagination pagination={pagination} onPageChange={setPage} />
               </>
             )}
           </section>
+
+          <StudentDayDetailModal
+            date={selectedDay?.date ?? null}
+            exams={selectedDay?.items ?? []}
+            isOpen={Boolean(selectedDay)}
+            onClose={() => setSelectedDay(null)}
+            onOpenExam={openExam}
+          />
         </main>
       </div>
     </div>
@@ -267,6 +354,66 @@ function ExamMessage({ text, action }: { text: string; action?: () => void }) {
           <RefreshCw size={15} /> Thử lại
         </button>
       )}
+    </div>
+  )
+}
+
+function StudentExamTable({ exams, onOpenExam }: { exams: StudentExamListItem[]; onOpenExam: (exam: StudentExamListItem) => void }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border-collapse text-left text-sm">
+        <thead className="border-y border-gray-100 bg-gray-50 text-[11px] font-semibold uppercase text-slate-500">
+          <tr>
+            <th className="whitespace-nowrap px-6 py-3.5">Bài thi</th>
+            <th className="whitespace-nowrap px-6 py-3.5">Học phần</th>
+            <th className="whitespace-nowrap px-6 py-3.5">Thời gian</th>
+            <th className="whitespace-nowrap px-6 py-3.5">Thời lượng</th>
+            <th className="whitespace-nowrap px-6 py-3.5">Trạng thái</th>
+            <th className="whitespace-nowrap px-6 py-3.5 text-right">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {exams.map((exam) => {
+            const meta = statusMeta[exam.status]
+            const action = getExamAction(exam)
+
+            return (
+              <tr key={`${exam.courseOfferingId}-${exam.id}`} className="transition-colors hover:bg-gray-50/60">
+                <td className="px-6 py-4">
+                  <p className="font-semibold text-slate-900">{exam.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Giảng viên: {exam.teacherName}</p>
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <p className="font-normal text-slate-700">{exam.courseCode}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{exam.subjectName}</p>
+                </td>
+                <td className="whitespace-nowrap px-6 py-4 font-normal text-slate-700">{formatExamTime(exam)}</td>
+                <td className="whitespace-nowrap px-6 py-4 font-normal text-slate-700">{exam.durationMinutes} phút</td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.tone}`}>
+                    {meta.icon}
+                    {meta.label}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onOpenExam(exam)}
+                    className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+                      action.primary
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                    }`}
+                  >
+                    {action.primary ? <Play size={14} /> : <Eye size={14} />}
+                    {action.label}
+                  </button>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -301,6 +448,352 @@ function ExamPagination({ pagination, onPageChange }: { pagination: Pagination; 
   )
 }
 
+function StudentExamCalendar({
+  exams,
+  visibleMonth,
+  selectedDate,
+  onVisibleMonthChange,
+  onSelectDay,
+}: {
+  exams: StudentExamListItem[]
+  visibleMonth: Date
+  selectedDate?: Date | null
+  onVisibleMonthChange: (date: Date) => void
+  onSelectDay: (date: Date, exams: StudentExamListItem[]) => void
+}) {
+  const calendarDays = useMemo(() => getStudentCalendarDays(visibleMonth, exams), [exams, visibleMonth])
+  const selectedDateString = selectedDate ? formatDateToYMD(selectedDate) : null
+  const currentMonth = visibleMonth.getMonth()
+  const currentYear = visibleMonth.getFullYear()
+  const currentMonthTitle = `Tháng ${String(currentMonth + 1).padStart(2, '0')}, ${currentYear}`
+  const currentMonthExamCount = calendarDays
+    .filter((day) => day.isCurrentMonth)
+    .reduce((sum, day) => sum + day.exams.length, 0)
+
+  return (
+    <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 bg-white px-6 py-4">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onVisibleMonthChange(new Date())}
+              className="h-9 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-gray-50"
+            >
+              Hôm nay
+            </button>
+            <div className="flex items-center rounded-xl border border-gray-200 bg-white p-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => onVisibleMonthChange(new Date(currentYear, currentMonth - 1, 1))}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-gray-100"
+                title="Tháng trước"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onVisibleMonthChange(new Date(currentYear, currentMonth + 1, 1))}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-gray-100"
+                title="Tháng sau"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900">{currentMonthTitle}</h2>
+        </div>
+
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3.5 py-1.5 text-xs font-semibold text-blue-700">
+          <Calendar size={14} />
+          <span>Có <strong>{currentMonthExamCount}</strong> ca thi trong tháng</span>
+        </span>
+      </div>
+
+      <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50 py-3 text-center text-[12px] font-bold uppercase tracking-wide text-slate-500">
+        {WEEKDAYS.map((day) => <div key={day}>{day}</div>)}
+      </div>
+
+      <div className="grid grid-cols-7 divide-x divide-y divide-gray-100 bg-gray-100/60">
+        {calendarDays.map((cell) => (
+          <StudentCalendarDayCell
+            key={cell.dateString}
+            cell={cell}
+            isSelected={selectedDateString === cell.dateString}
+            onSelectDay={onSelectDay}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StudentCalendarDayCell({
+  cell,
+  isSelected,
+  onSelectDay,
+}: {
+  cell: StudentCalendarDay
+  isSelected: boolean
+  onSelectDay: (date: Date, exams: StudentExamListItem[]) => void
+}) {
+  const hasExams = cell.exams.length > 0
+  const visibleExams = cell.exams.slice(0, 2)
+  const remainingCount = cell.exams.length - visibleExams.length
+  const hasOpen = cell.exams.some((exam) => exam.status === 'OPEN')
+  const hasUpcoming = cell.exams.some((exam) => exam.status === 'UPCOMING')
+
+  return (
+    <div
+      onClick={() => onSelectDay(cell.date, cell.exams)}
+      className={`group relative flex min-h-[115px] cursor-pointer flex-col justify-between p-2.5 transition-all sm:min-h-[130px] ${
+        isSelected
+          ? 'z-10 bg-blue-50/90 shadow-xs ring-2 ring-inset ring-blue-600'
+          : cell.isCurrentMonth
+            ? 'bg-white hover:bg-blue-50/40'
+            : 'bg-gray-50/70 text-slate-400'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span
+          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-all ${
+            cell.isToday
+              ? 'bg-blue-600 text-white shadow-xs'
+              : isSelected
+                ? 'bg-blue-700 text-white'
+                : cell.isCurrentMonth
+                  ? 'text-slate-800'
+                  : 'text-slate-400'
+          }`}
+        >
+          {cell.dayNumber}
+        </span>
+
+        {hasExams && (
+          <span
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-2xs ${
+              hasOpen
+                ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300'
+                : hasUpcoming
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'border border-slate-200/80 bg-slate-100 text-slate-600'
+            }`}
+          >
+            {cell.exams.length} ca
+          </span>
+        )}
+      </div>
+
+      <div className="mt-1.5 flex flex-1 flex-col gap-1">
+        {visibleExams.map((exam) => {
+          const isOpen = exam.status === 'OPEN'
+          const isUpcoming = exam.status === 'UPCOMING'
+          return (
+            <div
+              key={`${exam.courseOfferingId}-${exam.id}`}
+              className={`flex items-center gap-1.5 truncate rounded-lg border px-2 py-0.5 text-[11px] leading-tight shadow-2xs transition-all ${
+                isOpen
+                  ? 'border-emerald-400 bg-emerald-50 font-bold text-emerald-700'
+                  : isUpcoming
+                    ? 'border-sky-400 bg-sky-50 font-semibold text-sky-700'
+                    : 'border-slate-300 bg-slate-50 font-medium text-slate-500'
+              }`}
+            >
+              {isOpen ? (
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
+              ) : (
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isUpcoming ? 'bg-sky-500' : 'bg-slate-400'}`} />
+              )}
+              <span className="truncate">{formatClock(exam.startTime)} · {exam.courseCode}</span>
+            </div>
+          )
+        })}
+
+        {remainingCount > 0 && (
+          <span className={`pl-1 text-[10px] font-bold hover:underline ${hasOpen || hasUpcoming ? 'text-blue-600 hover:text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}>
+            +{remainingCount} ca thi khác...
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StudentDayDetailModal({
+  isOpen,
+  date,
+  exams,
+  onClose,
+  onOpenExam,
+}: {
+  isOpen: boolean
+  date: Date | null
+  exams: StudentExamListItem[]
+  onClose: () => void
+  onOpenExam: (exam: StudentExamListItem) => void
+}) {
+  if (!isOpen || !date) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-6">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">{formatFullDate(date)}</h3>
+            <p className="mt-0.5 text-sm text-slate-500">{exams.length} ca thi</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-gray-100 hover:text-slate-700">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto p-5">
+          {exams.length === 0 ? (
+            <p className="rounded-xl bg-gray-50 px-4 py-6 text-center text-sm text-slate-500">Không có ca thi trong ngày này.</p>
+          ) : exams.map((exam) => {
+            const meta = statusMeta[exam.status]
+            const action = getExamAction(exam)
+            return (
+              <div key={`${exam.courseOfferingId}-${exam.id}`} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900">{exam.title}</p>
+                    <p className="mt-1 text-sm text-slate-500">{exam.courseCode} · {exam.subjectName}</p>
+                    <p className="mt-1 text-sm font-medium text-slate-700">{formatTimeRange(exam.startTime, exam.endTime)} · {exam.durationMinutes} phút</p>
+                  </div>
+                  <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${meta.tone}`}>
+                    {meta.icon}
+                    {meta.label}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpenExam(exam)}
+                  className={`mt-4 inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+                    action.primary
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                  }`}
+                >
+                  {action.primary ? <Play size={14} /> : <Eye size={14} />}
+                  {action.label}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface StudentCalendarDay {
+  date: Date
+  dateString: string
+  dayNumber: number
+  isCurrentMonth: boolean
+  isToday: boolean
+  exams: StudentExamListItem[]
+}
+
+function getStudentCalendarDays(currentMonthDate: Date, exams: StudentExamListItem[]): StudentCalendarDay[] {
+  const year = currentMonthDate.getFullYear()
+  const month = currentMonthDate.getMonth()
+  const firstDayOfMonth = new Date(year, month, 1)
+  const lastDayOfMonth = new Date(year, month + 1, 0)
+  const totalDaysInMonth = lastDayOfMonth.getDate()
+  const examMap = new Map<string, StudentExamListItem[]>()
+
+  for (const exam of exams) {
+    const date = new Date(exam.startTime)
+    if (Number.isNaN(date.getTime())) continue
+    const key = formatDateToYMD(date)
+    const list = examMap.get(key) || []
+    list.push(exam)
+    examMap.set(key, list)
+  }
+
+  examMap.forEach((list) => {
+    list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+  })
+
+  const todayString = formatDateToYMD(new Date())
+  const days: StudentCalendarDay[] = []
+  let startDayOfWeek = firstDayOfMonth.getDay() - 1
+  if (startDayOfWeek === -1) startDayOfWeek = 6
+
+  const prevMonthLastDay = new Date(year, month, 0).getDate()
+  for (let i = startDayOfWeek - 1; i >= 0; i--) {
+    const dayNumber = prevMonthLastDay - i
+    const date = new Date(year, month - 1, dayNumber)
+    const dateString = formatDateToYMD(date)
+    days.push({
+      date,
+      dateString,
+      dayNumber,
+      isCurrentMonth: false,
+      isToday: dateString === todayString,
+      exams: examMap.get(dateString) || [],
+    })
+  }
+
+  for (let dayNumber = 1; dayNumber <= totalDaysInMonth; dayNumber++) {
+    const date = new Date(year, month, dayNumber)
+    const dateString = formatDateToYMD(date)
+    days.push({
+      date,
+      dateString,
+      dayNumber,
+      isCurrentMonth: true,
+      isToday: dateString === todayString,
+      exams: examMap.get(dateString) || [],
+    })
+  }
+
+  const targetCellCount = days.length > 35 ? 42 : 35
+  for (let dayNumber = 1; days.length < targetCellCount; dayNumber++) {
+    const date = new Date(year, month + 1, dayNumber)
+    const dateString = formatDateToYMD(date)
+    days.push({
+      date,
+      dateString,
+      dayNumber,
+      isCurrentMonth: false,
+      isToday: dateString === todayString,
+      exams: examMap.get(dateString) || [],
+    })
+  }
+
+  return days
+}
+
+function formatDateToYMD(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatClock(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
+}
+
+function formatTimeRange(startTime: string, endTime: string): string {
+  return `${formatClock(startTime)} - ${formatClock(endTime)}`
+}
+
+function formatFullDate(date: Date) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
 function getExamAction(exam: StudentExamListItem) {
   if (exam.canResume) return { label: 'Tiếp tục', primary: true }
   if (exam.canStart) return { label: 'Vào thi', primary: true }
@@ -318,10 +811,6 @@ function formatExamTime(exam: StudentExamListItem) {
     month: '2-digit',
     year: 'numeric',
   }).format(start)
-  const time = new Intl.DateTimeFormat('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 
-  return `${date} · ${time.format(start)} - ${time.format(end)}`
+  return `${date} · ${formatTimeRange(exam.startTime, exam.endTime)}`
 }

@@ -12,6 +12,7 @@ import {
 import * as scheduleRepo from "../../exam-schedules/repositories/exam-schedule.repository";
 import type { ScheduleWriteInput } from "../../exam-schedules/types/exam-schedule.types";
 import * as repo from "../repositories/teacher-exam-schedule.repository";
+import { notifyUsers } from "../../notifications/notifications.service";
 import type { TeacherExamScheduleBody } from "../validators/teacher-exam-schedule.validator";
 
 async function toWriteInput(
@@ -124,12 +125,18 @@ export async function create(
 ) {
   const { exam, course } = await context(teacherId, examId, data.courseOfferingId);
   const input = await toWriteInput(teacherId, examId, exam.title, course.code, data);
-  return toExamScheduleDto(
-    await runSerializable(async (tx) => {
+  const row = await runSerializable(async (tx) => {
       await assertNoConflict(tx, teacherId, data.courseOfferingId, input);
       return scheduleRepo.createSchedule(tx, input, userId);
-    }),
+    });
+  const dto = toExamScheduleDto(row);
+  const userIds = await repo.listCourseStudentUserIds(data.courseOfferingId);
+  await notifyUsers(
+    userIds,
+    "Ca thi mới",
+    `Giảng viên vừa tạo ca thi "${dto.title}" cho lớp ${course.code}.`,
   );
+  return dto;
 }
 
 export async function update(

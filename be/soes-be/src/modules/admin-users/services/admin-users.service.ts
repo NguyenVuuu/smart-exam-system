@@ -5,6 +5,7 @@ import { runSerializable } from '../../../utils/transaction'
 import * as repo from '../repositories/admin-users.repository'
 import type { CreateUserBody, EnrollmentQuery, UpdateUserBody, UsersQuery } from '../validators/admin-users.validator'
 import { toAdminUserDto } from '../mappers/admin-user.mapper'
+import { notifyUsers } from '../../notifications/notifications.service'
 
 const saltRounds = 12
 
@@ -69,7 +70,7 @@ export async function resetPassword(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profi
 }
 
 export async function enroll(courseOfferingId: string, studentIds: string[]) {
-  return runSerializable(async (tx) => {
+  const { created, courseCode, userIds } = await runSerializable(async (tx) => {
     const uniqueIds = [...new Set(studentIds)]
     const { course, validStudents, existing, conflicting } = await repo.enrollmentContext(tx, courseOfferingId, uniqueIds)
     if (!course) throw new NotFoundError('Course offering not found')
@@ -84,8 +85,13 @@ export async function enroll(courseOfferingId: string, studentIds: string[]) {
     }
     if (course._count.enrollments + uniqueIds.length - existing > course.maxCapacity) throw new ConflictError('Course offering capacity exceeded')
     const result = await repo.createEnrollments(tx, course, uniqueIds)
-    return { created: result.count }
+    const userIds = result.count > 0 ? await repo.listStudentUserIds(uniqueIds) : []
+    return { created: result.count, courseCode: course.code, userIds }
   })
+  if (created > 0) {
+    await notifyUsers(userIds, 'Bạn được thêm vào lớp học phần', `Bạn vừa được thêm vào lớp ${courseCode}.`)
+  }
+  return { created }
 }
 
 export async function listEnrollments(courseOfferingId: string, query: EnrollmentQuery) {

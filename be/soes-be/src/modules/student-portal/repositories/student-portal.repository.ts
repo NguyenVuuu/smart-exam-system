@@ -89,7 +89,7 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
     where: {
       studentId,
       totalScore: { not: null },
-      status: { in: ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+      status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
       courseOfferingId: query.courseOfferingId,
       courseOffering: {
         semesterId: query.semesterId,

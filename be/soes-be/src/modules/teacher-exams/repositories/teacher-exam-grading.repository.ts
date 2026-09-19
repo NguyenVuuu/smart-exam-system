@@ -66,6 +66,7 @@ export const findViolationScheduleAccess = (teacherId: string, examId: string, s
     where: { id: scheduleId, examId, ...violationAccess(teacherId) },
     select: {
       id: true,
+      enableScreenMonitoring: true,
       scheduleCourses: {
         where: violationScheduleCourseAccess(teacherId),
         select: { courseOfferingId: true },
@@ -82,6 +83,7 @@ export const findViolationScheduleAccessBySchedule = (teacherId: string, schedul
       title: true,
       startTime: true,
       endTime: true,
+      enableScreenMonitoring: true,
       scheduleCourses: {
         where: violationScheduleCourseAccess(teacherId),
         select: { courseOfferingId: true },
@@ -352,7 +354,7 @@ export function invalidateAttempt(input: {
         examSchedule: { examId: input.examId, ...violationAccess(input.teacherId) },
         status: 'IN_PROGRESS',
       },
-      select: { id: true, status: true },
+      select: { id: true, status: true, student: { select: { userId: true } }, examSchedule: { select: { title: true } } },
     })
     if (!attempt) return null
 
@@ -376,6 +378,8 @@ export function invalidateAttempt(input: {
         submittedAt: true,
         invalidatedAt: true,
         invalidationReason: true,
+        student: { select: { userId: true } },
+        examSchedule: { select: { title: true } },
       },
     })
 
@@ -488,7 +492,19 @@ export function updateResultRelease(
     })
     return tx.examSchedule.findUniqueOrThrow({
       where: { id: scheduleId },
-      select: { id: true, resultReleaseMode: true, resultReleaseAt: true, resultsPublishedAt: true },
+      select: { id: true, title: true, resultReleaseMode: true, resultReleaseAt: true, resultsPublishedAt: true },
     })
   })
+}
+
+export async function listScheduleStudentUserIds(scheduleId: string) {
+  const rows = await prisma.enrollment.findMany({
+    where: {
+      courseOffering: {
+        scheduleCourses: { some: { examScheduleId: scheduleId } },
+      },
+    },
+    select: { student: { select: { userId: true } } },
+  })
+  return rows.map((row) => row.student.userId)
 }

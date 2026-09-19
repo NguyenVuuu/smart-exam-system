@@ -1,5 +1,6 @@
 import { NotFoundError } from '../../errors/AppError'
 import { toPagination } from '../../utils/pagination'
+import { emitUserEvent } from '../proctoring/proctoring-realtime.events'
 import * as repository from './notifications.repository'
 import type { NotificationsQuery } from './notifications.validator'
 
@@ -21,4 +22,12 @@ export async function markRead(userId: string, notificationId: string) {
 export async function markAllRead(userId: string) {
   const result = await repository.markAllRead(userId)
   return { updatedCount: result.count }
+}
+
+export async function notifyUsers(userIds: string[], title: string, content: string) {
+  const notifications = await repository.createForUsers({ userIds, title, content })
+  notifications.forEach(({ userId, ...notification }) => {
+    emitUserEvent(userId, 'notification:created', notification)
+  })
+  return { count: notifications.length }
 }

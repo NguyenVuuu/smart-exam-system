@@ -1,4 +1,4 @@
-import { Clock, Eye, Globe, Lock, ShieldCheck, Shuffle, Users } from 'lucide-react'
+import { Clock, Eye, Globe, HelpCircle, Lock, ShieldCheck, Shuffle, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
 import AppNumberInput from '../../../../../components/common/AppNumberInput'
 import AppSelect from '../../../../../components/common/AppSelect'
@@ -175,7 +175,11 @@ export function ExamSessionForm({
         />
       </div>
 
-      <SectionTitle icon={<ShieldCheck size={15} className="text-blue-600" />} title="Quy định thi" />
+      <SectionTitle
+        icon={<ShieldCheck size={15} className="text-blue-600" />}
+        title="Quy định thi"
+        helpText="Cấu hình giám sát màn hình để hệ thống tự động chụp ảnh màn hình khi sinh viên chuyển tab hoặc thoát toàn màn hình. Nếu không bật giám sát màn hình, hệ thống vẫn ghi nhận vi phạm chuyển tab/toàn màn hình nhưng bằng chứng sẽ là ghi chú không có ảnh. Webcam chỉ dùng cho các vi phạm liên quan camera/khuôn mặt."
+      />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-2">
           <Toggle checked={draft.enableTabLock} onChange={(value) => update('enableTabLock', value)} label="Theo dõi chuyển tab / ứng dụng khác" />
@@ -273,11 +277,25 @@ function Field({
   )
 }
 
-function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
+function SectionTitle({ icon, title, helpText }: { icon: ReactNode; title: string; helpText?: string }) {
   return (
     <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
       {icon}
       <span>{title}</span>
+      {helpText && (
+        <span className="group relative inline-flex">
+          <button
+            type="button"
+            aria-label={`Trợ giúp: ${title}`}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 outline-none transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600"
+          >
+            <HelpCircle size={15} />
+          </button>
+          <span className="pointer-events-none absolute left-7 top-1/2 z-50 hidden w-96 max-w-[calc(100vw-8rem)] -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-3 text-xs font-normal leading-5 text-slate-600 shadow-xl group-hover:block group-focus-within:block">
+            {helpText}
+          </span>
+        </span>
+      )}
     </div>
   )
 }
