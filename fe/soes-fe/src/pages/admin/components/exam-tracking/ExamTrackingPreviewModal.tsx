@@ -1,71 +1,101 @@
-﻿import { CalendarPlus, X } from 'lucide-react'
-import AppBadge from '../../../../components/common/AppBadge'
+import { useEffect, useState } from 'react'
+import { CalendarPlus, CheckCircle2, Code, Eye, EyeOff, Loader2, X } from 'lucide-react'
+import HtmlContent from '../../../../components/common/HtmlContent'
+import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../constants/programmingLanguages'
+import { getTeacherExam } from '../../../teacher/api/teacher-exams.api'
+import type { TeacherExamDetailDto } from '../../../teacher/types/teacher-exam-api.types'
 import type { AdminExam } from '../../types/admin.types'
 import { ExamCategoryBadge, ExamStatusBadge } from '../AdminBadges'
 import AdminButton from '../AdminButton'
 
-type PreviewQuestionOption = {
-  label: string
-  content: string
-  correct?: boolean
-}
-
-type PreviewQuestion = {
+type FallbackQuestion = {
   id: string
-  kind: 'Trắc nghiệm' | 'Lập trình'
-  points: number
+  title?: string
   content: string
-  options?: PreviewQuestionOption[]
-  codeNote?: string
+  type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'PROGRAMMING'
+  points: number
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD'
+  language?: 'JAVA' | 'C' | 'CPP' | null
+  options?: Array<{ id: string; content: string; isCorrect: boolean }>
+  programmingConfig?: {
+    timeLimitMs: number
+    memoryLimitMb: number
+    maxCodeSizeKb: number
+  } | null
+  testCases?: Array<{
+    id: string
+    input: string
+    expectedOutput: string
+    isHidden: boolean
+  }>
 }
 
-const previewQuestionsByExam: Record<string, PreviewQuestion[]> = {
-  'exam-01': [
-    {
-      id: 'q1',
-      kind: 'Trắc nghiệm',
-      points: 0.5,
-      content: 'Trong Java, từ khóa nào dùng để kế thừa một lớp cha?',
-      options: [
-        { label: 'A', content: 'implements' },
-        { label: 'B', content: 'extends', correct: true },
-        { label: 'C', content: 'inherits' },
-        { label: 'D', content: 'instanceof' },
-      ],
+const fallbackQuestions: FallbackQuestion[] = [
+  {
+    id: 'fb-q1',
+    title: 'Trong Java, từ khóa nào dùng để kế thừa một lớp cha?',
+    content: 'Trong ngôn ngữ lập trình Java, từ khóa nào sau đây được sử dụng để một lớp kế thừa từ một lớp khác?',
+    type: 'SINGLE_CHOICE',
+    points: 0.5,
+    difficulty: 'EASY',
+    options: [
+      { id: 'opt1', content: 'implements', isCorrect: false },
+      { id: 'opt2', content: 'extends', isCorrect: true },
+      { id: 'opt3', content: 'inherits', isCorrect: false },
+      { id: 'opt4', content: 'instanceof', isCorrect: false },
+    ],
+  },
+  {
+    id: 'fb-q2',
+    title: 'Phương thức main trong Java Console',
+    content: 'Phương thức nào là điểm bắt đầu thực thi chính của một ứng dụng Java Console chuẩn?',
+    type: 'SINGLE_CHOICE',
+    points: 0.5,
+    difficulty: 'EASY',
+    options: [
+      { id: 'opt5', content: 'public void start()', isCorrect: false },
+      { id: 'opt6', content: 'public static void main(String[] args)', isCorrect: true },
+      { id: 'opt7', content: 'public void run()', isCorrect: false },
+      { id: 'opt8', content: 'public int init()', isCorrect: false },
+    ],
+  },
+  {
+    id: 'fb-q3',
+    title: 'Tính tổng các số chẵn trong mảng số nguyên',
+    content: 'Viết chương trình đọc vào một số nguyên n (1 <= n <= 10^5) và mảng n số nguyên. In ra tổng của tất cả các số chẵn có trong mảng. Nếu không có số chẵn nào, in ra 0.',
+    type: 'PROGRAMMING',
+    points: 2.0,
+    difficulty: 'MEDIUM',
+    language: 'JAVA',
+    programmingConfig: {
+      timeLimitMs: 1000,
+      memoryLimitMb: 256,
+      maxCodeSizeKb: 64,
     },
-    {
-      id: 'q2',
-      kind: 'Trắc nghiệm',
-      points: 0.5,
-      content: 'Phương thức nào là điểm bắt đầu thực thi của một ứng dụng Java Console?',
-      options: [
-        { label: 'A', content: 'public void start()' },
-        { label: 'B', content: 'public static void main(String[] args)', correct: true },
-        { label: 'C', content: 'public void run()' },
-        { label: 'D', content: 'public int init()' },
-      ],
-    },
-    {
-      id: 'q3',
-      kind: 'Lập trình',
-      points: 2.0,
-      content: 'Viết chương trình đọc một mảng n số nguyên và in ra tổng các số chẵn trong mảng.',
-      codeNote: 'Ngôn ngữ: Java • Time limit: 1000ms • Memory: 256MB • 3 test case mẫu',
-    },
-  ],
-}
+    testCases: [
+      {
+        id: 'tc-1',
+        input: '5\n1 2 3 4 5',
+        expectedOutput: '6',
+        isHidden: false,
+      },
+      {
+        id: 'tc-2',
+        input: '4\n1 3 5 7',
+        expectedOutput: '0',
+        isHidden: false,
+      },
+      {
+        id: 'tc-3',
+        input: '6\n2 4 6 8 10 12',
+        expectedOutput: '42',
+        isHidden: true,
+      },
+    ],
+  },
+]
 
 const canCreateCentralSchedule = (exam: AdminExam) => exam.category === 'FINAL' && exam.status === 'APPROVED'
-
-const getOperationNote = (exam: AdminExam) => {
-  if (exam.category !== 'FINAL') return 'Giảng viên tự tổ chức trong lớp phụ trách'
-  if (exam.status === 'APPROVED') return 'Sẵn sàng để Admin tạo lịch thi tập trung'
-  if (exam.status === 'PENDING_APPROVAL') return 'Chờ Trưởng bộ môn duyệt chuyên môn'
-  if (exam.status === 'REJECTED') return 'Đã bị từ chối, chờ giảng viên chỉnh sửa'
-  if (exam.status === 'LOCKED') return 'Đã chốt lịch thi, không chỉnh cấu hình đề'
-  if (exam.status === 'ARCHIVED') return 'Đề đã được lưu trữ'
-  return 'Chưa đủ điều kiện tổ chức thi cuối kỳ'
-}
 
 export default function ExamTrackingPreviewModal({
   exam,
@@ -76,110 +106,233 @@ export default function ExamTrackingPreviewModal({
   onClose: () => void
   onCreateSchedule: (exam: AdminExam) => void
 }) {
+  const [examDetail, setExamDetail] = useState<TeacherExamDetailDto | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+    if (exam?.id) {
+      setLoading(true)
+      getTeacherExam(exam.id)
+        .then((detail) => {
+          if (isMounted) setExamDetail(detail)
+        })
+        .catch(() => {
+          if (isMounted) setExamDetail(null)
+        })
+        .finally(() => {
+          if (isMounted) setLoading(false)
+        })
+    } else {
+      setExamDetail(null)
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [exam?.id])
+
   if (!exam) return null
 
-  const questions = previewQuestionsByExam[exam.id] ?? previewQuestionsByExam['exam-01']
+  const displayQuestions = examDetail?.questions && examDetail.questions.length > 0
+    ? examDetail.questions
+    : fallbackQuestions
+
+  const formatLabel =
+    exam.structure === 'PROGRAMMING'
+      ? 'Lập trình'
+      : exam.structure === 'OBJECTIVE'
+      ? 'Trắc nghiệm'
+      : 'Hỗn hợp'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
-      <div className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 font-sans backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="flex h-[92vh] max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+        {/* Modal Header */}
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-base font-semibold text-slate-950">{exam.title}</h2>
+              <h2 className="truncate text-base font-bold text-gray-900">{exam.title}</h2>
               <ExamCategoryBadge category={exam.category} />
               <ExamStatusBadge status={exam.status} category={exam.category} />
             </div>
-            <p className="mt-1 text-[13px] leading-[19px] text-slate-500">
+            <p className="mt-1 text-sm text-gray-500">
               {exam.subjectName} ({exam.subjectCode}) • Học kỳ: {exam.semesterCode} • Giảng viên: {exam.authorName}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-gray-100 hover:text-slate-700"
+            className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
             title="Đóng"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs text-slate-400">Thời lượng</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{exam.durationMinutes} phút</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs text-slate-400">Tổng điểm</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{exam.totalPoints} điểm</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs text-slate-400">Số câu hỏi</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{exam.questionCount} câu</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs text-slate-400">Cấu trúc</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
-                {exam.structure === 'OBJECTIVE' ? 'Trắc nghiệm' : exam.structure === 'PROGRAMMING' ? 'Lập trình' : 'Hỗn hợp'}
-              </p>
-            </div>
+        {/* Modal Body */}
+        <div className="flex min-h-0 flex-1 flex-col space-y-5 overflow-hidden p-6">
+          {/* Stats Bar */}
+          <div className="grid shrink-0 grid-cols-2 gap-3 text-xs md:grid-cols-4">
+            <PreviewStat label="Thời lượng làm bài" value={`${exam.durationMinutes} phút`} />
+            <PreviewStat label="Tổng điểm mục tiêu" value={`${exam.totalPoints} điểm`} />
+            <PreviewStat label="Số lượng câu hỏi" value={`${displayQuestions.length} câu`} />
+            <PreviewStat label="Cấu trúc bài thi" value={formatLabel} />
           </div>
 
-          <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs text-blue-800">
-            <span className="font-semibold">Lưu ý nghiệp vụ:</span> {getOperationNote(exam)}
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">Danh sách câu hỏi trong đề</h3>
-              <span className="text-xs text-slate-400">Hiển thị {questions.length} câu mẫu</span>
+          {/* Question List Card */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xs">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-3.5 text-sm font-bold text-gray-900">
+              <span>Danh sách câu hỏi trong đề</span>
+              <div className="flex items-center gap-2">
+                {loading && <Loader2 size={15} className="animate-spin text-blue-600" />}
+                <span className="text-sm font-semibold text-blue-600">{displayQuestions.length} câu hỏi</span>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              {questions.map((question, index) => (
-                <div key={question.id} className="rounded-xl border border-gray-200 bg-white p-4 space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-blue-600">Câu {index + 1}</span>
-                      <AppBadge tone={question.kind === 'Trắc nghiệm' ? 'blue' : 'emerald'}>{question.kind}</AppBadge>
+            <div className="flex-1 divide-y divide-gray-100 overflow-y-auto p-2">
+              {displayQuestions.map((question, idx) => {
+                const isProgramming = question.type === 'PROGRAMMING'
+                const difficultyLabel =
+                  question.difficulty === 'EASY'
+                    ? 'DỄ'
+                    : question.difficulty === 'MEDIUM'
+                    ? 'TRUNG BÌNH'
+                    : 'KHÓ'
+                const typeLabel = isProgramming
+                  ? 'Lập trình'
+                  : question.type === 'SINGLE_CHOICE'
+                  ? '1 đáp án'
+                  : question.type === 'MULTIPLE_CHOICE'
+                  ? 'Nhiều đáp án'
+                  : 'Trắc nghiệm'
+
+                return (
+                  <div
+                    key={question.id || `q-${idx}`}
+                    className="space-y-3 rounded-xl p-4 transition-colors hover:bg-gray-50/50 sm:p-5"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-blue-600">Câu {idx + 1}</span>
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">
+                        {typeLabel}
+                      </span>
+                      <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                        Mức độ: {difficultyLabel}
+                      </span>
+                      <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+                        {question.points} điểm
+                      </span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-600">{question.points} điểm</span>
-                  </div>
 
-                  <p className="text-sm text-slate-800 font-medium leading-relaxed">{question.content}</p>
-
-                  {question.options && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      {question.options.map((option) => (
-                        <div
-                          key={option.label}
-                          className={`rounded-lg border px-3 py-2 text-xs flex items-center gap-2 ${
-                            option.correct
-                              ? 'border-emerald-200 bg-emerald-50 text-emerald-900 font-medium'
-                              : 'border-gray-100 bg-gray-50/50 text-slate-700'
-                          }`}
-                        >
-                          <span className="font-bold">{option.label}.</span>
-                          <span>{option.content}</span>
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold leading-6 text-gray-950">
+                        {question.title || question.content}
+                      </h4>
+                      {isProgramming && question.content && (
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-semibold uppercase text-gray-400">Mô tả bài toán</p>
+                          <HtmlContent
+                            content={question.content}
+                            className="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-xs font-medium leading-6 text-gray-800"
+                          />
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
 
-                  {question.codeNote && (
-                    <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-xs text-slate-600">
-                      {question.codeNote}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {/* Trắc nghiệm Options */}
+                    {!isProgramming && question.options && question.options.length > 0 && (
+                      <div className="grid grid-cols-1 gap-2.5 pt-1 md:grid-cols-2">
+                        {question.options.map((option, optIdx) => (
+                          <div
+                            key={option.id || `opt-${optIdx}`}
+                            className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-xs ${
+                              option.isCorrect
+                                ? 'border-emerald-200 bg-emerald-50 font-semibold text-emerald-900'
+                                : 'border-gray-100 bg-gray-50 text-gray-700'
+                            }`}
+                          >
+                            {option.isCorrect ? (
+                              <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+                            ) : (
+                              <div className="h-4 w-4 shrink-0 rounded-full border border-gray-300" />
+                            )}
+                            <span>{option.content}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Lập trình Config & Test cases */}
+                    {isProgramming && (
+                      <div className="space-y-3 rounded-xl border border-gray-100 bg-white p-3.5 shadow-2xs">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+                            <Code size={14} />{' '}
+                            {question.language && question.language in PROGRAMMING_LANGUAGE_LABELS
+                              ? PROGRAMMING_LANGUAGE_LABELS[question.language as keyof typeof PROGRAMMING_LANGUAGE_LABELS]
+                              : question.language || 'Mọi compiler hỗ trợ'}
+                          </span>
+                          <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                            <PreviewConfigPill
+                              label="Thời gian"
+                              value={`${question.programmingConfig?.timeLimitMs ?? 1000}ms`}
+                            />
+                            <PreviewConfigPill
+                              label="Bộ nhớ"
+                              value={`${question.programmingConfig?.memoryLimitMb ?? 128}MB`}
+                            />
+                            <PreviewConfigPill
+                              label="Mã nguồn"
+                              value={`${question.programmingConfig?.maxCodeSizeKb ?? 64}KB`}
+                            />
+                          </div>
+                        </div>
+
+                        {question.testCases && question.testCases.length > 0 ? (
+                          <div className="space-y-2.5 pt-1">
+                            {question.testCases.map((testCase, tIdx) => (
+                              <div
+                                key={testCase.id || `tc-${tIdx}`}
+                                className="rounded-lg border border-gray-100 bg-gray-50 p-3.5 space-y-2"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-semibold text-blue-700">Test case #{tIdx + 1}</span>
+                                  <span
+                                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold ${
+                                      testCase.isHidden
+                                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    }`}
+                                  >
+                                    {testCase.isHidden ? <EyeOff size={12} /> : <Eye size={12} />}
+                                    {testCase.isHidden ? 'Test ẩn' : 'Công khai'}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 font-mono text-xs md:grid-cols-2">
+                                  <PreviewCodeBlock label="Input" value={testCase.input} />
+                                  <PreviewCodeBlock label="Output kỳ vọng" value={testCase.expectedOutput} tone="success" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-500">
+                            Chưa có test case cho câu lập trình này.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
 
+        {/* Modal Footer */}
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 bg-gray-50 px-6 py-4">
-          <p className="text-xs text-slate-500">Mã đề: {exam.id}</p>
+          <p className="text-xs text-gray-500">Mã đề: {exam.id}</p>
           <div className="flex gap-2">
             <AdminButton tone="secondary" onClick={onClose}>
               Đóng
@@ -198,6 +351,46 @@ export default function ExamTrackingPreviewModal({
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function PreviewStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3.5">
+      <p className="text-xs font-semibold text-gray-400">{label}</p>
+      <p className="mt-1 text-sm font-bold text-gray-900">{value}</p>
+    </div>
+  )
+}
+
+function PreviewConfigPill({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600">
+      {label}: <strong className="text-gray-900">{value}</strong>
+    </span>
+  )
+}
+
+function PreviewCodeBlock({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone?: 'success'
+}) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-white p-2.5">
+      <span className="block font-sans text-[11px] font-semibold text-gray-400">{label}</span>
+      <pre
+        className={`mt-1 whitespace-pre-wrap break-words font-mono text-xs ${
+          tone === 'success' ? 'font-semibold text-emerald-600' : 'text-gray-800'
+        }`}
+      >
+        {value || '(Trống)'}
+      </pre>
     </div>
   )
 }
