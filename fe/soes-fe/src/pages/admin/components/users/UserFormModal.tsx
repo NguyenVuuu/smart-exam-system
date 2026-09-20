@@ -82,7 +82,7 @@ export default function UserFormModal({
             <AdminInput
               value={!editingUserId ? (suggestedCode || codeInput || 'Đang tạo mã...') : codeInput}
               onChange={(event) => onCodeChange(event.target.value)}
-              disabled={!editingUserId}
+              disabled={true}
               placeholder="VD: SV2026001"
             />
           </AdminField>

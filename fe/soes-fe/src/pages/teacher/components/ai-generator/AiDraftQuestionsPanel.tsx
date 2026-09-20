@@ -2,13 +2,14 @@ import React from 'react'
 import { CheckCircle2, Sparkles, Trash2 } from 'lucide-react'
 import { AiDraftQuestionCard } from './AiDraftQuestionCard'
 import type { AIDraftQuestion } from '../../types/teacher-question-bank.types'
-import type { AiMode } from './AiGeneratorConfigPanel'
+import { AiGenerationStatus } from './AiGenerationStatus'
+import type { AiGenerationProgress } from '../../hooks/useAiGenerationProgress'
 
 interface AiDraftQuestionsPanelProps {
   draftPanelHeight?: number
   draftQuestions: AIDraftQuestion[]
   isGenerating: boolean
-  aiMode: AiMode
+  progress: AiGenerationProgress
   collapsedDraftQuestionIds: string[]
   expandedDraftTestCaseIds: Record<string, string[]>
   onApproveAllAvailable: () => void
@@ -33,7 +34,7 @@ export const AiDraftQuestionsPanel: React.FC<AiDraftQuestionsPanelProps> = ({
   draftPanelHeight,
   draftQuestions,
   isGenerating,
-  aiMode,
+  progress,
   collapsedDraftQuestionIds,
   expandedDraftTestCaseIds,
   onApproveAllAvailable,
@@ -86,22 +87,10 @@ export const AiDraftQuestionsPanel: React.FC<AiDraftQuestionsPanelProps> = ({
       </div>
 
       {isGenerating ? (
-        <div className="flex min-h-[460px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-blue-200 bg-blue-50/20 text-center">
-          <div className="relative flex items-center justify-center">
-            <span className="absolute h-16 w-16 rounded-full bg-blue-400/20 animate-ping opacity-75" style={{ animationDuration: '1.8s' }} />
-            <span className="absolute h-10 w-10 rounded-full bg-blue-500/30 animate-ping opacity-90" style={{ animationDuration: '1.2s' }} />
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-blue-500/25">
-              <Sparkles size={24} className="text-amber-300 animate-bounce" style={{ animationDuration: '1s' }} />
-            </div>
-          </div>
-
-          <p className="mt-4 text-sm font-bold text-gray-950">
-            {aiMode === 'EXTRACT_EXISTING_EXAM' ? 'AI đang bóc tách câu hỏi...' : 'AI đang sinh câu hỏi...'}
-          </p>
-          <p className="mt-1 max-w-xs text-xs text-gray-500">
-            Đang phân tích tài liệu và cấu trúc câu hỏi, vui lòng đợi trong giây lát.
-          </p>
-        </div>
+        <AiGenerationStatus
+          progress={progress}
+          className="min-h-[460px] rounded-xl border border-dashed border-blue-200 bg-blue-50/20"
+        />
       ) : draftQuestions.length === 0 ? (
         <div className="flex min-h-[460px] flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 text-center">
           <Sparkles size={28} className="text-blue-500" />

@@ -6,6 +6,9 @@ import FileSelectionList from '../FileSelectionList'
 import { QuestionProgrammingEditor } from '../question-bank/editor/QuestionProgrammingEditor'
 import RichTextEditor from '../question-bank/editor/RichTextEditor'
 import { formatPlainTextToHtml } from '../../utils/formatHtml.utils'
+import { mapGeneratedQuestion } from '../../utils/ai-question-mapper'
+import { AiGenerationStatus } from '../ai-generator/AiGenerationStatus'
+import { useAiGenerationProgress } from '../../hooks/useAiGenerationProgress'
 import {
   generateAiQuestions,
   getAiMaterials,
@@ -78,7 +81,7 @@ export default function AIPdfGeneratorModal({
   const [aiMode, setAiMode] = useState<'EXTRACT_EXISTING_EXAM' | 'GENERATE_FROM_MATERIAL'>('EXTRACT_EXISTING_EXAM')
   const [questionCount, setQuestionCount] = useState<number>(3)
   const [customPrompt, setCustomPrompt] = useState<string>('')
-  const [isGenerating, setIsGenerating] = useState<boolean>(false)
+  const { isGenerating, progress, start, finish } = useAiGenerationProgress()
   const [generatedList, setGeneratedList] = useState<Question[]>(storedGeneratedQuestions)
   const [collapsedQuestionIds, setCollapsedQuestionIds] = useState<string[]>([])
   const [expandedTestCaseIds, setExpandedTestCaseIds] = useState<Record<string, string[]>>({})
@@ -148,57 +151,30 @@ export default function AIPdfGeneratorModal({
       return
     }
 
-    setIsGenerating(true)
+    const requestId = start(sourceMode === 'UPLOAD_FILE')
+    if (!requestId) return
     try {
       const uploadedSources = sourceMode === 'UPLOAD_FILE'
         ? await uploadAiSourceFiles(subjectId, sourceFiles)
         : []
-      const examConstraint = {
-        MULTIPLE_CHOICE: 'Chỉ tạo câu hỏi trắc nghiệm, không tạo câu hỏi lập trình.',
-        PROGRAMMING: 'Chỉ tạo câu hỏi lập trình console dạng PROGRAMMING. Mỗi câu phải có language, timeLimitMs, memoryLimitMb, maxCodeSizeKb và testCases chấm tự động.',
-        MIXED: 'Có thể tạo cả câu hỏi trắc nghiệm và câu hỏi lập trình phù hợp với tài liệu. Với câu lập trình phải có đầy đủ testCases chấm tự động.',
-      }[examType]
       const result = await generateAiQuestions({
+        requestId,
         subjectId,
         sourceType: sourceMode,
         mode: aiMode,
         materialIds: sourceMode === 'COURSE_MATERIAL' ? selectedMaterialIds : [],
         sourceFiles: uploadedSources,
-        prompt: [examConstraint, customPrompt.trim()].filter(Boolean).join('\n'),
+        prompt: customPrompt.trim(),
+        targetQuestionType: examType === 'MIXED' ? 'ALL' : examType,
         questionCount: aiMode === 'GENERATE_FROM_MATERIAL' ? questionCount : undefined,
         difficulty: 'AUTO',
       })
-      setGeneratedList(result.questions.map((question) => ({
-        id: question.id,
-        subjectId: question.subjectId,
-        subjectName: question.subjectName,
-        teacherId: '',
-        teacherName: 'AI',
-        type: question.type,
-        difficulty: question.difficulty,
-        aiDifficultyReason: question.difficultyReason,
-        title: question.title,
-        content: question.type === 'PROGRAMMING' ? formatPlainTextToHtml(question.content) : question.title,
-        explanation: question.explanation,
-        options: question.options.map((option, index) => ({
-          ...option,
-          id: `${question.id}-option-${index}`,
-        })),
-        programmingLanguage: question.language ?? undefined,
-        timeLimitMs: question.timeLimitMs,
-        memoryLimitMb: question.memoryLimitMb,
-        maxCodeSizeKb: question.maxCodeSizeKb,
-        testCases: question.testCases.map((testCase, index) => ({
-          ...testCase,
-          id: `${question.id}-test-${index}`,
-        })),
-        createdAt: new Date().toISOString(),
-      })))
+      setGeneratedList(result.questions.map(mapGeneratedQuestion))
       setStep(2)
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'AI không thể xử lý tài liệu đã chọn.'))
     } finally {
-      setIsGenerating(false)
+      finish()
     }
   }
 
@@ -348,25 +324,7 @@ export default function AIPdfGeneratorModal({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">
-          {step === 1 && isGenerating && (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 py-12 text-center">
-              {/* AI Sparkles icon nhấp nhô & gợn sóng */}
-              <div className="relative flex items-center justify-center">
-                <span className="absolute h-16 w-16 rounded-full bg-blue-400/20 animate-ping opacity-75" style={{ animationDuration: '1.8s' }} />
-                <span className="absolute h-10 w-10 rounded-full bg-blue-500/30 animate-ping opacity-90" style={{ animationDuration: '1.2s' }} />
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-blue-500/25">
-                  <Sparkles size={24} className="text-amber-300 animate-bounce" style={{ animationDuration: '1s' }} />
-                </div>
-              </div>
-
-              <p className="mt-4 text-sm font-bold text-gray-950">
-                {aiMode === 'EXTRACT_EXISTING_EXAM' ? 'AI đang bóc tách câu hỏi...' : 'AI đang sinh câu hỏi...'}
-              </p>
-              <p className="max-w-xs text-xs text-gray-500">
-                Đang phân tích tài liệu và cấu trúc câu hỏi, vui lòng đợi trong giây lát.
-              </p>
-            </div>
-          )}
+          {step === 1 && isGenerating && <AiGenerationStatus progress={progress} />}
 
           {step === 1 && !isGenerating && (
             <div className="flex min-h-0 flex-1 flex-col">

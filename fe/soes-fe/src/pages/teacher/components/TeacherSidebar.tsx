@@ -19,6 +19,7 @@ import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
 import { useSystemSettingsStore } from '../../../store/systemSettingsStore'
 import type { UserPermission } from '../../../types/auth.types'
+import { getTeacherInitials } from '../utils/teacher-account.utils'
 
 interface SubNavItem {
   label: string
@@ -93,6 +94,7 @@ export default function TeacherSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAuthStore((state) => state.user)
+  const userInitials = getTeacherInitials(user?.fullName)
   const { logout } = useLogout()
   const permissions = useAuthStore((state) => state.user?.permissions ?? EMPTY_PERMISSIONS)
   const navRef = useRef<HTMLElement>(null)
@@ -313,11 +315,11 @@ export default function TeacherSidebar() {
           <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold text-xs flex items-center justify-center shrink-0">
-                NV
+                {userInitials}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-semibold text-slate-950">
-                  {user?.fullName ?? 'Nguyễn Văn An'}
+                  {user?.fullName ?? 'Giảng viên'}
                 </p>
                 <p className="truncate text-[11px] font-normal text-slate-500">Giảng viên</p>
               </div>

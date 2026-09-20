@@ -14,6 +14,7 @@ import { generateWithGemini } from "./gemini-question.service";
 import { buildGenerationPrompt } from "../prompts/question-generation.prompt";
 import { getStoredAiSettings } from "../../admin-system-settings/services/admin-system-settings.service";
 import { assertQuestionCountWithinLimit } from "./ai-question-generation.rules";
+import type { ReportGenerationProgress } from './generation-progress';
 import type {
   GenerateQuestionsBody,
   SaveGeneratedQuestionsBody,
@@ -118,14 +119,13 @@ async function courseMaterialDocuments(
     );
   }
 
-  const uniqueMaterials = materials.filter(
-    (material, index, all) =>
-      all.findIndex((candidate) =>
-        material.checksum
-          ? candidate.checksum === material.checksum
-          : candidate.storagePath === material.storagePath,
-      ) === index,
-  );
+  const seen = new Set<string>();
+  const uniqueMaterials = materials.filter(material => {
+    const key = material.checksum || material.storagePath;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const documents = await Promise.all(
     uniqueMaterials.map(
       async (material): Promise<SourceDocument> => ({
@@ -183,9 +183,14 @@ async function uploadedDocuments(
 export async function generate(
   teacherId: string,
   input: GenerateQuestionsBody,
+  onProgress?: ReportGenerationProgress,
 ) {
+  const startedAt = Date.now();
+  onProgress?.({ stage: 'PREPARING' });
   const aiSettings = await getStoredAiSettings();
-  const requestedQuestionCount = input.questionCount ?? aiSettings.maxQuestionsPerRun;
+  const requestedQuestionCount = input.mode === "EXTRACT_EXISTING_EXAM"
+    ? aiSettings.maxQuestionsPerRun
+    : input.questionCount ?? aiSettings.maxQuestionsPerRun;
   assertQuestionCountWithinLimit(requestedQuestionCount, aiSettings.maxQuestionsPerRun);
 
   const subject = await requireSubject(teacherId, input.subjectId);
@@ -211,6 +216,14 @@ export async function generate(
 
   try {
     const contents = await Promise.all(sources.documents.map(toGeminiContent));
+    logger.info("AI source documents prepared", {
+      historyId: history.id,
+      sourceCount: contents.length,
+      totalBytes,
+      inlineBytes: contents.reduce((sum, content) => sum + (content.type === 'text'
+        ? Buffer.byteLength(content.text) : Buffer.byteLength(content.data, 'base64')), 0),
+      elapsedMs: Date.now() - startedAt,
+    });
     const prompt = buildGenerationPrompt(
       input,
       subject.name,
@@ -221,19 +234,19 @@ export async function generate(
       prompt,
       extraction: input.mode === "EXTRACT_EXISTING_EXAM",
       questionCount: requestedQuestionCount,
+      difficulty: input.difficulty,
+      targetQuestionType: input.targetQuestionType,
       model: aiSettings.model,
       timeoutMs: aiSettings.timeoutSeconds * 1000,
+      onProgress,
     });
-    assertQuestionCountWithinLimit(questions.length, aiSettings.maxQuestionsPerRun);
-    if (
-      input.mode === "GENERATE_FROM_MATERIAL" &&
-      questions.length !== input.questionCount
-    ) {
-      throw new ValidationError(
-        `Gemini returned ${questions.length} questions instead of the requested ${input.questionCount}`,
-      );
-    }
     await repo.completeHistory(history.id, questions.length);
+    onProgress?.({ stage: 'COMPLETED', completedCount: questions.length, requestedCount: requestedQuestionCount });
+    logger.info("AI question generation completed", {
+      historyId: history.id,
+      questionCount: questions.length,
+      elapsedMs: Date.now() - startedAt,
+    });
     const sourceMaterialName = sources.sourceNames.join(", ");
     return {
       historyId: history.id,
