@@ -155,6 +155,7 @@ export async function getAiGenerationHistories() {
 }
 
 export interface GenerateAiQuestionsPayload {
+  requestId?: string
   subjectId: string
   sourceType: 'COURSE_MATERIAL' | 'UPLOAD_FILE'
   mode: 'GENERATE_FROM_MATERIAL' | 'EXTRACT_EXISTING_EXAM'
@@ -163,6 +164,7 @@ export interface GenerateAiQuestionsPayload {
   prompt: string
   questionCount?: number
   difficulty: 'AUTO' | 'EASY' | 'MEDIUM' | 'HARD'
+  targetQuestionType?: 'ALL' | 'MULTIPLE_CHOICE' | 'PROGRAMMING'
 }
 
 export async function generateAiQuestions(payload: GenerateAiQuestionsPayload) {

@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
 import { sendSuccess as send } from "../../../utils/httpResponse";
 import * as service from "../services/ai-question-generation.service";
+import { emitTeacherEvent } from '../../proctoring/proctoring-realtime.events';
+import type { GenerationProgress } from '../services/generation-progress';
 import {
   aiMaterialsQuerySchema,
   generateQuestionsSchema,
@@ -19,15 +21,21 @@ export const listMaterials = async (req: Request, res: Response) =>
 export const listHistories = async (req: Request, res: Response) =>
   send(res, await service.listHistories(req.user!.profileId));
 
-export const generate = async (req: Request, res: Response) =>
-  send(
-    res,
-    await service.generate(
-      req.user!.profileId,
-      generateQuestionsSchema.parse(req.body),
-    ),
-    201,
-  );
+export const generate = async (req: Request, res: Response) => {
+  const input = generateQuestionsSchema.parse(req.body);
+  const startedAt = Date.now();
+  const report = (progress: GenerationProgress) => {
+    if (input.requestId) emitTeacherEvent(req.user!.profileId, 'ai:generation-progress', {
+      ...progress, requestId: input.requestId, elapsedMs: Date.now() - startedAt,
+    });
+  };
+  try {
+    send(res, await service.generate(req.user!.profileId, input, report), 201);
+  } catch (error) {
+    report({ stage: 'FAILED' });
+    throw error;
+  }
+};
 
 export const saveApproved = async (req: Request, res: Response) =>
   send(

@@ -14,7 +14,8 @@ import {
   type TargetQuestionType,
 } from './components/ai-generator/AiGeneratorConfigPanel'
 import { AiDraftQuestionsPanel } from './components/ai-generator/AiDraftQuestionsPanel'
-import { formatPlainTextToHtml } from './utils/formatHtml.utils'
+import { mapGeneratedQuestion, toApprovedAiPayload } from './utils/ai-question-mapper'
+import { useAiGenerationProgress } from './hooks/useAiGenerationProgress'
 import {
   generateAiQuestions,
   getAiMaterials,
@@ -52,7 +53,7 @@ export default function TeacherAiQuestionGeneratorPage() {
   const [desiredDifficulty, setDesiredDifficulty] = useState<DesiredDifficulty>('AUTO')
   const [targetQuestionType, setTargetQuestionType] = useState<TargetQuestionType>('ALL')
   const [promptInput, setPromptInput] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
+  const { isGenerating, progress, start, finish } = useAiGenerationProgress()
   const [isSaving, setIsSaving] = useState(false)
   const [draftQuestions, setDraftQuestions] = useState<AIDraftQuestion[]>(loadStoredDraftQuestions)
   const [collapsedDraftQuestionIds, setCollapsedDraftQuestionIds] = useState<string[]>([])
@@ -138,55 +139,27 @@ export default function TeacherAiQuestionGeneratorPage() {
       return
     }
 
-    setIsGenerating(true)
+    const requestId = start(sourceMode === 'UPLOAD_FILE')
+    if (!requestId) return
     try {
       const uploadedSources = sourceMode === 'UPLOAD_FILE'
         ? await uploadAiSourceFiles(selectedSubjectId, uploadedFiles)
         : []
-      const typeConstraint = {
-        ALL: '',
-        MULTIPLE_CHOICE: 'Chỉ tạo câu hỏi trắc nghiệm (SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE). Tuyệt đối không tạo bài tập lập trình PROGRAMMING.',
-        PROGRAMMING: 'Chỉ tạo bài tập lập trình console (PROGRAMMING) yêu cầu sinh viên tự viết code giải thuật hoàn chỉnh với luồng stdin/stdout và testCases tự động. Tuyệt đối không tạo câu hỏi trắc nghiệm hay câu hỏi đọc hiểu đoạn code có sẵn.',
-      }[targetQuestionType]
-      const combinedPrompt = [typeConstraint, promptInput.trim()].filter(Boolean).join('\n')
       const result = await generateAiQuestions({
+        requestId,
         subjectId: selectedSubjectId,
         sourceType: sourceMode,
         mode: aiMode,
         materialIds: sourceMode === 'COURSE_MATERIAL' ? selectedMaterials : [],
         sourceFiles: uploadedSources,
-        prompt: combinedPrompt,
-        questionCount,
-        difficulty: desiredDifficulty,
+        prompt: promptInput.trim(),
+        questionCount: aiMode === 'GENERATE_FROM_MATERIAL' ? questionCount : undefined,
+        difficulty: aiMode === 'GENERATE_FROM_MATERIAL' ? desiredDifficulty : 'AUTO',
+        targetQuestionType: aiMode === 'GENERATE_FROM_MATERIAL' ? targetQuestionType : 'ALL',
       })
-      const generatedQuestions: AIDraftQuestion[] = result.questions.map((question) => ({
-        id: question.id,
-        generationId: result.historyId,
-        subjectId: question.subjectId,
-        subjectName: question.subjectName,
-        teacherId: '',
-        teacherName: 'AI',
-        type: question.type,
-        difficulty: question.difficulty,
-        aiDifficultyReason: question.difficultyReason,
-        title: question.title,
-        content: question.type === 'PROGRAMMING' ? formatPlainTextToHtml(question.content) : question.content,
-        explanation: question.explanation,
-        options: question.options.map((option, index) => ({
-          ...option,
-          id: `${question.id}-option-${index}`,
-        })),
-        programmingLanguage: question.language ?? undefined,
-        timeLimitMs: question.timeLimitMs,
-        memoryLimitMb: question.memoryLimitMb,
-        maxCodeSizeKb: question.maxCodeSizeKb,
-        testCases: question.testCases.map((testCase, index) => ({
-          ...testCase,
-          id: `${question.id}-test-${index}`,
-        })),
-        status: 'PENDING_REVIEW',
-        sourceMaterialName: question.sourceMaterialName,
-        createdAt: new Date().toISOString(),
+      const generatedQuestions: AIDraftQuestion[] = result.questions.map(question => ({
+        ...mapGeneratedQuestion(question), generationId: result.historyId,
+        status: 'PENDING_REVIEW', sourceMaterialName: question.sourceMaterialName,
       }))
 
       setDraftQuestions((prev) => [...prev, ...generatedQuestions])
@@ -194,7 +167,7 @@ export default function TeacherAiQuestionGeneratorPage() {
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'AI không thể xử lý tài liệu đã chọn.'))
     } finally {
-      setIsGenerating(false)
+      finish()
     }
   }
 
@@ -304,28 +277,7 @@ export default function TeacherAiQuestionGeneratorPage() {
     }
     setIsSaving(true)
     try {
-      const result = await saveApprovedAiQuestions(approved.map((item) => ({
-        generationId: item.generationId!,
-        subjectId: item.subjectId,
-        question: {
-          title: item.type === 'PROGRAMMING' ? item.title : item.content,
-          content: item.type === 'PROGRAMMING' ? formatPlainTextToHtml(item.content) : item.content,
-          explanation: item.explanation ?? '',
-          type: item.type,
-          difficulty: item.difficulty,
-          difficultyReason: item.aiDifficultyReason ?? 'Giảng viên đã rà soát mức độ khó.',
-          language: item.type === 'PROGRAMMING' ? item.programmingLanguage ?? null : null,
-          options: (item.options ?? []).map(({ content, isCorrect }) => ({ content, isCorrect })),
-          timeLimitMs: item.timeLimitMs ?? 2000,
-          memoryLimitMb: item.memoryLimitMb ?? 256,
-          maxCodeSizeKb: item.maxCodeSizeKb ?? 256,
-          testCases: (item.testCases ?? []).map(({ input, expectedOutput, isHidden }) => ({
-            input,
-            expectedOutput,
-            isHidden,
-          })),
-        },
-      })))
+      const result = await saveApprovedAiQuestions(approved.map(toApprovedAiPayload))
       toast.success(`Đã lưu ${result.count} câu hỏi AI vào ngân hàng cá nhân.`)
       window.sessionStorage.removeItem(aiDraftStorageKey)
       navigate('/teacher/question-bank')
@@ -408,7 +360,7 @@ export default function TeacherAiQuestionGeneratorPage() {
               draftPanelHeight={draftPanelHeight}
               draftQuestions={draftQuestions}
               isGenerating={isGenerating}
-              aiMode={aiMode}
+              progress={progress}
               collapsedDraftQuestionIds={collapsedDraftQuestionIds}
               expandedDraftTestCaseIds={expandedDraftTestCaseIds}
               onApproveAllAvailable={handleApproveAllAvailable}

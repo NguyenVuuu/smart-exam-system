@@ -10,13 +10,13 @@ export type AiMode = 'GENERATE_FROM_MATERIAL' | 'EXTRACT_EXISTING_EXAM'
 export type DesiredDifficulty = DifficultyLevel | 'AUTO'
 export type TargetQuestionType = 'ALL' | 'MULTIPLE_CHOICE' | 'PROGRAMMING'
 
-export const questionTypeFilterOptions: Array<{ value: TargetQuestionType; label: string }> = [
+const questionTypeFilterOptions: Array<{ value: TargetQuestionType; label: string }> = [
   { value: 'ALL', label: 'Tất cả (Tự động)' },
   { value: 'MULTIPLE_CHOICE', label: 'Chỉ Trắc nghiệm' },
   { value: 'PROGRAMMING', label: 'Chỉ Lập trình' },
 ]
 
-export const sourceOptions: Array<{ value: SourceMode; title: string; description: string }> = [
+const sourceOptions: Array<{ value: SourceMode; title: string; description: string }> = [
   {
     value: 'COURSE_MATERIAL',
     title: 'Tài liệu lớp học',
@@ -29,7 +29,7 @@ export const sourceOptions: Array<{ value: SourceMode; title: string; descriptio
   },
 ]
 
-export const modeOptions: Array<{ value: AiMode; title: string; description: string }> = [
+const modeOptions: Array<{ value: AiMode; title: string; description: string }> = [
   {
     value: 'GENERATE_FROM_MATERIAL',
     title: 'Sinh câu hỏi từ tài liệu',
@@ -42,7 +42,7 @@ export const modeOptions: Array<{ value: AiMode; title: string; description: str
   },
 ]
 
-export const difficultyOptions: Array<{ value: DesiredDifficulty; label: string }> = [
+const difficultyOptions: Array<{ value: DesiredDifficulty; label: string }> = [
   { value: 'AUTO', label: 'Tự phân bổ độ khó' },
   { value: 'EASY', label: 'Dễ' },
   { value: 'MEDIUM', label: 'Trung bình' },

@@ -17,6 +17,7 @@ const uploadedSourceSchema = z.object({
 export const generateQuestionsSchema = z
   .object({
     subjectId: id,
+    requestId: z.uuid().optional(),
     sourceType: z.enum(["COURSE_MATERIAL", "UPLOAD_FILE"]),
     mode: z.enum(["GENERATE_FROM_MATERIAL", "EXTRACT_EXISTING_EXAM"]),
     materialIds: z.array(id).max(10).default([]),
@@ -29,6 +30,7 @@ export const generateQuestionsSchema = z
       .max(AI_GENERATION_LIMITS.maxQuestionsPerRun)
       .optional(),
     difficulty: z.enum(["AUTO", "EASY", "MEDIUM", "HARD"]).default("AUTO"),
+    targetQuestionType: z.enum(["ALL", "MULTIPLE_CHOICE", "PROGRAMMING"]).default("ALL"),
   })
   .superRefine((data, ctx) => {
     const selectedCount =
