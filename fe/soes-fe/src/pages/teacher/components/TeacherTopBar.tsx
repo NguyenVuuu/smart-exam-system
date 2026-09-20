@@ -1,10 +1,20 @@
-import { Bell, ChevronDown, HelpCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import {
+  Bell,
+  ChevronDown,
+  HelpCircle,
+  KeyRound,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  UserRound,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
 import type { TeacherNotification } from '../api/teacher-notifications.api'
 import { useTeacherNotifications } from '../hooks/useTeacherNotifications'
+import { getTeacherInitials, getTeacherPositionLabel } from '../utils/teacher-account.utils'
 import TeacherNotificationsMenu from './TeacherNotificationsMenu'
 import { persistentTeacherIsCollapsed } from './TeacherSidebar'
 
@@ -17,6 +27,7 @@ export default function TeacherTopBar() {
   const [openNotifications, setOpenNotifications] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => persistentTeacherIsCollapsed)
   const notificationsRef = useRef<HTMLDivElement>(null)
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleToggle = () => {
@@ -27,15 +38,17 @@ export default function TeacherTopBar() {
   }, [])
 
   useEffect(() => {
-    if (!openNotifications) return
+    if (!openNotifications && !openUserMenu) return
 
     const closeOnOutsideClick = (event: MouseEvent) => {
-      if (event.target instanceof Node && !notificationsRef.current?.contains(event.target)) {
-        setOpenNotifications(false)
-      }
+      if (!(event.target instanceof Node)) return
+      if (!notificationsRef.current?.contains(event.target)) setOpenNotifications(false)
+      if (!userMenuRef.current?.contains(event.target)) setOpenUserMenu(false)
     }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenNotifications(false)
+      if (event.key !== 'Escape') return
+      setOpenNotifications(false)
+      setOpenUserMenu(false)
     }
 
     document.addEventListener('mousedown', closeOnOutsideClick)
@@ -44,7 +57,7 @@ export default function TeacherTopBar() {
       document.removeEventListener('mousedown', closeOnOutsideClick)
       window.removeEventListener('keydown', closeOnEscape)
     }
-  }, [openNotifications])
+  }, [openNotifications, openUserMenu])
 
   const selectNotification = (notification: TeacherNotification) => {
     void markRead(notification.id)
@@ -116,44 +129,102 @@ export default function TeacherTopBar() {
         </div>
 
         {/* User Account */}
-        <div className="relative">
+        <div ref={userMenuRef} className="relative">
           <button
+            type="button"
             onClick={() => {
               setOpenUserMenu((current) => !current)
               setOpenNotifications(false)
             }}
+            aria-expanded={openUserMenu}
+            aria-haspopup="menu"
             className="flex items-center gap-2.5 rounded-full p-1 pr-2.5 transition-colors hover:bg-gray-50"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-xs">
-              NV
+              {getTeacherInitials(user?.fullName)}
             </div>
             <div className="text-left hidden sm:block">
               <p className="text-xs font-semibold leading-tight text-slate-950">
-                {user?.fullName ?? 'Nguyễn Văn An'}
+                {user?.fullName ?? 'Giảng viên'}
               </p>
               <p className="mt-0.5 text-[11px] font-normal leading-none text-slate-500">
-                Giảng viên
+                {getTeacherPositionLabel(user?.position)}
               </p>
             </div>
             <ChevronDown size={14} className="text-gray-400 ml-1" />
           </button>
 
           {openUserMenu && (
-            <div className="absolute right-0 top-12 z-20 w-56 rounded-2xl border border-gray-100 bg-white py-2 font-sans shadow-xl">
-              <div className="px-4 py-2 text-xs border-b border-gray-100">
-                <p className="font-semibold text-slate-950">{user?.fullName ?? 'Nguyễn Văn An'}</p>
-                <p className="text-xs text-slate-500">Tài khoản Giảng viên</p>
+            <div className="absolute right-0 top-12 z-50 w-72 rounded-2xl border border-gray-100 bg-white p-2 font-sans shadow-2xl shadow-slate-900/10 animate-in fade-in zoom-in-95 duration-150" role="menu">
+              {/* Header profile info */}
+              <div className="flex items-center gap-3 rounded-xl bg-gray-50/80 p-3 border border-gray-100/80 mb-1.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-xs font-bold text-white shadow-xs">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.fullName} className="h-full w-full rounded-xl object-cover" />
+                  ) : (
+                    getTeacherInitials(user?.fullName)
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-gray-900 leading-tight">
+                    {user?.fullName ?? 'Giảng viên'}
+                  </p>
+                  <p className="truncate text-xs text-gray-500 mt-0.5 font-normal">
+                    {user?.email || user?.teacherCode || 'Tài khoản giảng viên'}
+                  </p>
+                  <span className="mt-1 inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100">
+                    {getTeacherPositionLabel(user?.position)}
+                  </span>
+                </div>
               </div>
 
-              <div className="py-1">
+              {/* Menu items */}
+              <div className="space-y-0.5">
                 <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpenUserMenu(false)
+                    navigate('/teacher/account')
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 hover:text-blue-600 cursor-pointer group"
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                    <UserRound size={15} />
+                  </div>
+                  <span>Hồ sơ cá nhân</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpenUserMenu(false)
+                    navigate('/teacher/account?tab=security')
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 hover:text-blue-600 cursor-pointer group"
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                    <KeyRound size={15} />
+                  </div>
+                  <span>Đổi mật khẩu</span>
+                </button>
+              </div>
+
+              {/* Logout button */}
+              <div className="mt-1.5 border-t border-gray-100 pt-1.5">
+                <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => {
                     setOpenUserMenu(false)
                     logout()
                   }}
-                  className="w-full px-4 py-2 text-left text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 cursor-pointer group"
                 >
-                  Đăng xuất
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600 group-hover:bg-rose-100 transition-colors">
+                    <LogOut size={15} />
+                  </div>
+                  <span>Đăng xuất</span>
                 </button>
               </div>
             </div>

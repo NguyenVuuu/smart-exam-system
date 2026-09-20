@@ -13,6 +13,8 @@ interface ApiErrorPayload {
 const materialAlreadyExistsPrefix = 'Material already exists:'
 
 const commonMessageTranslations: Record<string, string> = {
+  'Current password is incorrect': 'Mật khẩu hiện tại không chính xác.',
+  'Email already exists': 'Email này đã được sử dụng bởi tài khoản khác.',
   'Duplicated file names in upload request': 'Có file bị chọn trùng tên trong lần tải lên này.',
   'Unsupported file type': 'Định dạng file không được hỗ trợ.',
   'Supabase storage is not configured': 'Backend chưa cấu hình Supabase Storage.',
@@ -96,6 +98,10 @@ const scheduleMessageTranslations: Record<string, string> = {
 }
 
 const fieldLabels: Record<string, string> = {
+  email: 'Email',
+  phoneNumber: 'Số điện thoại',
+  currentPassword: 'Mật khẩu hiện tại',
+  newPassword: 'Mật khẩu mới',
   title: 'Tên đề/ca thi',
   description: 'Mô tả',
   defaultDurationMinutes: 'Thời lượng mặc định',
