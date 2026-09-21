@@ -7,7 +7,7 @@ import * as gradingService from '../services/teacher-exam-grading.service'
 import * as lifecycleService from '../services/teacher-exam-lifecycle.service'
 import { autoGenerateExamSchema, examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, examStudentVisibilitySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
 import { teacherExamScheduleBodySchema, teacherScheduleCancellationSchema } from '../validators/teacher-exam-schedule.validator'
-import { invalidateAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
+import { bulkFinalizeScoresSchema, finalizeScoreSchema, invalidateAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
 
 const idParam = z.object({ id: z.string().min(1) })
 const scheduleOnlyParam = z.object({ scheduleId: z.string().min(1) })
@@ -144,6 +144,24 @@ export const gradeSubmission = async (req: Request, res: Response) => {
   const { id, scheduleId, attemptId } = gradingParams.parse(req.params)
   send(res, await gradingService.grade(
     req.user!.profileId, req.user!.id, id, scheduleId, attemptId!, manualGradeSchema.parse(req.body),
+  ))
+}
+export const markSubmissionViolationsViewed = async (req: Request, res: Response) => {
+  const { id, scheduleId, attemptId } = gradingParams.parse(req.params)
+  send(res, await gradingService.markViolationsViewed(
+    req.user!.profileId, req.user!.id, id, scheduleId, attemptId!,
+  ))
+}
+export const finalizeSubmissionScore = async (req: Request, res: Response) => {
+  const { id, scheduleId, attemptId } = gradingParams.parse(req.params)
+  send(res, await gradingService.finalizeScore(
+    req.user!.profileId, req.user!.id, id, scheduleId, attemptId!, finalizeScoreSchema.parse(req.body),
+  ))
+}
+export const finalizeSubmissionScores = async (req: Request, res: Response) => {
+  const { id, scheduleId } = gradingParams.parse(req.params)
+  send(res, await gradingService.finalizeScores(
+    req.user!.profileId, req.user!.id, id, scheduleId, bulkFinalizeScoresSchema.parse(req.body),
   ))
 }
 export const updateResultRelease = async (req: Request, res: Response) => {

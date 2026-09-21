@@ -11,6 +11,9 @@ export interface ExamSubmissionDto {
   manualScoreOverride: number | null
   finalScore: number | null
   status: string
+  violationCount: number
+  violationsViewed: boolean
+  violationsViewedAt: Date | null
   regradeRequest?: {
     status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
     reason: string

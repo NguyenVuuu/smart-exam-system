@@ -7,7 +7,7 @@ import { toPagination } from '../../../utils/pagination'
 import { computeScheduleStatus } from '../../exam-schedules/mappers/exam-schedule.mapper'
 import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
 import * as repo from '../repositories/teacher-exam-grading.repository'
-import type { InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
+import type { BulkFinalizeScoresBody, FinalizeScoreBody, InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
 import { emitProctoringEvent, emitStudentEvent, emitTeacherEvent } from '../../proctoring/proctoring-realtime.events'
 import { notifyUsers } from '../../notifications/notifications.service'
@@ -432,7 +432,10 @@ export async function grade(
     throw new ValidationError('Score cannot exceed exam total points')
   }
   const appeal = await repo.findGradeAppealByAttempt(attemptId)
-  if (appeal && !['PENDING', 'IN_REVIEW'].includes(appeal.status)) {
+  if (!appeal) {
+    throw new ConflictError('Score can only be changed through a grade appeal after finalization')
+  }
+  if (!['PENDING', 'IN_REVIEW'].includes(appeal.status)) {
     throw new ConflictError('This grade appeal has already been completed')
   }
   const result = await repo.overrideScore(teacherId, userId, examId, scheduleId, attemptId, data.score, data.reason)
@@ -447,7 +450,74 @@ export async function grade(
   }
   emitTeacherEvent(teacherId, 'grade_appeal:updated', appealUpdate)
   if (appeal) emitStudentEvent(appeal.studentId, 'grade_appeal:updated', appealUpdate)
+  await notifyUsers(
+    [appeal.student.userId],
+    'Kết quả phúc khảo đã được cập nhật',
+    `Giảng viên đã xử lý phúc khảo bài thi "${schedule.exam.title}". Bạn có thể xem lại điểm chính thức trong mục điểm.`,
+    { link: `/student/course-offerings/${result.courseOfferingId}/exam-schedules/${scheduleId}/result?attemptId=${attemptId}` },
+  )
   return dto
+}
+
+export async function markViolationsViewed(
+  teacherId: string,
+  userId: string,
+  examId: string,
+  scheduleId: string,
+  attemptId: string,
+) {
+  await requireClosedSchedule(teacherId, examId, scheduleId)
+  const result = await repo.markAttemptViolationsViewed({ teacherId, userId, examId, scheduleId, attemptId })
+  if (!result.count) throw new NotFoundError('Exam submission violations not found')
+  return { attemptId, violationsViewed: true, violationsViewedAt: new Date() }
+}
+
+export async function finalizeScore(
+  teacherId: string,
+  userId: string,
+  examId: string,
+  scheduleId: string,
+  attemptId: string,
+  data: FinalizeScoreBody,
+) {
+  return finalizeScores(teacherId, userId, examId, scheduleId, { items: [{ attemptId, score: data.score }] })
+}
+
+export async function finalizeScores(
+  teacherId: string,
+  userId: string,
+  examId: string,
+  scheduleId: string,
+  data: BulkFinalizeScoresBody,
+) {
+  const schedule = await requireClosedSchedule(teacherId, examId, scheduleId)
+  const totalPoints = Number(schedule.exam.totalPoints)
+  const invalid = data.items.find((item) => item.score > totalPoints)
+  if (invalid) throw new ValidationError('Score cannot exceed exam total points')
+
+  const result = await repo.finalizeScores({ teacherId, userId, examId, scheduleId, items: data.items })
+  if (!result) throw new NotFoundError('Exam submissions not found')
+  if (result.blockedAttemptIds.length) {
+    throw new ConflictError('Some submissions have violations that must be opened before finalizing scores')
+  }
+
+  await Promise.all(result.updated.map((item) => notifyUsers(
+    [item.student.userId],
+    'Điểm đã được chốt',
+    `Điểm chính thức của bài thi "${schedule.exam.title}" đã được giảng viên chốt. Bạn có thể xem trong mục điểm.`,
+    { link: `/student/course-offerings/${item.courseOfferingId}/exam-schedules/${scheduleId}/result?attemptId=${item.id}` },
+  )))
+  result.updated.forEach((item) => {
+    emitStudentEvent(item.student.userId, 'exam_score:finalized', {
+      scheduleId,
+      attemptId: item.id,
+      score: Number(item.totalScore),
+    })
+  })
+  return {
+    finalizedCount: result.updated.length,
+    attemptIds: result.updated.map((item) => item.id),
+  }
 }
 
 export async function release(
@@ -465,8 +535,13 @@ export async function release(
   })
   if (!result) throw new NotFoundError('Exam schedule not found')
   if (result.resultsPublishedAt) {
-    const userIds = await repo.listScheduleStudentUserIds(scheduleId)
-    await notifyUsers(userIds, 'Điểm đã được công bố', `Điểm bài thi "${result.title}" đã được công bố. Bạn có thể xem trong mục điểm.`)
+    const targets = await repo.listScheduleStudentNotificationTargets(scheduleId)
+    await Promise.all(targets.map((target) => notifyUsers(
+      [target.userId],
+      'Điểm đã được công bố',
+      `Điểm bài thi "${result.title}" đã được công bố. Bạn có thể xem trong mục điểm.`,
+      { link: `/student/course-offerings/${target.courseOfferingId}/exam-schedules/${scheduleId}/result?attemptId=${target.attemptId}` },
+    )))
   }
   return {
     mode: result.resultReleaseMode, releaseAt: result.resultReleaseAt,

@@ -30,6 +30,15 @@ export const manualGradeSchema = z.object({
   score: z.coerce.number().min(0).max(1000),
   reason: z.string().trim().min(5).max(1000),
 })
+export const finalizeScoreSchema = z.object({
+  score: z.coerce.number().min(0).max(1000),
+})
+export const bulkFinalizeScoresSchema = z.object({
+  items: z.array(z.object({
+    attemptId: z.string().min(1),
+    score: z.coerce.number().min(0).max(1000),
+  })).min(1),
+})
 export const resultReleaseSchema = z.object({
   mode: z.enum(['IMMEDIATE', 'MANUAL', 'SCHEDULED']),
   releaseAt: z.coerce.date().optional().nullable(),
@@ -48,6 +57,8 @@ export const invalidateAttemptSchema = z.object({
 export type SubmissionQuery = z.infer<typeof submissionQuerySchema>
 export type ViolationQuery = z.infer<typeof violationQuerySchema>
 export type ManualGradeBody = z.infer<typeof manualGradeSchema>
+export type FinalizeScoreBody = z.infer<typeof finalizeScoreSchema>
+export type BulkFinalizeScoresBody = z.infer<typeof bulkFinalizeScoresSchema>
 export type ResultReleaseBody = z.infer<typeof resultReleaseSchema>
 export type ViolationReviewBody = z.infer<typeof violationReviewSchema>
 export type InvalidateAttemptBody = z.infer<typeof invalidateAttemptSchema>

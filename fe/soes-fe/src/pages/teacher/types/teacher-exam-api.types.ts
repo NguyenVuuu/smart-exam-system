@@ -141,6 +141,9 @@ export interface TeacherExamSubmissionDto {
   studentCode: string; studentName: string; submittedAt: string | null
   autoScore: number | null; manualScoreOverride: number | null; finalScore: number | null
   status: 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'INVALIDATED'
+  violationCount: number
+  violationsViewed: boolean
+  violationsViewedAt: string | null
   regradeRequest?: {
     status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
     reason: string

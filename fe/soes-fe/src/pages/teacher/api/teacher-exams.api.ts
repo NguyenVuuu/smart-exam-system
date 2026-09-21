@@ -306,6 +306,25 @@ export const gradeTeacherExamSubmission = (
   score, reason,
 })
 
+export const markTeacherSubmissionViolationsViewed = (
+  examId: string,
+  scheduleId: string,
+  attemptId: string,
+) => apiClient.post(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/violations/viewed`)
+
+export const finalizeTeacherSubmissionScore = (
+  examId: string,
+  scheduleId: string,
+  attemptId: string,
+  score: number,
+) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/final-score`, { score })
+
+export const finalizeTeacherSubmissionScores = (
+  examId: string,
+  scheduleId: string,
+  items: Array<{ attemptId: string; score: number }>,
+) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/final-scores`, { items })
+
 export const updateTeacherResultRelease = (
   examId: string,
   scheduleId: string,

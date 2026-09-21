@@ -15,7 +15,7 @@ export default function EvidenceImageModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/70 backdrop-blur-xs p-4"
+      className="fixed inset-0 z-[70] grid place-items-center bg-black/70 backdrop-blur-xs p-4"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
