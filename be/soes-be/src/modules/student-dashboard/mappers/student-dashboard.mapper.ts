@@ -18,6 +18,7 @@ interface NotificationRow {
   id: string
   title: string
   content: string
+  link: string | null
   isRead: boolean
   createdAt: Date
 }
@@ -40,6 +41,7 @@ export function toNotificationDto(notif: NotificationRow): DashboardNotification
     id: notif.id,
     title: notif.title,
     content: notif.content,
+    link: notif.link,
     isRead: notif.isRead,
     createdAt: notif.createdAt,
   }

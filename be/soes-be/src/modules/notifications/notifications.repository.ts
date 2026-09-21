@@ -11,7 +11,7 @@ export function listForUser(userId: string, query: NotificationsQuery) {
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
       orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, content: true, isRead: true, createdAt: true },
+      select: { id: true, title: true, content: true, link: true, isRead: true, createdAt: true },
     }),
   ])
 }
@@ -30,14 +30,14 @@ export function markAllRead(userId: string) {
   })
 }
 
-export function createForUsers(input: { userIds: string[]; title: string; content: string }) {
+export function createForUsers(input: { userIds: string[]; title: string; content: string; link?: string | null }) {
   const userIds = [...new Set(input.userIds)].filter(Boolean)
   if (!userIds.length) return Promise.resolve([])
   return prisma.$transaction(
     userIds.map((userId) =>
       prisma.notification.create({
-        data: { userId, title: input.title, content: input.content },
-        select: { id: true, userId: true, title: true, content: true, isRead: true, createdAt: true },
+        data: { userId, title: input.title, content: input.content, link: input.link ?? null },
+        select: { id: true, userId: true, title: true, content: true, link: true, isRead: true, createdAt: true },
       }),
     ),
   )

@@ -24,8 +24,8 @@ export async function markAllRead(userId: string) {
   return { updatedCount: result.count }
 }
 
-export async function notifyUsers(userIds: string[], title: string, content: string) {
-  const notifications = await repository.createForUsers({ userIds, title, content })
+export async function notifyUsers(userIds: string[], title: string, content: string, options: { link?: string | null } = {}) {
+  const notifications = await repository.createForUsers({ userIds, title, content, link: options.link })
   notifications.forEach(({ userId, ...notification }) => {
     emitUserEvent(userId, 'notification:created', notification)
   })

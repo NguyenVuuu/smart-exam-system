@@ -12,8 +12,10 @@ import {
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
+import { getSocket } from '../../../api/socket'
 import { useAuthStore } from '../../../store/authStore'
 import { useSystemSettingsStore } from '../../../store/systemSettingsStore'
+import { getStudentNotifications } from '../api/student-portal.api'
 
 interface NavItem {
   label: string
@@ -74,6 +76,7 @@ export default function StudentSidebar() {
   const { logout } = useLogout()
   const systemSettings = useSystemSettingsStore((state) => state.settings)
   const navRef = useRef<HTMLElement>(null)
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
 
   const isNavItemActive = (path: string) => {
     if (path === '/student') return location.pathname === '/student'
@@ -161,6 +164,28 @@ export default function StudentSidebar() {
       sessionStorage.setItem(STORAGE_KEY_STUDENT_COLLAPSED, String(isCollapsed))
     } catch {}
   }, [isCollapsed])
+
+  useEffect(() => {
+    let active = true
+    const refreshUnread = () => {
+      void getStudentNotifications({ page: 1, pageSize: 1, unreadOnly: true })
+        .then((data) => {
+          if (active) setHasUnreadNotifications(data.pagination.totalItems > 0)
+        })
+        .catch(() => undefined)
+    }
+    const handleNotificationCreated = () => setHasUnreadNotifications(true)
+
+    refreshUnread()
+    const socket = getSocket()
+    socket.on('notification:created', handleNotificationCreated)
+    window.addEventListener('student-notifications:changed', refreshUnread)
+    return () => {
+      active = false
+      socket.off('notification:created', handleNotificationCreated)
+      window.removeEventListener('student-notifications:changed', refreshUnread)
+    }
+  }, [])
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroupIds((prev) => {
@@ -263,8 +288,11 @@ export default function StudentSidebar() {
                             : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
                         }`}
                       >
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                        <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
                           {item.icon}
+                          {item.path === '/student/notifications' && hasUnreadNotifications && (
+                            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-rose-500" />
+                          )}
                         </span>
                         {!isCollapsed && <span className="truncate">{item.label}</span>}
                       </button>

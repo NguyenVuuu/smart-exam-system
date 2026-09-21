@@ -1,5 +1,6 @@
 import { Bell, CheckCircle2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getSocket } from '../../api/socket'
 import {
   getStudentNotifications,
@@ -11,6 +12,7 @@ import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
 
 export default function StudentNotificationsPage() {
+  const navigate = useNavigate()
   const [notifications, setNotifications] = useState<StudentNotification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,6 +57,7 @@ export default function StudentNotificationsPage() {
     )))
     try {
       await markStudentNotificationRead(item.id)
+      window.dispatchEvent(new Event('student-notifications:changed'))
     } catch {
       setNotifications((current) => current.map((entry) => (
         entry.id === item.id ? { ...entry, isRead: false } : entry
@@ -62,11 +65,18 @@ export default function StudentNotificationsPage() {
     }
   }
 
+  const handleNotificationClick = async (item: StudentNotification) => {
+    const target = resolveNotificationLink(item)
+    if (target) navigate(target)
+    await markRead(item)
+  }
+
   const markAllRead = async () => {
     const previous = notifications
     setNotifications((current) => current.map((item) => ({ ...item, isRead: true })))
     try {
       await markAllStudentNotificationsRead()
+      window.dispatchEvent(new Event('student-notifications:changed'))
     } catch {
       setNotifications(previous)
     }
@@ -132,7 +142,7 @@ export default function StudentNotificationsPage() {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => void markRead(item)}
+                    onClick={() => void handleNotificationClick(item)}
                     className="flex w-full items-start gap-3 px-5 py-4 text-left hover:bg-gray-50/70"
                   >
                     <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.isRead ? 'bg-slate-300' : 'bg-blue-500'}`} />
@@ -181,4 +191,12 @@ function formatDateTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
+}
+
+function resolveNotificationLink(item: StudentNotification) {
+  if (item.link) return item.link
+  const text = `${item.title} ${item.content}`.toLocaleLowerCase('vi')
+  if (text.includes('điểm')) return '/student/scores'
+  if (text.includes('ca thi') || text.includes('bài thi')) return '/student/exams'
+  return null
 }

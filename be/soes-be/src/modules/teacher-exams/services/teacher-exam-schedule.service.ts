@@ -130,12 +130,13 @@ export async function create(
       return scheduleRepo.createSchedule(tx, input, userId);
     });
   const dto = toExamScheduleDto(row);
-  const userIds = await repo.listCourseStudentUserIds(data.courseOfferingId);
-  await notifyUsers(
-    userIds,
+  const targets = await repo.listCourseStudentNotificationTargets(data.courseOfferingId);
+  await Promise.all(targets.map((target) => notifyUsers(
+    [target.userId],
     "Ca thi mới",
     `Giảng viên vừa tạo ca thi "${dto.title}" cho lớp ${course.code}.`,
-  );
+    { link: `/student/course-offerings/${target.courseOfferingId}/exam-schedules/${dto.id}` },
+  )));
   return dto;
 }
 

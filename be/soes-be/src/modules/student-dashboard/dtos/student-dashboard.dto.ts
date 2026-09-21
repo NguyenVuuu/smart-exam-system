@@ -34,6 +34,7 @@ export interface DashboardNotificationDto {
   id: string
   title: string
   content: string
+  link: string | null
   isRead: boolean
   createdAt: Date
 }
