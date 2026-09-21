@@ -82,6 +82,7 @@ export async function getScores(studentId: string, query: StudentScoresQuery) {
     })
     .map((attempt) => ({
       examId: attempt.examSchedule.id,
+      attemptId: attempt.id,
       title: attempt.examSchedule.title,
       type: attempt.examSchedule.exam.type,
       score: Number(attempt.totalScore),

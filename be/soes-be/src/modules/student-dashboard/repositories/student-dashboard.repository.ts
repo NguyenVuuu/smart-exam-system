@@ -1,8 +1,5 @@
 import prisma from '../../../lib/prisma'
-import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
 import { studentVisibleScheduleWhere } from '../../student-common/exam-visibility.policy'
-
-const releasedResultWhere = () => ({ examSchedule: releasedResultScheduleWhere() })
 
 export async function findStudentById(studentId: string) {
   return prisma.student.findUnique({
@@ -49,9 +46,8 @@ export async function findReleasedAttempts(studentId: string) {
   return prisma.examAttempt.findMany({
     where: {
       studentId,
-      status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+      status: 'PUBLISHED',
       totalScore: { not: null },
-      ...releasedResultWhere(),
     },
     select: {
       totalScore: true,
@@ -85,9 +81,8 @@ export async function findClassAveragesBySchedule(
   const attempts = await prisma.examAttempt.findMany({
     where: {
       examScheduleId: { in: scheduleIds },
-      status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+      status: 'PUBLISHED',
       totalScore: { not: null },
-      ...releasedResultWhere(),
     },
     select: {
       examScheduleId: true,
@@ -129,6 +124,7 @@ export async function findNotifications(userId: string, limit = 10) {
       id: true,
       title: true,
       content: true,
+      link: true,
       isRead: true,
       createdAt: true,
     },
