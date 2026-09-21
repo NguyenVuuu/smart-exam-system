@@ -4,6 +4,13 @@ import type { AttemptStatus } from '@prisma/client'
 const sameIds = (left: string[], right: string[]) =>
   left.length === right.length && [...left].sort().every((id, index) => id === [...right].sort()[index])
 
+const multiChoiceScore = (selectedIds: string[], correctIds: string[], points: number) => {
+  if (correctIds.length === 0) return 0
+  const selected = new Set(selectedIds)
+  const correctSelectedCount = correctIds.filter((id) => selected.has(id)).length
+  return (points / correctIds.length) * correctSelectedCount
+}
+
 export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus?: AttemptStatus }) {
   return prisma.$transaction(async (tx) => {
     const attempt = await tx.examAttempt.findUniqueOrThrow({
@@ -29,8 +36,11 @@ export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus
       const answer = answers.get(examQuestion.id)
       if (!answer) continue
       const correctIds = examQuestion.options.filter(({ isCorrect }) => isCorrect).map(({ id }) => id)
+      const points = Number(examQuestion.points)
       const isCorrect = sameIds(answer.selectedOptionIds, correctIds)
-      const score = isCorrect ? Number(examQuestion.points) : 0
+      const score = examQuestion.type === 'MULTIPLE_CHOICE'
+        ? multiChoiceScore(answer.selectedOptionIds, correctIds, points)
+        : isCorrect ? points : 0
       autoScore += score
       await tx.studentAnswer.update({ where: { id: answer.id }, data: { isCorrect, score } })
     }

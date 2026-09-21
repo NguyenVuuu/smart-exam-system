@@ -143,6 +143,9 @@ export interface ExamSubmission {
   autoScore: number | null
   manualScoreOverride?: number | null
   overrideReason?: string
+  violationCount: number
+  violationsViewed: boolean
+  violationsViewedAt?: string | null
   scoreAdjustments?: GradeAdjustment[]
   regradeRequest?: RegradeRequest
   finalScore: number | null

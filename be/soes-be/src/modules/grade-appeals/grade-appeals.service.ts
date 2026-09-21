@@ -57,6 +57,9 @@ export async function createStudentAppeal(
   if (!completedStatuses.includes(attempt.status as any)) {
     throw new ConflictError('Grade appeal can only be created after the attempt is completed')
   }
+  if (attempt.status !== 'PUBLISHED') {
+    throw new ConflictError('Grade appeal can only be created after the final score is published')
+  }
 
   const existingAppeal = await prisma.gradeAppeal.findFirst({
     where: { attemptId, studentId },

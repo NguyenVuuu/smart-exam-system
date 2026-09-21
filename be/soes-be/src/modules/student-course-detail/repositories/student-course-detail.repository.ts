@@ -1,5 +1,4 @@
 import prisma from '../../../lib/prisma'
-import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
 import { studentVisibleScheduleWhere } from '../../student-common/exam-visibility.policy'
 import { MemberRole } from '../types/student-course-detail.types'
 import { NotFoundError } from '../../../errors/AppError'
@@ -453,8 +452,7 @@ export class StudentCourseDetailRepository {
         courseOfferingId,
         studentId,
         totalScore: { not: null },
-        status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
-        examSchedule: releasedResultScheduleWhere(),
+        status: 'PUBLISHED',
       },
       select: {
         totalScore: true,

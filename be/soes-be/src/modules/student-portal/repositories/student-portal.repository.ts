@@ -1,5 +1,4 @@
 import prisma from '../../../lib/prisma'
-import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
 import { studentVisibleScheduleWhere } from '../../student-common/exam-visibility.policy'
 import type { NotificationsQuery, StudentExamSchedulesQuery, StudentScoresQuery } from '../validators/student-portal.validator'
 
@@ -12,7 +11,7 @@ export function listNotifications(userId: string, query: NotificationsQuery) {
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
       orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, content: true, isRead: true, createdAt: true },
+      select: { id: true, title: true, content: true, link: true, isRead: true, createdAt: true },
     }),
   ])
 }
@@ -89,13 +88,10 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
     where: {
       studentId,
       totalScore: { not: null },
-      status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+      status: 'PUBLISHED',
       courseOfferingId: query.courseOfferingId,
       courseOffering: {
         semesterId: query.semesterId,
-      },
-      examSchedule: {
-        ...releasedResultScheduleWhere(),
       },
       ...(query.keyword
         ? {
@@ -110,6 +106,7 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
     },
     orderBy: { updatedAt: 'desc' },
     select: {
+      id: true,
       totalScore: true,
       courseOffering: { select: { id: true, code: true, subject: { select: { code: true, name: true } } } },
       examSchedule: {

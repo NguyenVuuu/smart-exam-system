@@ -117,6 +117,7 @@ export interface MembersResponse {
 
 export interface ScoreItem {
   examId: string
+  attemptId: string
   title: string
   type: ExamType
   score: number

@@ -22,6 +22,7 @@ model User {
   teacher                    Teacher?
   createdExamSchedules       ExamSchedule[]      @relation("ScheduleCreator")
   invalidatedExamAttempts    ExamAttempt[]       @relation("AttemptInvalidator")
+  viewedViolationAttempts    ExamAttempt[]       @relation("AttemptViolationViewer")
   detectedViolations         Violation[]         @relation("ViolationDetector")
   reviewedViolations         Violation[]         @relation("ViolationReviewer")
   capturedViolationEvidences ViolationEvidence[] @relation("EvidenceCapturer")
@@ -571,6 +572,8 @@ model ExamAttempt {
   totalScore             Decimal?                @db.Decimal(5, 2)
   autoScore              Decimal?                @db.Decimal(5, 2)
   manualScore            Decimal?                @db.Decimal(5, 2)
+  violationsViewedAt     DateTime?
+  violationsViewedById   String?
   invalidatedAt          DateTime?
   invalidatedById        String?
   invalidationReason     String?
@@ -583,6 +586,7 @@ model ExamAttempt {
   examSchedule           ExamSchedule            @relation(fields: [examScheduleId], references: [id])
   courseOffering         CourseOffering          @relation(fields: [courseOfferingId], references: [id])
   invalidatedBy          User?                   @relation("AttemptInvalidator", fields: [invalidatedById], references: [id])
+  violationsViewedBy     User?                   @relation("AttemptViolationViewer", fields: [violationsViewedById], references: [id])
   student                Student                 @relation("StudentExamAttempts", fields: [studentId], references: [id])
   attemptQuestions       ExamAttemptQuestion[]
   examSession            ExamSession?
@@ -596,6 +600,7 @@ model ExamAttempt {
   @@index([examScheduleId])
   @@index([courseOfferingId])
   @@index([invalidatedById])
+  @@index([violationsViewedById])
 }
 
 model GradeAppeal {
@@ -789,6 +794,7 @@ model Notification {
   id        String   @id @default(uuid())
   title     String
   content   String
+  link      String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

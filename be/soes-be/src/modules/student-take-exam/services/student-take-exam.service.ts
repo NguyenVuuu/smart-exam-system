@@ -863,7 +863,7 @@ export async function getAttemptResult(
   }
 
   const schedule = attempt.examSchedule
-  const released = isResultReleased(schedule)
+  const released = isResultReleased(schedule) && attempt.status === 'PUBLISHED'
   const graded = attempt.totalScore !== null
   const available = released && graded
   const maxScore = attempt.attemptQuestions.reduce(

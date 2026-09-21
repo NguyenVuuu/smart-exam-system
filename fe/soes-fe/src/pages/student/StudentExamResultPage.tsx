@@ -6,7 +6,8 @@ import {
   MessageSquareWarning,
   XCircle,
 } from "lucide-react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import {
   useGetExamAttemptResult,
   useGetExamAttemptStatus,
@@ -21,6 +22,7 @@ import {
   isCompletedAttemptStatus,
 } from "./utils/attemptStatus";
 import { useStudentGradeAppeals } from "./hooks/useStudentGradeAppeals";
+import { getSocket } from "../../api/socket";
 
 export default function StudentExamResultPage() {
   const { courseOfferingId, scheduleId } = useParams<{
@@ -29,7 +31,8 @@ export default function StudentExamResultPage() {
   }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const attemptId: string | undefined = location.state?.attemptId;
+  const [searchParams] = useSearchParams();
+  const attemptId: string | undefined = location.state?.attemptId ?? searchParams.get("attemptId") ?? undefined;
 
   const {
     data: status,
@@ -40,7 +43,7 @@ export default function StudentExamResultPage() {
     attemptId ?? "",
     !!scheduleId && !!attemptId,
   );
-  const { data: result, error: resultError } = useGetExamAttemptResult(
+  const { data: result, error: resultError, refetch: refetchResult } = useGetExamAttemptResult(
     scheduleId ?? "",
     attemptId ?? "",
     !!scheduleId && !!attemptId,
@@ -54,6 +57,22 @@ export default function StudentExamResultPage() {
     hasOpenAppeal,
     submit: handleCreateAppeal,
   } = useStudentGradeAppeals(scheduleId, attemptId);
+
+  useEffect(() => {
+    if (!scheduleId || !attemptId) return
+    const socket = getSocket()
+    const refreshIfCurrentAttempt = (payload: { scheduleId?: string; attemptId?: string }) => {
+      if (payload.scheduleId === scheduleId && payload.attemptId === attemptId) {
+        void refetchResult()
+      }
+    }
+    socket.on('grade_appeal:updated', refreshIfCurrentAttempt)
+    socket.on('exam_score:finalized', refreshIfCurrentAttempt)
+    return () => {
+      socket.off('grade_appeal:updated', refreshIfCurrentAttempt)
+      socket.off('exam_score:finalized', refreshIfCurrentAttempt)
+    }
+  }, [attemptId, refetchResult, scheduleId])
 
   function handleBack() {
     if (courseOfferingId) {

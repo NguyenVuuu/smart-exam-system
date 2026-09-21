@@ -1,3 +1,4 @@
+import { ShieldAlert, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
@@ -28,6 +29,7 @@ import type {
   ExamSchedule,
   ExamSubmission,
   ResultReleaseMode,
+  ViolationRecord,
 } from './types/teacher-exam.types'
 import { copyTeacherExam } from './api/teacher-exams.api'
 import { toast } from 'sonner'
@@ -100,9 +102,10 @@ function TeacherExamDetailContent({
     : selectedSession?.courseCode
   const selectedSessionClosed = isClosedSession(selectedSession)
   const submissionData = useTeacherExamSubmissions(exam.id, selectedSessionClosed ? selectedSessionId : '')
-  const violationLogVisible = isCourseSubmissionView
+  const violationLogVisible = selectedSessionClosed || (isCourseSubmissionView
     ? courseReviewTab === 'violations'
     : activeTab === 'proctoring'
+  )
   const violationData = useTeacherExamViolations(
     exam.id,
     selectedSessionClosed && violationLogVisible ? selectedSessionId : '',
@@ -118,6 +121,7 @@ function TeacherExamDetailContent({
     : 'Lớp học phần này chưa được gán vào ca thi hoặc bạn không phụ trách lớp.'
   const { mode: resultReleaseMode, releaseAt: resultReleaseAt, published: isResultsPublished } = submissionData.resultRelease
   const [viewingSubmission, setViewingSubmission] = useState<ExamSubmission | null>(null)
+  const [viewingViolationSubmission, setViewingViolationSubmission] = useState<ExamSubmission | null>(null)
   const [selectedEvidenceUrl, setSelectedEvidenceUrl] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -140,6 +144,15 @@ function TeacherExamDetailContent({
     void submissionData.release({
       mode, releaseAt: mode === 'SCHEDULED' ? resultReleaseAt : '', published: mode === 'IMMEDIATE',
     }).catch(() => toast.error('Không thể cập nhật cấu hình công bố điểm.'))
+  }
+
+  const openSubmissionViolations = async (submission: ExamSubmission) => {
+    try {
+      await submissionData.markViolationsViewed(submission.attemptId)
+      setViewingViolationSubmission({ ...submission, violationsViewed: true })
+    } catch {
+      toast.error('Không thể ghi nhận đã mở xem vi phạm.')
+    }
   }
 
   const selectSession = (sessionId: string) => {
@@ -235,6 +248,12 @@ function TeacherExamDetailContent({
             onResultReleaseAtChange={(at) => void submissionData.release({ mode: resultReleaseMode, releaseAt: at, published: isResultsPublished })}
             onResultsPublishedChange={(pub) => void submissionData.release({ mode: resultReleaseMode, releaseAt: resultReleaseAt, published: pub })}
             onViewSubmission={setViewingSubmission}
+            onViewViolations={(submission) => void openSubmissionViolations(submission)}
+            onFinalizeOne={async (submission, score) => {
+              await submissionData.finalizeOne(submission.attemptId, score)
+            }}
+            onFinalizeAll={submissionData.finalizeMany}
+            pendingFinalizeCount={submissionData.pendingFinalizeCount}
             loading={submissionData.loading}
             pagination={submissionData.pagination}
             onPageChange={submissionData.setPage}
@@ -300,6 +319,12 @@ function TeacherExamDetailContent({
         exam={exam}
         submission={viewingSubmission}
         onClose={() => setViewingSubmission(null)}
+      />
+      <SubmissionViolationsModal
+        submission={viewingViolationSubmission}
+        violations={violationData.items.filter((violation) => violation.attemptId === viewingViolationSubmission?.attemptId)}
+        onClose={() => setViewingViolationSubmission(null)}
+        onViewEvidence={setSelectedEvidenceUrl}
       />
       <ExamPreviewModal
         exam={exam}
@@ -383,6 +408,74 @@ function ExamDetailState({ message, onRetry }: { message: string; onRetry?: () =
             {onRetry && <button onClick={onRetry} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Thử lại</button>}
           </div>
         </main>
+      </div>
+    </div>
+  )
+}
+
+function SubmissionViolationsModal({
+  submission,
+  violations,
+  onClose,
+  onViewEvidence,
+}: {
+  submission: ExamSubmission | null
+  violations: ViolationRecord[]
+  onClose: () => void
+  onViewEvidence: (url: string) => void
+}) {
+  if (!submission) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+      <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
+              <ShieldAlert size={20} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-semibold text-gray-900">Vi phạm của {submission.studentName}</h3>
+              <p className="text-sm text-gray-500">{submission.studentCode} - {submission.violationCount} sự kiện</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {violations.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-gray-500">
+              Chưa tải được chi tiết vi phạm. Hãy mở tab Nhật ký vi phạm nếu cần xem toàn bộ lịch sử.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {violations.map((violation) => (
+                <div key={violation.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{violation.type}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {new Date(violation.timestamp).toLocaleString('vi-VN')} - Mức độ {violation.severity}
+                      </p>
+                      {violation.note && <p className="mt-2 text-sm text-gray-600">{violation.note}</p>}
+                    </div>
+                    {violation.evidenceImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => onViewEvidence(violation.evidenceImageUrl!)}
+                        className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                      >
+                        Xem bằng chứng
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

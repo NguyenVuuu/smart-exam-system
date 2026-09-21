@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { isAxiosError } from 'axios'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { getSocket } from '../../../api/socket'
 import { takeExamApi, type GradeAppeal } from '../api/student-take-exam.api'
@@ -12,13 +13,19 @@ export function useStudentGradeAppeals(scheduleId?: string, attemptId?: string) 
   const [appeals, setAppeals] = useState<GradeAppeal[]>([])
   const [reason, setReason] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submittingRef = useRef(false)
+
+  const loadAppeals = useCallback(async () => {
+    if (!scheduleId || !attemptId) return
+    const items = await takeExamApi.listGradeAppeals(scheduleId, attemptId)
+    setAppeals(items)
+  }, [attemptId, scheduleId])
 
   useEffect(() => {
     if (!scheduleId || !attemptId) return
 
     let active = true
-    takeExamApi.listGradeAppeals(scheduleId, attemptId)
-      .then((items) => { if (active) setAppeals(items) })
+    loadAppeals()
       .catch(() => { if (active) toast.error('Không thể tải trạng thái phúc khảo.') })
 
     const socket = getSocket()
@@ -35,7 +42,7 @@ export function useStudentGradeAppeals(scheduleId?: string, attemptId?: string) 
       active = false
       socket.off('grade_appeal:updated', applyAppealUpdate)
     }
-  }, [attemptId, scheduleId])
+  }, [attemptId, loadAppeals, scheduleId])
 
   const hasAnyAppeal = appeals.length > 0
   const hasOpenAppeal = useMemo(
@@ -44,6 +51,7 @@ export function useStudentGradeAppeals(scheduleId?: string, attemptId?: string) 
   )
 
   const submit = async () => {
+    if (submittingRef.current) return
     if (hasAnyAppeal) {
       toast.warning('Mỗi bài thi chỉ được gửi phúc khảo một lần.')
       return
@@ -53,15 +61,22 @@ export function useStudentGradeAppeals(scheduleId?: string, attemptId?: string) 
       return
     }
 
+    submittingRef.current = true
     setIsSubmitting(true)
     try {
       const created = await takeExamApi.createGradeAppeal(scheduleId, attemptId, { reason: reason.trim() })
       setAppeals((current) => [created, ...current])
       setReason('')
       toast.success('Đã gửi yêu cầu phúc khảo.')
-    } catch {
-      toast.error('Không thể gửi phúc khảo. Có thể bạn đang có yêu cầu chưa xử lý.')
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 409) {
+        await loadAppeals().catch(() => undefined)
+        toast.info('Yêu cầu phúc khảo của bài thi này đã được ghi nhận.')
+      } else {
+        toast.error('Không thể gửi phúc khảo. Vui lòng thử lại.')
+      }
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }

@@ -44,6 +44,9 @@ export function toExamSubmissionDto(row: SubmissionRow): ExamSubmissionDto {
     autoScore: row.autoScore === null ? null : Number(row.autoScore),
     manualScoreOverride: row.manualScore === null ? null : Number(row.manualScore),
     finalScore: row.totalScore === null ? null : Number(row.totalScore), status: row.status,
+    violationCount: row._count.violations,
+    violationsViewed: row._count.violations === 0 || row.violationsViewedAt !== null,
+    violationsViewedAt: row.violationsViewedAt,
     regradeRequest: gradeAppeal ? {
       status: gradeAppeal.status,
       reason: gradeAppeal.reason,

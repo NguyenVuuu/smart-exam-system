@@ -1,6 +1,7 @@
 import { BarChart3, RefreshCw, Search, Trophy, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getStudentScores, type StudentScore } from './api/student-portal.api'
 import { getStudentSubjects } from './api/student-subjects.api'
 import AppSelect from '../../components/common/AppSelect'
@@ -18,6 +19,7 @@ const EXAM_TYPE_LABELS: Record<ExamType, string> = {
 }
 
 export default function StudentScoresPage() {
+  const navigate = useNavigate()
   const [scores, setScores] = useState<ScoreRow[]>([])
   const [subjects, setSubjects] = useState<SubjectCard[]>([])
   const [semesterOptions, setSemesterOptions] = useState<SemesterOption[]>([])
@@ -86,6 +88,10 @@ export default function StudentScoresPage() {
   const highestScore = filteredScores.length
     ? Math.max(...filteredScores.map((item) => item.score))
     : null
+
+  const openScoreDetail = (item: ScoreRow) => {
+    navigate(`/student/course-offerings/${item.courseOfferingId}/exam-schedules/${item.examId}/result?attemptId=${item.attemptId}`)
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
@@ -186,7 +192,11 @@ export default function StudentScoresPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredScores.map((item) => (
-                      <tr key={`${item.courseOfferingId}-${item.examId}`} className="hover:bg-gray-50/70">
+                      <tr
+                        key={`${item.courseOfferingId}-${item.examId}`}
+                        onClick={() => openScoreDetail(item)}
+                        className="cursor-pointer hover:bg-gray-50/70"
+                      >
                         <td className="px-5 py-4 font-bold text-slate-900">{item.title}</td>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-slate-800">{item.courseCode}</p>

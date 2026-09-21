@@ -34,6 +34,14 @@ export async function listCourseStudentUserIds(courseOfferingId: string) {
   return rows.map((row) => row.student.userId)
 }
 
+export async function listCourseStudentNotificationTargets(courseOfferingId: string) {
+  const rows = await prisma.enrollment.findMany({
+    where: { courseOfferingId },
+    select: { student: { select: { userId: true } } },
+  })
+  return rows.map((row) => ({ userId: row.student.userId, courseOfferingId }))
+}
+
 const scheduleCourseAccess = (teacherId: string): Prisma.ExamScheduleCourseWhereInput => ({
   OR: [
     { courseOffering: { teacherId } },

@@ -22,7 +22,8 @@ export const submissionInclude = {
     orderBy: { createdAt: 'desc' as const },
     take: 1,
   },
-}
+  _count: { select: { violations: true } },
+} 
 
 const scheduleCourseAccess = (teacherId: string): Prisma.ExamScheduleCourseWhereInput => ({
   OR: [
@@ -53,7 +54,7 @@ export const findScheduleAccess = (teacherId: string, examId: string, scheduleId
     select: {
       id: true, status: true, startTime: true, endTime: true,
       resultReleaseMode: true, resultReleaseAt: true, resultsPublishedAt: true,
-      exam: { select: { totalPoints: true } },
+      exam: { select: { title: true, totalPoints: true } },
       scheduleCourses: {
         where: scheduleCourseAccess(teacherId),
         select: { courseOfferingId: true },
@@ -283,7 +284,30 @@ export function listProctoringSessions(scheduleId: string, courseOfferingIds: st
 export function findGradeAppealByAttempt(attemptId: string) {
   return prisma.gradeAppeal.findFirst({
     where: { attemptId },
-    select: { id: true, status: true, studentId: true },
+    select: { id: true, status: true, studentId: true, student: { select: { userId: true } } },
+  })
+}
+
+export function markAttemptViolationsViewed(input: {
+  teacherId: string
+  userId: string
+  examId: string
+  scheduleId: string
+  attemptId: string
+}) {
+  return prisma.examAttempt.updateMany({
+    where: {
+      id: input.attemptId,
+      examScheduleId: input.scheduleId,
+      examSchedule: { examId: input.examId, ...gradingAccess(input.teacherId) },
+      courseOffering: { teacherId: input.teacherId },
+      violations: { some: {} },
+    },
+    data: {
+      violationsViewedAt: new Date(),
+      violationsViewedById: input.userId,
+      version: { increment: 1 },
+    },
   })
 }
 
@@ -440,14 +464,14 @@ export function overrideScore(
             { teacherId },
           ],
         },
-        status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
+        status: 'PUBLISHED',
       },
       select: { id: true, totalScore: true },
     })
     if (!attempt) return null
     const updated = await tx.examAttempt.update({
       where: { id: attemptId },
-      data: { manualScore: score, totalScore: score, status: 'GRADED', version: { increment: 1 } },
+      data: { manualScore: score, totalScore: score, status: 'PUBLISHED', version: { increment: 1 } },
       include: submissionInclude,
     })
     await tx.gradeAppeal.updateMany({
@@ -464,6 +488,84 @@ export function overrideScore(
       metadata: { reason, previousScore: Number(attempt.totalScore), newScore: score },
     })
     return updated
+  })
+}
+
+export function finalizeScores(input: {
+  teacherId: string
+  userId: string
+  examId: string
+  scheduleId: string
+  items: Array<{ attemptId: string; score: number }>
+}) {
+  return prisma.$transaction(async (tx) => {
+    const attemptIds = input.items.map((item) => item.attemptId)
+    const attempts = await tx.examAttempt.findMany({
+      where: {
+        id: { in: attemptIds },
+        examScheduleId: input.scheduleId,
+        examSchedule: { examId: input.examId, ...gradingAccess(input.teacherId) },
+        courseOffering: { teacherId: input.teacherId },
+        status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED'] },
+      },
+      select: {
+        id: true,
+        totalScore: true,
+        autoScore: true,
+        manualScore: true,
+        courseOfferingId: true,
+        student: { select: { userId: true } },
+        _count: { select: { violations: true } },
+        violationsViewedAt: true,
+      },
+    })
+    if (attempts.length !== attemptIds.length) return null
+
+    const blocked = attempts.filter((attempt) => attempt._count.violations > 0 && !attempt.violationsViewedAt)
+    if (blocked.length) {
+      return { blockedAttemptIds: blocked.map((attempt) => attempt.id), updated: [] }
+    }
+
+    const scores = new Map(input.items.map((item) => [item.attemptId, item.score]))
+    const updated = []
+    for (const attempt of attempts) {
+      const score = scores.get(attempt.id)!
+      updated.push(await tx.examAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          manualScore: score,
+          totalScore: score,
+          status: 'PUBLISHED',
+          version: { increment: 1 },
+        },
+        select: {
+          id: true,
+          totalScore: true,
+          courseOfferingId: true,
+          student: { select: { userId: true } },
+        },
+      }))
+
+      await writeAuditLog(tx, {
+        userId: input.userId,
+        action: 'FINALIZE_EXAM_SCORE',
+        entityType: 'ExamAttempt',
+        entityId: attempt.id,
+        metadata: {
+          previousScore: attempt.totalScore === null ? null : Number(attempt.totalScore),
+          autoScore: attempt.autoScore === null ? null : Number(attempt.autoScore),
+          finalizedScore: score,
+          examScheduleId: input.scheduleId,
+        },
+      })
+    }
+
+    await tx.examSchedule.update({
+      where: { id: input.scheduleId },
+      data: { resultsPublishedAt: new Date(), resultReleaseMode: 'MANUAL' },
+    })
+
+    return { blockedAttemptIds: [], updated }
   })
 }
 
@@ -507,4 +609,16 @@ export async function listScheduleStudentUserIds(scheduleId: string) {
     select: { student: { select: { userId: true } } },
   })
   return rows.map((row) => row.student.userId)
+}
+
+export async function listScheduleStudentNotificationTargets(scheduleId: string) {
+  const rows = await prisma.examAttempt.findMany({
+    where: { examScheduleId: scheduleId, status: 'PUBLISHED' },
+    select: { id: true, courseOfferingId: true, student: { select: { userId: true } } },
+  })
+  return rows.map((row) => ({
+    attemptId: row.id,
+    courseOfferingId: row.courseOfferingId,
+    userId: row.student.userId,
+  }))
 }
