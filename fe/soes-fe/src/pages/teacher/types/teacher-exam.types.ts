@@ -176,6 +176,7 @@ export interface ViolationRecord {
     | 'NO_FACE'
     | 'MULTIPLE_FACES'
     | 'LOOKING_AWAY'
+    | 'PHONE_DETECTED'
     | 'CAMERA_BLOCKED'
     | 'CAMERA_DISCONNECTED'
     | 'CAMERA_PERMISSION_DENIED'
@@ -195,6 +196,7 @@ export interface ViolationRecord {
   reviewNote?: string | null
   reviewedAt?: string | null
   evidenceImageUrl?: string
+  metadata?: { confidence?: number; capturedAt?: string; boundingBox?: { originX: number; originY: number; width: number; height: number } } | null
   evidenceText?: string | null
   note?: string
 }

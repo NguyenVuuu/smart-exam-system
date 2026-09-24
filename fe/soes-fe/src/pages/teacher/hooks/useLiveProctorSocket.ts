@@ -36,6 +36,8 @@ function normalizeRealtimeViolation(payload: Partial<ViolationRecord> & {
     durationSeconds: payload.durationSeconds ?? null,
     severity: payload.severity,
     evidenceImageUrl: payload.evidenceImageUrl,
+    metadata: payload.metadata,
+    reviewStatus: payload.reviewStatus ?? 'PENDING',
     note: payload.note,
   }
 }
