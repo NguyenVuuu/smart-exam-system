@@ -17,15 +17,15 @@ export default function StudentExamTable({
 }) {
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1050px] table-fixed border-collapse text-left text-sm">
+      <div className="overflow-x-auto lg:overflow-x-clip">
+        <table className="w-full min-w-[860px] table-fixed border-collapse text-left text-sm lg:min-w-0">
           <colgroup>
-            <col className="w-[25%]" />
-            <col className="w-[18%]" />
             <col className="w-[24%]" />
+            <col className="w-[17%]" />
+            <col className="w-[21%]" />
             <col className="w-[10%]" />
+            <col className="w-[15%]" />
             <col className="w-[13%]" />
-            <col className="w-[10%]" />
           </colgroup>
           <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase text-slate-500">
             <tr>
@@ -51,6 +51,7 @@ export default function StudentExamTable({
 
 function ExamRow({ exam, onOpenExam }: { exam: StudentExamItem; onOpenExam: (exam: StudentExamItem) => void }) {
   const action = getStudentExamAction(exam)
+  const formattedTime = formatExamTime(exam)
 
   return (
     <tr className="hover:bg-slate-50/70">
@@ -62,7 +63,9 @@ function ExamRow({ exam, onOpenExam }: { exam: StudentExamItem; onOpenExam: (exa
         <p className="truncate font-medium text-slate-700" title={exam.courseCode}>{exam.courseCode}</p>
         <p className="mt-1 truncate text-xs text-slate-500" title={exam.subjectName}>{exam.subjectName}</p>
       </td>
-      <td className="whitespace-nowrap px-5 py-4 text-slate-700">{formatExamTime(exam)}</td>
+      <td className="px-5 py-4 text-slate-700">
+        <p className="truncate" title={formattedTime}>{formattedTime}</p>
+      </td>
       <td className="whitespace-nowrap px-5 py-4 text-slate-700">{exam.durationMinutes} phút</td>
       <td className="px-5 py-4"><StudentExamStatusBadge status={exam.status} /></td>
       <td className="px-5 py-4 text-right">
