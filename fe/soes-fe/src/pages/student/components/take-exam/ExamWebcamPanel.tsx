@@ -93,6 +93,7 @@ export default function ExamWebcamPanel({ required, stream, status, errorMessage
         </span>
       </div>
       <p className="px-3 py-2 text-[10px] font-medium text-slate-300">Camera bắt buộc đang hoạt động</p>
+      {errorMessage && <p role="status" className="border-t border-amber-300/30 px-3 py-2 text-xs text-amber-200">{errorMessage}</p>}
     </aside>
   )
 }

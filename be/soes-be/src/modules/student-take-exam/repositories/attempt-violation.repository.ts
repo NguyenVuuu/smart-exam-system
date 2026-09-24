@@ -1,4 +1,4 @@
-import type { FileStorageProvider, ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
+import type { Prisma, FileStorageProvider, ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 
 const cameraStatusViolationTypes = [
@@ -19,6 +19,7 @@ const webcamObservationViolationTypes = [
 ] satisfies ViolationType[]
 
 const instantViolationTypes: readonly ViolationType[] = [
+  'PHONE_DETECTED',
   'TAB_SWITCH',
   'COPY_PASTE',
   'RIGHT_CLICK',
@@ -55,6 +56,7 @@ interface CreateViolationInput {
   source: ViolationSource
   severity: SeverityLevel
   description?: string
+  metadata?: Prisma.InputJsonObject
   detectedAt: Date
   evidences: Array<{
     evidenceType: ViolationEvidenceType
@@ -340,6 +342,7 @@ export async function createViolation(input: CreateViolationInput) {
       source: input.source,
       severity: input.severity,
       description: input.description,
+      metadata: input.metadata,
       detectedAt: input.detectedAt,
       endedAt: isInstantViolation ? input.detectedAt : undefined,
       durationSeconds: isInstantViolation ? 0 : undefined,

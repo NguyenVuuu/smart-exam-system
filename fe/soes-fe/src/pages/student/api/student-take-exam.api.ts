@@ -88,6 +88,7 @@ export type ExamViolationType =
   | 'MULTIPLE_FACES'
   | 'INACTIVITY'
   | 'LOOKING_AWAY'
+  | 'PHONE_DETECTED'
   | 'COPY_PASTE'
   | 'RIGHT_CLICK'
   | 'CAMERA_BLOCKED'
@@ -114,6 +115,18 @@ export interface RecordViolationPayload {
   description?: string
   detectedAt?: string
   evidenceFiles?: File[]
+  metadata?: PhoneDetectionMetadata
+}
+
+export interface PhoneDetectionMetadata {
+  model: 'efficientdet_lite0'
+  category: 'cell phone'
+  confidence: number
+  boundingBox: { originX: number; originY: number; width: number; height: number }
+  frameWidth: number
+  frameHeight: number
+  capturedAt: string
+  observedDurationMs: number
 }
 
 export interface RecordViolationResponse {
@@ -295,6 +308,7 @@ export const takeExamApi = {
     formData.append('severity', data.severity)
     if (data.description) formData.append('description', data.description)
     if (data.detectedAt) formData.append('detectedAt', data.detectedAt)
+    if (data.metadata) formData.append('metadata', JSON.stringify(data.metadata))
     evidenceFiles.forEach((file) => formData.append('evidence', file, file.name))
 
     const response = await axios.post<BaseResponse<RecordViolationResponse>>(

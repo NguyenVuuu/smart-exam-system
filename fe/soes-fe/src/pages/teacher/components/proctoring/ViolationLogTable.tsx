@@ -161,6 +161,13 @@ export default function ViolationLogTable({
                 >
                   {violationTypeLabels[violation.type] ?? violation.type}
                 </AppBadge>
+                {violation.type === "PHONE_DETECTED" && (
+                  <p className="mt-1 max-w-60 text-xs text-slate-500">
+                    Cần giảng viên xem xét
+                    {typeof violation.metadata?.confidence === "number" &&
+                      ` · Độ tin cậy ${(violation.metadata.confidence * 100).toFixed(0)}%`}
+                  </p>
+                )}
               </td>
               <td className="px-5 py-4">
                 <AppBadge tone={severityTone[violation.severity] ?? "gray"}>

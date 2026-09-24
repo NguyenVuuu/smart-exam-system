@@ -1,4 +1,6 @@
 let activeStream: MediaStream | null = null
+let pendingStream: Promise<MediaStream> | null = null
+let streamGeneration = 0
 let scheduledStopId: number | null = null
 
 export function isExamWebcamStreamLive(stream: MediaStream | null): boolean {
@@ -114,7 +116,15 @@ export async function captureExamWebcamSnapshot(): Promise<File | null> {
 export async function requestExamWebcam(): Promise<MediaStream> {
   const currentStream = getActiveExamWebcam()
   if (currentStream) return currentStream
+  if (pendingStream) return pendingStream
+  const generation = streamGeneration
+  const request = openExamWebcam(generation)
+  pendingStream = request
+  try { return await request }
+  finally { if (pendingStream === request) pendingStream = null }
+}
 
+async function openExamWebcam(generation: number): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('WEBCAM_UNSUPPORTED')
   }
@@ -130,6 +140,7 @@ export async function requestExamWebcam(): Promise<MediaStream> {
 
   try {
     await verifyExamWebcamStream(stream)
+    if (generation !== streamGeneration) throw new Error('WEBCAM_NOT_ACTIVE')
   } catch (error) {
     stream.getTracks().forEach((track) => track.stop())
     throw error
@@ -140,6 +151,7 @@ export async function requestExamWebcam(): Promise<MediaStream> {
 }
 
 export function stopExamWebcam(): void {
+  streamGeneration += 1
   if (scheduledStopId !== null) {
     window.clearTimeout(scheduledStopId)
     scheduledStopId = null
