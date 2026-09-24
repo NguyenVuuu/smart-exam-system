@@ -23,9 +23,9 @@ function ReviewQuestion({ item, showAnswerKey }: { item: AttemptReviewItem; show
         <div className="min-w-0 space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
             {statusIcon(item.isCorrect)}
-            <span>Cau {item.orderIndex}</span>
-            <span>{item.points} diem</span>
-            {item.score !== null && <span>Dat {item.score} diem</span>}
+            <span>Câu {item.orderIndex}</span>
+            <span>{item.points} điểm</span>
+            {item.score !== null && <span>Đạt {item.score} điểm</span>}
           </div>
           <p className="whitespace-pre-wrap text-sm leading-6 text-gray-900">{item.content}</p>
         </div>
@@ -35,10 +35,10 @@ function ReviewQuestion({ item, showAnswerKey }: { item: AttemptReviewItem; show
         <div className="mt-4 rounded-lg border border-gray-100 bg-gray-950 p-4 text-xs text-gray-100">
           <div className="mb-2 flex items-center gap-2 font-semibold text-gray-300">
             <Code2 size={14} />
-            Ma nguon da nop
+            Mã nguồn đã nộp
           </div>
           <pre className="overflow-x-auto whitespace-pre-wrap font-mono leading-5">
-            {item.draftSourceCode?.trim() || 'Chua nop ma nguon.'}
+            {item.draftSourceCode?.trim() || 'Chưa nộp mã nguồn.'}
           </pre>
         </div>
       ) : (
@@ -52,7 +52,7 @@ function ReviewQuestion({ item, showAnswerKey }: { item: AttemptReviewItem; show
               >
                 <span>{option.content}</span>
                 <span className="shrink-0 text-xs font-semibold">
-                  {option.isCorrect ? 'Dap an dung' : selected ? 'Da chon' : ''}
+                  {option.isCorrect ? 'Đáp án đúng' : selected ? 'Đã chọn' : ''}
                 </span>
               </div>
             )
@@ -76,8 +76,8 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
     return (
       <div className="rounded-lg border border-gray-100 bg-white p-4 text-sm text-gray-600">
         {result.reviewPolicy === 'SCORE_ONLY'
-          ? 'Ca thi chi cho phep xem diem tong.'
-          : 'Ca thi khong cho phep xem lai bai lam.'}
+          ? 'Ca thi chỉ cho phép xem điểm tổng.'
+          : 'Ca thi không cho phép xem lại bài làm.'}
       </div>
     )
   }
@@ -95,15 +95,15 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-gray-900">Xem lai bai lam</h2>
+        <h2 className="text-base font-bold text-gray-900">Xem lại bài làm</h2>
         <span className="text-xs font-semibold text-gray-500">
-          {showAnswerKey ? 'Hien dap an dung va giai thich' : 'Khong hien dap an dung'}
+          {showAnswerKey ? 'Hiện đáp án đúng và giải thích' : 'Không hiện đáp án đúng'}
         </span>
       </div>
 
       {result.reviewItems.length === 0 ? (
         <div className="rounded-lg border border-gray-100 bg-white p-4 text-sm text-gray-500">
-          Chua co du lieu bai lam de hien thi.
+          Chưa có dữ liệu bài làm để hiển thị.
         </div>
       ) : (
         <div className="space-y-3">

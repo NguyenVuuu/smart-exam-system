@@ -12,7 +12,7 @@ import type { Judge0Submission, Judge0SubmissionResult } from '../../../lib/judg
 import * as repo from "../repositories/student-take-exam.repository";
 import { gradeObjectiveAnswers } from '../repositories/attempt-grading.repository'
 import { gradeProgrammingAnswers } from './programming-grading.service'
-import { isResultReleased } from '../../exam-schedules/utils/result-release'
+import { resolveAttemptResultReason } from './attempt-result.policy'
 import {
   isExamVisibleToStudents,
   STUDENT_STARTABLE_SCHEDULE_STATUSES,
@@ -863,21 +863,19 @@ export async function getAttemptResult(
   }
 
   const schedule = attempt.examSchedule
-  const released = isResultReleased(schedule) && attempt.status === 'PUBLISHED'
-  const graded = attempt.totalScore !== null
-  const available = released && graded
+  const reason = resolveAttemptResultReason({
+    status: attempt.status,
+    hasScore: attempt.totalScore !== null,
+    ...schedule,
+  })
+  const available = reason === 'AVAILABLE'
   const maxScore = attempt.attemptQuestions.reduce(
     (total, question) => total + Number(question.examQuestion.points),
     0,
   )
 
-  const reason = schedule.resultReleaseMode === 'NEVER'
-    ? 'NEVER'
-    : !released
-      ? 'PENDING_RELEASE'
-      : !graded
-        ? 'GRADING'
-        : 'AVAILABLE'
+  const reviewPolicy = available ? schedule.reviewPolicy : null
+  const canReviewAnswers = reviewPolicy === 'ANSWERS_NO_KEY' || reviewPolicy === 'FULL_AFTER_RELEASE'
 
   return {
     available,
@@ -885,10 +883,12 @@ export async function getAttemptResult(
     releaseAt: schedule.resultReleaseAt,
     score: available ? Number(attempt.totalScore) : null,
     maxScore: available ? maxScore : null,
-    reviewPolicy: available ? schedule.reviewPolicy : null,
+    reviewPolicy,
     reviewConsumed: false,
     reason,
-    reviewItems: [],
+    reviewItems: canReviewAnswers
+      ? buildReviewItems(attempt, reviewPolicy === 'FULL_AFTER_RELEASE')
+      : [],
   }
 }
 

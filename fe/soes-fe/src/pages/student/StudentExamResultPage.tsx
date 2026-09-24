@@ -16,6 +16,7 @@ import type { GradeAppeal } from "./api/student-take-exam.api";
 import StudentSidebar from "./components/StudentSidebar";
 import StudentTopBar from "./components/StudentTopBar";
 import ExamScorePanel from "./components/exam-result/ExamScorePanel";
+import ExamReviewPanel from "./components/exam-result/ExamReviewPanel";
 import {
   getAttemptEndedByLabel,
   getAttemptStatusLabel,
@@ -166,6 +167,7 @@ export default function StudentExamResultPage() {
                 </div>
               )}
               {result && <ExamScorePanel result={result} />}
+              {result && <ExamReviewPanel result={result} />}
               {result?.available && (
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
                   <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">

@@ -112,7 +112,15 @@ const nestedCourses = (courses: ScheduleWriteInput['courses']) => ({
 
 function scheduleFields(input: ScheduleWriteInput) {
   const { courses, examId, ...fields } = input
-  return { courses, examId, fields: { ...fields, publishedAt: fields.status === 'SCHEDULED' ? new Date() : null } }
+  return {
+    courses,
+    examId,
+    fields: {
+      ...fields,
+      publishedAt: fields.status === 'SCHEDULED' ? new Date() : null,
+      resultsPublishedAt: fields.resultReleaseMode === 'IMMEDIATE' ? new Date() : null,
+    },
+  }
 }
 
 export async function createSchedule(tx: Prisma.TransactionClient, input: ScheduleWriteInput, createdById: string) {
