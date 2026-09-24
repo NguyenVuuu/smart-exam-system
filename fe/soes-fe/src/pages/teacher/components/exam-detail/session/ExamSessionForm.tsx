@@ -171,7 +171,7 @@ export function ExamSessionForm({
         <Toggle
           checked={draft.allowStudentReview}
           onChange={(value) => update('allowStudentReview', value)}
-          label="Cho phép sinh viên xem lại bài làm sau khi điểm được công bố"
+          label="Cho phép xem lại sau khi ca thi kết thúc và điểm được công bố"
         />
       </div>
 

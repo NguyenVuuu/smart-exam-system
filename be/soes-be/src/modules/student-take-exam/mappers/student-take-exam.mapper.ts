@@ -94,6 +94,7 @@ export function toGetAttemptResultResponseDto(result: AttemptResult): GetAttempt
   return {
     ...result,
     releaseAt: result.releaseAt?.toISOString() ?? null,
+    reviewAvailableAt: result.reviewAvailableAt?.toISOString() ?? null,
   }
 }
 

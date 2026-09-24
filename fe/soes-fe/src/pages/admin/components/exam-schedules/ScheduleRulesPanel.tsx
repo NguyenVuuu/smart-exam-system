@@ -58,7 +58,7 @@ export default function ScheduleRulesPanel({
           <AdminToggle
             checked={allowStudentReview}
             onChange={onAllowStudentReviewChange}
-            label="Cho phép sinh viên xem lại bài sau khi điểm được công bố"
+            label="Cho phép xem lại sau khi ca thi kết thúc và điểm được công bố"
           />
         </div>
       </div>

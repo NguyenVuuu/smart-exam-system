@@ -104,7 +104,7 @@ export default function ExamSessionDetailModal({
                   ) : 'Không bắt buộc',
                 ],
                 ['Hiển thị điểm', releaseLabel[session.resultReleaseMode ?? 'MANUAL']],
-                ['Xem lại bài làm', session.allowStudentReview ? 'Sinh viên được xem lại sau khi công bố điểm' : 'Không cho sinh viên xem lại'],
+                ['Xem lại bài làm', session.allowStudentReview ? 'Sau khi ca thi kết thúc và điểm được công bố' : 'Không cho sinh viên xem lại'],
                 ['IP', session.ipMode === 'CAMPUS' ? 'Giới hạn IP trường' : 'Thi tại nhà/Online'],
                 ['Dải IP', session.allowedIpRange ?? '-'],
               ]}

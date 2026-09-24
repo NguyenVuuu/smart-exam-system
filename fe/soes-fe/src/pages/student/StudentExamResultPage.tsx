@@ -75,6 +75,14 @@ export default function StudentExamResultPage() {
     }
   }, [attemptId, refetchResult, scheduleId])
 
+  useEffect(() => {
+    if (!result?.reviewAvailableAt || result.reviewAvailable) return
+    const unlockAt = new Date(result.reviewAvailableAt).getTime()
+    const delay = Math.max(0, unlockAt - Date.now()) + 1_000
+    const timer = window.setTimeout(() => void refetchResult(), delay)
+    return () => window.clearTimeout(timer)
+  }, [refetchResult, result?.reviewAvailable, result?.reviewAvailableAt])
+
   function handleBack() {
     if (courseOfferingId) {
       navigate(`/student/course-offerings/${courseOfferingId}`, {

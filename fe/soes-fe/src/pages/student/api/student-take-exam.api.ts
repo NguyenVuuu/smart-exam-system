@@ -42,6 +42,8 @@ export interface AttemptResult {
   score: number | null
   maxScore: number | null
   reviewPolicy: 'NONE' | 'SCORE_ONLY' | 'ANSWERS_NO_KEY' | 'FULL_AFTER_RELEASE' | null
+  reviewAvailable: boolean
+  reviewAvailableAt: string | null
   reviewConsumed: boolean
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
   reviewItems: AttemptReviewItem[]

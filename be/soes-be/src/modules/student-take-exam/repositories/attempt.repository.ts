@@ -351,6 +351,7 @@ export async function findAttemptResult(attemptId: string, scheduleId: string, s
       },
       examSchedule: {
         select: {
+          endTime: true,
           resultReleaseMode: true,
           resultReleaseAt: true,
           resultsPublishedAt: true,

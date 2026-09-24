@@ -1,4 +1,4 @@
-import { CheckCircle2, Code2, FileText, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock3, Code2, FileText, XCircle } from 'lucide-react'
 import type { AttemptResult, AttemptReviewItem } from '../../api/student-take-exam.api'
 
 function optionTone(item: AttemptReviewItem, optionId: string, isCorrect?: boolean) {
@@ -82,6 +82,10 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
     )
   }
 
+  if (!result.reviewAvailable) {
+    return <ReviewLockedState availableAt={result.reviewAvailableAt} />
+  }
+
   if (result.reviewConsumed) {
     return (
       <div className="rounded-lg border border-gray-100 bg-white p-4 text-sm text-gray-600">
@@ -114,4 +118,33 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
       )}
     </section>
   )
+}
+
+function ReviewLockedState({ availableAt }: { availableAt: string | null }) {
+  const formattedTime = formatReviewAvailableAt(availableAt)
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <Clock3 size={18} className="mt-0.5 shrink-0" />
+      <div>
+        <p className="font-semibold">Chưa thể xem lại bài làm</p>
+        <p className="mt-1 text-amber-800">
+          {formattedTime
+            ? `Bài làm và đáp án sẽ được mở sau khi ca thi kết thúc lúc ${formattedTime}.`
+            : 'Bài làm và đáp án chưa được phép hiển thị.'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function formatReviewAvailableAt(value: string | null) {
+  if (!value) return null
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
