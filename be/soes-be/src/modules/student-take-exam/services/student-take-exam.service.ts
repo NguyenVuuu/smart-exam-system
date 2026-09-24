@@ -1,7 +1,7 @@
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcrypt'
-import type { ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
+import type { Prisma, ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
@@ -93,6 +93,7 @@ async function emitViolationCreatedFromAttempt(
     endedAt?: Date | null
     durationSeconds?: number | null
     evidences?: Array<{ objectName: string; storageProvider?: string }>
+    metadata?: Prisma.InputJsonObject
   },
   note?: string | null,
 ) {
@@ -110,6 +111,8 @@ async function emitViolationCreatedFromAttempt(
     endedAt: violation.endedAt ? violation.endedAt.toISOString() : null,
     durationSeconds: violation.durationSeconds,
     evidenceImageUrl,
+    metadata: violation.metadata ?? null,
+    reviewStatus: 'PENDING',
     note: note ?? null,
   })
 }
@@ -981,6 +984,7 @@ export async function recordViolation(
     severity: string
     description?: string
     detectedAt?: string
+    metadata?: Prisma.InputJsonObject
   },
   evidenceFiles: Express.Multer.File[] = [],
 ): Promise<RecordViolationResult> {
@@ -995,6 +999,9 @@ export async function recordViolation(
   }
   if (input.violationType === 'TAB_SWITCH' && !attempt.examSchedule.enableTabLock) {
     throw new ConflictError('Tab switch monitoring is disabled for this exam schedule')
+  }
+  if (input.violationType === 'PHONE_DETECTED' && evidenceFiles.length !== 1) {
+    throw new ValidationError('Phone detection requires one evidence image')
   }
 
   const detectedAt = input.detectedAt ? new Date(input.detectedAt) : now
@@ -1057,6 +1064,7 @@ export async function recordViolation(
     source,
     severity: input.severity as SeverityLevel,
     description: input.description,
+    metadata: input.metadata,
     detectedAt,
     evidences,
   })
@@ -1066,6 +1074,7 @@ export async function recordViolation(
     attempt,
     {
       ...violation,
+      metadata: input.metadata,
       evidences: violation.evidenceUrls.map((objectName) => ({
         objectName,
         storageProvider: evidenceStorageProvider,
@@ -1110,6 +1119,7 @@ function getViolationSource(violationType: ViolationType): ViolationSource {
       'NO_FACE',
       'MULTIPLE_FACES',
       'LOOKING_AWAY',
+      'PHONE_DETECTED',
       'CAMERA_BLOCKED',
       'CAMERA_DISCONNECTED',
       'CAMERA_PERMISSION_DENIED',

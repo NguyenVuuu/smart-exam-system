@@ -85,6 +85,7 @@ export async function listViolations(teacherId: string, examId: string, schedule
       studentCode: row.attempt.student.studentCode, studentName: row.attempt.student.user.fullName,
       type: row.violationType, timestamp: row.detectedAt, severity: row.severity,
       reviewStatus: row.reviewStatus,
+      metadata: row.metadata,
       reviewNote: row.reviewNote,
       reviewedAt: row.reviewedAt,
       endedAt: row.endedAt,

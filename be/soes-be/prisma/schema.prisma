@@ -746,6 +746,7 @@ model Violation {
   detectedBy      ViolationDetectedBy   @default(SYSTEM)
   reviewStatus    ViolationReviewStatus @default(PENDING)
   evidenceUrls    Json?
+  metadata        Json?
   description     String?
   detectedAt      DateTime              @default(now())
   endedAt         DateTime?
@@ -1044,6 +1045,7 @@ enum ViolationType {
   MULTIPLE_FACES
   INACTIVITY
   LOOKING_AWAY
+  PHONE_DETECTED
   COPY_PASTE
   RIGHT_CLICK
   CAMERA_BLOCKED

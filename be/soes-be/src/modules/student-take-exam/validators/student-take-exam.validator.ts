@@ -87,6 +87,7 @@ export const violationTypeSchema = z.enum([
   'MULTIPLE_FACES',
   'INACTIVITY',
   'LOOKING_AWAY',
+  'PHONE_DETECTED',
   'COPY_PASTE',
   'RIGHT_CLICK',
   'CAMERA_BLOCKED',
@@ -100,11 +101,35 @@ export const violationTypeSchema = z.enum([
 
 export const severityLevelSchema = z.enum(['LOW', 'MEDIUM', 'HIGH'])
 
+const phoneMetadataSchema = z.object({
+  model: z.literal('efficientdet_lite0'),
+  category: z.literal('cell phone'),
+  confidence: z.number().min(0).max(1),
+  boundingBox: z.object({
+    originX: z.number().finite(),
+    originY: z.number().finite(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+  }),
+  frameWidth: z.number().int().positive().max(16384),
+  frameHeight: z.number().int().positive().max(16384),
+  capturedAt: z.string().datetime(),
+  observedDurationMs: z.number().nonnegative().max(86400000),
+})
+
 export const recordViolationBodySchema = z.object({
   violationType: violationTypeSchema,
   severity: severityLevelSchema,
   description: z.string().trim().max(500).optional(),
   detectedAt: z.string().datetime().optional(),
+  metadata: z.preprocess((value) => {
+    if (typeof value !== 'string') return value
+    try { return JSON.parse(value) } catch { return value }
+  }, phoneMetadataSchema.optional()),
+}).superRefine((value, context) => {
+  if (value.violationType === 'PHONE_DETECTED' && !value.metadata) {
+    context.addIssue({ code: 'custom', path: ['metadata'], message: 'Phone detection metadata is required' })
+  }
 })
 
 export type RecordViolationBody = z.infer<typeof recordViolationBodySchema>

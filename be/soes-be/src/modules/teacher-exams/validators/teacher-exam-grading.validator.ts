@@ -9,6 +9,7 @@ const violationTypeSchema = z.enum([
   'NO_FACE',
   'MULTIPLE_FACES',
   'LOOKING_AWAY',
+  'PHONE_DETECTED',
   'CAMERA_BLOCKED',
   'CAMERA_DISCONNECTED',
   'CAMERA_PERMISSION_DENIED',

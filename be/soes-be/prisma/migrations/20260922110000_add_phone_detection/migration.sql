@@ -1,0 +1,2 @@
+ALTER TYPE "ViolationType" ADD VALUE 'PHONE_DETECTED';
+ALTER TABLE "Violation" ADD COLUMN "metadata" JSONB;
