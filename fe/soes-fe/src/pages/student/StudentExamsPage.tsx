@@ -36,12 +36,12 @@ export default function StudentExamsPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <StudentSidebar />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <StudentTopBar />
-        <main className="min-w-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 [scrollbar-gutter:stable] sm:px-6 lg:px-8 lg:py-7">
+        <main className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto px-6 py-7 lg:px-8">
           <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                 <ClipboardList size={22} />
               </span>
               <div className="min-w-0">
@@ -53,7 +53,7 @@ export default function StudentExamsPage() {
               type="button"
               onClick={() => void model.reload()}
               disabled={model.loading}
-              className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 w-fit items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer transition-colors"
             >
               <RefreshCw size={15} className={model.loading ? 'animate-spin' : ''} />
               Làm mới
@@ -62,7 +62,7 @@ export default function StudentExamsPage() {
 
           <StudentExamSummary counts={model.stats} />
 
-          <section className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xs">
             <StudentExamToolbar
               semesterOptions={model.semesterOptions}
               semesterId={model.selectedSemesterId}
@@ -131,24 +131,24 @@ function ExamContent({
   if (model.error) return <StudentExamState text={model.error} onRetry={model.reload} />
   if (model.exams.length === 0) return <StudentExamState text="Không có bài thi phù hợp với bộ lọc." />
 
-  if (model.viewMode === 'CALENDAR') {
-    return (
-      <StudentExamCalendar
-        exams={model.exams}
-        visibleMonth={visibleMonth}
-        selectedDate={selectedDay?.date}
-        onVisibleMonthChange={onVisibleMonthChange}
-        onSelectDay={onSelectDay}
-      />
-    )
-  }
-
   return (
-    <StudentExamTable
-      exams={model.exams}
-      pagination={model.pagination}
-      onPageChange={model.setPage}
-      onOpenExam={onOpenExam}
-    />
+    <div>
+      {model.viewMode === 'CALENDAR' ? (
+        <StudentExamCalendar
+          exams={model.exams}
+          visibleMonth={visibleMonth}
+          selectedDate={selectedDay?.date}
+          onVisibleMonthChange={onVisibleMonthChange}
+          onSelectDay={onSelectDay}
+        />
+      ) : (
+        <StudentExamTable
+          exams={model.exams}
+          pagination={model.pagination}
+          onPageChange={model.setPage}
+          onOpenExam={onOpenExam}
+        />
+      )}
+    </div>
   )
 }

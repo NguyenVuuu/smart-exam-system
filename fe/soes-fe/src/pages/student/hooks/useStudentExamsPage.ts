@@ -30,8 +30,10 @@ export function useStudentExamsPage() {
   const [appliedKeyword, setAppliedKeyword] = useState('')
   const [filter, setFilter] = useState<StudentExamFilter>('ALL')
   const [page, setPage] = useState(1)
-  const [viewMode, setViewMode] = useState<StudentExamViewMode>('CALENDAR')
+  const [requestedViewMode, setRequestedViewMode] = useState<StudentExamViewMode>('CALENDAR')
+  const [displayViewMode, setDisplayViewMode] = useState<StudentExamViewMode>('CALENDAR')
   const requestId = useRef(0)
+  const hasLoaded = useRef(false)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -65,13 +67,16 @@ export function useStudentExamsPage() {
   const load = useCallback(async () => {
     if (!semestersReady) return
     const currentRequest = ++requestId.current
-    setLoading(true)
-    setError(null)
+    const isInitialLoad = !hasLoaded.current
+    if (isInitialLoad) {
+      setLoading(true)
+      setError(null)
+    }
 
     try {
       const data = await getStudentExamSchedules({
-        page: viewMode === 'LIST' ? page : 1,
-        pageSize: viewMode === 'LIST' ? PAGE_SIZE : CALENDAR_PAGE_SIZE,
+        page: requestedViewMode === 'LIST' ? page : 1,
+        pageSize: requestedViewMode === 'LIST' ? PAGE_SIZE : CALENDAR_PAGE_SIZE,
         status: filter,
         semesterId: selectedSemesterId || undefined,
         keyword: appliedKeyword || undefined,
@@ -80,14 +85,16 @@ export function useStudentExamsPage() {
       setExams(data.items)
       setPagination(data.pagination)
       setStatusCounts(data.statusCounts)
+      setDisplayViewMode(requestedViewMode)
+      hasLoaded.current = true
     } catch {
-      if (currentRequest === requestId.current) {
+      if (currentRequest === requestId.current && isInitialLoad) {
         setError('Không thể tải danh sách bài thi.')
       }
     } finally {
-      if (currentRequest === requestId.current) setLoading(false)
+      if (currentRequest === requestId.current && isInitialLoad) setLoading(false)
     }
-  }, [appliedKeyword, filter, page, selectedSemesterId, semestersReady, viewMode])
+  }, [appliedKeyword, filter, page, requestedViewMode, selectedSemesterId, semestersReady])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0)
@@ -102,7 +109,7 @@ export function useStudentExamsPage() {
   }
 
   const changeViewMode = (mode: StudentExamViewMode) => {
-    setViewMode(mode)
+    setRequestedViewMode(mode)
     setPage(1)
   }
 
@@ -122,7 +129,7 @@ export function useStudentExamsPage() {
     keyword,
     filter,
     page,
-    viewMode,
+    viewMode: displayViewMode,
     setKeyword,
     setPage,
     changeFilter,

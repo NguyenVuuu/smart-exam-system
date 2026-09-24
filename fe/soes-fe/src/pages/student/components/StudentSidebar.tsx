@@ -1,6 +1,6 @@
 import {
-  BookOpen,
   Bell,
+  BookOpen,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -11,8 +11,8 @@ import {
 } from 'lucide-react'
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useLogout } from '../../../auth/hooks/useLogout'
 import { getSocket } from '../../../api/socket'
+import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
 import { useSystemSettingsStore } from '../../../store/systemSettingsStore'
 import { getStudentNotifications } from '../api/student-portal.api'
@@ -69,6 +69,54 @@ const STORAGE_KEY_STUDENT_COLLAPSED = 'soes_student_is_collapsed'
 
 export let persistentStudentIsCollapsed = false
 
+function readSessionStorage(key: string) {
+  try {
+    return sessionStorage.getItem(key)
+  } catch (error) {
+    if (error instanceof DOMException) return null
+    throw error
+  }
+}
+
+function writeSessionStorage(key: string, storedValue: string) {
+  try {
+    sessionStorage.setItem(key, storedValue)
+  } catch (error) {
+    if (!(error instanceof DOMException)) throw error
+  }
+}
+
+function getInitialExpandedGroupIds() {
+  const storedGroupIds = readSessionStorage(STORAGE_KEY_STUDENT_EXPANDED)
+  if (!storedGroupIds) return ALL_STUDENT_GROUP_IDS
+
+  try {
+    const parsedGroupIds: unknown = JSON.parse(storedGroupIds)
+    const hasValidGroupIds = Array.isArray(parsedGroupIds)
+      && parsedGroupIds.every((groupId) => typeof groupId === 'string')
+    return hasValidGroupIds ? parsedGroupIds : ALL_STUDENT_GROUP_IDS
+  } catch (error) {
+    if (error instanceof SyntaxError) return ALL_STUDENT_GROUP_IDS
+    throw error
+  }
+}
+
+function isStudentNavItemActive(pathname: string, itemPath: string) {
+  if (itemPath === '/student') return pathname === '/student'
+  if (itemPath === '/student/exams') {
+    return pathname === itemPath
+      || pathname.includes('/exam-schedules/')
+      || pathname.endsWith('/take')
+      || pathname.endsWith('/result')
+  }
+  if (itemPath === '/student/subjects') {
+    return pathname === itemPath
+      || pathname.startsWith('/student/courses/')
+      || (pathname.startsWith('/student/course-offerings/') && !pathname.includes('/exam-schedules/'))
+  }
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`)
+}
+
 export default function StudentSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -78,69 +126,34 @@ export default function StudentSidebar() {
   const navRef = useRef<HTMLElement>(null)
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
 
-  const isNavItemActive = (path: string) => {
-    if (path === '/student') return location.pathname === '/student'
-    if (path === '/student/exams') {
-      return (
-        location.pathname.includes('/exam-schedules/') ||
-        location.pathname.endsWith('/take') ||
-        location.pathname.endsWith('/result')
-      )
-    }
-    if (path === '/student/subjects') {
-      return (
-        location.pathname === '/student/subjects' ||
-        location.pathname.startsWith('/student/courses/') ||
-        (
-          location.pathname.startsWith('/student/course-offerings/') &&
-          !location.pathname.includes('/exam-schedules/')
-        )
-      )
-    }
-    return location.pathname === path || location.pathname.startsWith(`${path}/`)
-  }
-
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY_STUDENT_COLLAPSED)
-      if (saved !== null) return saved === 'true'
-    } catch {}
-    return persistentStudentIsCollapsed
+    const storedState = readSessionStorage(STORAGE_KEY_STUDENT_COLLAPSED)
+    return storedState === null ? persistentStudentIsCollapsed : storedState === 'true'
   })
 
-  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>(() => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY_STUDENT_EXPANDED)
-      if (saved !== null) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) return parsed
-      }
-    } catch {}
-    return ALL_STUDENT_GROUP_IDS
-  })
+  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>(getInitialExpandedGroupIds)
 
   useEffect(() => {
     const currentGroup = NAV_GROUPS.find((group) =>
-      group.items.some((item) => isNavItemActive(item.path)),
+      group.items.some((item) => isStudentNavItemActive(location.pathname, item.path)),
     )
     if (!currentGroup) return
 
-    setExpandedGroupIds((prev) => {
-      if (prev.includes(currentGroup.id)) return prev
-      const next = [...prev, currentGroup.id]
-      try {
-        sessionStorage.setItem(STORAGE_KEY_STUDENT_EXPANDED, JSON.stringify(next))
-      } catch {}
-      return next
-    })
+    const expandTimer = window.setTimeout(() => {
+      setExpandedGroupIds((currentGroupIds) => {
+        if (currentGroupIds.includes(currentGroup.id)) return currentGroupIds
+        const nextGroupIds = [...currentGroupIds, currentGroup.id]
+        writeSessionStorage(STORAGE_KEY_STUDENT_EXPANDED, JSON.stringify(nextGroupIds))
+        return nextGroupIds
+      })
+    }, 0)
+    return () => window.clearTimeout(expandTimer)
   }, [location.pathname])
 
   useLayoutEffect(() => {
     if (!navRef.current) return
-    try {
-      const savedScroll = sessionStorage.getItem(STORAGE_KEY_STUDENT_SCROLL)
-      if (savedScroll) navRef.current.scrollTop = Number(savedScroll) || 0
-    } catch {}
+    const storedScrollPosition = readSessionStorage(STORAGE_KEY_STUDENT_SCROLL)
+    if (storedScrollPosition) navRef.current.scrollTop = Number(storedScrollPosition) || 0
   }, [location.pathname])
 
   useEffect(() => {
@@ -148,9 +161,7 @@ export default function StudentSidebar() {
       setIsCollapsed((prev) => {
         const next = !prev
         persistentStudentIsCollapsed = next
-        try {
-          sessionStorage.setItem(STORAGE_KEY_STUDENT_COLLAPSED, String(next))
-        } catch {}
+        writeSessionStorage(STORAGE_KEY_STUDENT_COLLAPSED, String(next))
         return next
       })
     }
@@ -160,9 +171,7 @@ export default function StudentSidebar() {
 
   useEffect(() => {
     persistentStudentIsCollapsed = isCollapsed
-    try {
-      sessionStorage.setItem(STORAGE_KEY_STUDENT_COLLAPSED, String(isCollapsed))
-    } catch {}
+    writeSessionStorage(STORAGE_KEY_STUDENT_COLLAPSED, String(isCollapsed))
   }, [isCollapsed])
 
   useEffect(() => {
@@ -172,7 +181,9 @@ export default function StudentSidebar() {
         .then((data) => {
           if (active) setHasUnreadNotifications(data.pagination.totalItems > 0)
         })
-        .catch(() => undefined)
+        .catch(() => {
+          if (active) setHasUnreadNotifications(false)
+        })
     }
     const handleNotificationCreated = () => setHasUnreadNotifications(true)
 
@@ -188,21 +199,17 @@ export default function StudentSidebar() {
   }, [])
 
   const toggleGroup = (groupId: string) => {
-    setExpandedGroupIds((prev) => {
-      const next = prev.includes(groupId)
-        ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId]
-      try {
-        sessionStorage.setItem(STORAGE_KEY_STUDENT_EXPANDED, JSON.stringify(next))
-      } catch {}
-      return next
+    setExpandedGroupIds((currentGroupIds) => {
+      const nextGroupIds = currentGroupIds.includes(groupId)
+        ? currentGroupIds.filter((id) => id !== groupId)
+        : [...currentGroupIds, groupId]
+      writeSessionStorage(STORAGE_KEY_STUDENT_EXPANDED, JSON.stringify(nextGroupIds))
+      return nextGroupIds
     })
   }
 
   const handleNavScroll = (event: React.UIEvent<HTMLElement>) => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY_STUDENT_SCROLL, String(event.currentTarget.scrollTop))
-    } catch {}
+    writeSessionStorage(STORAGE_KEY_STUDENT_SCROLL, String(event.currentTarget.scrollTop))
   }
 
   const initials = getInitials(user?.fullName)
@@ -255,7 +262,7 @@ export default function StudentSidebar() {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.id)}
-                  className="flex w-full items-center justify-between overflow-hidden whitespace-nowrap px-3 py-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-700"
+                  className="flex w-full items-center justify-between overflow-hidden whitespace-nowrap px-3 py-1 text-[11.5px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-700 cursor-pointer"
                   title={`${isGroupExpanded ? 'Thu gọn' : 'Mở rộng'} nhóm ${group.title}`}
                 >
                   <span className="truncate">{group.title}</span>
@@ -272,7 +279,7 @@ export default function StudentSidebar() {
               {(!isCollapsed ? isGroupExpanded : true) && (
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
-                    const isActive = isNavItemActive(item.path)
+                    const isActive = isStudentNavItemActive(location.pathname, item.path)
 
                     return (
                       <button
@@ -280,11 +287,11 @@ export default function StudentSidebar() {
                         key={item.path}
                         onClick={() => navigate(item.path)}
                         title={isCollapsed ? item.label : undefined}
-                        className={`flex w-full items-center overflow-hidden whitespace-nowrap rounded-xl text-sm font-medium transition-all ${
+                        className={`flex w-full items-center overflow-hidden whitespace-nowrap rounded-xl text-sm font-medium transition-all cursor-pointer ${
                           isCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3.5 py-2.5'
                         } ${
                           isActive
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 font-semibold'
                             : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
                         }`}
                       >
@@ -316,14 +323,16 @@ export default function StudentSidebar() {
                 <p className="truncate text-xs font-semibold text-slate-950">
                   {user?.fullName ?? 'Sinh viên'}
                 </p>
-                <p className="truncate text-[11px] font-normal text-slate-500">Sinh viên</p>
+                <p className="truncate text-[11px] font-normal text-slate-500">
+                  {user?.studentCode || 'Sinh viên'}
+                </p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => logout()}
               title="Đăng xuất"
-              className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:text-rose-600"
+              className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:text-rose-600 cursor-pointer"
             >
               <LogOut size={16} />
             </button>
