@@ -1,4 +1,4 @@
-import { CheckCircle2, Code2, FileText, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock3, Code2, FileText, XCircle } from 'lucide-react'
 import type { AttemptResult, AttemptReviewItem } from '../../api/student-take-exam.api'
 
 function optionTone(item: AttemptReviewItem, optionId: string, isCorrect?: boolean) {
@@ -23,9 +23,9 @@ function ReviewQuestion({ item, showAnswerKey }: { item: AttemptReviewItem; show
         <div className="min-w-0 space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
             {statusIcon(item.isCorrect)}
-            <span>Cau {item.orderIndex}</span>
-            <span>{item.points} diem</span>
-            {item.score !== null && <span>Dat {item.score} diem</span>}
+            <span>Câu {item.orderIndex}</span>
+            <span>{item.points} điểm</span>
+            {item.score !== null && <span>Đạt {item.score} điểm</span>}
           </div>
           <p className="whitespace-pre-wrap text-sm leading-6 text-gray-900">{item.content}</p>
         </div>
@@ -35,10 +35,10 @@ function ReviewQuestion({ item, showAnswerKey }: { item: AttemptReviewItem; show
         <div className="mt-4 rounded-lg border border-gray-100 bg-gray-950 p-4 text-xs text-gray-100">
           <div className="mb-2 flex items-center gap-2 font-semibold text-gray-300">
             <Code2 size={14} />
-            Ma nguon da nop
+            Mã nguồn đã nộp
           </div>
           <pre className="overflow-x-auto whitespace-pre-wrap font-mono leading-5">
-            {item.draftSourceCode?.trim() || 'Chua nop ma nguon.'}
+            {item.draftSourceCode?.trim() || 'Chưa nộp mã nguồn.'}
           </pre>
         </div>
       ) : (
@@ -52,7 +52,7 @@ function ReviewQuestion({ item, showAnswerKey }: { item: AttemptReviewItem; show
               >
                 <span>{option.content}</span>
                 <span className="shrink-0 text-xs font-semibold">
-                  {option.isCorrect ? 'Dap an dung' : selected ? 'Da chon' : ''}
+                  {option.isCorrect ? 'Đáp án đúng' : selected ? 'Đã chọn' : ''}
                 </span>
               </div>
             )
@@ -76,10 +76,14 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
     return (
       <div className="rounded-lg border border-gray-100 bg-white p-4 text-sm text-gray-600">
         {result.reviewPolicy === 'SCORE_ONLY'
-          ? 'Ca thi chi cho phep xem diem tong.'
-          : 'Ca thi khong cho phep xem lai bai lam.'}
+          ? 'Ca thi chỉ cho phép xem điểm tổng.'
+          : 'Ca thi không cho phép xem lại bài làm.'}
       </div>
     )
+  }
+
+  if (!result.reviewAvailable) {
+    return <ReviewLockedState availableAt={result.reviewAvailableAt} />
   }
 
   if (result.reviewConsumed) {
@@ -95,15 +99,15 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-gray-900">Xem lai bai lam</h2>
+        <h2 className="text-base font-bold text-gray-900">Xem lại bài làm</h2>
         <span className="text-xs font-semibold text-gray-500">
-          {showAnswerKey ? 'Hien dap an dung va giai thich' : 'Khong hien dap an dung'}
+          {showAnswerKey ? 'Hiện đáp án đúng và giải thích' : 'Không hiện đáp án đúng'}
         </span>
       </div>
 
       {result.reviewItems.length === 0 ? (
         <div className="rounded-lg border border-gray-100 bg-white p-4 text-sm text-gray-500">
-          Chua co du lieu bai lam de hien thi.
+          Chưa có dữ liệu bài làm để hiển thị.
         </div>
       ) : (
         <div className="space-y-3">
@@ -114,4 +118,33 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
       )}
     </section>
   )
+}
+
+function ReviewLockedState({ availableAt }: { availableAt: string | null }) {
+  const formattedTime = formatReviewAvailableAt(availableAt)
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <Clock3 size={18} className="mt-0.5 shrink-0" />
+      <div>
+        <p className="font-semibold">Chưa thể xem lại bài làm</p>
+        <p className="mt-1 text-amber-800">
+          {formattedTime
+            ? `Bài làm và đáp án sẽ được mở sau khi ca thi kết thúc lúc ${formattedTime}.`
+            : 'Bài làm và đáp án chưa được phép hiển thị.'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function formatReviewAvailableAt(value: string | null) {
+  if (!value) return null
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }

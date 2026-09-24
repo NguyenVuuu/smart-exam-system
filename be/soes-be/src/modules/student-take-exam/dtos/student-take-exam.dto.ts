@@ -101,6 +101,8 @@ export interface GetAttemptResultResponseDto {
   score: number | null
   maxScore: number | null
   reviewPolicy: string | null
+  reviewAvailable: boolean
+  reviewAvailableAt: string | null
   reviewConsumed: boolean
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
   reviewItems: AttemptReviewItemDto[]

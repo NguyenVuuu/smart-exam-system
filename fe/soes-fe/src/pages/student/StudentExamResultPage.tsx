@@ -16,6 +16,7 @@ import type { GradeAppeal } from "./api/student-take-exam.api";
 import StudentSidebar from "./components/StudentSidebar";
 import StudentTopBar from "./components/StudentTopBar";
 import ExamScorePanel from "./components/exam-result/ExamScorePanel";
+import ExamReviewPanel from "./components/exam-result/ExamReviewPanel";
 import {
   getAttemptEndedByLabel,
   getAttemptStatusLabel,
@@ -73,6 +74,14 @@ export default function StudentExamResultPage() {
       socket.off('exam_score:finalized', refreshIfCurrentAttempt)
     }
   }, [attemptId, refetchResult, scheduleId])
+
+  useEffect(() => {
+    if (!result?.reviewAvailableAt || result.reviewAvailable) return
+    const unlockAt = new Date(result.reviewAvailableAt).getTime()
+    const delay = Math.max(0, unlockAt - Date.now()) + 1_000
+    const timer = window.setTimeout(() => void refetchResult(), delay)
+    return () => window.clearTimeout(timer)
+  }, [refetchResult, result?.reviewAvailable, result?.reviewAvailableAt])
 
   function handleBack() {
     if (courseOfferingId) {
@@ -166,6 +175,7 @@ export default function StudentExamResultPage() {
                 </div>
               )}
               {result && <ExamScorePanel result={result} />}
+              {result && <ExamReviewPanel result={result} />}
               {result?.available && (
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
                   <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">

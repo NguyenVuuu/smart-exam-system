@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma'
+import { releasedResultScheduleWhere } from '../../exam-schedules/utils/result-release'
 import { studentVisibleScheduleWhere } from '../../student-common/exam-visibility.policy'
 import type { NotificationsQuery, StudentExamSchedulesQuery, StudentScoresQuery } from '../validators/student-portal.validator'
 
@@ -88,11 +89,12 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
     where: {
       studentId,
       totalScore: { not: null },
-      status: 'PUBLISHED',
+      status: { in: ['AUTO_SUBMITTED', 'GRADED', 'PUBLISHED'] },
       courseOfferingId: query.courseOfferingId,
       courseOffering: {
         semesterId: query.semesterId,
       },
+      examSchedule: releasedResultScheduleWhere(),
       ...(query.keyword
         ? {
             OR: [
