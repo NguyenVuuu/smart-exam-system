@@ -201,7 +201,7 @@ export default function StudentTakeExamPage() {
     fullscreenViolationStorageKey: scheduleId && attemptId ? `soes:fullscreen-violation:${scheduleId}:${attemptId}` : undefined,
   })
 
-  useWebcamViolationMonitor({
+  const { visionError } = useWebcamViolationMonitor({
     enabled: phase === 'IN_PROGRESS' && Boolean(session?.integritySettings.enableWebcam),
     scheduleId: scheduleId ?? '',
     attemptId: attemptId ?? '',
@@ -424,7 +424,7 @@ export default function StudentTakeExamPage() {
         required={session.integritySettings.enableWebcam}
         stream={webcamStream}
         status={webcamStatus}
-        errorMessage={webcamErrorMessage}
+        errorMessage={webcamErrorMessage ?? visionError}
         onEnableCamera={handleEnableExamCamera}
       />
       {!isFullscreenActive && phase === 'IN_PROGRESS' && (
