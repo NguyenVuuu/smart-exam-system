@@ -7,6 +7,9 @@ export const submissionInclude = {
   examSchedule: {
     select: {
       examId: true,
+      id: true,
+      title: true,
+      makeupOfScheduleId: true,
       exam: { select: { sections: { orderBy: { orderIndex: 'asc' as const } } } },
     },
   },
@@ -174,20 +177,83 @@ export async function addManualViolationEvidence(input: {
   })
 }
 
-export function listSubmissions(scheduleId: string, courseOfferingIds: string[], page: number, pageSize: number) {
+async function ensureZeroAttemptsForAbsentees(scheduleId: string, courseOfferingIds: string[]) {
+  const schedule = await prisma.examSchedule.findUnique({
+    where: { id: scheduleId },
+    select: { id: true, examId: true, endTime: true },
+  })
+  if (!schedule) return
+
+  const enrollments = await prisma.enrollment.findMany({
+    where: { courseOfferingId: { in: courseOfferingIds } },
+    select: { studentId: true, courseOfferingId: true },
+  })
+  if (!enrollments.length) return
+
+  const existing = await prisma.examAttempt.findMany({
+    where: {
+      examScheduleId: scheduleId,
+      studentId: { in: enrollments.map((item) => item.studentId) },
+    },
+    select: { studentId: true },
+  })
+  const existingStudentIds = new Set(existing.map((item) => item.studentId))
+  const missing = enrollments.filter((item) => !existingStudentIds.has(item.studentId))
+  if (!missing.length) return
+
+  await prisma.examAttempt.createMany({
+    data: missing.map((item) => ({
+      examScheduleId: scheduleId,
+      courseOfferingId: item.courseOfferingId,
+      studentId: item.studentId,
+      attemptNo: 1,
+      startedAt: schedule.endTime,
+      deadlineAt: schedule.endTime,
+      submittedAt: null,
+      endedBy: 'SYSTEM',
+      status: 'GRADED',
+      autoScore: 0,
+      totalScore: 0,
+      manualScore: 0,
+      lastSavedAt: schedule.endTime,
+    })),
+    skipDuplicates: true,
+  })
+}
+
+export async function listSubmissions(scheduleId: string, courseOfferingIds: string[], page: number, pageSize: number) {
+  await ensureZeroAttemptsForAbsentees(scheduleId, courseOfferingIds)
+  const makeupSchedules = await prisma.examSchedule.findMany({
+    where: { makeupOfScheduleId: scheduleId },
+    select: { id: true },
+  })
+  const scheduleIds = [scheduleId, ...makeupSchedules.map((schedule) => schedule.id)]
   const where: Prisma.ExamAttemptWhereInput = {
-    examScheduleId: scheduleId,
+    examScheduleId: { in: scheduleIds },
     courseOfferingId: { in: courseOfferingIds },
     status: { not: 'IN_PROGRESS' },
   }
-  return Promise.all([
-    prisma.examAttempt.count({ where }),
-    prisma.examAttempt.findMany({
-      where, include: submissionInclude,
-      skip: (page - 1) * pageSize, take: pageSize,
-      orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }],
-    }),
-  ])
+  const rows = await prisma.examAttempt.findMany({
+    where,
+    include: submissionInclude,
+    orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }],
+  })
+  const byStudent = new Map<string, (typeof rows)[number]>()
+  for (const row of rows) {
+    const current = byStudent.get(row.studentId)
+    const isMakeup = row.examSchedule.makeupOfScheduleId === scheduleId
+    const currentIsMakeup = current?.examSchedule.makeupOfScheduleId === scheduleId
+    if (!current || (isMakeup && !currentIsMakeup)) {
+      byStudent.set(row.studentId, row)
+    }
+  }
+  const merged = [...byStudent.values()].sort((a, b) =>
+    a.student.studentCode.localeCompare(b.student.studentCode),
+  )
+  return [
+    merged.length,
+    merged.slice((page - 1) * pageSize, page * pageSize),
+  ] as const
 }
 
 export function listViolations(
@@ -503,8 +569,7 @@ export function finalizeScores(input: {
     const attempts = await tx.examAttempt.findMany({
       where: {
         id: { in: attemptIds },
-        examScheduleId: input.scheduleId,
-        examSchedule: { examId: input.examId, ...gradingAccess(input.teacherId) },
+        examSchedule: { OR: [{ id: input.scheduleId }, { makeupOfScheduleId: input.scheduleId }], examId: input.examId, ...gradingAccess(input.teacherId) },
         courseOffering: { teacherId: input.teacherId },
         status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED'] },
       },

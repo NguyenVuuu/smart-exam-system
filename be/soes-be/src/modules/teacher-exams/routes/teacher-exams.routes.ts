@@ -22,6 +22,7 @@ router.patch('/exams/:id/student-visibility', asyncHandler(controller.updateStud
 router.get('/exams/:id/schedules', asyncHandler(controller.listSchedules))
 router.post('/exams/:id/schedules', asyncHandler(controller.createSchedule))
 router.put('/exams/:id/schedules/:scheduleId', asyncHandler(controller.updateSchedule))
+router.post('/exams/:id/schedules/:scheduleId/makeup', asyncHandler(controller.createMakeupSchedule))
 router.post('/exams/:id/schedules/:scheduleId/cancel', asyncHandler(controller.cancelSchedule))
 router.get('/exams/:id/schedules/:scheduleId/submissions', asyncHandler(controller.listSubmissions))
 router.get('/exams/:id/schedules/:scheduleId/violations', asyncHandler(controller.listViolations))

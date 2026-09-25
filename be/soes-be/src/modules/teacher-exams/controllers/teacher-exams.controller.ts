@@ -6,7 +6,7 @@ import * as scheduleService from '../services/teacher-exam-schedule.service'
 import * as gradingService from '../services/teacher-exam-grading.service'
 import * as lifecycleService from '../services/teacher-exam-lifecycle.service'
 import { autoGenerateExamSchema, examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, examStudentVisibilitySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
-import { teacherExamScheduleBodySchema, teacherScheduleCancellationSchema } from '../validators/teacher-exam-schedule.validator'
+import { teacherExamScheduleBodySchema, teacherMakeupScheduleBodySchema, teacherScheduleCancellationSchema } from '../validators/teacher-exam-schedule.validator'
 import { bulkFinalizeScoresSchema, finalizeScoreSchema, invalidateAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
 
 const idParam = z.object({ id: z.string().min(1) })
@@ -56,6 +56,16 @@ export const updateSchedule = async (req: Request, res: Response) => {
 export const cancelSchedule = async (req: Request, res: Response) => {
   const params = z.object({ id: z.string().min(1), scheduleId: z.string().min(1) }).parse(req.params)
   send(res, await scheduleService.cancel(req.user!.profileId, req.user!.id, params.scheduleId, teacherScheduleCancellationSchema.parse(req.body).reason))
+}
+export const createMakeupSchedule = async (req: Request, res: Response) => {
+  const params = z.object({ id: z.string().min(1), scheduleId: z.string().min(1) }).parse(req.params)
+  send(res, await scheduleService.createMakeup(
+    req.user!.profileId,
+    req.user!.id,
+    params.id,
+    params.scheduleId,
+    teacherMakeupScheduleBodySchema.parse(req.body),
+  ), 201)
 }
 
 const gradingParams = z.object({

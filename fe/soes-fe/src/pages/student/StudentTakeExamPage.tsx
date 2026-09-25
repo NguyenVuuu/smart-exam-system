@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, Save, Send, ShieldAlert } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, Save, ShieldAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -550,15 +550,6 @@ export default function StudentTakeExamPage() {
                           Tiếp theo
                           <ChevronRight size={16} aria-hidden="true" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={handleSubmitRequest}
-                          disabled={phase !== 'IN_PROGRESS'}
-                          className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 text-xs font-semibold text-white shadow-sm shadow-purple-200 transition-colors hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/40 disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1"
-                        >
-                          <Send size={15} aria-hidden="true" />
-                          Nộp bài
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -571,8 +562,10 @@ export default function StudentTakeExamPage() {
                 answers={answers}
                 flaggedQuestionIds={flaggedQuestionIds}
                 isOpen={isQuestionNavigatorOpen}
+                canSubmit={phase === 'IN_PROGRESS'}
                 onToggleOpen={() => setIsQuestionNavigatorOpen((isOpen) => !isOpen)}
                 onSelect={handleQuestionSelect}
+                onSubmit={handleSubmitRequest}
               />
             </div>
         </div>

@@ -140,6 +140,7 @@ export interface ExamSubmission {
   studentCode: string
   studentName: string
   submittedAt: string
+  hasSubmitted: boolean
   autoScore: number | null
   manualScoreOverride?: number | null
   overrideReason?: string

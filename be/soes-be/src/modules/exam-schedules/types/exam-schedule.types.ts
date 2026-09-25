@@ -15,4 +15,6 @@ export interface ScheduleWriteInput {
   resultReleaseMode: ResultReleaseMode; resultReleaseAt: Date | null
   reviewPolicy: ReviewPolicy; reviewStartAt: Date | null; reviewEndAt: Date | null
   status: 'DRAFT' | 'SCHEDULED'; courses: ScheduleCourseInput[]
+  makeupOfScheduleId?: string | null
+  targetStudentIds?: string[]
 }

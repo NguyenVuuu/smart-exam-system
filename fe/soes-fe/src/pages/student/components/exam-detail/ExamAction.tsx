@@ -57,6 +57,7 @@ export default function ExamAction({ data }: ExamActionProps) {
     const targetScheduleId = scheduleId ?? data.id
     const hasValidWebcam = hasActiveExamWebcam() && isExamWebcamStreamLive(webcam.stream)
     const hasValidScreenShare = isExamScreenShareStreamLive(screenShare.stream)
+    const hasValidFullscreen = !data.requireFullscreen || Boolean(document.fullscreenElement)
 
     if (data.enableWebcam && !hasValidWebcam) {
       toast.error('Camera chưa sẵn sàng', {
@@ -67,6 +68,13 @@ export default function ExamAction({ data }: ExamActionProps) {
     if (data.enableScreenMonitoring && !hasValidScreenShare) {
       toast.error('Chưa chia sẻ toàn màn hình', {
         description: 'Bạn phải chia sẻ toàn màn hình trước khi vào làm bài.',
+      })
+      return
+    }
+
+    if (data.requireFullscreen && !hasValidFullscreen) {
+      toast.error('Chưa bật toàn màn hình', {
+        description: 'Bạn phải bật chế độ toàn màn hình trước khi vào làm bài.',
       })
       return
     }
@@ -97,7 +105,7 @@ export default function ExamAction({ data }: ExamActionProps) {
   }
 
   const handleStartExam = () => {
-    if (data.enableWebcam || data.enableScreenMonitoring || (!canResume && data.requiresPassword)) {
+    if (data.enableWebcam || data.enableScreenMonitoring || data.requireFullscreen || (!canResume && data.requiresPassword)) {
       setIsWebcamDialogOpen(true)
       return
     }
@@ -108,6 +116,9 @@ export default function ExamAction({ data }: ExamActionProps) {
     if (isStarting) return
     webcam.stop()
     screenShare.stop()
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined)
+    }
     setPassword('')
     setIsWebcamDialogOpen(false)
   }
@@ -120,12 +131,14 @@ export default function ExamAction({ data }: ExamActionProps) {
     void screenShare.start().catch(() => undefined)
   }
 
+  const handleEnableFullscreen = () => document.documentElement.requestFullscreen()
+
   const label = canResume ? 'Tiếp tục làm bài' : 'Vào làm bài'
 
   return (
     <>
       <div className="w-full space-y-3 sm:w-auto">
-        {(data.enableWebcam || data.enableScreenMonitoring || data.requiresPassword) && (
+        {(data.enableWebcam || data.enableScreenMonitoring || data.requireFullscreen || data.requiresPassword) && (
           <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-[11px] text-blue-900">
             <p className="font-bold">Kiểm tra trước khi vào thi</p>
             <div className="mt-2 grid gap-1.5">
@@ -157,11 +170,13 @@ export default function ExamAction({ data }: ExamActionProps) {
         isStartingExam={isStarting}
         requiresWebcam={data.enableWebcam}
         requiresScreenShare={data.enableScreenMonitoring}
+        requiresFullscreen={data.requireFullscreen}
         requiresPassword={!canResume && data.requiresPassword}
         password={password}
         onPasswordChange={setPassword}
         onEnableCamera={handleEnableCamera}
         onEnableScreenShare={handleEnableScreenShare}
+        onEnableFullscreen={handleEnableFullscreen}
         onClose={handleCloseWebcamDialog}
         onContinue={() => void startOrResumeExam()}
       />

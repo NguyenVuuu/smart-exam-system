@@ -13,7 +13,7 @@ import * as scheduleRepo from "../../exam-schedules/repositories/exam-schedule.r
 import type { ScheduleWriteInput } from "../../exam-schedules/types/exam-schedule.types";
 import * as repo from "../repositories/teacher-exam-schedule.repository";
 import { notifyUsers } from "../../notifications/notifications.service";
-import type { TeacherExamScheduleBody } from "../validators/teacher-exam-schedule.validator";
+import type { TeacherExamScheduleBody, TeacherMakeupScheduleBody } from "../validators/teacher-exam-schedule.validator";
 
 async function toWriteInput(
   teacherId: string,
@@ -138,6 +138,48 @@ export async function create(
     { link: `/student/course-offerings/${target.courseOfferingId}/exam-schedules/${dto.id}` },
   )));
   return dto;
+}
+
+export async function createMakeup(
+  teacherId: string,
+  userId: string,
+  examId: string,
+  sourceScheduleId: string,
+  data: TeacherMakeupScheduleBody,
+) {
+  const source = await runSerializable(async (tx) => {
+    const current = await repo.findOwnedScheduleForMakeup(tx, teacherId, userId, examId, sourceScheduleId)
+    if (!current) throw new NotFoundError("Exam schedule not found")
+    return current
+  })
+  const course = source.scheduleCourses[0]?.courseOffering
+  if (!course) throw new NotFoundError("Course offering not found")
+
+  const students = await repo.listCourseStudents(course.id, data.studentIds)
+  if (students.length !== new Set(data.studentIds).size) {
+    throw new ValidationError("Some selected students are not enrolled in this course offering")
+  }
+
+  const input = await toWriteInput(teacherId, examId, source.exam.title, course.code, {
+    ...data,
+    courseOfferingId: course.id,
+  })
+  input.title = `${input.title} (Dự phòng)`
+  input.makeupOfScheduleId = sourceScheduleId
+  input.targetStudentIds = data.studentIds
+
+  const row = await runSerializable(async (tx) => {
+    await assertNoConflict(tx, teacherId, course.id, input)
+    return scheduleRepo.createSchedule(tx, input, userId)
+  })
+  const dto = toExamScheduleDto(row)
+  await Promise.all(students.map((student) => notifyUsers(
+    [student.userId],
+    "Ca thi dự phòng",
+    `Giảng viên vừa tạo ca thi dự phòng "${dto.title}" cho bạn.`,
+    { link: `/student/course-offerings/${course.id}/exam-schedules/${dto.id}` },
+  )))
+  return dto
 }
 
 export async function update(

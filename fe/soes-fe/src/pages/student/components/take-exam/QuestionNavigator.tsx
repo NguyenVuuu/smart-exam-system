@@ -1,4 +1,4 @@
-import { CheckCircle2, List, X } from 'lucide-react'
+import { CheckCircle2, List, Send, X } from 'lucide-react'
 import type {
   QuestionAnswer,
   TakeExamQuestion,
@@ -11,8 +11,10 @@ interface QuestionNavigatorProps {
   answers: Record<string, QuestionAnswer | undefined>
   flaggedQuestionIds: string[]
   isOpen: boolean
+  canSubmit: boolean
   onToggleOpen: () => void
   onSelect: (questionId: string) => void
+  onSubmit: () => void
 }
 
 interface QuestionGridProps {
@@ -92,8 +94,10 @@ export default function QuestionNavigator({
   answers,
   flaggedQuestionIds,
   isOpen,
+  canSubmit,
   onToggleOpen,
   onSelect,
+  onSubmit,
 }: QuestionNavigatorProps) {
   const answeredCount = questions.filter((question) => hasAnswer(answers[question.id])).length
 
@@ -121,7 +125,7 @@ export default function QuestionNavigator({
             id="take-exam-mobile-question-list"
             className="take-exam-mobile-navigator mt-2 rounded-xl border border-slate-100 bg-white p-4 shadow-lg"
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Danh sách câu hỏi</h2>
                 <p className="mt-1 text-xs text-slate-400">Chọn câu để chuyển nhanh</p>
@@ -135,6 +139,15 @@ export default function QuestionNavigator({
                 <X size={17} aria-hidden="true" />
               </button>
             </div>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={!canSubmit}
+              className="mb-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 text-xs font-semibold text-white shadow-sm shadow-purple-200 transition-colors hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Send size={15} aria-hidden="true" />
+              Nộp bài
+            </button>
             <QuestionGrid
               questions={questions}
               currentQuestionId={currentQuestionId}
@@ -151,6 +164,17 @@ export default function QuestionNavigator({
       </div>
 
       <aside className="take-exam-navigator hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:block">
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={!canSubmit}
+            className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 text-xs font-semibold text-white shadow-sm shadow-purple-200 transition-colors hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Send size={15} aria-hidden="true" />
+            Nộp bài
+          </button>
+        </div>
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-slate-900">Danh sách câu hỏi</h2>

@@ -14,6 +14,7 @@ export interface ExamDetailResponseDto {
   requiresPassword: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
+  requireFullscreen: boolean
   status: ExamAvailabilityStatus
   remainingSeconds?: number | null
   canResume?: boolean

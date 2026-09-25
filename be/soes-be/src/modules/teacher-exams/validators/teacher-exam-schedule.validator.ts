@@ -32,4 +32,8 @@ export const teacherExamScheduleBodySchema = z.object({
 })
 
 export const teacherScheduleCancellationSchema = z.object({ reason: z.string().trim().min(5).max(1000) })
+export const teacherMakeupScheduleBodySchema = teacherExamScheduleBodySchema.extend({
+  studentIds: z.array(z.string().uuid()).min(1).max(200),
+})
 export type TeacherExamScheduleBody = z.infer<typeof teacherExamScheduleBodySchema>
+export type TeacherMakeupScheduleBody = z.infer<typeof teacherMakeupScheduleBodySchema>
