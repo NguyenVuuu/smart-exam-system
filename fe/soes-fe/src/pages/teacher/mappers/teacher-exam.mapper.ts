@@ -99,6 +99,7 @@ export const toExamSchedule = (dto: TeacherExamScheduleDto): ExamSchedule => {
 export const toExamSubmission = (dto: TeacherExamSubmissionDto): ExamSubmission => ({
   ...dto,
   submittedAt: dto.submittedAt ?? '',
+  hasSubmitted: dto.submittedAt !== null,
   answers: dto.answers.map((answer) => ({
     ...answer,
     sourceCode: answer.sourceCode ?? undefined,
