@@ -16,6 +16,7 @@ export async function findScheduleById(scheduleId: string) {
       enableScreenMonitoring: true,
       distributionMode: true,
       randomQuestionCount: true,
+      targetStudents: { select: { studentId: true } },
       exam: { select: { id: true, status: true, studentVisibility: true } },
     },
   })
@@ -26,6 +27,10 @@ export async function findEnrollment(scheduleId: string, studentId: string) {
     where: {
       studentId,
       courseOffering: { scheduleCourses: { some: { examScheduleId: scheduleId } } },
+      OR: [
+        { courseOffering: { scheduleCourses: { some: { examScheduleId: scheduleId, examSchedule: { targetStudents: { none: {} } } } } } },
+        { courseOffering: { scheduleCourses: { some: { examScheduleId: scheduleId, examSchedule: { targetStudents: { some: { studentId } } } } } } },
+      ],
     },
     select: { id: true, courseOfferingId: true },
   })

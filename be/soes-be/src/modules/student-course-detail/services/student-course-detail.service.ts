@@ -43,7 +43,7 @@ export class StudentCourseDetailService {
   ): Promise<TimelineResponseDto> {
     await repo.findCourseHeader(courseOfferingId, studentId)
 
-    const { posts, exams, totalPosts, totalExams } = await repo.findTimeline(courseOfferingId, page, pageSize)
+    const { posts, exams, totalPosts, totalExams } = await repo.findTimeline(courseOfferingId, studentId, page, pageSize)
 
     const transformedPosts = posts.map((p) => ({
       id: p.id,

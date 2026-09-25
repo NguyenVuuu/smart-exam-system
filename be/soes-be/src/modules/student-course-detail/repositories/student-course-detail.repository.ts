@@ -65,6 +65,7 @@ export class StudentCourseDetailRepository {
   // ────────────────────────────────────────────────────────────
   async findTimeline(
     courseOfferingId: string,
+    studentId: string,
     page: number,
     pageSize: number,
   ): Promise<{ posts: any[]; exams: any[]; totalPosts: number; totalExams: number }> {
@@ -86,6 +87,10 @@ export class StudentCourseDetailRepository {
     const scheduleWhere = {
       ...studentVisibleScheduleWhere(),
       scheduleCourses: { some: { courseOfferingId } },
+      OR: [
+        { targetStudents: { none: {} } },
+        { targetStudents: { some: { studentId } } },
+      ],
     }
 
     const [totalPosts, totalExams, posts, schedules] = await Promise.all([
@@ -268,6 +273,10 @@ export class StudentCourseDetailRepository {
         ...studentVisibleScheduleWhere(),
         id: scheduleId,
         scheduleCourses: { some: { courseOfferingId } },
+        OR: [
+          { targetStudents: { none: {} } },
+          { targetStudents: { some: { studentId } } },
+        ],
       },
       select: {
         id: true,
@@ -279,6 +288,7 @@ export class StudentCourseDetailRepository {
         passwordHash: true,
         enableWebcam: true,
         enableScreenMonitoring: true,
+        requireFullscreen: true,
         status: true,
         publishedAt: true,
         exam: { select: { description: true } },
@@ -353,6 +363,7 @@ export class StudentCourseDetailRepository {
       requiresPassword: schedule.passwordHash !== null,
       enableWebcam: schedule.enableWebcam,
       enableScreenMonitoring: schedule.enableScreenMonitoring,
+      requireFullscreen: schedule.requireFullscreen,
       status,
       remainingSeconds,
       canResume,
@@ -587,6 +598,7 @@ export interface ExamDetailRow {
   requiresPassword: boolean
   enableWebcam: boolean
   enableScreenMonitoring: boolean
+  requireFullscreen: boolean
   status: string
   remainingSeconds?: number | null
   canResume?: boolean

@@ -130,6 +130,7 @@ export class StudentCourseDetailMapper {
       requiresPassword: row.requiresPassword,
       enableWebcam: row.enableWebcam,
       enableScreenMonitoring: row.enableScreenMonitoring,
+      requireFullscreen: row.requireFullscreen,
       status: row.status as ExamAvailabilityStatus,
       remainingSeconds: row.remainingSeconds,
       canResume: row.canResume,
