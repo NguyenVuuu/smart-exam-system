@@ -36,6 +36,7 @@ model Student {
   userId       String        @unique
   enrollments  Enrollment[]  @relation("StudentEnrollments")
   examAttempts ExamAttempt[] @relation("StudentExamAttempts")
+  targetExamSchedules ExamScheduleStudent[]
   gradeAppeals GradeAppeal[] @relation("StudentGradeAppeals")
   user         User          @relation(fields: [userId], references: [id])
 }
@@ -478,18 +479,35 @@ model ExamSchedule {
   publishedAt            DateTime?
   cancelledAt            DateTime?
   cancellationReason     String?
+  makeupOfScheduleId     String?
   createdById            String
   createdAt              DateTime             @default(now())
   updatedAt              DateTime             @updatedAt
   exam                   Exam                 @relation(fields: [examId], references: [id])
+  makeupOfSchedule       ExamSchedule?        @relation("MakeupExamSchedules", fields: [makeupOfScheduleId], references: [id])
+  makeupSchedules        ExamSchedule[]       @relation("MakeupExamSchedules")
   createdBy              User                 @relation("ScheduleCreator", fields: [createdById], references: [id])
   scheduleCourses        ExamScheduleCourse[]
+  targetStudents         ExamScheduleStudent[]
   attempts               ExamAttempt[]
 
   @@index([examId])
+  @@index([makeupOfScheduleId])
   @@index([createdById])
   @@index([startTime, endTime])
   @@index([status])
+}
+
+model ExamScheduleStudent {
+  id             String       @id @default(uuid())
+  examScheduleId String
+  studentId      String
+  createdAt      DateTime     @default(now())
+  examSchedule   ExamSchedule @relation(fields: [examScheduleId], references: [id], onDelete: Cascade)
+  student        Student      @relation(fields: [studentId], references: [id])
+
+  @@unique([examScheduleId, studentId])
+  @@index([studentId])
 }
 
 model ExamScheduleCourse {
