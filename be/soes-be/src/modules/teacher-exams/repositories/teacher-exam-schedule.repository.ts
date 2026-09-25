@@ -80,3 +80,39 @@ export const findOwnedSchedule = (tx: Prisma.TransactionClient, teacherId: strin
       _count: { select: { attempts: true } },
     },
   })
+
+export const findOwnedScheduleForMakeup = (
+  tx: Prisma.TransactionClient,
+  teacherId: string,
+  userId: string,
+  examId: string,
+  scheduleId: string,
+) => tx.examSchedule.findFirst({
+  where: {
+    id: scheduleId,
+    examId,
+    createdById: userId,
+    exam: { createdById: teacherId },
+    scheduleCourses: { some: { courseOffering: { teacherId } } },
+  },
+  select: {
+    id: true,
+    title: true,
+    status: true,
+    startTime: true,
+    endTime: true,
+    exam: { select: { title: true, status: true } },
+    scheduleCourses: {
+      take: 1,
+      select: { courseOffering: { select: { id: true, code: true, subjectId: true, semesterId: true } } },
+    },
+  },
+})
+
+export const listCourseStudents = (courseOfferingId: string, studentIds: string[]) => prisma.student.findMany({
+  where: {
+    id: { in: studentIds },
+    enrollments: { some: { courseOfferingId } },
+  },
+  select: { id: true, userId: true },
+})
