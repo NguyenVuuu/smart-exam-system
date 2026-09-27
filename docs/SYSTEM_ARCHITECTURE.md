@@ -1,645 +1,153 @@
-# SYSTEM ARCHITECTURE
+# System Architecture
 
-# 1. Tổng quan
+## Tổng quan
 
-SOES (Smart Online Examination System) áp dụng kiến trúc **Modular Monolith**.
+SOES triển khai theo mô hình modular monolith:
 
-Hệ thống được chia thành nhiều module độc lập nhưng được triển khai dưới dạng một ứng dụng backend duy nhất.
-
-Kiến trúc này mang lại:
-
-- Dễ phát triển đối với nhóm nhỏ.
-- Dễ triển khai và bảo trì.
-- Giảm độ phức tạp so với Microservices.
-- Tách biệt rõ trách nhiệm giữa các module.
-- Dễ mở rộng trong tương lai.
-
----
-
-# 2. Kiến trúc tổng thể
+- Frontend: React/Vite SPA.
+- Backend: Express/TypeScript API server.
+- Database: PostgreSQL qua Prisma ORM.
+- Realtime: Socket.IO, có Redis adapter.
+- Storage: Supabase Storage cho tài liệu/asset, MinIO cho bằng chứng proctoring.
+- External services: Gemini AI, Judge0 CE.
 
 ```text
-+------------------------------------------------------+
-|                      Frontend                        |
-|                                                      |
-|         React + Vite + TypeScript + Tailwind        |
-+---------------------------+--------------------------+
-                            |
-                            | REST API / WebSocket
-                            |
-+------------------------------------------------------+
-|                      Backend                         |
-|                                                      |
-|            Node.js + Express + TypeScript           |
-|                                                      |
-| +--------------+ +-------------+ +---------------+ |
-| | Auth Module  | | User Module | | Academic     | |
-| |              | |             | | Module       | |
-| +--------------+ +-------------+ +---------------+ |
-|                                                      |
-| +--------------+ +-------------+ +---------------+ |
-| | Material     | | Question    | | Examination  | |
-| | Module       | | Module      | | Module       | |
-| +--------------+ +-------------+ +---------------+ |
-|                                                      |
-| +--------------+ +-------------+ +---------------+ |
-| | Submission   | | Grading     | | Notification | |
-| | Module       | | Module      | | Module       | |
-| +--------------+ +-------------+ +---------------+ |
-|                                                      |
-| +--------------+ +-------------+ +---------------+ |
-| | Proctoring   | | AI Module   | | Audit Module | |
-| | Module       | |             | |              | |
-| +--------------+ +-------------+ +---------------+ |
-+------------------------------------------------------+
-                            |
-                            |
-+------------------------------------------------------+
-|                   Infrastructure                     |
-|                                                      |
-| PostgreSQL                                           |
-| Redis                                                |
-| MinIO                                                |
-| Gemini API                                           |
-| Judge0 CE                                            |
-+------------------------------------------------------+
+React/Vite SPA
+    |
+    | REST API + Socket.IO
+    v
+Express/TypeScript Backend
+    |
+    +-- PostgreSQL/Prisma
+    +-- Redis
+    +-- Supabase Storage
+    +-- MinIO
+    +-- Gemini API
+    +-- Judge0 CE
 ```
 
----
-
-# 3. Frontend Architecture
-
-## Công nghệ sử dụng
-
-- React
-- Vite
-- TypeScript
-- TailwindCSS
-- Shadcn UI
-- Axios
-- TanStack Query (React Query)
-- Zustand
-- Socket.IO Client
-
----
-
-## Cấu trúc thư mục đề xuất
-
-```text
-src/
-├── assets/
-├── components/
-├── features/
-├── hooks/
-├── layouts/
-├── pages/
-├── routes/
-├── services/
-├── stores/
-├── types/
-├── utils/
-├── constants/
-├── App.tsx
-└── main.tsx
-```
-
-Kiến trúc Frontend theo hướng **Feature-based**.
-
-Ví dụ:
-
-```text
-features/
-├── auth/
-├── users/
-├── semesters/
-├── subjects/
-├── courses/
-├── materials/
-├── questions/
-├── exams/
-├── submissions/
-├── grades/
-├── notifications/
-└── proctoring/
-```
-
----
-
-# 4. Backend Architecture
-
-## Công nghệ sử dụng
-
-- Node.js
-- Express.js
-- TypeScript
-- Prisma ORM
-- JWT Authentication
-- Socket.IO
-
----
+## Frontend
 
-## Cấu trúc thư mục đề xuất
-
-```text
-src/
-├── config/
-├── modules/
-├── middlewares/
-├── routes/
-├── services/
-├── repositories/
-├── sockets/
-├── utils/
-├── jobs/
-├── prisma/
-├── types/
-├── app.ts
-└── server.ts
-```
+Thư mục chính: `fe/soes-fe/src`.
 
-Mỗi module nên được tổ chức theo cấu trúc:
+Kiến trúc frontend tổ chức theo khu vực người dùng:
 
-```text
-modules/
-└── auth/
-    ├── auth.controller.ts
-    ├── auth.service.ts
-    ├── auth.repository.ts
-    ├── auth.validation.ts
-    ├── auth.routes.ts
-    └── auth.types.ts
-```
+- `pages/admin`: quản trị học vụ, người dùng, lịch thi, ngân hàng câu hỏi, báo cáo, audit log, settings.
+- `pages/teacher`: lớp học phần, ngân hàng câu hỏi, AI generator, đề thi, coi thi, chấm điểm, phúc khảo.
+- `pages/student`: dashboard, lớp học phần, lịch thi, làm bài, kết quả, thông báo, cài đặt.
+- `router`: phân quyền route theo `ADMIN`, `TEACHER`, `STUDENT`.
+- `store`: Zustand stores cho auth và system settings.
 
----
+Các route đang được khai báo trong `src/router/AppRouter.tsx`.
 
-# 5. Core Modules
+## Backend
 
-# 5.1 Authentication Module
+Thư mục chính: `be/soes-be/src`.
 
-Chức năng:
+Backend mount các nhóm route trong `src/app.ts`:
 
-- Đăng nhập.
-- Đăng xuất.
-- Quản lý JWT.
-- Refresh Token.
-- Quản lý phiên đăng nhập.
-- Ngăn đăng nhập trên nhiều thiết bị.
-- Đổi mật khẩu.
+- `/api/auth`
+- `/api/system-settings`
+- `/api/student`
+- `/api/student/course-offerings`
+- `/api/admin`
+- `/api/teacher`
+- `/api/teacher/notifications`
 
-Entity chính:
+Các module chính:
 
-- User
-- RefreshToken
+- `auth`: đăng nhập, refresh token, logout, hồ sơ cá nhân, đổi mật khẩu.
+- `admin-academic`: semester, department, subject, course offering.
+- `admin-users`: users, enrollment, reset password, status.
+- `admin-content`: shared question bank, exam tracking.
+- `admin-audit-logs`: audit log list/detail/export/overview.
+- `admin-monitoring`: proctoring/report overview cho admin.
+- `admin-system-settings`: settings, logo, defaults, integration health.
+- `teacher-courses`: lớp học phần, materials, posts, students, exams, gradebook, proctor assignments.
+- `teacher-questions`: question bank, question image upload, AI source file upload, audit, share/archive/restore, approvals.
+- `teacher-exams`: exam CRUD, schedules, makeup schedules, submissions, grading, result release, proctoring, live signaling fallback.
+- `ai-question-generation`: AI generation histories/materials/generate/review.
+- `student-dashboard`, `student-subjects`, `student-course-detail`, `student-portal`, `student-take-exam`.
+- `grade-appeals`: student tạo phúc khảo, teacher xử lý.
+- `notifications`: notification list/read cho teacher.
+- `proctoring`: Socket.IO realtime gateway.
 
----
+Mỗi module thường có các lớp `routes`, `controllers`, `services`, `repositories`, `validators`, `mappers`, `dtos`.
 
-# 5.2 User Module
+## Authentication and Authorization
 
-Chức năng:
+- Login dùng `identifier` theo prefix:
+  - `SV...`: Student
+  - `GV...`: Teacher
+  - `AD...`: Admin
+- Access token là JWT chứa `sub`, `profileId`, `role`.
+- Refresh token lưu trong HttpOnly cookie và Redis.
+- Student bị giới hạn một phiên đăng nhập đang hoạt động; Teacher/Admin có thể đăng nhập lại từ nhiều thiết bị.
+- Route frontend kiểm soát vai trò bằng `RoleRoute`.
 
-- Quản lý người dùng.
-- Quản lý giảng viên.
-- Quản lý sinh viên.
-- Quản lý hồ sơ cá nhân.
+## Database
 
-Entity chính:
+Prisma schema nằm tại `be/soes-be/prisma/schema.prisma`.
 
-- User
+Các domain chính:
 
----
+- Identity: `User`, `Student`, `Teacher`, `Admin`.
+- Academic: `Department`, `Semester`, `Subject`, `CourseOffering`, `Enrollment`.
+- Content: `Post`, `PostAttachment`, `Material`.
+- Question bank: `QuestionBank`, `QuestionBankItem`, `Question`, `QuestionOption`, programming config/test cases.
+- AI: `AIGenerationHistory`, `AIGenerationMaterial`.
+- Exam: `Exam`, `ExamSection`, `ExamQuestion`, `ExamSchedule`, `ExamScheduleCourse`, `ExamScheduleStudent`, `ExamScheduleProctor`.
+- Attempt/grading: `ExamAttempt`, `ExamAttemptQuestion`, `StudentAnswer`, `ProgrammingSubmission`, `ProgrammingSubmissionTestResult`.
+- Proctoring: `ExamSession`, `Violation`, `ViolationEvidence`.
+- System: `Notification`, `AuditLog`, `CodeGenerationSetting`, `GradeAppeal`.
 
-# 5.3 Academic Module
+## Realtime Proctoring
 
-Chức năng:
+Socket.IO gateway trong `src/modules/proctoring/proctoring-realtime.gateway.ts` xử lý:
 
-- Quản lý học kỳ.
-- Quản lý môn học.
-- Quản lý lớp học phần.
-- Quản lý danh sách sinh viên trong lớp.
+- Join schedule room: `proctoring:join_schedule`.
+- Join attempt room: `proctoring:join_attempt`.
+- Request live webcam/screen: `live:request_camera`, `live:request_screen`.
+- WebRTC signaling: `live:student_offer`, `live:teacher_answer`, `live:student_candidate`, `live:teacher_candidate`, `live:end`.
+- Broadcast heartbeat/offline/violation events cho dashboard giảng viên.
 
-Entity chính:
+Redis lưu live session state để hỗ trợ nhiều backend instance.
 
-- Semester
-- Subject
-- CourseOffering
-- Enrollment
+## Storage
 
----
+- MinIO lưu `ViolationEvidence` với bucket cấu hình bằng `MINIO_EVIDENCE_BUCKET`.
+- Supabase Storage lưu course materials, question images, AI source files và system assets.
+- PostgreSQL chỉ lưu metadata/path/object key, không lưu binary file.
 
-# 5.4 Material Module
+## Code Execution
 
-Chức năng:
+Judge0 CE dùng cho câu hỏi lập trình:
 
-- Tải lên tài liệu.
-- Xóa tài liệu.
-- Tải xuống tài liệu.
-- Chọn tài liệu để AI xử lý.
+- Sinh viên chạy thử code trong khi làm bài.
+- Khi nộp bài, hệ thống tạo `ProgrammingSubmission` chính thức và lưu kết quả từng test case.
+- Ngôn ngữ hiện hỗ trợ theo enum Prisma: `JAVA`, `C`, `CPP`.
 
-Định dạng hỗ trợ:
+## AI Generation
 
-- PDF
-- DOCX
-- PPTX
+Gemini được gọi trong module `ai-question-generation`.
 
-Entity chính:
+Luồng chính:
 
-- Material
+1. Teacher chọn source từ course material hoặc upload file.
+2. Backend đọc tài liệu và gọi Gemini.
+3. Kết quả được validate/normalize.
+4. Lưu `AIGenerationHistory`, source files/material links và câu hỏi sinh ra.
+5. Teacher review trước khi dùng câu hỏi trong bank hoặc exam.
 
-Lưu trữ:
+## Local Infrastructure
 
-- MinIO
+`docker-compose.yml` hiện chạy:
 
----
+- `postgres`
+- `redis`
+- `minio`
+- `judge0-db`
+- `judge0-server`
+- `judge0-workers`
 
-# 5.5 Question Module
-
-Chức năng:
-
-- Tạo câu hỏi.
-- Chỉnh sửa câu hỏi.
-- Xóa câu hỏi.
-- Quản lý ngân hàng câu hỏi.
-- Quản lý câu hỏi do AI tạo.
-
-Loại câu hỏi:
-
-- Single Choice
-- Multiple Choice
-- Programming
-
-Entity chính:
-
-- Question
-- AnswerOption
-- TestCase
-
----
-
-# 5.6 AI Module
-
-Chức năng:
-
-- Trích xuất nội dung tài liệu.
-- Sinh câu hỏi bằng AI.
-- Sinh đáp án nhiễu.
-- Hỗ trợ tạo đề thi.
-
-Nhà cung cấp AI:
-
-- Gemini API
-
-Luồng xử lý:
-
-```text
-Giảng viên chọn tài liệu
-            ↓
-Trích xuất nội dung
-            ↓
-Gửi Prompt tới Gemini
-            ↓
-Nhận câu hỏi
-            ↓
-Giảng viên kiểm tra
-            ↓
-Lưu vào ngân hàng hoặc đề thi
-```
-
----
-
-# 5.7 Examination Module
-
-Chức năng:
-
-- Tạo đề thi.
-- Công bố đề thi.
-- Đóng đề thi.
-- Xáo trộn câu hỏi.
-- Quản lý phiên thi.
-
-Trạng thái đề thi:
-
-- DRAFT
-- PUBLISHED
-- CLOSED
-
-Entity chính:
-
-- Exam
-- ExamQuestion
-- ExamSession
-
----
-
-# 5.8 Submission Module
-
-Chức năng:
-
-- Lưu đáp án.
-- Tự động lưu bài làm.
-- Nộp bài.
-- Khôi phục phiên làm bài.
-
-Entity chính:
-
-- Submission
-- SubmissionAnswer
-
----
-
-# 5.9 Programming Module
-
-Chức năng:
-
-- Nhận mã nguồn.
-- Chạy mã nguồn.
-- Chạy Test Case.
-- Trả kết quả thực thi.
-
-Ngôn ngữ hỗ trợ:
-
-- Java
-- C
-- C++
-
-Giải pháp sử dụng:
-
-- Judge0 CE
-
-Luồng xử lý:
-
-```text
-Sinh viên nộp mã nguồn
-              ↓
-Backend gửi tới Judge0
-              ↓
-Judge0 biên dịch và chạy
-              ↓
-So sánh Output
-              ↓
-Tính điểm
-              ↓
-Lưu kết quả
-```
-
----
-
-# 5.10 Grading Module
-
-Chức năng:
-
-- Chấm điểm tự động.
-- Chấm điểm thủ công.
-- Ghi đè điểm.
-- Công bố điểm.
-- Xuất bảng điểm.
-
-Entity chính:
-
-- Grade
-
----
-
-# 5.11 Proctoring Module
-
-Chức năng:
-
-- Giám sát trình duyệt.
-- Giám sát webcam.
-- Phát hiện hành vi đáng ngờ.
-- Lưu bằng chứng vi phạm.
-
----
-
-## Công nghệ sử dụng
-
-### Browser Monitoring
-
-- Browser Events API
-- Fullscreen API
-- Visibility API
-
-Theo dõi:
-
-- Chuyển tab.
-- Thoát fullscreen.
-- Mất focus.
-- Không hoạt động.
-
-### Webcam Monitoring
-
-- WebRTC (`navigator.mediaDevices.getUserMedia`)
-- MediaPipe Face Landmarker
-
-Theo dõi:
-
-- Không phát hiện khuôn mặt.
-- Phát hiện nhiều khuôn mặt.
-
-Khi phát hiện vi phạm:
-
-```text
-MediaPipe Face Landmarker phát hiện bất thường
-                ↓
-Chụp ảnh webcam
-                ↓
-Gửi ảnh về Backend
-                ↓
-Lưu MinIO
-                ↓
-Ghi log vi phạm
-                ↓
-Thông báo realtime cho giảng viên
-```
-
-Entity chính:
-
-- Violation
-- ViolationEvidence
-
-Giao tiếp thời gian thực:
-
-- Socket.IO
-
----
-
-# 5.12 Notification Module
-
-Chức năng:
-
-- Thông báo kỳ thi.
-- Thông báo nộp bài.
-- Thông báo vi phạm.
-
-Phương thức:
-
-- In-app Notification
-- Realtime Notification
-
-Entity chính:
-
-- Notification
-
----
-
-# 5.13 Audit Module
-
-Chức năng:
-
-- Ghi nhận hoạt động hệ thống.
-- Lưu nhật ký bảo mật.
-- Hỗ trợ kiểm tra và truy vết.
-
-Ví dụ:
-
-- Đăng nhập.
-- Tải tài liệu.
-- Tạo đề thi.
-- Chỉnh sửa điểm.
-- Ghi nhận vi phạm.
-
-Entity chính:
-
-- AuditLog
-
----
-
-# 6. Database Layer
-
-## Công nghệ
-
-- PostgreSQL
-
-## ORM
-
-- Prisma ORM
-
-Dữ liệu lưu trữ:
-
-- Người dùng.
-- Học vụ.
-- Kỳ thi.
-- Bài làm.
-- Điểm số.
-- Vi phạm.
-
----
-
-# 7. Cache Layer
-
-## Công nghệ
-
-- Redis
-
-Chức năng:
-
-- Cache dữ liệu.
-- Lưu session tạm thời.
-- Lưu Refresh Token.
-- Tăng hiệu năng hệ thống.
-
----
-
-# 8. Storage Layer
-
-## Công nghệ
-
-- MinIO
-
-Dùng để lưu:
-
-- Tài liệu học tập.
-- Ảnh vi phạm từ webcam.
-- Tệp xuất báo cáo.
-
----
-
-# 9. Realtime Communication
-
-## Công nghệ
-
-- Socket.IO
-
-Dùng cho:
-
-- Giám sát thi thời gian thực.
-- Dashboard giảng viên.
-- Thông báo realtime.
-- Đồng bộ trạng thái bài thi.
-
----
-
-# 10. External Integrations
-
-## Gemini API
-
-Mục đích:
-
-- Sinh câu hỏi bằng AI.
-
----
-
-## Judge0 CE
-
-Mục đích:
-
-- Biên dịch và chạy chương trình.
-- Chấm điểm bài lập trình.
-
----
-
-# 11. Security Architecture
-
-Các cơ chế bảo mật:
-
-- JWT Authentication.
-- Refresh Token Rotation.
-- Role-Based Access Control (RBAC).
-- Mã hóa mật khẩu bằng Argon2.
-- Input Validation.
-- Rate Limiting.
-- CORS.
-- Helmet Security Headers.
-
----
-
-# 12. Deployment Architecture
-
-## Môi trường phát triển
-
-Sử dụng Docker Compose:
-
-```text
-services:
-- frontend
-- backend
-- postgres
-- redis
-- minio
-- judge0
-```
-
----
-
-## Môi trường triển khai
-
-```text
-Frontend (React + Vite)
-            ↓
-Vercel
-
-Backend (Express.js)
-            ↓
-Railway / Render
-
-Database
-            ↓
-Neon PostgreSQL
-
-Redis
-            ↓
-Upstash Redis
-
-Object Storage
-            ↓
-MinIO
-```
+Frontend và backend không nằm trong compose, chạy bằng `npm run dev` trong từng thư mục.

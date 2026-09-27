@@ -1,91 +1,84 @@
 # Realtime Proctoring Implementation
 
-## Scope Completed
+## Scope
 
-This document records the implemented realtime proctoring architecture after the Socket.IO/Redis/MinIO upgrade.
+Realtime proctoring hiện dùng kết hợp REST API, Socket.IO, Redis, WebRTC, MinIO và PostgreSQL.
 
-Completed items:
+REST API là nguồn sự thật cho dữ liệu bền vững:
 
-- Socket.IO gateway for proctoring dashboard and WebRTC signaling.
-- JWT authentication for socket connections.
-- Teacher schedule rooms and student attempt rooms.
-- Redis-backed live camera session state.
-- Socket.IO Redis adapter for multi-instance event propagation.
-- Socket-based WebRTC offer, answer, and ICE candidate exchange.
-- Realtime violation broadcast to teacher dashboards.
-- Realtime heartbeat and offline broadcast.
-- MinIO-first evidence storage with production-safe failure behavior.
+- `ExamAttempt`
+- `ExamSession`
+- `Violation`
+- `ViolationEvidence`
+- review/invalidation actions
 
-## Runtime Architecture
+Socket.IO dùng cho live state và signaling:
 
-REST API remains the source of truth for persistent data:
-
-- exam attempts
-- exam sessions
-- violations
-- violation evidence metadata
-- review status
-- invalidation actions
-
-Socket.IO is used for live state and realtime events:
-
-- student heartbeat updates
-- student offline events
-- newly created violations
-- ended violations
-- reviewed violations
-- live camera request
-- WebRTC offer/answer
-- WebRTC ICE candidates
+- heartbeat/offline broadcast
+- violation created/ended/reviewed broadcast
+- live webcam/screen request
+- WebRTC offer/answer/ICE candidates
 - live session end
+
+## Socket Gateway
+
+Gateway: `be/soes-be/src/modules/proctoring/proctoring-realtime.gateway.ts`.
+
+Socket events:
+
+- `proctoring:join_schedule`
+- `proctoring:join_attempt`
+- `live:request_camera`
+- `live:request_screen`
+- `live:student_offer`
+- `live:teacher_answer`
+- `live:student_candidate`
+- `live:teacher_candidate`
+- `live:end`
 
 ## Socket Rooms
 
-The gateway uses room scoping to prevent cross-schedule leakage:
+- `proctoring:schedule:{scheduleId}`: teacher dashboards theo schedule.
+- `proctoring:attempt:{attemptId}`: student attempt room.
+- `proctoring:teacher:{teacherId}`: responses/signaling hướng tới teacher.
 
-- `proctoring:schedule:{scheduleId}` for teacher dashboards and schedule-wide events.
-- `proctoring:attempt:{attemptId}` for events targeted at a single student's attempt.
-- `proctoring:teacher:{teacherId}` for signaling responses targeted at the requesting teacher.
+Tất cả socket joins dùng JWT access token giống REST API.
 
-All socket joins are authenticated with the same JWT access token used by REST APIs.
+## Authorization
 
-## Authorization Rules
+Teacher:
 
-Teacher schedule access is checked through the existing teacher exam grading access rules.
+- Chỉ join schedule hoặc request live stream khi có quyền proctor/manage schedule.
+- Access được kiểm tra qua các rule hiện có trong teacher exam/proctoring service.
 
-A teacher can join a schedule room or request live camera only when they are allowed to proctor or manage the schedule.
+Student:
 
-A student can join only the attempt room for their own active attempt. The server validates:
+- Chỉ join attempt room của chính mình.
+- Server validate schedule id, attempt id, student profile id, attempt còn active và deadline chưa hết.
 
-- schedule id
-- attempt id
-- student profile id
-- attempt is still in progress
-- attempt deadline has not passed
+## Live Webcam/Screen Flow
 
-## Live Camera Signaling
+1. Teacher emit `live:request_camera` hoặc `live:request_screen`.
+2. Backend validate quyền và tạo live session trong Redis.
+3. Backend emit `live:request` tới `proctoring:attempt:{attemptId}`.
+4. Student tạo WebRTC offer và emit `live:student_offer`.
+5. Backend lưu offer vào Redis và emit `live:offer` tới teacher room.
+6. Teacher tạo answer và emit `live:teacher_answer`.
+7. Backend lưu answer vào Redis và emit `live:answer` tới attempt room.
+8. Hai bên trao đổi ICE candidates qua `live:student_candidate` và `live:teacher_candidate`.
+9. Teacher hoặc student kết thúc bằng `live:end`.
 
-The previous REST polling signaling endpoints remain available as fallback, but the primary flow is now socket-driven:
-
-1. Teacher emits `live:request_camera`.
-2. Backend validates access and creates a Redis live session.
-3. Backend emits `live:request` to the student's attempt room.
-4. Student creates a WebRTC offer and emits `live:student_offer`.
-5. Backend stores the offer in Redis and emits `live:offer` to the teacher room.
-6. Teacher creates an answer and emits `live:teacher_answer`.
-7. Backend stores the answer in Redis and emits `live:answer` to the student's attempt room.
-8. Both sides exchange candidates using `live:student_candidate` and `live:teacher_candidate`.
+REST signaling endpoints trong teacher exams module vẫn tồn tại làm fallback/compatibility.
 
 ## Redis Live Session Store
 
-Live session state is no longer stored in a process-local `Map`.
-
-Redis stores:
+Redis lưu:
 
 - session id
 - attempt id
 - schedule id
 - teacher id
+- stream type (`WEBCAM` hoặc `SCREEN`)
 - status
 - offer
 - answer
@@ -93,81 +86,121 @@ Redis stores:
 - teacher ICE candidates
 - created/updated timestamps
 
-TTL policy:
+TTL:
 
-- requested session: 30 seconds
-- active/offered/connected session: 10 minutes
-- ended session: short expiry
+- requested session: ngắn hạn để tránh session treo.
+- active/offered/connected session: dài hơn nhưng vẫn tự hết hạn.
+- ended session: expire nhanh.
 
-This makes live signaling safer across backend restarts and compatible with multiple backend instances.
+## Heartbeat and Online State
 
-## Realtime Violation Broadcast
+Student heartbeat cập nhật `ExamSession`:
 
-When a student records a violation, the backend:
+- `lastHeartbeat`
+- `isOnline`
+- `webcamStatus`
+- `screenShareStatus`
+- `lastWebcamHeartbeatAt`
+- `lastScreenHeartbeatAt`
 
-1. Validates attempt ownership and active attempt state.
-2. Creates the violation record.
-3. Uploads evidence to MinIO when files are present.
-4. Stores evidence metadata in PostgreSQL.
-5. Emits `violation:created` to the schedule room.
+Gateway broadcast `student:heartbeat` tới schedule room.
 
-When a violation is ended, the backend emits `violation:ended`.
+Background job trong `exam-attempt.jobs.ts` đánh dấu stale sessions offline theo `HEARTBEAT_TIMEOUT` và emit `student:offline`.
 
-When a teacher reviews a violation, the backend emits `violation:reviewed`.
+## Violation Recording
 
-## Online And Offline Reliability
+Các violation được lưu vào `Violation`:
 
-Student heartbeat still persists to `ExamSession`.
+- `violationType`
+- `source`: `WEBCAM`, `SCREEN`, `BROWSER`, `PROCTOR`
+- `severity`
+- `detectedBy`: `SYSTEM`, `PROCTOR`
+- `reviewStatus`
+- `metadata`
+- timing fields
 
-Each heartbeat emits `student:heartbeat` to the schedule room with:
+Các violation hiện hỗ trợ:
 
-- attempt id
-- schedule id
-- webcam status
-- screen share status
-- heartbeat time
-- remaining seconds
-- online state
+- `TAB_SWITCH`
+- `FULLSCREEN_EXIT`
+- `NO_FACE`
+- `MULTIPLE_FACES`
+- `INACTIVITY`
+- `LOOKING_AWAY`
+- `PHONE_DETECTED`
+- `COPY_PASTE`
+- `RIGHT_CLICK`
+- `CAMERA_BLOCKED`
+- `CAMERA_DISCONNECTED`
+- `CAMERA_PERMISSION_DENIED`
+- `SCREEN_SHARE_STOPPED`
+- `SCREEN_PERMISSION_DENIED`
+- `PROCTOR_WEBCAM_CAPTURE`
+- `PROCTOR_SCREEN_CAPTURE`
 
-The existing background job marks stale sessions offline after the configured heartbeat timeout. It now emits `student:offline` for each attempt that crosses the timeout.
-
-This gives the dashboard fast updates while preserving DB-based recovery.
+Khi tạo/end/review violation, backend broadcast tương ứng tới schedule room.
 
 ## Evidence Storage
 
-Evidence is MinIO-first.
+Evidence binary lưu ở MinIO. Database chỉ lưu metadata trong `ViolationEvidence`.
 
-Production behavior:
+Evidence types:
 
-- If MinIO evidence upload fails and `NODE_ENV=production`, the request fails.
-- The database stores only metadata and object names, not binary evidence.
-- Viewing evidence uses presigned URLs.
+- `WEBCAM_IMAGE`
+- `SCREEN_IMAGE`
 
-Development behavior:
-
-- Local fallback is still available unless `MINIO_REQUIRE_EVIDENCE_STORAGE=true`.
-- Local fallback is intended only for development.
-
-Object paths are now grouped by evidence kind:
+Object path khuyến nghị:
 
 ```text
 proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/webcam/{attemptId}/{violationId}.jpg
 proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/screen/{attemptId}/{violationId}.jpg
 ```
 
-## Remaining Gaps
+Production behavior:
 
-Completed in the screen monitoring batch:
+- Nếu MinIO upload thất bại và `NODE_ENV=production`, request thất bại.
+- Presigned URL dùng để xem evidence.
 
-- Student pre-check uses `getDisplayMedia` when `enableScreenMonitoring=true`.
-- Student heartbeat persists `screenShareStatus` with `NOT_REQUIRED`, `PENDING_PERMISSION`, `ACTIVE`, `STOPPED`, and `PERMISSION_DENIED`.
-- `SCREEN_PERMISSION_DENIED` and `SCREEN_SHARE_STOPPED` are recorded as screen violations.
-- Teacher live proctoring supports `streamType=WEBCAM` and `streamType=SCREEN`.
-- Teachers can manually capture evidence from live webcam or live screen streams.
+Development behavior:
 
-Remaining gaps:
+- Có local fallback trừ khi `MINIO_REQUIRE_EVIDENCE_STORAGE=true`.
 
-- Socket event handling for submitted/progress-updated beyond heartbeat.
-- Persisted audit records for every socket live action.
-- Automated tests for socket authorization and live signaling.
-- TURN server configuration for restrictive networks.
+## Screen Monitoring
+
+Khi `ExamSchedule.enableScreenMonitoring=true`:
+
+- Student pre-check yêu cầu `getDisplayMedia`.
+- `screenShareStatus` phản ánh `PENDING_PERMISSION`, `ACTIVE`, `STOPPED`, `PERMISSION_DENIED`.
+- Từ chối quyền sinh `SCREEN_PERMISSION_DENIED`.
+- Dừng chia sẻ sinh `SCREEN_SHARE_STOPPED`.
+- Teacher có thể request live screen và chụp bằng chứng màn hình.
+
+## Webcam Monitoring
+
+Khi `ExamSchedule.enableWebcam=true`:
+
+- Student pre-check yêu cầu camera.
+- MediaPipe Face Landmarker hỗ trợ phát hiện khuôn mặt.
+- Vision worker/assets được đồng bộ bằng `scripts/sync-vision-assets.mjs`.
+- Test liên quan nằm ở frontend `tests/vision-worker.test.mjs` và Playwright specs.
+
+Các event webcam gồm không có mặt, nhiều mặt, nhìn lệch, camera bị che/mất quyền/mất kết nối và phone detection.
+
+## Teacher Actions
+
+Teacher có thể:
+
+- Join schedule dashboard.
+- Xem live webcam hoặc live screen.
+- Chụp evidence thủ công.
+- Review violation.
+- Gia hạn thời gian.
+- Invalidate attempt.
+
+Teacher không xem đồng thời webcam và screen của cùng một student trong cùng một panel live; UI chọn một stream type.
+
+## Remaining Risks
+
+- Cần TURN server cho mạng chặn peer-to-peer.
+- Cần mở rộng automated tests cho socket authorization và signaling.
+- Audit log cho mọi live socket action nên tiếp tục được củng cố.

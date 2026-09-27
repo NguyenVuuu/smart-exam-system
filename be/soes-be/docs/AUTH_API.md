@@ -1,118 +1,112 @@
 # Authentication API
 
-Base URL: `http://localhost:3000/api/auth`
+Base URL: `/api/auth`
 
----
+## Overview
 
-## Tổng quan
+Auth hiện dùng mã tài khoản theo vai trò, không dùng email làm identifier đăng nhập.
 
-Hệ thống hỗ trợ 3 loại người dùng với cách đăng nhập khác nhau:
+| Role | Identifier | Bảng profile |
+|---|---|---|
+| `STUDENT` | `SV...` | `Student.studentCode` |
+| `TEACHER` | `GV...` | `Teacher.teacherCode` |
+| `ADMIN` | `AD...` | `Admin.adminCode` |
 
-| Loại       | Identifier             | Điều kiện                  |
-|------------|------------------------|----------------------------|
-| Admin      | Email                  | `isAdmin = true`           |
-| Sinh viên  | Mã SV (bắt đầu bằng `SV`) | `studentCode != null`  |
-| Giảng viên | Mã GV (bắt đầu bằng `GV`) | `teacherCode != null`  |
+Email và phone là thông tin liên hệ trong `User`.
 
-> Một người dùng có thể vừa là sinh viên vừa là giảng viên.
-
----
-
-## Endpoints
-
-### 1. Đăng nhập
-
-```
-POST /api/auth/login
-```
-
-**Request Body**
+Access token payload:
 
 ```json
 {
-  "identifier": "admin@gmail.com",
+  "sub": "user-id",
+  "profileId": "student-or-teacher-or-admin-id",
+  "role": "STUDENT"
+}
+```
+
+Refresh token lưu trong HttpOnly cookie và Redis.
+
+Session rule:
+
+- Student chỉ có một phiên active. Nếu Redis đã có refresh token cho student đó, login tiếp trả `409`.
+- Teacher/Admin có thể login lại từ nhiều thiết bị.
+- Profile `INACTIVE` trả `403`.
+
+## POST `/login`
+
+Request:
+
+```json
+{
+  "identifier": "SV000001",
   "password": "123456"
 }
 ```
 
-| Field        | Type   | Mô tả                                          |
-|--------------|--------|------------------------------------------------|
-| `identifier` | string | Email (admin), mã SV (`SV000001`), mã GV (`GV000001`) |
-| `password`   | string | Mật khẩu                                       |
-
-**Response thành công `200`**
+Response `200`:
 
 ```json
 {
   "success": true,
   "message": "Login successful",
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "accessToken": "jwt",
     "user": {
-      "id": "uuid",
+      "id": "user-id",
+      "profileId": "student-id",
+      "role": "STUDENT",
       "fullName": "Nguyen Van A",
-      "email": "admin@gmail.com",
-      "studentCode": null,
-      "teacherCode": null,
-      "isAdmin": true,
-      "avatarUrl": null
+      "email": "student@example.com",
+      "phoneNumber": null,
+      "avatarUrl": null,
+      "studentCode": "SV000001"
     }
   }
 }
 ```
 
-> `refreshToken` được lưu tự động vào **HttpOnly Cookie** tên `refreshToken`, không xuất hiện trong response body.
+Cookie:
 
-**Các lỗi có thể xảy ra**
+- `refreshToken`: HttpOnly.
 
-| Status | Trường hợp                                        |
-|--------|---------------------------------------------------|
-| `401`  | Không tìm thấy user hoặc sai mật khẩu            |
-| `401`  | Đăng nhập bằng email nhưng `isAdmin = false`      |
-| `403`  | Tài khoản đang bị `INACTIVE`                      |
-| `422`  | Request body không hợp lệ (thiếu field)           |
+Common errors:
 
----
+- `401`: invalid credentials.
+- `403`: inactive account.
+- `409`: student account already signed in on another device.
+- `422`: validation failed.
 
-### 2. Làm mới Access Token
+## POST `/refresh-token`
 
-```
-POST /api/auth/refresh-token
-```
+Đọc `refreshToken` từ cookie.
 
-Không cần request body. Tự động đọc `refreshToken` từ cookie.
-
-**Response thành công `200`**
+Response `200`:
 
 ```json
 {
   "success": true,
   "message": "Token refreshed",
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "accessToken": "jwt"
   }
 }
 ```
 
-**Các lỗi có thể xảy ra**
+Errors:
 
-| Status | Trường hợp                                    |
-|--------|-----------------------------------------------|
-| `401`  | Cookie không có `refreshToken`                |
-| `401`  | `refreshToken` hết hạn hoặc không hợp lệ     |
-| `401`  | User không tồn tại hoặc tài khoản `INACTIVE`  |
+- `401`: missing/invalid/expired refresh token, token không khớp Redis, hoặc account inactive.
 
----
+## POST `/logout`
 
-### 3. Đăng xuất
+Yêu cầu access token hợp lệ để xóa refresh token trong Redis và blacklist access token còn hạn.
 
-```
-POST /api/auth/logout
+Headers:
+
+```http
+Authorization: Bearer <accessToken>
 ```
 
-Không cần request body hay Authorization header. Xóa cookie `refreshToken`.
-
-**Response thành công `200`**
+Response `200`:
 
 ```json
 {
@@ -121,164 +115,106 @@ Không cần request body hay Authorization header. Xóa cookie `refreshToken`.
 }
 ```
 
----
+## GET `/me`
 
-### 4. Lấy thông tin người dùng hiện tại
+Headers:
 
-```
-GET /api/auth/me
-```
-
-**Yêu cầu:** Bearer Token trong header.
-
-**Headers**
-
-```
+```http
 Authorization: Bearer <accessToken>
 ```
 
-**Response thành công `200`**
+Response `200`:
 
 ```json
 {
   "success": true,
   "message": "OK",
   "data": {
-    "id": "uuid",
+    "id": "user-id",
+    "profileId": "teacher-id",
+    "role": "TEACHER",
     "fullName": "Tran Thi B",
-    "email": null,
-    "studentCode": "SV000001",
+    "email": "teacher@example.com",
+    "phoneNumber": "0900000000",
+    "avatarUrl": null,
     "teacherCode": "GV000001",
-    "isAdmin": false,
-    "avatarUrl": null
+    "position": "LECTURER"
   }
 }
 ```
 
-**Các lỗi có thể xảy ra**
+## PATCH `/me`
 
-| Status | Trường hợp                                  |
-|--------|---------------------------------------------|
-| `401`  | Thiếu hoặc sai format Authorization header |
-| `401`  | Access token hết hạn hoặc không hợp lệ     |
+Cập nhật thông tin liên hệ của `User`.
 
----
+Headers:
 
-## JWT
+```http
+Authorization: Bearer <accessToken>
+```
 
-| Token         | Thời hạn | Lưu ở đâu           |
-|---------------|----------|---------------------|
-| Access Token  | 15 phút  | Response body       |
-| Refresh Token | 7 ngày   | HttpOnly Cookie     |
-
-**Payload của Access Token**
+Request:
 
 ```json
 {
-  "sub": "userId",
-  "isAdmin": false,
-  "studentCode": "SV000001",
-  "teacherCode": null,
-  "iat": 1234567890,
-  "exp": 1234568790
+  "email": "new@example.com",
+  "phoneNumber": "0912345678"
 }
 ```
 
----
+Rules:
 
-## Authorization Middlewares
+- `email` optional, có thể `null` hoặc chuỗi rỗng để xóa.
+- `phoneNumber` optional, tối đa 20 ký tự, có thể `null` hoặc chuỗi rỗng để xóa.
+- Email nếu có phải unique trong `User`.
 
-Dùng các middleware này để bảo vệ route trong các module khác.
+## PATCH `/me/password`
 
-```typescript
-import { authenticate } from '../modules/auth'
-import { requireAdmin, requireStudent, requireTeacher, requireAdminOrTeacher } from '../modules/auth'
+Đổi mật khẩu profile đang đăng nhập.
+
+Headers:
+
+```http
+Authorization: Bearer <accessToken>
 ```
 
-| Middleware               | Điều kiện cho phép                        |
-|--------------------------|-------------------------------------------|
-| `authenticate`           | Token hợp lệ (tất cả user đã đăng nhập)  |
-| `requireAdmin()`         | `isAdmin === true`                        |
-| `requireStudent()`       | `studentCode !== null`                    |
-| `requireTeacher()`       | `teacherCode !== null`                    |
-| `requireAdminOrTeacher()`| `isAdmin === true` hoặc `teacherCode !== null` |
+Request:
 
-**Ví dụ sử dụng trong route**
-
-```typescript
-import { authenticate } from '../auth'
-import { requireAdmin, requireAdminOrTeacher } from '../auth'
-
-// Chỉ admin
-router.get('/users', authenticate, requireAdmin(), userController.list)
-
-// Admin hoặc giảng viên
-router.post('/exams', authenticate, requireAdminOrTeacher(), examController.create)
-
-// Chỉ sinh viên
-router.get('/my-enrollments', authenticate, requireStudent(), enrollmentController.myList)
+```json
+{
+  "currentPassword": "old-password",
+  "newPassword": "new-password"
+}
 ```
 
----
+Rules:
 
-## Ví dụ sử dụng với cURL
+- `newPassword` dài 6-100 ký tự.
+- Mật khẩu được hash bằng bcrypt trước khi lưu.
 
-**Đăng nhập admin**
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -c cookies.txt \
-  -d '{"identifier": "admin@gmail.com", "password": "123456"}'
-```
+## Response format
 
-**Đăng nhập sinh viên**
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -c cookies.txt \
-  -d '{"identifier": "SV000001", "password": "123456"}'
-```
+Success:
 
-**Gọi API cần xác thực**
-```bash
-curl -X GET http://localhost:3000/api/auth/me \
-  -H "Authorization: Bearer <accessToken>"
-```
-
-**Làm mới token**
-```bash
-curl -X POST http://localhost:3000/api/auth/refresh-token \
-  -b cookies.txt
-```
-
-**Đăng xuất**
-```bash
-curl -X POST http://localhost:3000/api/auth/logout \
-  -b cookies.txt
-```
-
----
-
-## Chuẩn response
-
-**Thành công**
 ```json
 {
   "success": true,
-  "message": "...",
+  "message": "OK",
   "data": {}
 }
 ```
 
-**Lỗi**
+Error:
+
 ```json
 {
   "success": false,
-  "message": "..."
+  "message": "Invalid credentials"
 }
 ```
 
-**Lỗi validation**
+Validation error:
+
 ```json
 {
   "success": false,
