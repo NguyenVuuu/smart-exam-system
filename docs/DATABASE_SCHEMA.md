@@ -1,779 +1,419 @@
-# 📘 SOES - DATABASE SCHEMA
+# Database Schema
 
-## 1. Overview
+Nguon su that: `be/soes-be/prisma/schema.prisma`.
 
-SOES uses **PostgreSQL** as the primary relational database.
+Tai lieu nay mo ta schema nghiep vu hien tai o muc domain. Khi co khac biet, uu tien Prisma schema.
 
-The schema is designed to support:
+## Quy uoc chung
 
-- Academic management
-- Online examinations
-- AI-assisted question generation
-- Automatic grading
-- Anti-cheating and proctoring
-- Audit and system logging
-- Post and material management
+- Database: PostgreSQL.
+- ORM: Prisma.
+- Primary key hau het la UUID string.
+- Timestamp dung `DateTime`; ung dung/DB luu theo UTC.
+- Password luu rieng tren profile vai tro: `Student.password`, `Teacher.password`, `Admin.password`.
+- `User` chua thong tin ca nhan chung; moi vai tro co profile rieng.
+- File binary khong luu truc tiep trong PostgreSQL; database chi luu metadata/path/object key.
 
-The design follows a **Modular Monolithic Architecture** and is optimized for extensibility.
+## Identity
 
----
+### User
 
-## 2. Design Principles
+Thong tin ca nhan chung: `email`, `phoneNumber`, `fullName`, `avatarUrl`.
 
-- Use UUID as primary keys.
-- Normalize relational data (3NF).
-- Enforce referential integrity via foreign keys.
-- Use ENUM for controlled states.
-- Preserve historical data.
-- Separate concerns by domain (Academic / Exam / AI / Proctoring).
-- Use UTC for all timestamps.
+Relation chinh:
 
----
+- `student`, `teacher`, `admin`
+- `notifications`, `auditLogs`
+- nguoi tao schedule, nguoi invalidate attempt, nguoi xem/review/detect violation, nguoi chup evidence
 
-## 3. Core Entities Overview
+### Student
 
-### Identity & Access
+Field chinh: `studentCode` unique, `password`, `status`, `userId` unique.
 
-- User
+Relation: `enrollments`, `examAttempts`, `targetExamSchedules`, `gradeAppeals`.
 
-### Academic
+### Teacher
 
-- Semester
-- Subject
-- CourseOffering
-- Enrollment
+Field chinh: `teacherCode` unique, `password`, `status`, `position`, `departmentId`, `userId` unique.
 
-### Learning Content
+`position`: `LECTURER`, `DEPARTMENT_HEAD`.
 
-- Material
+Relation:
 
-### AI Generation
+- course offerings phu trach
+- exams tao ra/review
+- posts, materials, questions
+- AI generations
+- question bank reviews/removals
+- handled grade appeals
+- proctor assignments
 
-- AIGenerationHistory
-- AIGenerationMaterial
+### Admin
 
-### Question Bank
+Field chinh: `adminCode` unique, `password`, `status`, `userId` unique.
 
-- Question
-- QuestionOption
-- ProgrammingTestCase
-- ProgrammingSubmission
-- ProgrammingSubmissionTestResult
-- ProgrammingQuestionConfig
+Relation toi question bank reviews/removals.
 
-### Examination
+## Academic
 
-- Exam
-- ExamType (ENUM)
-- ExamCreationMethod (ENUM)
-- ExamQuestion
-- ExamQuestionOption
-- ExamAttempt
-- ExamAttemptQuestion
-- ExamSession
-- StudentAnswer
+### Department
 
-### Monitoring & Security
+Quan ly khoa/bo mon: `code` unique, `name`, `description`, `status`.
 
-- Violation
-- ViolationEvidence
-- ProgrammingSubmission (includes programming submissions and test results)
-- ProgrammingTestCase
-- ProgrammingQuestionConfig
+`status`: `ACTIVE`, `INACTIVE`.
 
-### System
+### Semester
 
-- Notification
-- AuditLog
+Field chinh:
 
----
+- `code` unique
+- `name`, `academicYear`
+- `term`: `TERM_1`, `TERM_2`, `TERM_3`
+- `startDate`, `endDate`
+- `status`: `UPCOMING`, `ACTIVE`, `CLOSED`
 
-# 4. Identity & User Management
+Rang buoc: `(academicYear, term)` unique.
 
-## User
+### Subject
 
-| Field | Type | Description |
-|---|---|---|
-| id | UUID | Primary key |
-| email | VARCHAR | Unique |
-| phone_number | VARCHAR | Optional |
-| full_name | VARCHAR | Full name |
-| avatar_url | TEXT | Optional |
-| created_at | TIMESTAMP | Created time |
-| updated_at | TIMESTAMP | Updated time |
+Field chinh: `code` unique, `name`, `description`, `credits`, `status`, `departmentId`.
 
-## Teacher
+Relation toi course offerings, enrollments, questions, question bank, exams va AI generations.
 
-| Field | Type |
-|-|-|
-| id | UUID |
-| teacher_code | VARCHAR |
-| password | VARCHAR |
-| status | ENUM |
-| user_id | UUID |
+### CourseOffering
 
-## Student
+Dai dien mot lop hoc phan: mot mon hoc trong mot hoc ky do mot teacher phu trach.
 
-| Field | Type |
-|-|-|
-| id | UUID |
-| student_code | VARCHAR |
-| password | VARCHAR |
-| status | ENUM |
-| user_id | UUID |
+Field chinh: `code` unique, `status`, `semesterId`, `subjectId`, `teacherId`, `maxCapacity`.
 
-## Admin
+`status`: `ACTIVE`, `CLOSED`.
 
-| Field | Type |
-|-|-|
-| id | UUID |
-| admin_code | VARCHAR |
-| password | VARCHAR |
-| status | ENUM |
-| user_id | UUID |
+Relation toi enrollments, materials, posts, AI generations, schedule courses va attempts.
 
-### Constraints
+### Enrollment
 
-- email must be unique.
-- student_code only applies to STUDENT.
-- teacher_code only applies to TEACHER.
+Rang buoc:
 
----
+- `(courseOfferingId, studentId)` unique
+- `(studentId, subjectId, semesterId)` unique
 
-# 5. Academic Domain
+Rang buoc thu hai chan student hoc trung cung mon trong cung hoc ky.
 
-## Semester
+## Learning Content
 
-| Field      | Type    | Description                |
-| ---------- | ------- | -------------------------- |
-| id         | UUID    | PK                         |
-| name       | VARCHAR | Semester name              |
-| start_date | DATE    | Start date                 |
-| end_date   | DATE    | End date                   |
-| status     | ENUM    | UPCOMING / ACTIVE / CLOSED |
+### Post
 
----
+Bai dang theo course offering:
 
-## Subject
+- `title`, `content`
+- `status`: `DRAFT`, `PUBLISHED`, `HIDDEN`
+- `isPinned`, `publishedAt`
+- `courseOfferingId`, `createdById`
 
-| Field       | Type    | Description       |
-| ----------- | ------- | ----------------- |
-| id          | UUID    | PK                |
-| code        | VARCHAR | Unique            |
-| name        | VARCHAR | Subject name      |
-| description | TEXT    | Optional          |
-| status      | ENUM    | ACTIVE / INACTIVE |
+### PostAttachment
 
-### Constraints
+Attachment cua post: `fileName`, `objectName`, `fileSize`, `contentType`, `storagePath`.
 
-- code must be unique.
+Rang buoc: `(postId, fileName)` unique.
 
----
+### Material
 
-## CourseOffering
+Tai lieu hoc tap theo course offering:
 
-Represents:
+- `title`, `fileName`, `objectName`, `fileSize`, `contentType`, `storagePath`
+- `checksum`
+- `storageProvider`: `LOCAL`, `SUPABASE`, `MINIO`
+- `aiEnabled`
+- `courseOfferingId`, `uploaderId`
 
-> One teacher teaches one subject in one semester.
+Rang buoc: `(courseOfferingId, fileName)` unique.
 
-| Field       | Type             |
-| ----------- | ---------------- |
-| id          | UUID             |
-| code        | VARCHAR          |
-| semester_id | UUID (FK)        |
-| subject_id  | UUID (FK)        |
-| teacher_id  | UUID (FK → User) |
-| status      | ENUM             |
-| created_at  | TIMESTAMP        |
-| updated_at  | TIMESTAMP        |
+## Question Bank
 
----
+### QuestionBank
 
-## Enrollment
+Moi `Subject` co toi da mot `QuestionBank`.
 
-| Field              | Type      |
-| ------------------ | --------- |
-| id                 | UUID      |
-| course_offering_id | UUID      |
-| student_id         | UUID      |
-| enrolled_at        | TIMESTAMP |
-
-### Constraints
-
-- (course_offering_id, student_id) UNIQUE
-
----
-
-# 6. Learning Materials
-
-## Material
-
-| Field              | Type      |
-| ------------------ | --------- |
-| id                 | UUID      |
-| course_offering_id | UUID      |
-| uploaded_by        | UUID      |
-| file_name          | VARCHAR   |
-| object_name        | VARCHAR   |
-| file_size          | BIGINT    |
-| content_type       | VARCHAR   |
-| storage_path       | TEXT      |
-| ai_enabled         | BOOLEAN   |
-| created_at         | TIMESTAMP |
-| updated_at         | TIMESTAMP |
-
-### Constraints
-
-- (course_offering_id, file_name) UNIQUE
-
----
-
-# 7. Question Bank
-
-## Question
-
-| Field       | Type            |
-| ----------- | --------------- |
-| id          | UUID            |
-| owner_id    | UUID            |
-| subject_id  | UUID            |
-| type        | ENUM            |
-| content     | TEXT            |
-| explanation | TEXT            |
-| difficulty  | ENUM            |
-| source      | ENUM            |
-| language    | ENUM (nullable) |
-| created_at  | TIMESTAMP       |
-| updated_at  | TIMESTAMP       |
-
-### Notes
-
-- Questions belong to teachers.
-- Questions may be reused across semesters and classes.
-
-### Source Meaning
-
-MANUAL:
-- Teacher manually creates question
-AI_GENERATED:
-- Generated by AI from selected learning materials
-IMPORTED:
-- Imported from external source
-
----
-
-## QuestionOption
-
-| Field       | Type    |
-| ----------- | ------- |
-| id          | UUID    |
-| question_id | UUID    |
-| content     | TEXT    |
-| is_correct  | BOOLEAN |
-
----
-
-## ProgrammingTestCase
-
-| Field           | Type    |
-| --------------- | ------- |
-| id              | UUID    |
-| question_id     | UUID    |
-| input           | TEXT    |
-| expected_output | TEXT    |
-| weight          | DECIMAL |
-| is_hidden       | BOOLEAN |
-
----
-
-# 7A. AIQuestionGeneration
-## AIQuestionGeneration
-| Field                      | Type               |
-| -------------------------- | ------------------ |
-| id                         | UUID               |
-| course_offering_id         | UUID               |
-| created_by                 | UUID               |
-| prompt                     | VARCHAR            |
-| model                      | TEXT               |
-| requested_count            | INT                |
-| generated_count            | INT                |
-| status                     | ENUM               |
-| created_at                 | TIMESTAMP          |
-| updated_at                 | TIMESTAMP          |
-| completed_at               | TIMESTAMP          |
-| error_message              | VARCHAR            |
-
-## AIQuestionGenerationMaterial
-
-| Field                      | Type               |
-| -------------------------- | ------------------ |
-| id                         | UUID               |
-| generation_id              | UUID               |
-| material_id                | UUID               |
-
-# 8. Examination Domain
-
-## Exam
-
-| Field                      | Type               |
-| -------------------------- | ------------------ |
-| id                         | UUID               |
-| course_offering_id         | UUID               |
-| created_by                 | UUID               |
-| title                      | VARCHAR            |
-| description                | TEXT               |
-| password                   | VARCHAR (nullable) |
-| start_time                 | TIMESTAMP          |
-| end_time                   | TIMESTAMP          |
-| duration_minutes           | INT                |
-| max_attempts               | INT                |
-| shuffle_questions          | BOOLEAN            |
-| shuffle_options            | BOOLEAN            |
-| show_result_immediately    | BOOLEAN            |
-| allow_review_before_submit | BOOLEAN            |
-| result_published           | BOOLEAN            |
-| result_published_at        | TIMESTAMP          |
-| status                     | ENUM               |
-| type                       | ENUM               |
-| creation_method            | ENUM               |
-| require_fullscreen         | BOOLEAN            |
-| enable_webcam              | BOOLEAN            |
-| enable_screen_monitoring   | BOOLEAN            |
-| block_copy_paste           | BOOLEAN            |
-| block_right_click          | BOOLEAN            |
-| proctoring_storage_path    | TEXT               |
-| published_at               | TIMESTAMP          |
-| created_at                 | TIMESTAMP          |
-| updated_at                 | TIMESTAMP          |
-
-## ExamType
-
-## Exam Creation Method
-
-Determines how exam questions are created.
-Values:
-- MANUAL
-- QUESTION_BANK
-- AI_GENERATED
-- MIXED
----
-
-## ExamType
-
-Values:
-- QUIZ
-- MIDTERM
-- FINAL
-
----
-
-## Exam Creation Method
-
-Determines how exam questions are created.
-Values:
-- MANUAL
-- QUESTION_BANK
-- AI_GENERATED
-- MIXED
-
----
-
-## ExamQuestion
-
-| Field              | Type               |
-| ------------------ | ------------------ |
-| id                 | UUID               |
-| exam_id            | UUID               |
-| order_index        | INT                |
-| points             | DECIMAL            |
-| content            | TEXT               |
-| explanation        | TEXT               |
-| type               | ENUM               |
-| difficulty         | ENUM               |
-| language           | ENUM (nullable)    |
-| source_question_id | UUID (nullable)    |
-
----
-
-## ExamAttemptQuestion
-
-Stores the actual question order for each student attempt.
-
-| Field             | Type       |
-| ----------------- | ---------- |
-| id                | UUID       |
-| attempt_id        | UUID       |
-| exam_question_id  | UUID       |
-| display_order     | INT        |
-| shuffled_option_ids | JSONB    |
-
-Constraint:
-
-- (attempt_id, exam_question_id) UNIQUE
-- (attempt_id, display_order) UNIQUE
-
-### Notes
-
-- `display_order` is the position of the question in this specific attempt (1-based).
-- `shuffled_option_ids` stores the randomized order of option IDs for this attempt. Các ID được xáo trộn nếu `exam.shuffleOptions = true`.
-
----
-
-# 9. Exam Execution
-
-## ExamAttempt
-
-| Field             | Type      |
-| ----------------- | --------- |
-| id                | UUID      |
-| exam_id           | UUID      |
-| student_id        | UUID      |
-| attempt_no        | INT       |
-| started_at        | TIMESTAMP |
-| attempt_end_at    | TIMESTAMP |
-| submitted_at      | TIMESTAMP |
-| remaining_seconds | INT       |
-| last_saved_at     | TIMESTAMP |
-| ended_by          | ENUM      |
-| status            | ENUM      |
-| total_score       | DECIMAL   |
-| auto_score        | DECIMAL   |
-| manual_score      | DECIMAL   |
-| invalidated_at    | TIMESTAMP |
-| invalidated_by_id | UUID      |
-| invalidation_reason | TEXT    |
-
-Constraint:
-
-(exam_id, student_id, attempt_no) UNIQUE
-
-### Notes
-
-- `attempt_end_at` là authoritative deadline được lưu khi tạo attempt. Giá trị này được tính từ `min(started_at + duration_minutes, exam.endTime)` tại thời điểm start và KHÔNG được cập nhật sau đó.
-- `remaining_seconds` là snapshot từ thời điểm start exam, không được cập nhật sau đó. Clients phải tính lại `remaining_seconds` dựa trên thời gian hiện tại: `max(0, floor((attempt_end_at - now) / 1000))`.
-- `shuffled_option_ids` trong `ExamAttemptQuestion` lưu thứ tự đã xáo trộn của các option ID cho từng câu hỏi trong từng attempt.
-- Không có field `is_published` trong ExamAttempt. Kết quả được kiểm tra qua `Exam.result_published`.
-- Khi giảng viên dừng bài do vi phạm, attempt chuyển sang `INVALIDATED`, `ended_by = PROCTOR`, điểm được ghi nhận 0 và thông tin invalidation được lưu để đối soát.
-
----
-
-## ExamSession
-
-Stores runtime session information during examination.
-
-| Field          | Type      |
-| -------------- | --------- |
-| id             | UUID      |
-| attempt_id     | UUID      |
-| socket_id      | VARCHAR   |
-| ip_address     | VARCHAR   |
-| device_info    | TEXT      |
-| last_heartbeat | TIMESTAMP |
-| is_online      | BOOLEAN   |
-| webcam_status  | ENUM      |
-| screen_share_status | ENUM |
-| last_webcam_heartbeat_at | TIMESTAMP |
-| last_screen_heartbeat_at | TIMESTAMP |
-| created_at     | TIMESTAMP |
-| updated_at     | TIMESTAMP |
-
----
-
-## StudentAnswer
-
-| Field               | Type    |
-| ------------------- | ------- |
-| id                  | UUID    |
-| attempt_id          | UUID    |
-| exam_question_id    | UUID    |
-| selected_option_ids | JSONB   |
-| draft_source_code   | TEXT    |
-| score               | DECIMAL |
-| is_correct          | BOOLEAN |
-
-Constraint:
-
-(attempt_id, exam_question_id) UNIQUE
-
-### Notes
-
-- `selected_option_ids` stores selected answers for multiple-choice questions.
-- `draft_source_code` stores student's programming code during the exam (before submission).
-
-Constraint:
-
-(attempt_id, exam_question_id) UNIQUE
-
----
-
-# 10. Violation
-
-## Violation
-
-| Field            | Type      |
-| ---------------- | --------- |
-| id               | UUID      |
-| attempt_id       | UUID      |
-| violation_type   | ENUM      |
-| source           | ENUM      |
-| severity         | ENUM      |
-| detected_by      | ENUM      |
-| review_status    | ENUM      |
-| evidence_urls    | JSONB     |
-| description      | TEXT      |
-| detected_at      | TIMESTAMP |
-| ended_at         | TIMESTAMP |
-| duration_seconds | INT       |
-| detected_by_id   | UUID      |
-| reviewed_by_id   | UUID      |
-| reviewed_at      | TIMESTAMP |
-| review_note      | TEXT      |
-
-### Notes
-
-- `Violation` represents a suspicious event or policy violation, not an automatic final cheating verdict.
-- Events such as camera off, screen sharing stopped, tab switch, and fullscreen exit can store duration using `detected_at`, `ended_at`, and `duration_seconds`.
-- `review_status` lets teachers confirm or dismiss a detected event after reviewing evidence.
-- Evidence files are stored separately in `ViolationEvidence`; binary files are not stored in PostgreSQL.
-- `evidence_urls` is a nullable legacy field retained to avoid losing existing violation rows during migration. New evidence should be stored in `ViolationEvidence`.
-
----
-
-## ViolationEvidence
-
-| Field            | Type      |
-| ---------------- | --------- |
-| id               | UUID      |
-| violation_id     | UUID      |
-| evidence_type    | ENUM      |
-| storage_provider | ENUM      |
-| bucket           | VARCHAR   |
-| object_name      | TEXT      |
-| storage_path     | TEXT      |
-| file_name        | VARCHAR   |
-| content_type     | VARCHAR   |
-| file_size        | INT       |
-| captured_at      | TIMESTAMP |
-| captured_by_id   | UUID      |
-
-### Notes
-
-- Proctoring evidence is stored in MinIO.
-- Supabase is reserved for learning materials and is not used for cheating evidence.
-- `storage_path` should use the `ExamSchedule.proctoringStoragePath` prefix generated when the schedule is created.
-- Recommended object layout:
-
-```text
-proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/webcam/{attemptId}/{violationId}.jpg
-proctoring/{semester}/{subject}/{schedule-slug}/{examScheduleId}/screen/{attemptId}/{violationId}.jpg
-```
-
----
-
-## Notification
-
-| Field      | Type      |
-| ---------- | --------- |
-| id         | UUID      |
-| user_id    | UUID      |
-| title      | VARCHAR   |
-| content    | TEXT      |
-| is_read    | BOOLEAN   |
-| created_at | TIMESTAMP |
-| updated_at | TIMESTAMP |
-
----
-
-## AuditLog
-
-| Field       | Type      |
-| ----------- | --------- |
-| id          | UUID      |
-| user_id     | UUID      |
-| action      | VARCHAR   |
-| entity_type | VARCHAR   |
-| entity_id   | UUID      |
-| metadata    | JSONB     |
-| created_at  | TIMESTAMP |
-| updated_at  | TIMESTAMP |
-
----
-
-### Notes
-
-- `selected_option_ids` stores selected answers for multiple-choice questions.
-
-Example:
-
-```json
-["uuid-option-1", "uuid-option-3"]
-```
-
-# 11. ENUM Definitions
-
-## UserRole
-
-- ADMIN
-- TEACHER
-- STUDENT
-
-## UserStatus
-
-- ACTIVE
-- INACTIVE
-
-## SemesterStatus
-
-- UPCOMING
-- ACTIVE
-- CLOSED
-
-## CourseOfferingStatus
-
-- ACTIVE
-- CLOSED
-
-## QuestionType
-
-- SINGLE_CHOICE
-- MULTIPLE_CHOICE
-- PROGRAMMING
-
-## QuestionDifficulty
-
-- EASY
-- MEDIUM
-- HARD
-
-## QuestionSource
-
-- MANUAL
-- AI_GENERATED
-- IMPORTED
-
-## ExamStatus
-
-- DRAFT
-- PUBLISHED
-- CLOSED
-
-## AttemptStatus
-
-- IN_PROGRESS
-- SUBMITTED
-- EXPIRED
-
-## AttemptEndedBy
-
-- STUDENT
-- TIMEOUT
-- SYSTEM
-- PROCTOR
-
-## ViolationType
-
-- TAB_SWITCH
-- FULLSCREEN_EXIT
-- NO_FACE
-- MULTIPLE_FACES
-- INACTIVITY
-- LOOKING_AWAY
-- COPY_PASTE
-- CAMERA_BLOCKED
-- CAMERA_DISCONNECTED
-- CAMERA_PERMISSION_DENIED
-- SCREEN_SHARE_STOPPED
-- SCREEN_PERMISSION_DENIED
-- PROCTOR_WEBCAM_CAPTURE
-- PROCTOR_SCREEN_CAPTURE
-
-## WebcamStatus
-
-- NOT_REQUIRED
-- PENDING_PERMISSION
-- ACTIVE
-- DISCONNECTED
-- PERMISSION_DENIED
-- BLOCKED
-
-## ScreenShareStatus
-
-- NOT_REQUIRED
-- PENDING_PERMISSION
-- ACTIVE
-- STOPPED
-- PERMISSION_DENIED
-
-## ViolationSource
-
-- WEBCAM
-- SCREEN
-- BROWSER
-- PROCTOR
-
-## ViolationDetectedBy
-
-- SYSTEM
-- PROCTOR
-
-## ViolationReviewStatus
-
-- PENDING
-- CONFIRMED
-- DISMISSED
-
-## ViolationEvidenceType
-
-- WEBCAM_IMAGE
-- SCREEN_IMAGE
-
-## FileStorageProvider
-
-- LOCAL
-- SUPABASE
-- MINIO
-
-## SeverityLevel
-
-- LOW
-- MEDIUM
-- HIGH
-
-# 12. Relationship Summary
-
-User (Teacher) 1 -> N CourseOffering
-User (Student) N <-> N CourseOffering via Enrollment
-Semester 1 -> N CourseOffering
-Subject 1 -> N CourseOffering
-CourseOffering 1 -> N Material
-User (Teacher) 1 -> N Question
-Subject 1 -> N Question
-CourseOffering 1 -> N Exam
-User (Teacher) 1 -> N Exam
-Exam 1 -> N ExamQuestion
-Question 1 -> N ExamQuestion
-Exam 1 -> N ExamAttempt
-User (Student) 1 -> N ExamAttempt
-ExamAttempt 1 -> N ExamAttemptQuestion
-ExamQuestion 1 -> N ExamAttemptQuestion
-ExamQuestion 1 -> N ExamQuestionOption
-ExamAttempt 1 -> N StudentAnswer
-ExamQuestion 1 -> N StudentAnswer
-Question 1 -> N QuestionOption
-Question 1 -> N ProgrammingTestCase
-ExamAttempt 1 -> N ExamSession
-ExamAttempt 1 -> N Violation
-Violation 1 -> N ViolationEvidence
-User 1 -> N ExamAttempt as invalidator
-User 1 -> N Violation as detector/reviewer
-User 1 -> N ViolationEvidence as capturer
-User 1 -> N Notification
-User 1 -> N AuditLog
-
-## General Conventions
-
-- All primary keys use UUID.
-- All timestamps are stored in UTC.
-- All tables should include foreign key constraints.
-- Cascade delete should be carefully configured.
-- Soft delete may be implemented in the future using `deleted_at`.
+### QuestionBankItem
+
+Lien ket mot `Question` vao bank:
+
+- `status`: `PENDING`, `APPROVED`, `REJECTED`
+- metadata review boi Admin/Teacher
+- metadata removal boi Admin/Teacher
+- `removedAt` la soft remove khoi bank, khong xoa `Question`
+
+Rang buoc: `questionId` unique.
+
+### Question
+
+Field chinh:
+
+- `title`, `content`, `explanation`
+- `type`: `SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `TRUE_FALSE`, `PROGRAMMING`
+- `difficulty`: `EASY`, `MEDIUM`, `HARD`
+- `aiDifficultyReason`
+- `source`: `MANUAL`, `AI_GENERATED`, `IMPORTED`
+- `language`: `JAVA`, `C`, `CPP` cho programming
+- `aiReviewStatus`: `PENDING_REVIEW`, `APPROVED`, `REJECTED`
+- `archivedAt`
+- `ownerId`, `subjectId`, `aiGenerationId`
+
+Relation: `options`, `programmingConfig`, `programmingTests`, `examQuestions`, `questionBankItem`.
+
+### QuestionOption
+
+Rang buoc: `(questionId, orderIndex)` unique.
+
+### QuestionProgrammingConfig
+
+Config code cho question bank: `timeLimitMs`, `memoryLimitKb`, `maxCodeSizeKb`.
+
+### QuestionProgrammingTestCase
+
+Test case cua programming question: `input`, `expectedOutput`, `isSample`, `isHidden`, `orderIndex`.
+
+Rang buoc: `(questionId, orderIndex)` unique.
+
+## AI Generation
+
+### AIGenerationHistory
+
+Luu mot luot sinh/trich xuat cau hoi bang AI.
+
+Field chinh:
+
+- `teacherId`, `subjectId`, `courseOfferingId`, `examId`
+- `prompt`, `aiModel`
+- `mode`: `GENERATE_FROM_MATERIAL`, `EXTRACT_EXISTING_EXAM`
+- `sourceType`: `COURSE_MATERIAL`, `UPLOAD_FILE`
+- source file don: `sourceFileName`, `sourceFilePath`, `sourceFileSize`, `sourceMimeType`
+- `sourceFiles` JSON cho nhieu file
+- `questionCount`
+- `status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
+- `errorMessage`, `completedAt`
+
+### AIGenerationMaterial
+
+Join table giua `AIGenerationHistory` va `Material`.
+
+Rang buoc: `(historyId, materialId)` unique.
+
+## Exam Authoring
+
+### Exam
+
+`Exam` la de thi/bo cau hoi. Lich thi, thoi gian, password, proctoring va result release nam o `ExamSchedule`.
+
+Field chinh:
+
+- `title`, `description`
+- `subjectId`, `semesterId`, `createdById`
+- `defaultDurationMinutes`
+- `totalPoints`
+- `format`: `OBJECTIVE`, `PROGRAMMING`, `MIXED`
+- `status`: `DRAFT`, `READY`, `LOCKED`, `ARCHIVED`
+- `studentVisibility`: `VISIBLE`, `HIDDEN`
+- `approvalStatus`: `NOT_REQUIRED`, `PENDING`, `APPROVED`, `REJECTED`
+- `reviewedAt`, `reviewedById`, `rejectionReason`
+- `creationMethod`: `MANUAL`, `QUESTION_BANK`, `AI_GENERATED`, `MIXED`
+- `type`: `QUIZ`, `MIDTERM`, `FINAL`
+
+### ExamSection
+
+Nhom cau hoi trong exam: `title`, `description`, `type`, `targetPoints`, `orderIndex`.
+
+`type`: `OBJECTIVE`, `PROGRAMMING`.
+
+Rang buoc: `(examId, orderIndex)` unique.
+
+### ExamQuestion
+
+Snapshot noi dung question tai thoi diem them vao exam:
+
+- `title`, `content`, `explanation`
+- `type`, `difficulty`, `language`
+- `points`, `orderIndex`
+- `sourceQuestionId`
+- `examId`, `sectionId`
+
+Rang buoc: `(examId, orderIndex)` unique.
+
+### ExamQuestionOption
+
+Snapshot options cua `ExamQuestion`.
+
+Rang buoc: `(examQuestionId, orderIndex)` unique.
+
+### ProgrammingQuestionConfig va ProgrammingTestCase
+
+Snapshot config/test cases o cap exam question, tach voi question bank de dam bao de thi da lap lich/cham diem khong bi doi theo question goc.
+
+## Exam Scheduling
+
+### ExamSchedule
+
+`ExamSchedule` la ca thi/lap lich cu the cho mot `Exam`.
+
+Field chinh:
+
+- `title`, `examId`
+- `startTime`, `endTime`, `durationMinutes`
+- `maxAttempts`
+- `passwordHash`
+- `enableTabLock`, `maxTabSwitches`
+- `requireFullscreen`, `enableWebcam`, `enableScreenMonitoring`
+- `blockCopyPaste`, `blockRightClick`
+- `proctoringStoragePath`
+- `locationMode`: `ONLINE`, `CAMPUS`
+- `allowedIpRanges`
+- `distributionMode`: `FIXED_ORDER`, `SHUFFLE_QUESTIONS`, `SHUFFLE_OPTIONS`, `SHUFFLE_QUESTIONS_AND_OPTIONS`, `RANDOM_SUBSET`
+- `randomQuestionCount`
+- `resultReleaseMode`: `IMMEDIATE`, `MANUAL`, `SCHEDULED`, `NEVER`
+- `resultReleaseAt`, `resultsPublishedAt`
+- `reviewPolicy`: `NONE`, `SCORE_ONLY`, `ANSWERS_NO_KEY`, `FULL_AFTER_RELEASE`
+- `reviewStartAt`, `reviewEndAt`
+- `status`: `DRAFT`, `SCHEDULED`, `OPEN`, `CLOSED`, `CANCELLED`
+- `publishedAt`, `cancelledAt`, `cancellationReason`
+- `makeupOfScheduleId`
+- `createdById`
+
+### ExamScheduleStudent
+
+Danh sach student target truc tiep cho schedule.
+
+Rang buoc: `(examScheduleId, studentId)` unique.
+
+### ExamScheduleCourse
+
+Join giua schedule va course offering.
+
+Rang buoc: `(examScheduleId, courseOfferingId)` unique.
+
+### ExamScheduleProctor
+
+Phan cong proctor theo schedule course.
+
+Rang buoc: `(examScheduleCourseId, teacherId)` unique.
+
+## Attempt and Grading
+
+### ExamAttempt
+
+Field chinh:
+
+- `attemptNo`
+- `startedAt`, `deadlineAt`, `submittedAt`, `lastSavedAt`
+- `endedBy`: `STUDENT`, `TIMEOUT`, `SYSTEM`, `PROCTOR`
+- `status`: `IN_PROGRESS`, `SUBMITTED`, `AUTO_SUBMITTED`, `GRADING`, `GRADED`, `PUBLISHED`, `INVALIDATED`
+- `totalScore`, `autoScore`, `manualScore`
+- violation viewed metadata
+- invalidation metadata
+- `version`
+- `examScheduleId`, `courseOfferingId`, `studentId`
+
+Rang buoc: `(examScheduleId, studentId, attemptNo)` unique.
+
+### GradeAppeal
+
+Moi attempt chi co mot phuc khao.
+
+Field chinh:
+
+- `reason`
+- `status`: `PENDING`, `IN_REVIEW`, `RESOLVED`, `REJECTED`
+- `teacherReply`
+- `handledAt`
+- `attemptId`, `studentId`, `handledById`
+
+Rang buoc: `attemptId` unique.
+
+### ExamAttemptQuestion
+
+Snapshot thu tu cau hoi cho tung attempt:
+
+- `displayOrder`
+- `shuffledOptionIds`
+
+Rang buoc:
+
+- `(attemptId, examQuestionId)` unique
+- `(attemptId, displayOrder)` unique
+
+### StudentAnswer
+
+Luu cau tra loi hien tai: `selectedOptionIds`, `draftSourceCode`, `score`, `isCorrect`.
+
+Rang buoc: `(attemptId, examQuestionId)` unique.
+
+### ProgrammingSubmission
+
+Ket qua nop/cham code:
+
+- `clientRequestId` unique
+- `submissionNo`
+- `sourceCode`
+- `language`
+- `status`
+- score/test summary/runtime fields
+
+Rang buoc: `(attemptId, examQuestionId, submissionNo)` unique.
+
+### ProgrammingSubmissionTestResult
+
+Ket qua tung test case cua submission.
+
+Rang buoc: `(submissionId, testCaseId)` unique.
+
+## Proctoring
+
+### ExamSession
+
+Trang thai runtime cua attempt:
+
+- `socketId`, `ipAddress`, `deviceInfo`
+- `lastHeartbeat`, `isOnline`
+- `webcamStatus`: `NOT_REQUIRED`, `PENDING_PERMISSION`, `ACTIVE`, `DISCONNECTED`, `PERMISSION_DENIED`, `BLOCKED`
+- `screenShareStatus`: `NOT_REQUIRED`, `PENDING_PERMISSION`, `ACTIVE`, `STOPPED`, `PERMISSION_DENIED`
+- heartbeat webcam/screen
+
+Rang buoc: `attemptId` unique.
+
+### Violation
+
+Field chinh:
+
+- `violationType`
+- `source`: `WEBCAM`, `SCREEN`, `BROWSER`, `PROCTOR`
+- `severity`: `LOW`, `MEDIUM`, `HIGH`
+- `detectedBy`: `SYSTEM`, `PROCTOR`
+- `reviewStatus`: `PENDING`, `REVIEWED`, `CONFIRMED`, `DISMISSED`, `WARNED`, `FORCE_SUBMITTED`, `INVALIDATED`
+- `evidenceUrls` legacy JSON
+- `metadata`
+- timing/review fields
+- `attemptId`, `detectedById`, `reviewedById`
+
+`ViolationType` hien gom: `TAB_SWITCH`, `FULLSCREEN_EXIT`, `NO_FACE`, `MULTIPLE_FACES`, `INACTIVITY`, `LOOKING_AWAY`, `PHONE_DETECTED`, `COPY_PASTE`, `RIGHT_CLICK`, `CAMERA_BLOCKED`, `CAMERA_DISCONNECTED`, `CAMERA_PERMISSION_DENIED`, `SCREEN_SHARE_STOPPED`, `SCREEN_PERMISSION_DENIED`, `PROCTOR_WEBCAM_CAPTURE`, `PROCTOR_SCREEN_CAPTURE`.
+
+### ViolationEvidence
+
+Metadata file evidence:
+
+- `evidenceType`: `WEBCAM_IMAGE`, `SCREEN_IMAGE`
+- `storageProvider`, `bucket`, `objectName`, `storagePath`
+- `fileName`, `contentType`, `fileSize`
+- `capturedById`
+
+## System
+
+### Notification
+
+Field: `title`, `content`, `link`, `isRead`, `userId`.
+
+### AuditLog
+
+Field: `action`, `entityType`, `entityId`, `metadata`, `userId`, `ipAddress`, `userAgent`.
+
+### CodeGenerationSetting
+
+Cau hinh prefix/digits sinh ma: `studentPrefix`, `studentDigits`, `teacherPrefix`, `teacherDigits`, `adminPrefix`, `adminDigits`.

@@ -37,6 +37,7 @@ Response:
         "id": "uuid",
         "title": "Thông báo lịch thi",
         "content": "Bài thi giữa kỳ đã được mở.",
+        "link": "/student/exams",
         "isRead": false,
         "createdAt": "2026-09-13T08:00:00.000Z"
       }
