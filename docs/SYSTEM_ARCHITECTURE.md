@@ -1,24 +1,17 @@
 # System Architecture
 
-## Tổng quan
+## Tong quan
 
-SOES triển khai theo mô hình modular monolith:
-
-- Frontend: React/Vite SPA.
-- Backend: Express/TypeScript API server.
-- Database: PostgreSQL qua Prisma ORM.
-- Realtime: Socket.IO, có Redis adapter.
-- Storage: Supabase Storage cho tài liệu/asset, MinIO cho bằng chứng proctoring.
-- External services: Gemini AI, Judge0 CE.
+SOES hien duoc trien khai theo modular monolith:
 
 ```text
 React/Vite SPA
     |
-    | REST API + Socket.IO
+    | REST API + Socket.IO + WebRTC signaling
     v
 Express/TypeScript Backend
     |
-    +-- PostgreSQL/Prisma
+    +-- PostgreSQL / Prisma
     +-- Redis
     +-- Supabase Storage
     +-- MinIO
@@ -26,25 +19,53 @@ Express/TypeScript Backend
     +-- Judge0 CE
 ```
 
+Backend va frontend khong nam trong `docker-compose.yml`; compose chi cung cap local infrastructure: PostgreSQL, Redis, MinIO va Judge0.
+
 ## Frontend
 
-Thư mục chính: `fe/soes-fe/src`.
+Thu muc chinh: `fe/soes-fe/src`.
 
-Kiến trúc frontend tổ chức theo khu vực người dùng:
+Stack hien tai:
 
-- `pages/admin`: quản trị học vụ, người dùng, lịch thi, ngân hàng câu hỏi, báo cáo, audit log, settings.
-- `pages/teacher`: lớp học phần, ngân hàng câu hỏi, AI generator, đề thi, coi thi, chấm điểm, phúc khảo.
-- `pages/student`: dashboard, lớp học phần, lịch thi, làm bài, kết quả, thông báo, cài đặt.
-- `router`: phân quyền route theo `ADMIN`, `TEACHER`, `STUDENT`.
-- `store`: Zustand stores cho auth và system settings.
+- React 19, React DOM 19.
+- React Router 7.
+- Vite 8, TypeScript 6.
+- Tailwind CSS 4.
+- TanStack Query 5.
+- Zustand 5.
+- Axios.
+- Socket.IO Client.
+- MediaPipe Tasks Vision cho face/phone monitoring assets.
+- Monaco Editor cho cau hoi lap trinh.
+- TinyMCE cho rich text editor.
+- Recharts cho charts.
 
-Các route đang được khai báo trong `src/router/AppRouter.tsx`.
+To chuc UI:
+
+- `pages/admin`: hoc vu, users, final exam schedules, content, audit logs, monitoring, system settings.
+- `pages/teacher`: course detail, question bank, AI generation, exam editor/detail, proctoring, grading, grade appeals.
+- `pages/student`: dashboard, subjects, course detail, exams, take exam, result, notifications, settings.
+- `router`: `GuestRoute`, `ProtectedRoute`, `RoleRoute`, `AppRouter`.
+- `store`: auth va system settings.
+- `api`: axios va socket client dung chung.
 
 ## Backend
 
-Thư mục chính: `be/soes-be/src`.
+Thu muc chinh: `be/soes-be/src`.
 
-Backend mount các nhóm route trong `src/app.ts`:
+Stack hien tai:
+
+- Express 5.
+- TypeScript 6.
+- Prisma 5 voi PostgreSQL.
+- JWT access token, refresh token trong HttpOnly cookie.
+- Redis cho refresh token store, token blacklist va live state.
+- Zod validators.
+- Socket.IO va Redis adapter.
+- Supabase/MinIO storage clients.
+- Gemini va Judge0 integration.
+
+`src/app.ts` mount cac route chinh:
 
 - `/api/auth`
 - `/api/system-settings`
@@ -53,101 +74,135 @@ Backend mount các nhóm route trong `src/app.ts`:
 - `/api/admin`
 - `/api/teacher`
 - `/api/teacher/notifications`
+- `/api/local-evidence`
+- `/health`
 
-Các module chính:
+Module backend chinh:
 
-- `auth`: đăng nhập, refresh token, logout, hồ sơ cá nhân, đổi mật khẩu.
-- `admin-academic`: semester, department, subject, course offering.
-- `admin-users`: users, enrollment, reset password, status.
-- `admin-content`: shared question bank, exam tracking.
-- `admin-audit-logs`: audit log list/detail/export/overview.
-- `admin-monitoring`: proctoring/report overview cho admin.
-- `admin-system-settings`: settings, logo, defaults, integration health.
-- `teacher-courses`: lớp học phần, materials, posts, students, exams, gradebook, proctor assignments.
-- `teacher-questions`: question bank, question image upload, AI source file upload, audit, share/archive/restore, approvals.
-- `teacher-exams`: exam CRUD, schedules, makeup schedules, submissions, grading, result release, proctoring, live signaling fallback.
-- `ai-question-generation`: AI generation histories/materials/generate/review.
+- `auth`: login, refresh token, logout, profile, password/profile update, role middleware.
+- `admin-academic`: department, subject, semester, course offering.
+- `admin-users`: users, enrollments, reset password, status.
+- `admin-content`: shared question bank va exam tracking.
+- `admin-audit-logs`: list/detail/export/overview audit log.
+- `admin-monitoring`: monitoring/report overview.
+- `admin-system-settings`: public/admin/teacher settings, logo, defaults, integration health.
+- `teacher-courses`: course offerings, materials, posts, students, exams, gradebook, proctor assignments.
+- `teacher-questions`: question CRUD, programming config/test cases, audit, archive/restore, share/remove bank, upload assets.
+- `teacher-exams`: exam CRUD, schedule/makeup, lifecycle lock/unlock/visibility, submissions, grading, result release, proctoring.
+- `exam-schedules`: admin final exam schedule routes.
+- `ai-question-generation`: generation histories, material/source-file input, Gemini generation, review.
 - `student-dashboard`, `student-subjects`, `student-course-detail`, `student-portal`, `student-take-exam`.
-- `grade-appeals`: student tạo phúc khảo, teacher xử lý.
-- `notifications`: notification list/read cho teacher.
+- `grade-appeals`: student appeal va teacher handling.
+- `notifications`: teacher notifications.
 - `proctoring`: Socket.IO realtime gateway.
+- `proctoring-live`: live WebRTC session state/service.
 
-Mỗi module thường có các lớp `routes`, `controllers`, `services`, `repositories`, `validators`, `mappers`, `dtos`.
+Moi module thuong chia thanh `routes`, `controllers`, `services`, `repositories`, `validators`, `mappers`, `dtos` va `types` tuy nhu cau.
 
 ## Authentication and Authorization
 
-- Login dùng `identifier` theo prefix:
-  - `SV...`: Student
-  - `GV...`: Teacher
-  - `AD...`: Admin
-- Access token là JWT chứa `sub`, `profileId`, `role`.
-- Refresh token lưu trong HttpOnly cookie và Redis.
-- Student bị giới hạn một phiên đăng nhập đang hoạt động; Teacher/Admin có thể đăng nhập lại từ nhiều thiết bị.
-- Route frontend kiểm soát vai trò bằng `RoleRoute`.
+Login dung `identifier` theo prefix:
+
+- `SV...`: Student.
+- `GV...`: Teacher.
+- `AD...`: Admin.
+
+Access token JWT chua `sub`, `profileId`, `role`, `jti`.
+
+Refresh token:
+
+- Tra ve qua HttpOnly cookie.
+- Luu trong Redis theo `User.id`.
+- TTL 7 ngay theo `auth.service.ts`.
+
+Session rule hien tai:
+
+- Student chi duoc mot active session de giam rui ro thi ho.
+- Teacher va Admin co the dang nhap lai tu nhieu thiet bi.
+
+Authorization:
+
+- Backend dung `authenticate`, `requireRoles`, `requireAdmin`, `requireTeacher`, `requireStudent`.
+- Frontend dung `RoleRoute` de chan route theo role.
 
 ## Database
 
-Prisma schema nằm tại `be/soes-be/prisma/schema.prisma`.
+Prisma schema nam tai `be/soes-be/prisma/schema.prisma`.
 
-Các domain chính:
+Domain chinh:
 
 - Identity: `User`, `Student`, `Teacher`, `Admin`.
 - Academic: `Department`, `Semester`, `Subject`, `CourseOffering`, `Enrollment`.
 - Content: `Post`, `PostAttachment`, `Material`.
-- Question bank: `QuestionBank`, `QuestionBankItem`, `Question`, `QuestionOption`, programming config/test cases.
+- Question bank: `QuestionBank`, `QuestionBankItem`, `Question`, options, programming config/test cases.
 - AI: `AIGenerationHistory`, `AIGenerationMaterial`.
-- Exam: `Exam`, `ExamSection`, `ExamQuestion`, `ExamSchedule`, `ExamScheduleCourse`, `ExamScheduleStudent`, `ExamScheduleProctor`.
-- Attempt/grading: `ExamAttempt`, `ExamAttemptQuestion`, `StudentAnswer`, `ProgrammingSubmission`, `ProgrammingSubmissionTestResult`.
+- Exam authoring: `Exam`, `ExamSection`, `ExamQuestion`, `ExamQuestionOption`, programming snapshots.
+- Scheduling: `ExamSchedule`, `ExamScheduleCourse`, `ExamScheduleStudent`, `ExamScheduleProctor`.
+- Attempts/grading: `ExamAttempt`, `ExamAttemptQuestion`, `StudentAnswer`, `ProgrammingSubmission`, `ProgrammingSubmissionTestResult`.
 - Proctoring: `ExamSession`, `Violation`, `ViolationEvidence`.
 - System: `Notification`, `AuditLog`, `CodeGenerationSetting`, `GradeAppeal`.
 
+## Exam Lifecycle
+
+`Exam` la noi dung de thi:
+
+- `DRAFT`: dang soan.
+- `READY`: san sang lap lich.
+- `LOCKED`: da khoa distribution/chinh sua khi co lich hoac de bao toan noi dung.
+- `ARCHIVED`: luu tru.
+
+`ExamSchedule` la ca thi:
+
+- `DRAFT`, `SCHEDULED`, `OPEN`, `CLOSED`, `CANCELLED`.
+
+Lich thi chua:
+
+- Start/end/duration/max attempts/password.
+- Flags proctoring: tab lock, fullscreen, webcam, screen monitoring, block copy/paste, block right click.
+- Distribution mode.
+- Result release mode, review policy.
+- Target course/student va proctor assignments.
+- Makeup relation qua `makeupOfScheduleId`.
+
 ## Realtime Proctoring
 
-Socket.IO gateway trong `src/modules/proctoring/proctoring-realtime.gateway.ts` xử lý:
+Socket.IO gateway: `src/modules/proctoring/proctoring-realtime.gateway.ts`.
 
-- Join schedule room: `proctoring:join_schedule`.
-- Join attempt room: `proctoring:join_attempt`.
-- Request live webcam/screen: `live:request_camera`, `live:request_screen`.
+Event group chinh:
+
+- Join room: `proctoring:join_schedule`, `proctoring:join_attempt`.
+- Live stream request: `live:request_camera`, `live:request_screen`.
 - WebRTC signaling: `live:student_offer`, `live:teacher_answer`, `live:student_candidate`, `live:teacher_candidate`, `live:end`.
-- Broadcast heartbeat/offline/violation events cho dashboard giảng viên.
+- Dashboard updates: heartbeat, online/offline, violation, attempt invalidation.
 
-Redis lưu live session state để hỗ trợ nhiều backend instance.
+Redis duoc dung de luu live session state va ho tro nhieu backend instance.
 
 ## Storage
 
-- MinIO lưu `ViolationEvidence` với bucket cấu hình bằng `MINIO_EVIDENCE_BUCKET`.
-- Supabase Storage lưu course materials, question images, AI source files và system assets.
-- PostgreSQL chỉ lưu metadata/path/object key, không lưu binary file.
+- Supabase Storage: course materials, question images, AI source files, system logo/assets.
+- MinIO: proctoring evidence (`ViolationEvidence`) qua bucket cau hinh.
+- Local fallback evidence: `/api/local-evidence`, chi Teacher/Admin duoc doc.
+- PostgreSQL chi luu metadata/path/object key, khong luu binary file.
 
 ## Code Execution
 
-Judge0 CE dùng cho câu hỏi lập trình:
+Judge0 CE dung cho cau hoi `PROGRAMMING`:
 
-- Sinh viên chạy thử code trong khi làm bài.
-- Khi nộp bài, hệ thống tạo `ProgrammingSubmission` chính thức và lưu kết quả từng test case.
-- Ngôn ngữ hiện hỗ trợ theo enum Prisma: `JAVA`, `C`, `CPP`.
+- Student co the run code trong luc lam bai.
+- Submit tao `ProgrammingSubmission`.
+- Ket qua tung test case luu vao `ProgrammingSubmissionTestResult`.
+- Ngon ngu ho tro: `JAVA`, `C`, `CPP`.
 
 ## AI Generation
 
-Gemini được gọi trong module `ai-question-generation`.
+Gemini duoc goi trong `ai-question-generation`.
 
-Luồng chính:
+Luon chinh:
 
-1. Teacher chọn source từ course material hoặc upload file.
-2. Backend đọc tài liệu và gọi Gemini.
-3. Kết quả được validate/normalize.
-4. Lưu `AIGenerationHistory`, source files/material links và câu hỏi sinh ra.
-5. Teacher review trước khi dùng câu hỏi trong bank hoặc exam.
-
-## Local Infrastructure
-
-`docker-compose.yml` hiện chạy:
-
-- `postgres`
-- `redis`
-- `minio`
-- `judge0-db`
-- `judge0-server`
-- `judge0-workers`
-
-Frontend và backend không nằm trong compose, chạy bằng `npm run dev` trong từng thư mục.
+1. Teacher chon course material hoac upload source file.
+2. Backend doc/trich xuat noi dung.
+3. Tao prompt theo target objective/programming va mode.
+4. Goi Gemini.
+5. Validate schema, normalize va review chat luong.
+6. Luu `AIGenerationHistory`, source files/material links va `Question`.
+7. Teacher review de dua vao question bank hoac exam.

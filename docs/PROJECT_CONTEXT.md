@@ -1,329 +1,172 @@
-# SOES - Hệ thống Thi Trực tuyến Thông minh
+# SOES - Smart Online Examination System
 
-## 1. Tổng quan dự án
+## 1. Tong quan du an
 
-**SOES (Smart Online Examination System)** là một nền tảng thi trực tuyến có tích hợp Trí tuệ nhân tạo (AI), được thiết kế nhằm hỗ trợ các cơ sở giáo dục tổ chức các kỳ thi trực tuyến một cách an toàn, thông minh và hiệu quả.
+SOES la nen tang thi truc tuyen cho moi truong giao duc, tap trung vao quan ly hoc vu, ngan hang cau hoi, tao de thi, lap lich thi, lam bai, cham diem, giam sat chong gian lan va cong bo ket qua.
 
-Hệ thống cung cấp các chức năng quản lý học kỳ, lớp học phần, tài liệu học tập, đề thi, chấm điểm tự động và các cơ chế chống gian lận trong quá trình thi.
+Codebase hien tai gom:
 
----
+- Backend Express/TypeScript theo modular monolith.
+- Frontend React/Vite theo feature-based UI cho Admin, Teacher va Student.
+- PostgreSQL/Prisma lam nguon du lieu chinh.
+- Redis cho refresh token, blacklist token va trang thai realtime.
+- Socket.IO cho realtime proctoring va WebRTC signaling.
+- Gemini cho AI question generation.
+- Judge0 CE cho cham bai lap trinh.
+- Supabase Storage cho course materials, question images, AI source files va system assets.
+- MinIO cho proctoring evidence.
 
-## 2. Mục tiêu dự án
+## 2. Doi tuong su dung
 
-Các mục tiêu chính của dự án bao gồm:
+### Admin
 
-- Số hóa quy trình tổ chức thi trong môi trường giáo dục.
-- Giảm khối lượng công việc của giảng viên trong việc tạo đề và chấm điểm.
-- Tự động sinh câu hỏi bằng AI.
-- Hỗ trợ cả bài thi trắc nghiệm và bài thi lập trình.
-- Phát hiện và ghi nhận các hành vi đáng ngờ trong quá trình thi.
-- Nâng cao tính công bằng và tính trung thực trong các kỳ thi trực tuyến.
+Admin quan tri he thong va hoc vu:
 
----
+- Quan ly khoa/bo mon, hoc ky, mon hoc, lop hoc phan.
+- Quan ly user, tai khoan theo vai tro, ghi danh sinh vien.
+- Quan ly lich thi tap trung, dac biet final exam.
+- Theo doi shared question bank, exam tracking, audit logs va monitoring.
+- Cau hinh he thong, logo, defaults, tich hop va code generation settings.
 
-## 3. Đối tượng sử dụng
+### Teacher
 
-### Quản trị viên (Administrator)
+Teacher to chuc day hoc va danh gia:
 
-Chịu trách nhiệm quản lý toàn bộ hệ thống.
+- Quan ly cac lop hoc phan minh phu trach.
+- Dang bai viet, tai lieu hoc tap va attachments.
+- Tao va quan ly cau hoi ca nhan, chia se cau hoi vao ngan hang cau hoi mon hoc.
+- Tao de thi, section, cau hoi snapshot, lap lich thi quiz/midterm.
+- Sinh cau hoi bang AI tu course material hoac file upload.
+- Giam sat realtime, xem/cap nhat vi pham, chup bang chung thu cong.
+- Cham diem, finalize diem, cong bo ket qua, xu ly phuc khao.
 
-Các nhiệm vụ chính:
+Teacher co `position`: `LECTURER` hoac `DEPARTMENT_HEAD`. `DEPARTMENT_HEAD` co them mot so permission quan tri hoc vu/duyet cau hoi tuy theo mapper auth.
 
-- Quản lý tài khoản người dùng.
-- Quản lý học kỳ.
-- Quản lý môn học.
-- Giám sát hoạt động của hệ thống.
-- Quản lý cấu hình hệ thống.
+### Student
 
-### Giảng viên (Teacher)
+Student su dung cong thong tin hoc tap va lam bai:
 
-Chịu trách nhiệm tổ chức và quản lý các kỳ thi.
+- Xem dashboard, mon/lop dang hoc, timeline, bai viet, tai lieu, thanh vien.
+- Xem lich thi, chi tiet ky thi va dieu kien vao thi.
+- Lam bai trac nghiem/lap trinh, autosave, submit, run code.
+- Gui heartbeat webcam/screen, ghi nhan vi pham phia client.
+- Xem ket qua khi thoa chinh sach cong bo diem.
+- Tao phuc khao diem cho attempt da co ket qua.
 
-Các nhiệm vụ chính:
+## 3. Chuc nang chinh
 
-- Quản lý các lớp học phần.
-- Tải lên tài liệu học tập.
-- Tạo đề thi.
-- Sinh câu hỏi bằng AI.
-- Xem xét và công bố đề thi.
-- Giám sát sinh viên trong quá trình thi.
-- Xem nhật ký và bằng chứng gian lận.
-- Chấm điểm bài thi.
-- Xem xét và quản lý kết quả thi.
+### Hoc vu va lop hoc phan
 
-### Sinh viên (Student)
+- `Department`, `Semester`, `Subject`, `CourseOffering`, `Enrollment`.
+- Course offering dai dien cho mot mon hoc trong mot hoc ky do mot teacher phu trach.
+- Sinh vien khong tu dang ky lop; Admin quan ly enrollment.
+- He thong chan ghi danh trung cung mon trong cung hoc ky qua unique `(studentId, subjectId, semesterId)`.
 
-Chịu trách nhiệm tham gia các kỳ thi.
-Student chỉ được xem và thống kê những điểm thuộc các bài kiểm tra đã được Teacher công bố bằng cách set `Exam.result_published = true`.
+### Noi dung hoc tap
 
-Các nhiệm vụ chính:
+- `Post` theo lop hoc phan, co `DRAFT`, `PUBLISHED`, `HIDDEN`, pin va attachments.
+- `Material` theo lop hoc phan, unique file name trong tung course offering.
+- Storage provider ho tro `LOCAL`, `SUPABASE`, `MINIO`; tai lieu hoc tap hien dung Supabase.
 
-- Truy cập các lớp học phần được phân công.
-- Tham gia kỳ thi.
-- Nộp đáp án và mã nguồn.
-- Xem kết quả thi và phản hồi (chỉ khi `result_published = true`).
+### Ngan hang cau hoi
 
----
+- Question type: `SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `TRUE_FALSE`, `PROGRAMMING`.
+- Difficulty: `EASY`, `MEDIUM`, `HARD`.
+- Source: `MANUAL`, `AI_GENERATED`, `IMPORTED`.
+- Cau hoi lap trinh co language `JAVA`, `C`, `CPP`, config time/memory/code size va test cases.
+- Cau hoi co the archived, va co the duoc dua vao `QuestionBankItem` voi trang thai `PENDING`, `APPROVED`, `REJECTED`.
 
-## 4. Các chức năng chính
+### AI question generation
 
-### Quản lý học phần
+AI module ho tro:
 
-- Quản lý học kỳ.
-- Quản lý môn học.
-- Quản lý lớp học phần.
-- Phân công giảng viên cho lớp học phần.
-- Ghi danh sinh viên vào lớp học phần.
-- Nhập danh sách sinh viên từ tệp Excel hoặc CSV.
+- `GENERATE_FROM_MATERIAL`: sinh cau hoi tu course material.
+- `EXTRACT_EXISTING_EXAM`: trich xuat cau hoi tu file de thi upload.
+- Source type: `COURSE_MATERIAL`, `UPLOAD_FILE`.
+- Target: objective (`SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `TRUE_FALSE`) hoac `PROGRAMMING`.
 
-### Quản lý tài liệu học tập
+Ket qua duoc validate/normalize, luu vao `AIGenerationHistory`, lien ket material/source files va tao question de teacher review/trien khai tiep.
 
-- Tải lên tài liệu PDF, DOCX và PPTX.
-- Quản lý tài liệu theo từng lớp học phần.
-- Lựa chọn tài liệu để AI sử dụng trong việc sinh câu hỏi.
-- Mỗi tài liệu thuộc về một lớp học phần cụ thể.
-- Giảng viên tự quản lý tài liệu của mình một cách độc lập.
-- Ngăn chặn việc trùng tên tệp trong cùng một lớp học phần.
+### De thi va lich thi
 
-### Sinh câu hỏi bằng AI
+Code hien tai tach ro:
 
-Sinh câu hỏi từ các tài liệu học tập đã được lựa chọn.
+- `Exam`: de thi/bo cau hoi, section, snapshot cau hoi, format, type va lifecycle noi dung.
+- `ExamSchedule`: ca thi/lap lich cu the, thoi gian, password, proctoring flags, distribution, result release, review policy, target course/student va proctor.
 
-**AI chỉ đóng vai trò hỗ trợ, giảng viên là người đưa ra quyết định cuối cùng.**
+`Exam.type`: `QUIZ`, `MIDTERM`, `FINAL`.
 
-Các loại câu hỏi được hỗ trợ:
+`Exam.status`: `DRAFT`, `READY`, `LOCKED`, `ARCHIVED`.
 
-- Câu hỏi trắc nghiệm một đáp án.
-- Câu hỏi trắc nghiệm nhiều đáp án.
-- Câu hỏi lập trình.
+`ExamSchedule.status`: `DRAFT`, `SCHEDULED`, `OPEN`, `CLOSED`, `CANCELLED`.
 
-Giảng viên có thể:
+Teacher tao/lap lich regular exam khong phai final. Final exam duoc lap lich tap trung tu Admin. Teacher co the tao makeup schedule cho schedule duoc phep.
 
-- Sinh câu hỏi tự động.
-- Xem trước các câu hỏi do AI tạo.
-- Chỉnh sửa câu hỏi.
-- Lưu câu hỏi vào ngân hàng câu hỏi.
+### Lam bai va cham diem
 
-### Quản lý ngân hàng câu hỏi
+- `ExamAttempt` theo schedule/student/attempt number.
+- Cau hoi trong attempt duoc snapshot thu tu tai `ExamAttemptQuestion`, co `shuffledOptionIds`.
+- `StudentAnswer` luu dap an/draft source code hien tai.
+- `ProgrammingSubmission` luu lan nop code chinh thuc va `ProgrammingSubmissionTestResult`.
+- Objective questions va programming submissions duoc cham tu dong; teacher co the manual grade/finalize.
+- Attempt co the bi `INVALIDATED` khi proctor/teacher xu ly vi pham.
 
-- Tạo và quản lý ngân hàng câu hỏi.
-- Tổ chức câu hỏi theo môn học và quyền sở hữu.
-- Tìm kiếm và lọc câu hỏi.
-- Tái sử dụng câu hỏi trong các kỳ thi sau.
+### Cong bo ket qua va xem lai
 
-### Quản lý đề thi
+Ket qua duoc quan ly tren `ExamSchedule`:
 
-Giảng viên có thể tạo đề thi bằng nhiều phương thức:
-- Tạo câu hỏi thủ công.
-- Chọn câu hỏi từ ngân hàng câu hỏi.
-- Sinh câu hỏi bằng AI.
-    Quy trình AI: Material selection->AI Generation Draft->Teacher Review->Question Bank / Exam
-- Kết hợp câu hỏi thủ công, câu hỏi từ ngân hàng và câu hỏi do AI tạo.
-Các loại đề thi được hỗ trợ:
-- Đề thi trắc nghiệm một đáp án.
-- Đề thi trắc nghiệm nhiều đáp án.
-- Đề thi lập trình.
-- Đề thi hỗn hợp.
-Mỗi đề thi lưu:
-- Loại đề thi (QUIZ/MIDTERM/FINAL).
-- Phương thức tạo đề (MANUAL/QUESTION_BANK/AI_GENERATED/MIXED).
-- Trạng thái công bố điểm (`result_published`).
-- Cấu hình chống gian lận (full-screen, webcam, screen monitoring, block copy-paste, right-click).
+- `resultReleaseMode`: `IMMEDIATE`, `MANUAL`, `SCHEDULED`, `NEVER` trong schema.
+- API teacher hien cho phep cap nhat `IMMEDIATE`, `MANUAL`, `SCHEDULED`.
+- `resultsPublishedAt` danh dau da cong bo.
+- `reviewPolicy`: `NONE`, `SCORE_ONLY`, `ANSWERS_NO_KEY`, `FULL_AFTER_RELEASE`.
 
-### Thi lập trình
+Student chi thay diem/noi dung review khi attempt va schedule thoa policy cong bo.
 
-Các ngôn ngữ lập trình được hỗ trợ:
+### Proctoring
 
-- Java
-- C
-- C++
+He thong theo doi:
 
-Các bài lập trình được xây dựng theo dạng chương trình Console và được chấm điểm tự động bằng các bộ Test Case đã được định nghĩa.
+- Browser: tab switch, fullscreen exit, inactivity, copy/paste, right click.
+- Webcam: no face, multiple faces, looking away, phone detected, camera blocked/disconnected/permission denied.
+- Screen share: stopped, permission denied.
+- Proctor manual capture: webcam/screen evidence.
 
-### Chấm điểm tự động
+Realtime dung Socket.IO va WebRTC signaling. Evidence luu metadata trong DB va file trong MinIO, fallback local evidence co endpoint `/api/local-evidence` cho Teacher/Admin.
 
-Hệ thống tự động chấm:
+### Notification, audit va phuc khao
 
-- Bài thi trắc nghiệm.
-- Bài thi lập trình dựa trên các Test Case.
+- `Notification` cho user, co link va read state.
+- `AuditLog` ghi action/entity/metadata/ip/userAgent.
+- `GradeAppeal` moi attempt chi co mot phuc khao; Teacher xu ly `PENDING`, `IN_REVIEW`, `RESOLVED`, `REJECTED`.
 
-Giảng viên có thể:
+## 4. Cong nghe hien tai
 
-- Xem kết quả chấm.
-- Điều chỉnh điểm thủ công khi cần thiết.
+Frontend:
 
-### Chống gian lận và giám sát thi
+- React 19, React Router 7, Vite 8, TypeScript 6.
+- Tailwind CSS 4, lucide-react, recharts, sonner.
+- TanStack Query, Zustand, Axios, Socket.IO Client.
+- MediaPipe Tasks Vision, Monaco Editor, TinyMCE.
+- Playwright cho browser vision tests.
 
-Hệ thống cung cấp nhiều cơ chế chống gian lận.
+Backend:
 
-**Giám sát trình duyệt:**
+- Node.js, Express 5, TypeScript 6, Prisma 5.
+- JWT, bcrypt, cookie-parser, CORS.
+- Zod validation.
+- Socket.IO va Socket.IO Redis adapter.
+- ioredis.
+- Supabase JS, MinIO client.
+- Gemini SDK `@google/genai`.
 
-- Phát hiện chuyển tab.
-- Phát hiện thoát chế độ toàn màn hình.
-- Chặn sao chép và dán.
-- Chặn nhấp chuột phải.
-- Phát hiện người dùng không hoạt động.
+Infrastructure local:
 
-**Giám sát webcam:**
+- `docker-compose.yml` chay PostgreSQL, Redis, MinIO, Judge0 DB/server/workers.
+- Frontend va backend chay rieng bang `npm run dev` trong tung thu muc.
 
-- Phát hiện không có khuôn mặt.
-- Phát hiện nhiều khuôn mặt.
-- Phát hiện camera bị che, mất kết nối hoặc bị tắt trong lúc thi.
-- Tự động chụp ảnh webcam khi phát hiện hành vi đáng ngờ.
-- Cho phép giảng viên xem live webcam từng sinh viên theo nhu cầu.
-- Cho phép giảng viên chụp bằng chứng thủ công từ live webcam.
-- Ghi nhận các sự kiện nghi vấn/vi phạm để giảng viên xem xét.
+## 5. Kien truc
 
-**Giám sát màn hình:**
-
-- Yêu cầu sinh viên chia sẻ màn hình khi ca thi bật `enableScreenMonitoring`.
-- Cho phép giảng viên xem live màn hình của từng sinh viên để biết sinh viên đang thao tác gì trong lúc thi.
-- Ghi nhận chuyển tab, thoát fullscreen, dừng chia sẻ màn hình và các sự kiện trình duyệt liên quan.
-- Cho phép hệ thống hoặc giảng viên chụp bằng chứng màn hình khi phát hiện hành vi đáng ngờ.
-
-Mọi hành vi đáng ngờ đều được ghi lại để giảng viên xem xét.
-Hệ thống không tự động cưỡng chế nộp bài vì gian lận; giảng viên là người quyết định xử lý, bao gồm quyền dừng bài thi và ghi nhận điểm 0.
-
-### Giám sát thời gian thực
-
-Giảng viên có thể:
-
-- Theo dõi tiến trình làm bài theo thời gian thực.
-- Nhận cảnh báo khi phát hiện gian lận.
-- Xem bằng chứng và lịch sử các sự kiện vi phạm.
-- Chọn xem live webcam hoặc live màn hình của một sinh viên trong cùng ca thi, nhưng không xem đồng thời cả hai stream của cùng một sinh viên.
-- Chuyển nhanh giữa các sinh viên để giám sát thủ công.
-
-### Quản lý kết quả
-
-- Lưu trữ kết quả thi.
-- Lưu trữ thông tin chấm điểm chi tiết.
-- Cung cấp báo cáo điểm số.
-- Cho phép sinh viên xem kết quả sau khi được công bố.
-- Cung cấp chức năng xem chi tiết bài làm cho giảng viên và quản trị viên.
-- Xuất báo cáo điểm dưới định dạng Excel.
-
----
-
-## 5. Vai trò người dùng
-
-Hiện tại hệ thống hỗ trợ ba vai trò:
-
-| Vai trò | Mô tả                     |
-| ------- | ------------------------- |
-| ADMIN   | Quản trị viên hệ thống    |
-| TEACHER | Giảng viên và người ra đề |
-| STUDENT | Người tham gia kỳ thi     |
-
----
-
-## 6. Công nghệ sử dụng
-
-### Frontend
-
-- React
-- Vite
-- Tailwind CSS
-- TypeScript
-- Shadcn UI
-- TanStack Query
-- Zustand
-- Socket.IO Client
-- Axios
-
-### Backend
-
-- Node.js
-- Express.js
-- Socket.IO
-- Prisma ORM
-- Xác thực JWT
-
-### Cơ sở dữ liệu
-
-- PostgreSQL
-- Prisma ORM
-- Redis
-
-### Trí tuệ nhân tạo (AI)
-
-- Gemini API
-
-### Chống gian lận
-
-- WebRTC
-- MediaDevices API (`getUserMedia`, `getDisplayMedia`)
-- Giám sát sự kiện trình duyệt
-- MediaPipe Face Landmarker
-- Socket.IO
-
-### Lưu trữ
-
-- MinIO cho bằng chứng gian lận/proctoring evidence
-- Supabase cho tài liệu học tập/materials
-
-### Thực thi mã nguồn
-
-- Judge0 CE
-
-### Triển khai hệ thống
-
-- Vercel (Frontend)
-- Railway hoặc VPS (Backend)
-- Máy chủ PostgreSQL
-
----
-
-## 6A. Tổng quan kiến trúc
-
-Hệ thống áp dụng các mô hình kiến trúc sau:
-
-- **Backend:** Kiến trúc Modular Monolith.
-- **Thiết kế nội bộ Backend:** Kiến trúc phân tầng (Layered Architecture).
-- **Frontend:** Kiến trúc theo tính năng (Feature-Based Architecture).
-- **Giao tiếp:** REST API và Socket.IO(WebSocket) .
-
----
-
-## 7. Yêu cầu phi chức năng
-
-### Bảo mật
-
-- Xác thực bằng JWT.
-- Phân quyền theo vai trò (RBAC).
-- Mã hóa mật khẩu an toàn.
-- Môi trường làm bài được bảo vệ.
-
-### Độ tin cậy
-
-- Hệ thống tự động lưu tiến độ làm bài theo định kỳ.
-- Cho phép sinh viên tiếp tục làm bài sau khi bị gián đoạn kết nối mạng tạm thời.
-
-### Hiệu năng
-
-- Hỗ trợ nhiều phiên thi đồng thời.
-- Xử lý sự kiện theo thời gian thực.
-- Nộp bài và chấm điểm nhanh.
-
-### Khả năng mở rộng
-
-- Kiến trúc dạng module.
-- Dễ dàng mở rộng thêm các chức năng trong tương lai.
-
-### Tính sẵn sàng
-
-- Hệ thống phải hoạt động ổn định trong suốt thời gian diễn ra kỳ thi.
-- Tự động lưu và bảo toàn tiến độ làm bài của sinh viên.
-
----
-
-## 8. Định hướng phát triển trong tương lai
-
-Các cải tiến tiềm năng bao gồm:
-
-- Hỗ trợ ứng dụng trên thiết bị di động.
-- Phát hiện hướng nhìn bằng AI nâng cao.
-- Phát hiện lời nói trong quá trình thi.
-- Hỗ trợ thêm nhiều ngôn ngữ lập trình.
-- Ghi hình video trong suốt quá trình thi.
-- Dashboard phân tích và thống kê chi tiết.
+- Backend: modular monolith, moi module gom routes/controllers/services/repositories/validators/mappers/dtos khi can.
+- Frontend: feature-based theo `pages/admin`, `pages/teacher`, `pages/student`, dung router role guard.
+- Giao tiep: REST API cho nghiep vu, Socket.IO/WebRTC cho realtime proctoring.
+- Nguon su that schema: `be/soes-be/prisma/schema.prisma`.
