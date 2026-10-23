@@ -50,6 +50,7 @@ export default function AuditLogFilters({ values, actions, entityTypes, onChange
           options={[
             { value: 'ALL', label: 'Tất cả vai trò' },
             { value: 'ADMIN', label: 'Quản trị viên' },
+            { value: 'EDUCATION_OFFICER', label: 'Giáo vụ' },
             { value: 'TEACHER', label: 'Giảng viên' },
             { value: 'STUDENT', label: 'Sinh viên' },
           ]}

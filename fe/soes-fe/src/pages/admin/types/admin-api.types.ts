@@ -2,7 +2,7 @@ export interface ApiResponse<T> { success: boolean; data: T }
 export interface ApiPagination { page: number; pageSize: number; totalItems: number; totalPages: number }
 export interface ApiPage<T> { items: T[]; pagination: ApiPagination }
 
-export type AuditActorRole = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'UNKNOWN'
+export type AuditActorRole = 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT' | 'UNKNOWN'
 
 export interface AdminAuditLogApiDto {
   id: string; action: string; entityType: string; entityId: string; createdAt: string; ipAddress: string | null
@@ -61,7 +61,7 @@ export interface CourseEnrollmentApiDto {
 }
 
 export interface UserApiDto {
-  id: string; profileId: string; code: string; fullName: string; role: 'ADMIN' | 'TEACHER' | 'STUDENT'
+  id: string; profileId: string; code: string; fullName: string; role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT'
   email: string | null; phoneNumber: string | null; status: string; position: string | null
   department: { id: string; code: string; name: string } | null
 }

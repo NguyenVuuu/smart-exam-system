@@ -1,5 +1,6 @@
 import { Trash2, UserPlus, Users, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
+import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import type { AdminUser, CourseEnrollmentAdmin, CourseOfferingAdmin } from '../../types/admin.types'
 import AdminButton from '../AdminButton'
 import { AdminInput } from '../AdminFormFields'
@@ -23,6 +24,7 @@ export default function ClassEnrollmentModal({
   onConfirm: () => void
 }) {
   const [activeTab, setActiveTab] = useState<EnrollmentTab>('ROSTER')
+  const canManage = useBackofficePermission('ACADEMIC_MANAGE')
 
   if (!course) return null
 
@@ -45,7 +47,7 @@ export default function ClassEnrollmentModal({
 
         <div className="flex shrink-0 border-b border-gray-200 px-6">
           <TabButton active={activeTab === 'ROSTER'} icon={<Users size={17} />} label={`Danh sách sinh viên (${enrollments.length})`} onClick={() => setActiveTab('ROSTER')} />
-          <TabButton active={activeTab === 'ADD'} icon={<UserPlus size={17} />} label="Thêm sinh viên" onClick={() => setActiveTab('ADD')} />
+          {canManage && <TabButton active={activeTab === 'ADD'} icon={<UserPlus size={17} />} label="Thêm sinh viên" onClick={() => setActiveTab('ADD')} />}
         </div>
 
         <div className="shrink-0 border-b border-gray-100 px-6 py-4">
@@ -53,14 +55,14 @@ export default function ClassEnrollmentModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          {activeTab === 'ROSTER'
-            ? <RosterList students={visibleEnrollments} loading={loading} onRemoveStudent={onRemoveStudent} />
+          {activeTab === 'ROSTER' || !canManage
+            ? <RosterList students={visibleEnrollments} loading={loading} onRemoveStudent={canManage ? onRemoveStudent : undefined} />
             : <CandidateList students={students} selectedStudentIds={selectedStudentIds} onToggleStudent={onToggleStudent} />}
         </div>
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
           <AdminButton tone="secondary" onClick={onClose}>Đóng</AdminButton>
-          {activeTab === 'ADD' && (
+          {canManage && activeTab === 'ADD' && (
             <AdminButton icon={<UserPlus size={17} />} onClick={onConfirm}>
               Thêm {selectedStudentIds.length || ''} sinh viên
             </AdminButton>
@@ -79,7 +81,7 @@ function TabButton({ active, icon, label, onClick }: { active: boolean; icon: Re
   )
 }
 
-function RosterList({ students, loading, onRemoveStudent }: { students: CourseEnrollmentAdmin[]; loading: boolean; onRemoveStudent: (studentId: string) => void }) {
+function RosterList({ students, loading, onRemoveStudent }: { students: CourseEnrollmentAdmin[]; loading: boolean; onRemoveStudent?: (studentId: string) => void }) {
   if (loading) return <p className="py-10 text-center text-sm text-slate-500">Đang tải danh sách sinh viên...</p>
   if (students.length === 0) return <EmptyState text="Chưa có sinh viên phù hợp." />
   return (
@@ -92,11 +94,11 @@ function RosterList({ students, loading, onRemoveStudent }: { students: CourseEn
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className="text-sm text-slate-500">{student.code}</span>
-            <button type="button" title="Xóa khỏi lớp" onClick={() => {
+            {onRemoveStudent && <button type="button" title="Xóa khỏi lớp" onClick={() => {
               if (window.confirm(`Xóa ${student.fullName} khỏi lớp?`)) onRemoveStudent(student.id)
             }} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600">
               <Trash2 size={16} />
-            </button>
+            </button>}
           </div>
         </div>
       ))}

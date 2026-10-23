@@ -48,7 +48,9 @@ export const saveCourseOffering = (id: string | null, payload: CourseOfferingPay
   : apiClient.post<ApiResponse<CourseOfferingApiDto>>('/admin/course-offerings', payload).then(unwrap)
 
 export const getUsers = () => getAllPages<UserApiDto>('/admin/users')
-export const getNextUserCode = (role: 'ADMIN' | 'TEACHER' | 'STUDENT') =>
+export const getUserReferences = (role: 'TEACHER' | 'STUDENT') =>
+  getAllPages<UserApiDto>('/admin/users/references', { role, status: 'ACTIVE' })
+export const getNextUserCode = (role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT') =>
   apiClient.get<ApiResponse<{ code: string }>>('/admin/users/next-code', { params: { role } }).then(unwrap)
 export const createUser = (payload: UserPayload) => apiClient
   .post<ApiResponse<unknown>>('/admin/users', payload).then(unwrap)

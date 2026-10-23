@@ -7,7 +7,7 @@ export const auditLogFilterSchema = z.object({
   keyword: optionalText,
   action: optionalText,
   entityType: optionalText,
-  role: z.enum(['ADMIN', 'TEACHER', 'STUDENT']).optional(),
+  role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']).optional(),
   from: z.iso.datetime({ offset: true }).optional(),
   to: z.iso.datetime({ offset: true }).optional(),
 }).refine(

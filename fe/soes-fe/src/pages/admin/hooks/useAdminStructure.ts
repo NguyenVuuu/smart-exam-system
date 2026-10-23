@@ -4,7 +4,7 @@ import { toAdminUser, toDepartment, toSubject } from '../mappers/admin-managemen
 import type { DepartmentPayload, SubjectPayload } from '../types/admin-api.types'
 import type { AdminSubject, AdminUser, Department } from '../types/admin.types'
 
-export function useAdminStructure() {
+export function useAdminStructure(loadTeachers = true) {
   const [departments, setDepartments] = useState<Department[]>([])
   const [subjects, setSubjects] = useState<AdminSubject[]>([])
   const [teachers, setTeachers] = useState<AdminUser[]>([])
@@ -16,7 +16,7 @@ export function useAdminStructure() {
     setError(null)
     try {
       const [departmentPage, subjectPage, userPage] = await Promise.all([
-        api.getDepartments(), api.getSubjects(), api.getUsers(),
+        api.getDepartments(), api.getSubjects(), loadTeachers ? api.getUserReferences('TEACHER') : Promise.resolve({ items: [] }),
       ])
       setDepartments(departmentPage.items.map(toDepartment))
       setSubjects(subjectPage.items.map(toSubject))
@@ -26,7 +26,7 @@ export function useAdminStructure() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [loadTeachers])
 
   useEffect(() => { void load() }, [load])
 

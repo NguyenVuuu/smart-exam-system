@@ -1,5 +1,6 @@
 ﻿import { Edit, Lock, Unlock, Users } from 'lucide-react'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
+import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import type { CourseOfferingAdmin } from '../../types/admin.types'
 import { AdminStatusBadge } from '../AdminBadges'
 
@@ -14,6 +15,7 @@ export default function ClassSectionsTable({
   onOpenEdit: (item: CourseOfferingAdmin) => void
   onToggleStatus: (item: CourseOfferingAdmin) => void
 }) {
+  const canManage = useBackofficePermission('ACADEMIC_MANAGE')
   const columns: ColumnDef<CourseOfferingAdmin>[] = [
     {
       header: 'MÃ LỚP',
@@ -72,12 +74,12 @@ export default function ClassSectionsTable({
         <div className="flex justify-end gap-1 text-slate-500">
           <button
             className="rounded-lg p-1.5 hover:bg-emerald-50 hover:text-emerald-600"
-            title="Xếp lớp sinh viên"
+            title="Danh sách sinh viên"
             onClick={() => onOpenEnrollment(item)}
           >
             <Users size={17} />
           </button>
-          <button
+          {canManage && <><button
             className="rounded-lg p-1.5 hover:bg-blue-50 hover:text-blue-600"
             title="Chỉnh sửa"
             onClick={() => onOpenEdit(item)}
@@ -91,6 +93,7 @@ export default function ClassSectionsTable({
           >
             {item.status === 'OPEN' ? <Lock size={17} /> : <Unlock size={17} />}
           </button>
+          </>}
         </div>
       ),
     },

@@ -1,4 +1,4 @@
-export type AuditActorRole = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'UNKNOWN'
+export type AuditActorRole = 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT' | 'UNKNOWN'
 
 export interface AuditActorDto {
   id: string

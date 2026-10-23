@@ -13,7 +13,10 @@ import ClassSectionsTable from './components/class-sections/ClassSectionsTable'
 import { useAdminClassSections } from './hooks/useAdminClassSections'
 import type { CourseOfferingAdmin } from './types/admin.types'
 
+import { useBackofficePermission } from '../../auth/hooks/useBackofficePermission'
+
 export default function AdminClassSectionsPage() {
+  const canManage = useBackofficePermission('ACADEMIC_MANAGE')
   const [departmentFilter, setDepartmentFilter] = useState('ALL')
   const [subjectFilter, setSubjectFilter] = useState('ALL')
   const [semesterFilter, setSemesterFilter] = useState('')
@@ -93,7 +96,7 @@ export default function AdminClassSectionsPage() {
     <AdminLayout>
       <AdminPageHeader icon={<Users size={20} />} title="Lớp học phần và Xếp lớp"
         description="Quản lý lớp học phần theo học kỳ, giảng viên phụ trách và ghi danh sinh viên vào lớp."
-        action={<AdminButton icon={<Plus size={17} />} onClick={openCreate}>Thêm lớp học phần</AdminButton>} />
+        action={canManage && <AdminButton icon={<Plus size={17} />} onClick={openCreate}>Thêm lớp học phần</AdminButton>} />
       <AdminTablePanel>
         <AdminToolbar
           variant="split"
@@ -140,7 +143,7 @@ export default function AdminClassSectionsPage() {
           }}
           onOpenEdit={openEdit} onToggleStatus={(item) => void toggleStatus(item)} />}
       </AdminTablePanel>
-      <ClassSectionFormModal open={modalOpen} editingClassId={editing?.id ?? null} departmentInput={departmentId}
+      <ClassSectionFormModal open={canManage && modalOpen} editingClassId={editing?.id ?? null} departmentInput={departmentId}
         onDepartmentChange={changeDepartment} subjectCodeInput={subjectId} onSubjectCodeChange={setSubjectId}
         selectedDepartmentSubjects={departmentSubjects} semesterCodeInput={semesterId} onSemesterCodeChange={setSemesterId}
         classCodeInput={classCode} onClassCodeChange={setClassCode} capacityInput={capacity} onCapacityChange={setCapacity}

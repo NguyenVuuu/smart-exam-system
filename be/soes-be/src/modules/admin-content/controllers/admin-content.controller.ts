@@ -13,3 +13,5 @@ export const restoreQuestion = async (req: Request, res: Response) =>
   send(res, await service.restoreQuestion(req.user!.id, itemParamSchema.parse(req.params).id))
 export const listExams = async (req: Request, res: Response) =>
   send(res, await service.listExams(examTrackingQuerySchema.parse(req.query)))
+export const getExamDetail = async (req: Request, res: Response) =>
+  send(res, await service.getExamDetail(itemParamSchema.parse(req.params).id))

@@ -1,5 +1,10 @@
 import { apiClient } from '../../../api/axios'
 import type { AdminExamTrackingApiDto, AdminQuestionBankApiDto, ApiPage, ApiResponse } from '../types/admin-api.types'
+import type { TeacherExamDetailDto } from '../../teacher/types/teacher-exam-api.types'
+
+export type AdminExamDetail = Pick<TeacherExamDetailDto, 'id' | 'questions'>
+export const getAdminExamDetail = (id: string) => apiClient
+  .get<ApiResponse<AdminExamDetail>>(`/admin/exam-tracking/${id}`).then(({ data }) => data.data)
 
 export interface ContentListParams {
   page: number; pageSize: number; keyword?: string; departmentId?: string; subjectId?: string; status?: string

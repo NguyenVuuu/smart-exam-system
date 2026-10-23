@@ -1,5 +1,6 @@
 import { Archive, ArchiveRestore, Eye } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
+import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { AdminSubject, SharedQuestionAdmin } from '../../types/admin.types'
 import { QuestionStatusBadge } from '../AdminBadges'
@@ -53,6 +54,7 @@ export default function SharedQuestionTable({
   totalPages?: number
   onPageChange?: (page: number) => void
 }) {
+  const canManage = useBackofficePermission('QUESTION_BANK_MANAGE')
   const columns: ColumnDef<SharedQuestionAdmin>[] = [
     {
       header: 'CÂU HỎI',
@@ -95,7 +97,7 @@ export default function SharedQuestionTable({
           >
             <Eye size={17} />
           </button>
-          {item.status === 'APPROVED' ? (
+          {canManage && (item.status === 'APPROVED' ? (
             <button
               className="rounded-lg p-1.5 hover:bg-rose-50 hover:text-rose-600"
               title="Gỡ khỏi ngân hàng chung"
@@ -111,7 +113,7 @@ export default function SharedQuestionTable({
             >
               <ArchiveRestore size={17} />
             </button>
-          )}
+          ))}
         </div>
       ),
     },

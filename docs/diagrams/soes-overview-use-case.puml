@@ -1,0 +1,219 @@
+@startuml
+left to right direction
+
+skinparam BackgroundColor #FFFFFF
+skinparam Shadowing false
+skinparam Linetype ortho
+skinparam Dpi 180
+skinparam RoundCorner 0
+skinparam DefaultFontName Arial
+skinparam DefaultFontSize 12
+skinparam DefaultFontColor #111111
+skinparam ArrowColor #263238
+skinparam ArrowThickness 1
+
+skinparam rectangle {
+  BackgroundColor #7acff4
+  BorderColor #263238
+  FontColor #111111
+}
+skinparam usecase {
+  BackgroundColor #7acff4
+  BorderColor #263238
+  FontColor #111111
+}
+skinparam actor {
+  BackgroundColor #7acff4
+  BorderColor #263238
+  FontColor #111111
+}
+
+actor "Admin" as Admin
+actor "Giảng viên" as Teacher
+actor "Trưởng bộ môn" as Head
+actor "Phó bộ môn" as Deputy
+actor "Sinh viên" as Student
+
+Head --|> Teacher
+Deputy --|> Teacher
+
+rectangle "SOES - Smart Online Examination System" as SOES #7acff4 {
+  together {
+    usecase "Đăng nhập / đăng xuất" as UC_Auth
+    usecase "Quản lý hồ sơ cá nhân" as UC_Profile
+    usecase "Xem thông báo" as UC_Noti
+  }
+
+  together {
+    usecase "Quản lý bộ môn,\nhọc kỳ, môn học" as UC_Academic
+    usecase "Bổ nhiệm / gỡ chức vụ\ntrưởng, phó bộ môn" as UC_Appoint
+    usecase "Ghi nhận quyền theo\nquyết định phân công" as UC_RecordAuthority
+    usecase "Quản lý lớp học phần" as UC_CourseAdmin
+    usecase "Quản lý người dùng" as UC_User
+    usecase "Quản lý ghi danh\nsinh viên" as UC_Enroll
+    usecase "Lập lịch thi cuối kỳ" as UC_FinalSchedule
+    usecase "Chọn bản đề cuối kỳ\nđã được tiếp nhận và khóa" as UC_SelectSealedExam
+    usecase "Theo dõi kỳ thi" as UC_AdminTracking
+    usecase "Quản lý ngân hàng\ncâu hỏi dùng chung" as UC_SharedBank
+    usecase "Tiếp nhận và khóa\nđề cuối kỳ đã duyệt" as UC_SealExam
+    usecase "Kiểm tra hồ sơ\nvà bản đề đã duyệt" as UC_CheckApprovedVersion
+    usecase "Trả hồ sơ đề thi\nyêu cầu bổ sung" as UC_ReturnDossier
+    usecase "Xem báo cáo, thống kê" as UC_Report
+    usecase "Xem nhật ký hệ thống" as UC_Audit
+    usecase "Cấu hình hệ thống" as UC_Settings
+  }
+
+  together {
+    usecase "Xem lớp học phần\nphụ trách" as UC_TeacherCourse
+    usecase "Quản lý bài viết,\ntài liệu học tập" as UC_Material
+    usecase "Quản lý ngân hàng\ncâu hỏi cá nhân" as UC_Question
+    usecase "Rà soát chất lượng\ncâu hỏi" as UC_AuditQuestion
+    usecase "Sinh câu hỏi bằng AI" as UC_AIGen
+    usecase "Tạo đề thi" as UC_CreateExam
+    usecase "Chỉnh sửa đề thi" as UC_EditExam
+    usecase "Sinh đề tự động" as UC_AutoExam
+    usecase "Xem công việc\nra đề được giao" as UC_AuthorTasks
+    usecase "Nộp đề cuối kỳ\nkiểm duyệt" as UC_SubmitReview
+    usecase "Kiểm tra đề với\nyêu cầu và ma trận" as UC_ValidateSubmission
+    usecase "Xem góp ý và\nnộp lại phiên bản đề" as UC_Resubmit
+    usecase "Lập lịch thi quiz /\ngiữa kỳ / thi bù" as UC_TeacherSchedule
+    usecase "Giám sát ca thi realtime" as UC_Proctor
+    usecase "Xử lý vi phạm" as UC_Violation
+    usecase "Chấm bài thi" as UC_Grade
+    usecase "Công bố kết quả" as UC_Publish
+    usecase "Xử lý phúc khảo" as UC_HandleAppeal
+    usecase "Xuất bảng điểm" as UC_Export
+  }
+
+  together {
+    usecase "Tạo yêu cầu và\nphân công ra đề cuối kỳ" as UC_AssignAuthor
+    usecase "Phát hành yêu cầu ra đề" as UC_IssueTask
+    usecase "Theo dõi tiến độ ra đề" as UC_TrackTask
+    usecase "Gia hạn nộp đề" as UC_ExtendDeadline
+    usecase "Hủy yêu cầu ra đề" as UC_CancelTask
+    usecase "Quản lý nhóm thẩm định\ntheo môn học" as UC_ReviewGroup
+    usecase "Phân công / thay đổi\nngười thẩm định" as UC_AssignReviewers
+    usecase "Chỉ định / thay đổi\nngười duyệt cuối" as UC_AssignFinalApprover
+    usecase "Cấp / thu hồi\nủy quyền duyệt đề" as UC_DelegateApproval
+    usecase "Thẩm định đề cuối kỳ\nđược phân công" as UC_ReviewExam
+    usecase "Đánh giá đề, đáp án\nvà ma trận" as UC_CheckExam
+    usecase "Góp ý từng câu hỏi" as UC_CommentQuestion
+    usecase "Quyết định duyệt đề cuối kỳ\n(phê duyệt / trả sửa / từ chối)" as UC_ApproveExam
+    usecase "Kiểm tra kết quả\nthẩm định của hồ sơ" as UC_CheckReviewResults
+    usecase "Duyệt câu hỏi\nngân hàng dùng chung" as UC_ApproveQuestion
+    usecase "Quản lý câu hỏi\ncấp bộ môn" as UC_DepartmentQuestion
+  }
+
+  together {
+    usecase "Xem dashboard học tập" as UC_StudentDashboard
+    usecase "Xem môn học / lớp học" as UC_StudentCourse
+    usecase "Xem bài viết,\ntài liệu, thành viên" as UC_StudentMaterial
+    usecase "Xem lịch thi" as UC_StudentSchedule
+    usecase "Xem chi tiết kỳ thi" as UC_ExamDetail
+    usecase "Làm bài thi" as UC_TakeExam
+    usecase "Chạy thử code" as UC_RunCode
+    usecase "Nộp bài" as UC_Submit
+    usecase "Xem kết quả thi" as UC_Result
+    usecase "Xem lại bài làm" as UC_ReviewAttempt
+    usecase "Gửi phúc khảo điểm" as UC_Appeal
+  }
+
+  UC_FinalSchedule ..> UC_SelectSealedExam : <<include>>
+  UC_SealExam ..> UC_CheckApprovedVersion : <<include>>
+  UC_SubmitReview ..> UC_ValidateSubmission : <<include>>
+  UC_Resubmit ..> UC_ValidateSubmission : <<include>>
+  UC_ReviewExam ..> UC_CheckExam : <<include>>
+  UC_ApproveExam ..> UC_CheckReviewResults : <<include>>
+
+  UC_CommentQuestion ..> UC_ReviewExam : <<extend>>\n[cần góp ý theo câu]
+  UC_RunCode ..> UC_TakeExam : <<extend>>\n[câu hỏi lập trình]
+
+  UC_Auth -[hidden]right- UC_Academic
+  UC_Academic -[hidden]right- UC_TeacherCourse
+  UC_TeacherCourse -[hidden]right- UC_AssignAuthor
+  UC_AssignAuthor -[hidden]right- UC_StudentDashboard
+}
+
+Admin -- UC_Auth
+Admin -- UC_Profile
+Admin -- UC_Noti
+Admin -- UC_Academic
+Admin -- UC_Appoint
+Admin -- UC_RecordAuthority : Theo quyết định phân công
+Admin -- UC_CourseAdmin
+Admin -- UC_User
+Admin -- UC_Enroll
+Admin -- UC_FinalSchedule
+Admin -- UC_AdminTracking
+Admin -- UC_SharedBank
+Admin -- UC_SealExam : Có quyền Khảo thí
+Admin -- UC_ReturnDossier : Có quyền Khảo thí
+Admin -- UC_Report
+Admin -- UC_Audit
+Admin -- UC_Settings
+
+Teacher -- UC_Auth
+Teacher -- UC_Profile
+Teacher -- UC_Noti
+Teacher -- UC_TeacherCourse
+Teacher -- UC_Material
+Teacher -- UC_Question
+Teacher -- UC_AuditQuestion
+Teacher -- UC_AIGen
+Teacher -- UC_CreateExam
+Teacher -- UC_EditExam
+Teacher -- UC_AutoExam
+Teacher -- UC_AuthorTasks
+Teacher -- UC_SubmitReview
+Teacher -- UC_Resubmit
+Teacher -- UC_TeacherSchedule
+Teacher -- UC_Proctor
+Teacher -- UC_Violation
+Teacher -- UC_Grade
+Teacher -- UC_Publish
+Teacher -- UC_HandleAppeal
+Teacher -- UC_Export
+Teacher -- UC_ReviewExam : Được giao, không là tác giả/người duyệt cuối
+Teacher -- UC_ApproveExam : Được ủy quyền, không là tác giả/reviewer
+
+Head -- UC_AssignAuthor
+Head -- UC_IssueTask
+Head -- UC_TrackTask
+Head -- UC_ExtendDeadline
+Head -- UC_CancelTask
+Head -- UC_ReviewGroup
+Head -- UC_AssignReviewers : Điều phối hồ sơ không do mình soạn
+Head -- UC_AssignFinalApprover
+Head -- UC_DelegateApproval : Có quyền cấp, đúng phạm vi
+Head -- UC_ApproveExam : Được giao, không là tác giả/reviewer
+Head -- UC_ApproveQuestion
+Head -- UC_DepartmentQuestion
+Head -- UC_SharedBank
+
+Deputy -- UC_AssignAuthor : Có quyền quản lý yêu cầu
+Deputy -- UC_IssueTask
+Deputy -- UC_TrackTask
+Deputy -- UC_ExtendDeadline
+Deputy -- UC_CancelTask
+Deputy -- UC_ReviewGroup : Có quyền quản lý nhóm
+Deputy -- UC_AssignReviewers : Được giao điều phối, gồm đề TBM soạn
+Deputy -- UC_AssignFinalApprover
+Deputy -- UC_DelegateApproval : Có quyền cấp riêng
+Deputy -- UC_ApproveExam : Có quyền duyệt thay, không là tác giả/reviewer
+
+Student -- UC_Auth
+Student -- UC_Profile
+Student -- UC_Noti
+Student -- UC_StudentDashboard
+Student -- UC_StudentCourse
+Student -- UC_StudentMaterial
+Student -- UC_StudentSchedule
+Student -- UC_ExamDetail
+Student -- UC_TakeExam
+Student -- UC_RunCode
+Student -- UC_Submit
+Student -- UC_Result
+Student -- UC_ReviewAttempt
+Student -- UC_Appeal
+
+@enduml

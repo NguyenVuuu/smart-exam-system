@@ -1,10 +1,13 @@
 ﻿import { Crown, Edit, KeyRound, Lock, Unlock } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
+import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
+import { useAuthStore } from '../../../../store/authStore'
 import type { AdminUser } from '../../types/admin.types'
 
 const roleLabel: Record<AdminUser['role'], string> = {
   ADMIN: 'Quản trị viên',
+  EDUCATION_OFFICER: 'Giáo vụ',
   TEACHER: 'Giảng viên',
   STUDENT: 'Sinh viên',
 }
@@ -22,6 +25,9 @@ export default function UsersTable({
   onEditUser: (user: AdminUser) => void
   onToggleLock: (user: AdminUser) => void
 }) {
+  const isAdmin = useAuthStore((state) => state.user?.role === 'ADMIN')
+  const canManage = useBackofficePermission('USERS_MANAGE')
+  const canAssignHead = useBackofficePermission('ACADEMIC_MANAGE')
   const columns: ColumnDef<AdminUser>[] = [
     {
       header: 'NGƯỜI DÙNG',
@@ -74,7 +80,7 @@ export default function UsersTable({
       align: 'right',
       render: (item) => (
         <div className="flex justify-end gap-1 text-slate-500">
-          {item.role === 'TEACHER' && (
+          {canAssignHead && item.role === 'TEACHER' && (
             <button
               className="rounded-lg p-1.5 hover:bg-amber-50 hover:text-amber-600"
               title="Bổ nhiệm/gỡ Trưởng bộ môn"
@@ -83,7 +89,7 @@ export default function UsersTable({
               <Crown size={17} />
             </button>
           )}
-          <button
+          {canManage && (item.role !== 'ADMIN' || isAdmin) && <><button
             className="rounded-lg p-1.5 hover:bg-blue-50 hover:text-blue-600"
             title="Reset mật khẩu"
             onClick={() => onResetPassword(item)}
@@ -104,6 +110,7 @@ export default function UsersTable({
           >
             {item.status === 'LOCKED' ? <Unlock size={17} /> : <Lock size={17} />}
           </button>
+          </>}
         </div>
       ),
     },

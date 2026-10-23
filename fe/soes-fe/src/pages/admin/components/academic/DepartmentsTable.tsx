@@ -1,5 +1,6 @@
 ﻿import { Crown, Edit } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
+import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { Department } from '../../types/admin.types'
 
@@ -12,6 +13,7 @@ export default function DepartmentsTable({
   onOpenHeadModal: (dept: Department) => void
   onEditDepartment: (dept: Department) => void
 }) {
+  const canManage = useBackofficePermission('ACADEMIC_MANAGE')
   const departmentColumns: ColumnDef<Department>[] = [
     {
       header: 'TÊN BỘ MÔN',
@@ -66,7 +68,7 @@ export default function DepartmentsTable({
 
   return (
     <DataTable
-      columns={departmentColumns}
+      columns={canManage ? departmentColumns : departmentColumns.filter((column) => column.header !== 'THAO TÁC')}
       data={departments}
       keyExtractor={(item) => item.id}
       emptyText="Chưa có bộ môn phù hợp."

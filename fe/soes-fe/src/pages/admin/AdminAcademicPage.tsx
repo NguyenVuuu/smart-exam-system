@@ -1,5 +1,6 @@
 ﻿import { AlertTriangle, CalendarDays, Plus, Star, X } from 'lucide-react'
 import { useState } from 'react'
+import { useBackofficePermission } from '../../auth/hooks/useBackofficePermission'
 import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
@@ -22,6 +23,7 @@ const termOptions: Array<{ value: AcademicYear['term']; label: string }> = [
 ]
 
 export default function AdminAcademicPage() {
+  const canManage = useBackofficePermission('ACADEMIC_MANAGE')
   const { items, loading, error, create, activate, retry } = useAdminSemesters()
   const [yearFilter, setYearFilter] = useState('ALL')
   const [status, setStatus] = useState<'ALL' | AcademicYear['status']>('ALL')
@@ -115,7 +117,7 @@ export default function AdminAcademicPage() {
         icon={<CalendarDays size={20} />}
         title="Năm học và Học kỳ"
         description="Quản lý các đợt học kỳ, kích hoạt học kỳ hiện tại và thiết lập thời gian biểu."
-        action={
+        action={canManage &&
           <AdminButton
             icon={<Plus size={17} />}
             onClick={() => {
@@ -165,7 +167,7 @@ export default function AdminAcademicPage() {
           }
         />
         <DataTable
-          columns={columns}
+          columns={canManage ? columns : columns.filter((column) => column.header !== 'THAO TÁC')}
           data={filteredItems}
           keyExtractor={(item) => item.id}
           emptyText="Chưa có học kỳ phù hợp."
@@ -180,7 +182,7 @@ export default function AdminAcademicPage() {
       </AdminTablePanel>
 
       <AdminModal
-        open={modalOpen}
+        open={canManage && modalOpen}
         title="Tạo học kỳ mới"
         description="Quy tắc mã học kỳ: HK + số học kỳ + năm bắt đầu + năm kết thúc (VD: HK1_2026_2027)."
         confirmText="Tạo học kỳ"
@@ -249,7 +251,7 @@ export default function AdminAcademicPage() {
       </AdminModal>
 
       <SetCurrentSemesterConfirm
-        semester={pendingCurrentSemester}
+        semester={canManage ? pendingCurrentSemester : null}
         onClose={() => setPendingCurrentSemester(null)}
         onConfirm={handleConfirmSetCurrentSemester}
       />

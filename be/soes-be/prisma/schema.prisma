@@ -72,10 +72,31 @@ model Admin {
   adminCode            String             @unique
   password             String
   status               AccountStatus      @default(ACTIVE)
+  role                 BackofficeRole      @default(ADMIN)
   userId               String             @unique
   user                 User               @relation(fields: [userId], references: [id])
+  permissionOverrides  AdminPermissionOverride[]
   questionBankReviews  QuestionBankItem[] @relation("QuestionBankReviews")
   questionBankRemovals QuestionBankItem[] @relation("QuestionBankAdminRemovals")
+}
+
+model AdminPermissionOverride {
+  id         String   @id @default(uuid())
+  adminId    String
+  permission String
+  allowed    Boolean
+  updatedAt  DateTime @updatedAt
+  admin      Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, permission])
+}
+
+model BackofficeRolePermission {
+  role       BackofficeRole
+  permission String
+  createdAt  DateTime       @default(now())
+
+  @@id([role, permission])
 }
 
 model Department {
@@ -844,6 +865,11 @@ model AuditLog {
 enum AccountStatus {
   ACTIVE
   INACTIVE
+}
+
+enum BackofficeRole {
+  ADMIN
+  EDUCATION_OFFICER
 }
 
 enum TeacherPosition {

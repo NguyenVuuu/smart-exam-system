@@ -1,5 +1,6 @@
 import { AlertTriangle, CircleCheck, RefreshCw, RotateCcw, Settings } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useBackofficePermission } from '../../auth/hooks/useBackofficePermission'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '../../api/errors'
 import { resetDefaultSystemSettings } from './api/admin-system-settings.api'
@@ -18,6 +19,7 @@ import { useAdminSystemSettings } from './hooks/useAdminSystemSettings'
 import type { SystemSettingsTab } from './types/admin-system-settings.types'
 
 export default function AdminSettingsPage() {
+  const canManage = useBackofficePermission('SETTINGS_MANAGE')
   const [activeTab, setActiveTab] = useState<SystemSettingsTab>('GENERAL')
   const [showResetModal, setShowResetModal] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -56,7 +58,7 @@ export default function AdminSettingsPage() {
               tone="secondary"
               icon={<RotateCcw size={15} />}
               onClick={() => setShowResetModal(true)}
-              disabled={resetting || loading}
+              disabled={!canManage || resetting || loading}
             >
               Cài đặt gốc
             </AdminButton>
@@ -90,7 +92,7 @@ export default function AdminSettingsPage() {
         ) : error && !data ? (
           <SettingsMessage message={error} tone="error" action={() => void refresh()} />
         ) : data ? (
-          <>
+          <fieldset disabled={!canManage} className="min-w-0 border-0 p-0">
             {activeTab === 'GENERAL' && (
               <GeneralSettingsPanel
                 key={`general-${data.checkedAt}`}
@@ -122,12 +124,12 @@ export default function AdminSettingsPage() {
             {activeTab === 'INTEGRATIONS' && (
               <SystemIntegrationsPanel settings={data} />
             )}
-          </>
+          </fieldset>
         ) : null}
       </section>
 
       <AdminModal
-        open={showResetModal}
+        open={canManage && showResetModal}
         size="md"
         title="Khôi phục Cài đặt gốc Hệ thống"
         description="Thao tác này sẽ thiết lập lại toàn bộ thông tin đơn vị, quy tắc thi mặc định và định dạng mã về giá trị chuẩn ban đầu."

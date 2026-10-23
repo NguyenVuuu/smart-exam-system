@@ -1,5 +1,6 @@
 import type { UserPermission, UserProfileDto } from '../dtos/auth.dto'
 import type { AdminWithUser, StudentWithUser, TeacherWithUser } from '../repositories/auth.repository'
+import { resolveBackofficePermissions } from '../permissions/backoffice-permissions'
 
 const DEPARTMENT_HEAD_PERMISSIONS: UserPermission[] = [
   'APPROVE_SHARED_QUESTION',
@@ -45,7 +46,10 @@ export function toTeacherProfileDto(teacher: TeacherWithUser): UserProfileDto {
   }
 }
 
-export function toAdminProfileDto(admin: AdminWithUser): UserProfileDto {
+export function toAdminProfileDto(
+  admin: AdminWithUser,
+  rolePermissions: ReadonlyArray<{ permission: string }>,
+): UserProfileDto {
   return {
     id: admin.user.id,
     profileId: admin.id,
@@ -53,9 +57,10 @@ export function toAdminProfileDto(admin: AdminWithUser): UserProfileDto {
     email: admin.user.email ?? null,
     phoneNumber: admin.user.phoneNumber ?? null,
     avatarUrl: admin.user.avatarUrl ?? null,
-    role: 'ADMIN',
+    role: admin.role,
     studentCode: null,
     teacherCode: null,
     adminCode: admin.adminCode,
+    permissions: resolveBackofficePermissions(rolePermissions, admin.permissionOverrides),
   }
 }

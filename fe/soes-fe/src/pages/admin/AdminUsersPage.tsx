@@ -1,5 +1,6 @@
 import { Plus, Upload, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useBackofficePermission } from '../../auth/hooks/useBackofficePermission'
 import { toast } from 'sonner'
 import AdminButton from './components/AdminButton'
 import AdminLayout from './components/AdminLayout'
@@ -16,6 +17,8 @@ import type { UserPayload } from './types/admin-api.types'
 import type { AdminUser } from './types/admin.types'
 
 export default function AdminUsersPage() {
+  const canManage = useBackofficePermission('USERS_MANAGE')
+  const canAssignHead = useBackofficePermission('ACADEMIC_MANAGE')
   const data = useAdminUsers()
   const [role, setRole] = useState<'ALL' | AdminUser['role']>('ALL')
   const [departmentId, setDepartmentId] = useState('ALL')
@@ -60,7 +63,7 @@ export default function AdminUsersPage() {
 
   const saveUser = async () => {
     const body = payload()
-    if (editingUser && !body.code) return toast.error('Vui lòng nhập mã tài khoản.')
+    if (!body.code) return toast.error('Vui lòng nhập mã tài khoản.')
     if (!body.fullName || !body.email) return toast.error('Vui lòng nhập họ tên và email.')
     if (body.role === 'TEACHER' && (!body.departmentId || body.departmentId === 'NONE')) {
       return toast.error('Vui lòng chọn bộ môn cho giảng viên.')
@@ -97,8 +100,8 @@ export default function AdminUsersPage() {
   return (
     <AdminLayout>
       <AdminPageHeader icon={<Users size={20} />} title="Người dùng và Tài khoản"
-        description="Quản lý sinh viên, giảng viên, admin; khóa/mở khóa, reset mật khẩu và bổ nhiệm Trưởng bộ môn."
-        action={<div className="flex gap-2">
+        description="Quản lý sinh viên, giảng viên, giáo vụ và quản trị viên."
+        action={canManage && <div className="flex gap-2">
           <AdminButton tone="secondary" icon={<Upload size={17} />} onClick={() => setImportOpen(true)}>Nhập sinh viên</AdminButton>
           <AdminButton icon={<Plus size={17} />} onClick={openCreate}>Thêm người dùng</AdminButton>
         </div>} />
@@ -108,6 +111,7 @@ export default function AdminUsersPage() {
           filters={<>
             <AdminSelect value={role} onChange={setRole} className="w-44" options={[
               { value: 'ALL', label: 'Vai trò' }, { value: 'ADMIN', label: 'Quản trị viên' },
+              { value: 'EDUCATION_OFFICER', label: 'Giáo vụ' },
               { value: 'TEACHER', label: 'Giảng viên' }, { value: 'STUDENT', label: 'Sinh viên' },
             ]} />
             <AdminSelect value={departmentId} onChange={setDepartmentId} className="w-64" options={[
@@ -126,13 +130,13 @@ export default function AdminUsersPage() {
             .then(() => toast.success(user.status === 'ACTIVE' ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.'))
             .catch(() => toast.error('Không thể đổi trạng thái tài khoản.'))} />}
       </AdminTablePanel>
-      <UserFormModal open={modalOpen} editingUserId={editingUser?.id ?? null} codeInput={code} onCodeChange={setCode}
+      <UserFormModal open={canManage && modalOpen} editingUserId={editingUser?.id ?? null} codeInput={code} onCodeChange={setCode}
         roleInput={userRole} onRoleChange={setUserRole} fullNameInput={fullName} onFullNameChange={setFullName}
         emailInput={email} onEmailChange={setEmail} phoneInput={phone} onPhoneChange={setPhone}
         departmentInput={userDepartmentId} onDepartmentChange={setUserDepartmentId} statusInput={userStatus}
         onStatusChange={setUserStatus} departments={data.departments} onClose={() => setModalOpen(false)} onConfirm={() => void saveUser()} />
-      <UserImportModal open={importOpen} value={importText} onChange={setImportText} onClose={() => setImportOpen(false)} onConfirm={() => void importStudents()} />
-      <RemoveDepartmentHeadDialog user={removeHeadUser} onClose={() => setRemoveHeadUser(null)} onConfirm={() => {
+      <UserImportModal open={canManage && importOpen} value={importText} onChange={setImportText} onClose={() => setImportOpen(false)} onConfirm={() => void importStudents()} />
+      <RemoveDepartmentHeadDialog user={canAssignHead ? removeHeadUser : null} onClose={() => setRemoveHeadUser(null)} onConfirm={() => {
         if (!removeHeadUser?.departmentId) return
         void data.setDepartmentHead(removeHeadUser.departmentId, null)
           .then(() => { toast.success('Đã gỡ chức danh Trưởng bộ môn.'); setRemoveHeadUser(null) })

@@ -32,27 +32,20 @@ type ResolvedProfile = {
 }
 
 async function resolveProfile(identifier: string): Promise<ResolvedProfile | null> {
-  const upper = identifier.toUpperCase()
-
-  if (upper.startsWith('SV')) {
-    const student = await repo.findStudentByCode(identifier)
-    if (!student) return null
-    return { profile: toStudentProfileDto(student), password: student.password, status: student.status }
-  }
-
-  if (upper.startsWith('GV')) {
-    const teacher = await repo.findTeacherByCode(identifier)
-    if (!teacher) return null
-    return { profile: toTeacherProfileDto(teacher), password: teacher.password, status: teacher.status }
-  }
-
-  if (upper.startsWith('AD')) {
-    const admin = await repo.findAdminByCode(identifier)
-    if (!admin) return null
-    return { profile: toAdminProfileDto(admin), password: admin.password, status: admin.status }
-  }
-
-  return null
+  const [student, teacher, admin] = await Promise.all([
+    repo.findStudentByCode(identifier),
+    repo.findTeacherByCode(identifier),
+    repo.findAdminByCode(identifier),
+  ])
+  const matches: ResolvedProfile[] = []
+  if (student) matches.push({ profile: toStudentProfileDto(student), password: student.password, status: student.status })
+  if (teacher) matches.push({ profile: toTeacherProfileDto(teacher), password: teacher.password, status: teacher.status })
+  if (admin) matches.push({
+    profile: toAdminProfileDto(admin, await repo.findRolePermissions(admin.role)),
+    password: admin.password,
+    status: admin.status,
+  })
+  return matches.length === 1 ? matches[0] : null
 }
 
 export async function login(dto: LoginRequestDto): Promise<LoginResponseDto> {
@@ -120,7 +113,7 @@ export async function refreshAccessToken(token: string): Promise<string> {
     status = t?.status
   } else {
     const a = await repo.findAdminByUserId(payload.sub)
-    status = a?.status
+    status = a?.role === payload.role ? a.status : undefined
   }
 
   if (!status || status === 'INACTIVE') {
@@ -164,8 +157,8 @@ export async function getMe(userId: string, role: string): Promise<UserProfileDt
   }
 
   const admin = await repo.findAdminByUserId(userId)
-  if (!admin) throw new UnauthorizedError('User not found')
-  return toAdminProfileDto(admin)
+  if (!admin || admin.role !== role || admin.status !== 'ACTIVE') throw new UnauthorizedError('User not found')
+  return toAdminProfileDto(admin, await repo.findRolePermissions(admin.role))
 }
 
 export async function updateMe(userId: string, role: string, input: UpdateMeInput): Promise<UserProfileDto> {
@@ -210,6 +203,10 @@ async function resolveCurrentProfile(userId: string, role: string): Promise<Reso
   }
 
   const admin = await repo.findAdminByUserId(userId)
-  if (!admin) return null
-  return { profile: toAdminProfileDto(admin), password: admin.password, status: admin.status }
+  if (!admin || admin.role !== role) return null
+  return {
+    profile: toAdminProfileDto(admin, await repo.findRolePermissions(admin.role)),
+    password: admin.password,
+    status: admin.status,
+  }
 }

@@ -54,7 +54,7 @@ export interface AdminUser {
   fullName: string
   email: string
   phone?: string
-  role: 'ADMIN' | 'TEACHER' | 'STUDENT'
+  role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT'
   departmentName?: string
   departmentId?: string
   position?: 'LECTURER' | 'DEPARTMENT_HEAD'

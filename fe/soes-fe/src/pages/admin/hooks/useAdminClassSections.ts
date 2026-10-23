@@ -29,10 +29,10 @@ export function useAdminClassSections(filters: ClassSectionFilters) {
   const loadReferences = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const [departmentPage, subjectPage, semesterPage, userPage] = await Promise.all([
-        api.getDepartments(), api.getSubjects(), getSemesters(), api.getUsers(),
+      const [departmentPage, subjectPage, semesterPage, teacherPage, studentPage] = await Promise.all([
+        api.getDepartments(), api.getSubjects(), getSemesters(), api.getUserReferences('TEACHER'), api.getUserReferences('STUDENT'),
       ])
-      const users = userPage.items.map(toAdminUser)
+      const users = [...teacherPage.items, ...studentPage.items].map(toAdminUser)
       setDepartments(departmentPage.items.map(toDepartment))
       setSubjects(subjectPage.items.map(toSubject)); setSemesters(semesterPage.items.map(toAcademicYear))
       setTeachers(users.filter(({ role }) => role === 'TEACHER'))

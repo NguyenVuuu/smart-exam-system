@@ -22,7 +22,7 @@ export default function AdminSharedQuestionBankPage() {
   const [viewing, setViewing] = useState<SharedQuestionAdmin | null>(null)
   const [removing, setRemoving] = useState<SharedQuestionAdmin | null>(null)
   const [removeReason, setRemoveReason] = useState('Gỡ tạm thời để xử lý vấn đề vận hành.')
-  const structure = useAdminStructure()
+  const structure = useAdminStructure(false)
   const bank = useAdminQuestionBank({
     page, pageSize: 10, keyword: search || undefined,
     departmentId: department === 'ALL' ? undefined : department,

@@ -50,21 +50,25 @@ export function toTeacherExamDto(row: ExamRow, actorId: string): TeacherExamDto 
 export function toTeacherExamDetailDto(row: ExamDetailRow, actorId: string): TeacherExamDetailDto {
   return {
     ...toTeacherExamDto(row, actorId),
-    questions: row.examQuestions.map((question) => ({
-      id: question.id, sourceQuestionId: question.sourceQuestionId, sectionId: question.sectionId,
-      title: question.title, content: question.content, explanation: question.explanation, type: question.type,
-      difficulty: question.difficulty, language: question.language,
-      points: Number(question.points), orderIndex: question.orderIndex,
-      options: question.options.map(({ id, content, isCorrect }) => ({ id, content, isCorrect })),
-      programmingConfig: question.programmingConfig ? {
-        timeLimitMs: question.programmingConfig.timeLimitMs,
-        memoryLimitMb: Math.round(question.programmingConfig.memoryLimitKb / 1024),
-        maxCodeSizeKb: question.programmingConfig.maxCodeSizeKb,
-      } : null,
-      testCases: question.programmingTests.map((test) => ({
-        id: test.id, input: test.input, expectedOutput: test.expectedOutput,
-        isHidden: test.isHidden,
-      })),
-    })),
+    questions: toExamQuestionsDto(row.examQuestions),
   }
+}
+
+export function toExamQuestionsDto(questions: ExamDetailRow['examQuestions']) {
+  return questions.map((question) => ({
+    id: question.id, sourceQuestionId: question.sourceQuestionId, sectionId: question.sectionId,
+    title: question.title, content: question.content, explanation: question.explanation, type: question.type,
+    difficulty: question.difficulty, language: question.language,
+    points: Number(question.points), orderIndex: question.orderIndex,
+    options: question.options.map(({ id, content, isCorrect }) => ({ id, content, isCorrect })),
+    programmingConfig: question.programmingConfig ? {
+      timeLimitMs: question.programmingConfig.timeLimitMs,
+      memoryLimitMb: Math.round(question.programmingConfig.memoryLimitKb / 1024),
+      maxCodeSizeKb: question.programmingConfig.maxCodeSizeKb,
+    } : null,
+    testCases: question.programmingTests.map((test) => ({
+      id: test.id, input: test.input, expectedOutput: test.expectedOutput,
+      isHidden: test.isHidden,
+    })),
+  }))
 }

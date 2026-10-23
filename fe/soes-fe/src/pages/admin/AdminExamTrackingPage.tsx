@@ -22,7 +22,7 @@ export default function AdminExamTrackingPage() {
   const [status, setStatus] = useState<'ALL' | AdminExam['status']>('ALL')
   const [search, setSearch] = useState('')
   const [viewing, setViewing] = useState<AdminExam | null>(null)
-  const structure = useAdminStructure()
+  const structure = useAdminStructure(false)
   const semesters = useAdminSemesters()
   const tracking = useAdminExamTracking({
     page, pageSize: 10, keyword: search || undefined,
@@ -40,7 +40,7 @@ export default function AdminExamTrackingPage() {
   const reset = () => {
     setPage(1); setSearch(''); setSemester('ALL'); setDepartment('ALL'); setSubject('ALL'); setCategory('ALL'); setStatus('ALL')
   }
-  const createSchedule = (exam: AdminExam) => navigate(`/admin/final-exam-schedules?createExamId=${exam.id}`)
+  const createSchedule = (exam: AdminExam) => navigate(`/admin/exam-schedules?createExamId=${exam.id}`)
 
   return <AdminLayout>
     <AdminPageHeader icon={<FileCheck size={20} />} title="Theo dõi đề thi toàn trường"
