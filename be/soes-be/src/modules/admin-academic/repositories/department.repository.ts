@@ -41,14 +41,37 @@ export async function assignDepartmentHead(
   departmentId: string,
   teacherId: string | null,
 ) {
+  const oldHeads = await tx.teacher.findMany({
+    where: { departmentId, position: 'DEPARTMENT_HEAD' },
+    select: { id: true, userId: true },
+  })
+  for (const oldHead of oldHeads) {
+    const user = await tx.user.findUnique({ where: { id: oldHead.userId }, select: { roles: true } })
+    if (user) {
+      const updatedRoles = user.roles.filter((r) => r !== 'DEPARTMENT_HEAD')
+      if (!updatedRoles.includes('TEACHER')) updatedRoles.push('TEACHER')
+      await tx.user.update({ where: { id: oldHead.userId }, data: { roles: updatedRoles } })
+    }
+  }
+
   await tx.teacher.updateMany({
     where: { departmentId, position: 'DEPARTMENT_HEAD' },
     data: { position: 'LECTURER' },
   })
   if (!teacherId) return null
-  return tx.teacher.update({
+
+  const updatedTeacher = await tx.teacher.update({
     where: { id: teacherId },
     data: { position: 'DEPARTMENT_HEAD' },
-    select: { id: true, teacherCode: true, user: { select: { fullName: true } } },
+    select: { id: true, teacherCode: true, userId: true, user: { select: { fullName: true, roles: true } } },
   })
+
+  if (updatedTeacher.user && !updatedTeacher.user.roles.includes('DEPARTMENT_HEAD')) {
+    await tx.user.update({
+      where: { id: updatedTeacher.userId },
+      data: { roles: [...updatedTeacher.user.roles, 'DEPARTMENT_HEAD'] },
+    })
+  }
+
+  return { id: updatedTeacher.id, teacherCode: updatedTeacher.teacherCode, user: { fullName: updatedTeacher.user.fullName } }
 }

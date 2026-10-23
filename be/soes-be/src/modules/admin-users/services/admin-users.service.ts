@@ -9,16 +9,22 @@ import { notifyUsers } from '../../notifications/notifications.service'
 
 const saltRounds = 12
 
-async function codeBelongsToAnotherProfile(code: string, existing?: { role: CreateUserBody['role']; profileId: string }) {
+async function codeBelongsToAnotherProfile(code: string, existing?: { role: CreateUserBody['role']; profileId: string; userId?: string }) {
+  const usernameOwner = await repo.findUserByUsername(code)
+  if (usernameOwner) {
+    if (!existing) return true
+    if (existing.userId !== usernameOwner.id) return true
+  }
+
   const [admin, teacher, student] = await Promise.all([
     repo.findAdminByCode(code),
     repo.findTeacherByCode(code),
     repo.findStudentByCode(code),
   ])
   return Boolean(
-    (admin && (existing?.profileId !== admin.id || !['ADMIN', 'EDUCATION_OFFICER'].includes(existing.role))) ||
-    (teacher && (existing?.profileId !== teacher.id || existing.role !== 'TEACHER')) ||
-    (student && (existing?.profileId !== student.id || existing.role !== 'STUDENT')),
+    (admin && (!existing || admin.userId !== existing.userId)) ||
+    (teacher && (!existing || teacher.userId !== existing.userId)) ||
+    (student && (!existing || student.userId !== existing.userId)),
   )
 }
 
@@ -53,7 +59,7 @@ export async function update(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | '
   if (!profile) throw new NotFoundError('Account not found')
   const emailOwner = data.email ? await repo.findUserByEmail(data.email) : null
   if (emailOwner && emailOwner.id !== profile.userId) throw new ConflictError('Email already exists')
-  if (await codeBelongsToAnotherProfile(data.code, { role, profileId })) throw new ConflictError('Account code already exists')
+  if (await codeBelongsToAnotherProfile(data.code, { role, profileId, userId: profile.userId })) throw new ConflictError('Account code already exists')
   if (role === 'TEACHER' && !data.departmentId) throw new ValidationError('Teacher department is required')
   return repo.updateUser(role, profileId, profile.userId, data)
 }

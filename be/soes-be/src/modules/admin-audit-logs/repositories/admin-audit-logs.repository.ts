@@ -4,9 +4,9 @@ import { auditLogUserSelect } from '../mappers/admin-audit-log.mapper'
 import type { AuditLogFilter, AuditLogQuery } from '../validators/admin-audit-logs.validator'
 
 const roleFilter = (role: AuditLogFilter['role']): Prisma.UserWhereInput | undefined => {
-  if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') return { admin: { is: { role } } }
-  if (role === 'TEACHER') return { teacher: { isNot: null } }
-  if (role === 'STUDENT') return { student: { isNot: null } }
+  if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') return { admins: { some: { role } } }
+  if (role === 'TEACHER') return { teachers: { some: {} } }
+  if (role === 'STUDENT') return { students: { some: {} } }
   return undefined
 }
 
@@ -28,9 +28,9 @@ export const buildAuditLogWhere = (filter: AuditLogFilter): Prisma.AuditLogWhere
       { ipAddress: { contains: filter.keyword, mode: 'insensitive' } },
       { user: { fullName: { contains: filter.keyword, mode: 'insensitive' } } },
       { user: { email: { contains: filter.keyword, mode: 'insensitive' } } },
-      { user: { admin: { adminCode: { contains: filter.keyword, mode: 'insensitive' } } } },
-      { user: { teacher: { teacherCode: { contains: filter.keyword, mode: 'insensitive' } } } },
-      { user: { student: { studentCode: { contains: filter.keyword, mode: 'insensitive' } } } },
+      { user: { admins: { some: { adminCode: { contains: filter.keyword, mode: 'insensitive' } } } } },
+      { user: { teachers: { some: { teacherCode: { contains: filter.keyword, mode: 'insensitive' } } } } },
+      { user: { students: { some: { studentCode: { contains: filter.keyword, mode: 'insensitive' } } } } },
     ],
   }),
 })
