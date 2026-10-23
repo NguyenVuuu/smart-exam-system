@@ -5,14 +5,18 @@ export async function seedSettings(prisma: PrismaClient): Promise<void> {
 
   await prisma.codeGenerationSetting.upsert({
     where: { id: 'SYSTEM' },
-    update: {},
+    update: {
+      studentPrefix: 'US', studentDigits: 6,
+      teacherPrefix: 'US', teacherDigits: 6,
+      adminPrefix: 'US', adminDigits: 6,
+    },
     create: {
       id: 'SYSTEM',
-      studentPrefix: 'SV',
+      studentPrefix: 'US',
       studentDigits: 6,
-      teacherPrefix: 'GV',
+      teacherPrefix: 'US',
       teacherDigits: 6,
-      adminPrefix: 'AD',
+      adminPrefix: 'US',
       adminDigits: 6,
     },
   })

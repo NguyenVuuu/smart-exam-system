@@ -9,17 +9,21 @@ datasource db {
 
 model User {
   id                         String              @id @default(uuid())
-  email                      String?
+  username                   String?             @unique
+  email                      String?             @unique
   phoneNumber                String?
   fullName                   String
   avatarUrl                  String?
+  password                   String
+  status                     AccountStatus       @default(ACTIVE)
+  roles                      UserRole[]          @default([STUDENT])
   createdAt                  DateTime            @default(now())
   updatedAt                  DateTime            @updatedAt
-  admin                      Admin?
+  admins                     Admin[]
   auditLogs                  AuditLog[]
   notifications              Notification[]
-  student                    Student?
-  teacher                    Teacher?
+  students                   Student[]
+  teachers                   Teacher[]
   createdExamSchedules       ExamSchedule[]      @relation("ScheduleCreator")
   invalidatedExamAttempts    ExamAttempt[]       @relation("AttemptInvalidator")
   viewedViolationAttempts    ExamAttempt[]       @relation("AttemptViolationViewer")
@@ -29,26 +33,26 @@ model User {
 }
 
 model Student {
-  id           String        @id @default(uuid())
-  studentCode  String        @unique
-  password     String
-  status       AccountStatus @default(ACTIVE)
-  userId       String        @unique
-  enrollments  Enrollment[]  @relation("StudentEnrollments")
-  examAttempts ExamAttempt[] @relation("StudentExamAttempts")
+  id                  String                @id @default(uuid())
+  studentCode         String                @unique
+  status              AccountStatus         @default(ACTIVE)
+  userId              String
+  enrollments         Enrollment[]          @relation("StudentEnrollments")
+  examAttempts        ExamAttempt[]         @relation("StudentExamAttempts")
   targetExamSchedules ExamScheduleStudent[]
-  gradeAppeals GradeAppeal[] @relation("StudentGradeAppeals")
-  user         User          @relation(fields: [userId], references: [id])
+  gradeAppeals        GradeAppeal[]         @relation("StudentGradeAppeals")
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Teacher {
   id                   String                @id @default(uuid())
   teacherCode          String                @unique
-  password             String
   status               AccountStatus         @default(ACTIVE)
   position             TeacherPosition       @default(LECTURER)
   departmentId         String?
-  userId               String                @unique
+  userId               String
   courseOfferings      CourseOffering[]      @relation("TeacherCourseOfferings")
   exams                Exam[]                @relation("CreatorExams")
   posts                Post[]                @relation("TeacherPosts")
@@ -61,23 +65,25 @@ model Teacher {
   handledGradeAppeals  GradeAppeal[]         @relation("TeacherGradeAppealHandlers")
   proctorAssignments   ExamScheduleProctor[]
   department           Department?           @relation("DepartmentTeachers", fields: [departmentId], references: [id])
-  user                 User                  @relation(fields: [userId], references: [id])
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@index([departmentId])
   @@index([position])
 }
 
 model Admin {
-  id                   String             @id @default(uuid())
-  adminCode            String             @unique
-  password             String
-  status               AccountStatus      @default(ACTIVE)
-  role                 BackofficeRole      @default(ADMIN)
-  userId               String             @unique
-  user                 User               @relation(fields: [userId], references: [id])
+  id                   String                    @id @default(uuid())
+  adminCode            String                    @unique
+  status               AccountStatus             @default(ACTIVE)
+  role                 BackofficeRole            @default(ADMIN)
+  userId               String
+  user                 User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   permissionOverrides  AdminPermissionOverride[]
-  questionBankReviews  QuestionBankItem[] @relation("QuestionBankReviews")
-  questionBankRemovals QuestionBankItem[] @relation("QuestionBankAdminRemovals")
+  questionBankReviews  QuestionBankItem[]        @relation("QuestionBankReviews")
+  questionBankRemovals QuestionBankItem[]        @relation("QuestionBankAdminRemovals")
+
+  @@index([userId])
 }
 
 model AdminPermissionOverride {
@@ -860,6 +866,14 @@ model AuditLog {
   @@index([createdAt])
   @@index([action, createdAt])
   @@index([entityType, createdAt])
+}
+
+enum UserRole {
+  ADMIN
+  EDUCATION_OFFICER
+  TEACHER
+  DEPARTMENT_HEAD
+  STUDENT
 }
 
 enum AccountStatus {

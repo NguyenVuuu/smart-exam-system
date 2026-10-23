@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT'
+export type UserRole = 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'DEPARTMENT_HEAD' | 'STUDENT'
 export type TeacherPosition = 'LECTURER' | 'DEPARTMENT_HEAD'
 export type UserPermission =
   | 'ACADEMIC_VIEW'
@@ -34,14 +34,41 @@ export interface User {
   position?: TeacherPosition
   departmentId?: string
   permissions?: UserPermission[]
+  availableRoles?: UserRole[]
 }
 
 export interface LoginRequest {
-  identifier: string
+  username: string
   password: string
 }
 
 export interface LoginResponse {
   accessToken: string
   user: User
+}
+
+/** Returned by API when user has multiple roles */
+export interface AvailableRole {
+  role: UserRole
+  name?: string
+  profileId: string
+  /** Display code (studentCode | teacherCode | adminCode) */
+  code: string
+  position?: TeacherPosition
+}
+
+export interface RoleSelectionRequired {
+  requireRoleSelection: true
+  selectionToken: string
+  availableRoles: AvailableRole[]
+  user: {
+    id: string
+    fullName: string
+    avatarUrl: string | null
+  }
+}
+
+export interface SelectRoleRequest {
+  selectionToken: string
+  role: UserRole
 }

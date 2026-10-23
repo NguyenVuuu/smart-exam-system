@@ -54,7 +54,7 @@ app.use(auditRequestContext)
 app.use(
   '/api/local-evidence',
   authenticate,
-  requireRoles('TEACHER', 'ADMIN'),
+  requireRoles('TEACHER', 'DEPARTMENT_HEAD', 'ADMIN', 'EDUCATION_OFFICER'),
   express.static(path.join(process.cwd(), 'uploads', 'evidence')),
 )
 

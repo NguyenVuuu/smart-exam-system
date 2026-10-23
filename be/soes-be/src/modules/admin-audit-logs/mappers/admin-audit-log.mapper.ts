@@ -5,17 +5,20 @@ export const auditLogUserSelect = {
   id: true,
   fullName: true,
   email: true,
-  admin: { select: { adminCode: true, role: true } },
-  teacher: { select: { teacherCode: true } },
-  student: { select: { studentCode: true } },
+  admins: { select: { adminCode: true, role: true }, take: 1 },
+  teachers: { select: { teacherCode: true }, take: 1 },
+  students: { select: { studentCode: true }, take: 1 },
 } satisfies Prisma.UserSelect
 
 type AuditLogWithUser = Prisma.AuditLogGetPayload<{ include: { user: { select: typeof auditLogUserSelect } } }>
 
 const toActorDto = (user: AuditLogWithUser['user']): AuditActorDto => {
-  if (user.admin) return { id: user.id, code: user.admin.adminCode, fullName: user.fullName, email: user.email, role: user.admin.role }
-  if (user.teacher) return { id: user.id, code: user.teacher.teacherCode, fullName: user.fullName, email: user.email, role: 'TEACHER' }
-  if (user.student) return { id: user.id, code: user.student.studentCode, fullName: user.fullName, email: user.email, role: 'STUDENT' }
+  const admin = user.admins[0]
+  const teacher = user.teachers[0]
+  const student = user.students[0]
+  if (admin) return { id: user.id, code: admin.adminCode, fullName: user.fullName, email: user.email, role: admin.role }
+  if (teacher) return { id: user.id, code: teacher.teacherCode, fullName: user.fullName, email: user.email, role: 'TEACHER' }
+  if (student) return { id: user.id, code: student.studentCode, fullName: user.fullName, email: user.email, role: 'STUDENT' }
   return { id: user.id, code: null, fullName: user.fullName, email: user.email, role: 'UNKNOWN' }
 }
 

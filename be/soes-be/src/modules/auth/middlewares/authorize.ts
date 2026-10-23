@@ -34,7 +34,11 @@ export function requireTeacher() {
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {
       guardAuthenticated(req)
-      if (req.user!.role !== 'TEACHER') throw new ForbiddenError('Teacher access required')
+      const role = req.user!.role
+      // Both TEACHER and DEPARTMENT_HEAD use the Teacher profile table
+      if (role !== 'TEACHER' && role !== 'DEPARTMENT_HEAD') {
+        throw new ForbiddenError('Teacher access required')
+      }
       next()
     } catch (err) {
       next(err)

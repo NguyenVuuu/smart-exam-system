@@ -86,7 +86,7 @@ export default function StudentSettingsPage() {
               <div className="space-y-5 px-5 py-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <ReadOnlyField icon={<UserRound size={16} />} label="Họ và tên" value={user?.fullName ?? '-'} />
-                  <ReadOnlyField icon={<UserRound size={16} />} label="Mã sinh viên" value={user?.studentCode ?? '-'} />
+                  <ReadOnlyField icon={<UserRound size={16} />} label="Mã người dùng" value={user?.studentCode ?? '-'} />
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">

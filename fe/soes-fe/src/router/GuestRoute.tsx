@@ -8,9 +8,14 @@ interface GuestRouteProps {
 }
 
 export default function GuestRoute({ children }: GuestRouteProps) {
-  const { isInitialized, isAuthenticated, user } = useAuthStore()
+  const { isInitialized, isAuthenticated, user, pendingRoleSelection } = useAuthStore()
 
   if (!isInitialized) return <LoadingScreen />
+
+  // If there is a pending role selection, allow the select-role page to render
+  if (pendingRoleSelection) {
+    return <>{children}</>
+  }
 
   if (isAuthenticated && user) {
     return <Navigate to={ROLE_HOME[resolveRole(user)]} replace />

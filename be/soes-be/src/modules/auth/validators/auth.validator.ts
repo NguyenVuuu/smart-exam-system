@@ -1,8 +1,13 @@
 import { z } from 'zod'
 
 export const loginSchema = z.object({
-  identifier: z.string().trim().min(1, 'Identifier is required'),
+  username: z.string().trim().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
+})
+
+export const selectRoleSchema = z.object({
+  selectionToken: z.string().uuid('Invalid selection token'),
+  role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'DEPARTMENT_HEAD', 'STUDENT']),
 })
 
 export const updateMeSchema = z.object({
@@ -16,5 +21,6 @@ export const changePasswordSchema = z.object({
 })
 
 export type LoginInput = z.infer<typeof loginSchema>
+export type SelectRoleInput = z.infer<typeof selectRoleSchema>
 export type UpdateMeInput = z.infer<typeof updateMeSchema>
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>

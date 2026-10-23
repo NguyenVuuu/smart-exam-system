@@ -11,8 +11,8 @@ import AdminReportsPage from '../pages/admin/AdminReportsPage'
 import AdminSettingsPage from '../pages/admin/AdminSettingsPage'
 import AdminSharedQuestionBankPage from '../pages/admin/AdminSharedQuestionBankPage'
 import AdminUsersPage from '../pages/admin/AdminUsersPage'
-import AdminLoginPage from '../pages/auth/AdminLoginPage'
 import LoginPage from '../pages/auth/LoginPage'
+import RoleSelectPage from '../pages/auth/RoleSelectPage'
 import StudentCourseDetailPage from '../pages/student/StudentCourseDetailPage'
 import StudentDashboard from '../pages/student/StudentDashboard'
 import StudentExamDetailPage from '../pages/student/StudentExamDetailPage'
@@ -60,10 +60,10 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/login"
+          path="/select-role"
           element={
             <GuestRoute>
-              <AdminLoginPage />
+              <RoleSelectPage />
             </GuestRoute>
           }
         />
@@ -183,7 +183,7 @@ export default function AppRouter() {
         <Route
           path="/teacher"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherDashboard />
             </RoleRoute>
           }
@@ -191,7 +191,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/courses"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherCoursesPage />
             </RoleRoute>
           }
@@ -199,7 +199,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/account"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherAccountPage />
             </RoleRoute>
           }
@@ -207,7 +207,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/courses/:courseOfferingId"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherCourseDetailPage />
             </RoleRoute>
           }
@@ -215,7 +215,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/courses/:courseOfferingId/exams/:examId/submissions"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherExamDetailPage mode="course-submissions" />
             </RoleRoute>
           }
@@ -225,7 +225,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/question-bank"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherQuestionBankPage />
             </RoleRoute>
           }
@@ -233,7 +233,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/question-bank/ai-generator"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherAiQuestionGeneratorPage />
             </RoleRoute>
           }
@@ -241,7 +241,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/question-audit"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherQuestionAuditPage />
             </RoleRoute>
           }
@@ -251,7 +251,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/exams"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherExamsPage />
             </RoleRoute>
           }
@@ -259,7 +259,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/exams/create"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherExamEditorPage />
             </RoleRoute>
           }
@@ -267,7 +267,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/exams/auto-generator"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherAutoExamMatrixPage />
             </RoleRoute>
           }
@@ -275,7 +275,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/exams/:examId/edit"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherExamEditorPage />
             </RoleRoute>
           }
@@ -283,7 +283,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/exams/:examId"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherExamDetailPage />
             </RoleRoute>
           }
@@ -293,7 +293,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/invigilation-schedule"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherInvigilationSchedulePage />
             </RoleRoute>
           }
@@ -301,7 +301,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/department-approvals"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherDepartmentApprovalPage />
             </RoleRoute>
           }
@@ -309,7 +309,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/proctoring"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherLiveProctorPage />
             </RoleRoute>
           }
@@ -317,7 +317,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/grading-reports"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherGradeExportPage />
             </RoleRoute>
           }
@@ -325,7 +325,7 @@ export default function AppRouter() {
         <Route
           path="/teacher/grading-reports/appeals/:appealId"
           element={
-            <RoleRoute allowedRoles={['TEACHER']}>
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherGradeAppealReviewPage />
             </RoleRoute>
           }

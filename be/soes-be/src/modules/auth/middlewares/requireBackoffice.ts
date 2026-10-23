@@ -19,7 +19,12 @@ export function requireBackoffice(...anyOf: BackofficePermission[]) {
           permissionOverrides: { select: { permission: true, allowed: true } },
         },
       })
-      if (!account || account.userId !== req.user.id || account.status !== 'ACTIVE' || account.role !== req.user.role) {
+      if (
+        !account ||
+        account.userId !== req.user.id ||
+        account.status !== 'ACTIVE' ||
+        account.role !== req.user.role
+      ) {
         throw new ForbiddenError('Backoffice account is not active')
       }
       const rolePermissions = await prisma.backofficeRolePermission.findMany({

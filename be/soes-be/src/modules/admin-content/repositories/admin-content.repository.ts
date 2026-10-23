@@ -24,7 +24,7 @@ export const trackedExamInclude = {
 }
 
 export async function adminActor(userId: string) {
-  return prisma.admin.findUnique({ where: { userId }, select: { id: true } })
+  return prisma.admin.findFirst({ where: { userId }, select: { id: true } })
 }
 
 export function listBank(query: QuestionBankQuery) {

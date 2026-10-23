@@ -13,7 +13,10 @@ export const usersQuerySchema = z.object({
 
 export const createUserSchema = z.object({
   role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']),
-  code: z.string().trim().max(30).transform((value) => value ? value.toUpperCase() : '').optional().default(''),
+  code: z.string().trim().max(30)
+    .transform((value) => value ? value.toUpperCase() : '')
+    .refine((value) => !value || /^US\d+$/.test(value), 'Mã người dùng phải có dạng US + chữ số')
+    .optional().default(''),
   fullName: z.string().trim().min(2).max(150),
   email: z.string().email().optional().nullable(),
   phoneNumber: z.string().trim().max(20).optional().nullable(),

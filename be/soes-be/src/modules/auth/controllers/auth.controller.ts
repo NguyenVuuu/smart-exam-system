@@ -1,17 +1,47 @@
 import { NextFunction, Request, Response } from 'express'
 import { clearRefreshTokenCookie, setRefreshTokenCookie } from '../../../utils/cookie'
 import { authenticate } from '../middlewares/authenticate'
-import { changePasswordSchema, loginSchema, updateMeSchema } from '../validators/auth.validator'
+import { changePasswordSchema, loginSchema, selectRoleSchema, updateMeSchema } from '../validators/auth.validator'
 import * as authService from '../services/auth.service'
 import { UnauthorizedError } from '../../../errors/AppError'
+import type { AccountRole } from '../../../utils/jwt'
 
 export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = loginSchema.parse(req.body)
     const result = await authService.login(dto)
 
-    setRefreshTokenCookie(res, result.refreshToken)
+    if ('requireRoleSelection' in result) {
+      // Multi-role: return available roles, do NOT set cookie yet
+      res.status(200).json({
+        success: true,
+        message: 'Role selection required',
+        data: result,
+      })
+      return
+    }
 
+    // Single role: set cookie and return tokens
+    setRefreshTokenCookie(res, result.refreshToken)
+    res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        accessToken: result.accessToken,
+        user: result.user,
+      },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function selectRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const dto = selectRoleSchema.parse(req.body)
+    const result = await authService.selectRole(dto)
+
+    setRefreshTokenCookie(res, result.refreshToken)
     res.status(200).json({
       success: true,
       message: 'Login successful',
@@ -38,7 +68,6 @@ export async function refreshToken(req: Request, res: Response, next: NextFuncti
       data: { accessToken },
     })
   } catch (err) {
-    // Clear the stale cookie so the browser doesn't keep retrying with an invalid token
     clearRefreshTokenCookie(res)
     next(err)
   }
@@ -65,7 +94,7 @@ export const logout = [
 export async function getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id, role } = req.user!
-    const user = await authService.getMe(id, role)
+    const user = await authService.getMe(id, role as AccountRole)
     res.status(200).json({ success: true, message: 'OK', data: user })
   } catch (err) {
     next(err)
@@ -75,7 +104,7 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
 export async function updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id, role } = req.user!
-    const user = await authService.updateMe(id, role, updateMeSchema.parse(req.body))
+    const user = await authService.updateMe(id, role as AccountRole, updateMeSchema.parse(req.body))
     res.status(200).json({ success: true, message: 'Profile updated', data: user })
   } catch (err) {
     next(err)
@@ -85,7 +114,7 @@ export async function updateMe(req: Request, res: Response, next: NextFunction):
 export async function changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id, profileId, role } = req.user!
-    await authService.changePassword(id, profileId, role, changePasswordSchema.parse(req.body))
+    await authService.changePassword(id, profileId, role as AccountRole, changePasswordSchema.parse(req.body))
     res.status(200).json({ success: true, message: 'Password changed' })
   } catch (err) {
     next(err)

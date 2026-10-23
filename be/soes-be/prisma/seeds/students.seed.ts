@@ -1,9 +1,28 @@
 import { PrismaClient, Student } from '@prisma/client'
 import { DEFAULT_PASSWORD, hashPassword, padCode } from './helpers'
 
-const FIXED_STUDENTS = [
-  { userId: 'seed-user-student-001', studentCode: 'SV000001', fullName: 'Nguyen Van An' },
-  { userId: 'seed-user-combo-001',   studentCode: 'SV000002', fullName: 'Le Minh Cuong' }, // also a teacher
+interface FixedStudentEntry {
+  userId: string
+  studentCode: string
+  // Optional: omit for profile-only entries where User was already created in another seed
+  fullName?: string
+  email?: string
+  username?: string
+}
+
+const FIXED_STUDENTS: FixedStudentEntry[] = [
+  {
+    userId: 'seed-user-student-001',
+    studentCode: 'US000009',
+    fullName: 'Nguyen Van An',
+    email: 'student1@soes.edu.vn',
+    username: 'US000009',
+  },
+  // seed-user-combo-001 owns BOTH Teacher profile GV000002 and Student profile SV000002.
+  {
+    userId: 'seed-user-combo-001',
+    studentCode: 'US000005',
+  },
 ]
 
 const STUDENT_NAMES = [
@@ -25,39 +44,66 @@ export async function seedStudents(prisma: PrismaClient): Promise<Student[]> {
   const students: Student[] = []
 
   for (const data of FIXED_STUDENTS) {
-    // User may already exist (combo user was created in teachers seed)
-    await prisma.user.upsert({
-      where: { id: data.userId },
-      update: {},
-      create: { id: data.userId, fullName: data.fullName },
-    })
-    const student = await prisma.student.upsert({
-      where: { studentCode: data.studentCode },
-      update: {},
-      create: { studentCode: data.studentCode, password: hashed, status: 'ACTIVE', userId: data.userId },
-    })
+    if ('fullName' in data && data.fullName) {
+      // Full user entry: create/update both User and Student profile
+      await prisma.user.upsert({
+        where: { id: data.userId },
+        update: {
+          fullName: data.fullName,
+          email: data.email,
+          username: data.username,
+          password: hashed,
+          status: 'ACTIVE',
+        },
+        create: {
+          id: data.userId,
+          fullName: data.fullName,
+          email: data.email,
+          username: data.username,
+          password: hashed,
+          roles: ['STUDENT'],
+          status: 'ACTIVE',
+        },
+      })
+    }
+    // Profile-only entry: User already exists (created in teachers.seed), just upsert the Student profile
+    const existingStudent = await prisma.student.findFirst({ where: { userId: data.userId } })
+    const student = existingStudent
+      ? await prisma.student.update({ where: { id: existingStudent.id }, data: { studentCode: data.studentCode, status: 'ACTIVE' } })
+      : await prisma.student.create({ data: { studentCode: data.studentCode, status: 'ACTIVE', userId: data.userId } })
     students.push(student)
   }
 
   for (let i = 3; i <= 2 + EXTRA_STUDENT_COUNT; i++) {
-    const studentCode = `SV${padCode(i, 6)}`
+    const studentCode = `US${padCode(i + 7, 6)}`
     const userId = `seed-user-student-${padCode(i, 3)}`
 
-    const existing = await prisma.student.findUnique({ where: { studentCode } })
-    if (existing) { students.push(existing); continue }
-
     const name = STUDENT_NAMES[i - 3] ?? `Student ${i}`
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { id: userId },
-      update: {},
-      create: { id: userId, fullName: name },
+      update: {
+        password: hashed,
+        roles: ['STUDENT'],
+        status: 'ACTIVE',
+      },
+      create: {
+        id: userId,
+        fullName: name,
+        email: `sv${padCode(i, 3)}@soes.edu.vn`,
+        username: studentCode,
+        password: hashed,
+        roles: ['STUDENT'],
+        status: 'ACTIVE',
+      },
     })
-    const student = await prisma.student.create({
-      data: { studentCode, password: hashed, status: 'ACTIVE', userId },
-    })
+    const existing = await prisma.student.findFirst({ where: { userId } })
+    const student = existing
+      ? await prisma.student.update({ where: { id: existing.id }, data: { studentCode, status: 'ACTIVE' } })
+      : await prisma.student.create({ data: { studentCode, status: 'ACTIVE', userId: user.id } })
     students.push(student)
   }
 
   console.log(`✓ Students completed (${students.length})`)
   return students
 }
+
