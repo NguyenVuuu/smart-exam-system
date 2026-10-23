@@ -3,7 +3,22 @@ import { DEFAULT_PASSWORD, hashPassword, padCode } from './helpers'
 
 // Fixed dev accounts that must never be overwritten
 const FIXED_ADMINS = [
-  { userId: 'seed-user-admin-001', adminCode: 'AD000001', fullName: 'Super Admin', email: 'admin@soes.edu.vn' },
+  {
+    userId: 'seed-user-admin-001',
+    adminCode: 'US000001',
+    fullName: 'Super Admin',
+    email: 'admin@soes.edu.vn',
+    username: 'US000001',
+    role: 'ADMIN' as const,
+  },
+  {
+    userId: 'seed-user-gvo-001',
+    adminCode: 'US000002',
+    fullName: 'Giao Vu Nguyen',
+    email: 'giaovu@soes.edu.vn',
+    username: 'US000002',
+    role: 'EDUCATION_OFFICER' as const,
+  },
 ]
 
 // Additional demo admins (seeded by index starting from 2)
@@ -19,36 +34,61 @@ export async function seedAdmins(prisma: PrismaClient): Promise<Admin[]> {
   for (const data of FIXED_ADMINS) {
     const user = await prisma.user.upsert({
       where: { id: data.userId },
-      update: {},
-      create: { id: data.userId, fullName: data.fullName, email: data.email },
+      update: {
+        fullName: data.fullName,
+        email: data.email,
+        username: data.username,
+        password: hashed,
+        roles: [data.role],
+        status: 'ACTIVE',
+      },
+      create: {
+        id: data.userId,
+        fullName: data.fullName,
+        email: data.email,
+        username: data.username,
+        password: hashed,
+        roles: [data.role],
+        status: 'ACTIVE',
+      },
     })
-    const admin = await prisma.admin.upsert({
-      where: { adminCode: data.adminCode },
-      update: {},
-      create: { adminCode: data.adminCode, password: hashed, status: 'ACTIVE', userId: user.id },
-    })
+    const existingAdmin = await prisma.admin.findFirst({ where: { userId: user.id } })
+    const admin = existingAdmin
+      ? await prisma.admin.update({ where: { id: existingAdmin.id }, data: { adminCode: data.adminCode, role: data.role, status: 'ACTIVE' } })
+      : await prisma.admin.create({ data: { adminCode: data.adminCode, role: data.role, status: 'ACTIVE', userId: user.id } })
     admins.push(admin)
   }
 
   // Extra demo admins
   for (let i = 2; i <= 1 + EXTRA_ADMIN_COUNT; i++) {
-    const adminCode = `AD${padCode(i, 6)}`
+    const adminCode = `US${padCode(i + 1, 6)}`
     const userId = `seed-user-admin-${padCode(i, 3)}`
-
-    const existing = await prisma.admin.findUnique({ where: { adminCode } })
-    if (existing) { admins.push(existing); continue }
 
     const user = await prisma.user.upsert({
       where: { id: userId },
-      update: {},
-      create: { id: userId, fullName: `Admin ${i}`, email: `admin${i}@soes.edu.vn` },
+      update: {
+        password: hashed,
+        roles: ['ADMIN'],
+        status: 'ACTIVE',
+      },
+      create: {
+        id: userId,
+        fullName: `Admin ${i}`,
+        email: `admin${i}@soes.edu.vn`,
+        username: adminCode,
+        password: hashed,
+        roles: ['ADMIN'],
+        status: 'ACTIVE',
+      },
     })
-    const admin = await prisma.admin.create({
-      data: { adminCode, password: hashed, status: 'ACTIVE', userId: user.id },
-    })
+    const existing = await prisma.admin.findFirst({ where: { userId: user.id } })
+    const admin = existing
+      ? await prisma.admin.update({ where: { id: existing.id }, data: { adminCode, role: 'ADMIN', status: 'ACTIVE' } })
+      : await prisma.admin.create({ data: { adminCode, role: 'ADMIN', status: 'ACTIVE', userId: user.id } })
     admins.push(admin)
   }
 
   console.log(`✓ Admins completed (${admins.length})`)
   return admins
 }
+
