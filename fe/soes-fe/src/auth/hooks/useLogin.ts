@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../api/axios'
 import { useAuthStore } from '../../store/authStore'
-import { resolveRoleFromIdentifier, ROLE_HOME } from '../../utils/role'
+import { ROLE_HOME } from '../../utils/role'
 import type { LoginRequest, LoginResponse } from '../../types/auth.types'
 
 interface ApiResponse<T> {
@@ -28,8 +28,7 @@ export function useLogin() {
 
       toast.success(`Welcome back, ${user.fullName}!`)
 
-      const role = resolveRoleFromIdentifier(values.identifier, user)
-      navigate(ROLE_HOME[role], { replace: true })
+      navigate(ROLE_HOME[user.role], { replace: true })
     } catch (err: unknown) {
       toast.error(extractErrorMessage(err))
     } finally {

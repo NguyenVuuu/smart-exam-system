@@ -1,7 +1,9 @@
 import type { AccountRole } from '../../../utils/jwt'
+import type { BackofficePermission } from '../permissions/backoffice-permissions'
 
 export type TeacherPosition = 'LECTURER' | 'DEPARTMENT_HEAD'
 export type UserPermission =
+  | BackofficePermission
   | 'APPROVE_SHARED_QUESTION'
   | 'APPROVE_FINAL_EXAM'
   | 'VIEW_DEPARTMENT_EXAMS'

@@ -1,5 +1,6 @@
 import { CalendarPlus, Eye } from 'lucide-react'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
+import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import type { AdminExam } from '../../types/admin.types'
 import { ExamCategoryBadge, ExamStatusBadge } from '../AdminBadges'
 
@@ -30,6 +31,7 @@ export default function ExamTrackingTable({
   totalPages?: number
   onPageChange?: (page: number) => void
 }) {
+  const canManageSchedules = useBackofficePermission('SCHEDULES_MANAGE')
   const columns: ColumnDef<AdminExam>[] = [
     {
       header: 'ĐỀ THI',
@@ -84,7 +86,7 @@ export default function ExamTrackingTable({
           >
             <Eye size={17} />
           </button>
-          {canCreateCentralSchedule(item) && (
+          {canManageSchedules && canCreateCentralSchedule(item) && (
             <button
               className="rounded-lg p-1.5 hover:bg-emerald-50 hover:text-emerald-600"
               title="Tạo lịch thi tập trung"

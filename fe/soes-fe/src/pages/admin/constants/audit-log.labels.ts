@@ -12,16 +12,18 @@ const actionLabels: Record<string, string> = {
   AUTO_SUBMIT_EXAM_ATTEMPT: 'Tự động nộp bài', REVIEW_PROCTORING_VIOLATION: 'Xử lý vi phạm',
   INVALIDATE_EXAM_ATTEMPT_BY_PROCTOR: 'Hủy kết quả bài thi', OVERRIDE_EXAM_SCORE: 'Điều chỉnh điểm',
   UPDATE_SYSTEM_SETTINGS: 'Cập nhật cấu hình hệ thống', RESET_SYSTEM_SETTINGS: 'Khôi phục cài đặt gốc',
+  BACKOFFICE_PERMISSION_CHANGED: 'Thay đổi phân quyền',
 }
 
 const entityLabels: Record<string, string> = {
   User: 'Người dùng', Student: 'Sinh viên', Teacher: 'Giảng viên', Exam: 'Đề thi', Question: 'Câu hỏi',
   QuestionBankItem: 'Câu hỏi dùng chung', CourseOffering: 'Lớp học phần', Material: 'Tài liệu', Post: 'Bài đăng',
   ExamSchedule: 'Ca thi', ExamAttempt: 'Bài làm', Violation: 'Vi phạm', SystemSettings: 'Cấu hình hệ thống',
+  AdminPermissionOverride: 'Phân quyền quản trị',
 }
 
 export const roleLabels: Record<AuditActorRole, string> = {
-  ADMIN: 'Quản trị viên', TEACHER: 'Giảng viên', STUDENT: 'Sinh viên', UNKNOWN: 'Không xác định',
+  ADMIN: 'Quản trị viên', EDUCATION_OFFICER: 'Giáo vụ', TEACHER: 'Giảng viên', STUDENT: 'Sinh viên', UNKNOWN: 'Không xác định',
 }
 
 const titleCaseAction = (action: string) => action.toLowerCase().split('_').map((word) =>

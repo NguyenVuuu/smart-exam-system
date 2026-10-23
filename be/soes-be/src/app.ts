@@ -11,6 +11,7 @@ import { studentTakeExamRoutes } from './modules/student-take-exam'
 import { studentPortalRoutes } from './modules/student-portal'
 import { adminAcademicRoutes } from './modules/admin-academic'
 import { adminUsersRoutes } from './modules/admin-users'
+import { adminPermissionsRoutes } from './modules/admin-permissions'
 import { teacherCoursesRoutes } from './modules/teacher-courses'
 import { teacherQuestionsRoutes } from './modules/teacher-questions'
 import { teacherExamsRoutes } from './modules/teacher-exams'
@@ -69,6 +70,7 @@ app.use('/api/student', gradeAppealsRoutes)
 app.use('/api/student', studentPortalRoutes)
 app.use('/api/admin', adminAcademicRoutes)
 app.use('/api/admin', adminUsersRoutes)
+app.use('/api/admin', adminPermissionsRoutes)
 app.use('/api/admin', examScheduleRoutes)
 app.use('/api/admin', adminContentRoutes)
 app.use('/api/admin', adminAuditLogRoutes)

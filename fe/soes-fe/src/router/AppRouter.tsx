@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AdminAcademicPage from '../pages/admin/AdminAcademicPage'
 import AdminAuditLogPage from '../pages/admin/AdminAuditLogPage'
 import AdminClassSectionsPage from '../pages/admin/AdminClassSectionsPage'
-import AdminDashboard from '../pages/admin/AdminDashboard'
+import AdminPermissionsPage from '../pages/admin/AdminPermissionsPage'
 import AdminDepartmentsSubjectsPage from '../pages/admin/AdminDepartmentsSubjectsPage'
 import AdminExamSchedulesPage from '../pages/admin/AdminExamSchedulesPage'
 import AdminExamTrackingPage from '../pages/admin/AdminExamTrackingPage'
@@ -41,6 +41,8 @@ import TeacherLiveProctorPage from '../pages/teacher/TeacherLiveProctorPage'
 import TeacherQuestionAuditPage from '../pages/teacher/TeacherQuestionAuditPage'
 import TeacherQuestionBankPage from '../pages/teacher/TeacherQuestionBankPage'
 import GuestRoute from './GuestRoute'
+import BackofficeHome from './BackofficeHome'
+import BackofficeRoute from './BackofficeRoute'
 import ProtectedRoute from './ProtectedRoute'
 import RoleRoute from './RoleRoute'
 
@@ -66,29 +68,29 @@ export default function AppRouter() {
           }
         />
 
-        {/* Admin only */}
+        {/* Backoffice */}
         <Route
           path="/admin"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
-              <AdminDashboard />
+            <RoleRoute allowedRoles={['ADMIN', 'EDUCATION_OFFICER']}>
+              <BackofficeHome />
             </RoleRoute>
           }
         />
         <Route
           path="/admin/academic"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="ACADEMIC_VIEW">
               <AdminAcademicPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route
           path="/admin/academic-structure"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="ACADEMIC_VIEW">
               <AdminDepartmentsSubjectsPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route path="/admin/courses" element={<Navigate to="/admin/academic-structure" replace />} />
@@ -96,76 +98,84 @@ export default function AppRouter() {
         <Route
           path="/admin/class-sections"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="ACADEMIC_VIEW">
               <AdminClassSectionsPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route
           path="/admin/users"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="USERS_VIEW">
               <AdminUsersPage />
+            </BackofficeRoute>
+          }
+        />
+        <Route
+          path="/admin/permissions"
+          element={
+            <RoleRoute allowedRoles={['ADMIN']}>
+              <AdminPermissionsPage />
             </RoleRoute>
           }
         />
         <Route
           path="/admin/shared-question-bank"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="QUESTION_BANK_VIEW">
               <AdminSharedQuestionBankPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route path="/admin/question-approvals" element={<Navigate to="/admin/shared-question-bank" replace />} />
         <Route
           path="/admin/exams"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="EXAMS_VIEW">
               <AdminExamTrackingPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route path="/admin/exam-approvals" element={<Navigate to="/admin/exams" replace />} />
         <Route
           path="/admin/exam-schedules"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="SCHEDULES_VIEW">
               <AdminExamSchedulesPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route path="/admin/exam-rooms" element={<Navigate to="/admin/exam-schedules" replace />} />
         <Route
           path="/admin/proctoring"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="MONITORING_VIEW">
               <AdminProctoringPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route
           path="/admin/reports"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="REPORTS_VIEW">
               <AdminReportsPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route
           path="/admin/audit-logs"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="AUDIT_VIEW">
               <AdminAuditLogPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
         <Route
           path="/admin/settings"
           element={
-            <RoleRoute allowedRoles={['ADMIN']}>
+            <BackofficeRoute permission="SETTINGS_VIEW">
               <AdminSettingsPage />
-            </RoleRoute>
+            </BackofficeRoute>
           }
         />
 

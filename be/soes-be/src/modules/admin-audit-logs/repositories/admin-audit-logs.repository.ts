@@ -4,7 +4,7 @@ import { auditLogUserSelect } from '../mappers/admin-audit-log.mapper'
 import type { AuditLogFilter, AuditLogQuery } from '../validators/admin-audit-logs.validator'
 
 const roleFilter = (role: AuditLogFilter['role']): Prisma.UserWhereInput | undefined => {
-  if (role === 'ADMIN') return { admin: { isNot: null } }
+  if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') return { admin: { is: { role } } }
   if (role === 'TEACHER') return { teacher: { isNot: null } }
   if (role === 'STUDENT') return { student: { isNot: null } }
   return undefined

@@ -4,7 +4,7 @@ import type { CreateUserBody, EnrollmentQuery, UpdateUserBody, UsersQuery } from
 
 export const userSelect = {
   id: true, fullName: true, email: true, phoneNumber: true, avatarUrl: true,
-  admin: { select: { id: true, adminCode: true, status: true } },
+  admin: { select: { id: true, adminCode: true, status: true, role: true } },
   teacher: {
     select: {
       id: true, teacherCode: true, status: true, position: true,
@@ -15,8 +15,8 @@ export const userSelect = {
 } satisfies Prisma.UserSelect
 
 export function listUsers(query: UsersQuery) {
-  const profileFilter = query.role === 'ADMIN'
-    ? { admin: { isNot: null, ...(query.status && { is: { status: query.status } }) } }
+  const profileFilter = query.role === 'ADMIN' || query.role === 'EDUCATION_OFFICER'
+    ? { admin: { is: { role: query.role, ...(query.status && { status: query.status }) } } }
     : query.role === 'TEACHER'
       ? { teacher: { is: { ...(query.status && { status: query.status }), ...(query.departmentId && { departmentId: query.departmentId }) } } }
       : query.role === 'STUDENT'
@@ -49,22 +49,24 @@ export const findAdminByCode = (code: string) => prisma.admin.findUnique({ where
 export const findTeacherByCode = (code: string) => prisma.teacher.findUnique({ where: { teacherCode: code } })
 export const findStudentByCode = (code: string) => prisma.student.findUnique({ where: { studentCode: code } })
 
-export async function generateNextUserCode(role: 'ADMIN' | 'TEACHER' | 'STUDENT', tx?: Prisma.TransactionClient): Promise<string> {
+export async function generateNextUserCode(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', tx?: Prisma.TransactionClient): Promise<string> {
   const db = tx || prisma
   const setting = await db.codeGenerationSetting.findUnique({ where: { id: 'SYSTEM' } })
-  const prefix = role === 'ADMIN'
+  const prefix = role === 'EDUCATION_OFFICER'
+    ? 'GVO'
+    : role === 'ADMIN'
     ? (setting?.adminPrefix || 'AD')
     : role === 'TEACHER'
       ? (setting?.teacherPrefix || 'GV')
       : (setting?.studentPrefix || 'SV')
-  const digits = role === 'ADMIN'
+  const digits = role === 'ADMIN' || role === 'EDUCATION_OFFICER'
     ? (setting?.adminDigits || 6)
     : role === 'TEACHER'
       ? (setting?.teacherDigits || 6)
       : (setting?.studentDigits || 6)
 
   let existingCodes: string[] = []
-  if (role === 'ADMIN') {
+  if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') {
     const list = await db.admin.findMany({
       where: { adminCode: { startsWith: prefix, mode: 'insensitive' } },
       select: { adminCode: true },
@@ -102,33 +104,35 @@ export async function generateNextUserCode(role: 'ADMIN' | 'TEACHER' | 'STUDENT'
   return `${prefix}${String(nextNum).padStart(digits, '0')}`
 }
 
-export async function findProfile(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string) {
-  if (role === 'ADMIN') return prisma.admin.findUnique({ where: { id: profileId } })
+export async function findProfile(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string) {
+  if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') {
+    return prisma.admin.findFirst({ where: { id: profileId, role } })
+  }
   if (role === 'TEACHER') return prisma.teacher.findUnique({ where: { id: profileId } })
   return prisma.student.findUnique({ where: { id: profileId } })
 }
 
-export async function updateStatus(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string, status: 'ACTIVE' | 'INACTIVE') {
-  if (role === 'ADMIN') return prisma.admin.update({ where: { id: profileId }, data: { status } })
+export async function updateStatus(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, status: 'ACTIVE' | 'INACTIVE') {
+  if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') return prisma.admin.update({ where: { id: profileId }, data: { status } })
   if (role === 'TEACHER') return prisma.teacher.update({ where: { id: profileId }, data: { status } })
   return prisma.student.update({ where: { id: profileId }, data: { status } })
 }
 
-export async function updatePassword(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string, password: string) {
-  if (role === 'ADMIN') return prisma.admin.update({ where: { id: profileId }, data: { password } })
+export async function updatePassword(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, password: string) {
+  if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') return prisma.admin.update({ where: { id: profileId }, data: { password } })
   if (role === 'TEACHER') return prisma.teacher.update({ where: { id: profileId }, data: { password } })
   return prisma.student.update({ where: { id: profileId }, data: { password } })
 }
 
 export function updateUser(
-  role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string, userId: string, data: UpdateUserBody,
+  role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, userId: string, data: UpdateUserBody,
 ) {
   return prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
       data: { fullName: data.fullName, email: data.email, phoneNumber: data.phoneNumber },
     })
-    if (role === 'ADMIN') {
+    if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') {
       await tx.admin.update({ where: { id: profileId }, data: { adminCode: data.code, status: data.status } })
     } else if (role === 'TEACHER') {
       await tx.teacher.update({
@@ -147,8 +151,8 @@ export function createUser(data: CreateUserBody, password: string) {
     const user = await tx.user.create({
       data: { fullName: data.fullName, email: data.email, phoneNumber: data.phoneNumber },
     })
-    if (data.role === 'ADMIN') {
-      await tx.admin.create({ data: { adminCode: data.code, status: data.status, password, userId: user.id } })
+    if (data.role === 'ADMIN' || data.role === 'EDUCATION_OFFICER') {
+      await tx.admin.create({ data: { adminCode: data.code, role: data.role, status: data.status, password, userId: user.id } })
     } else if (data.role === 'TEACHER') {
       await tx.teacher.create({
         data: { teacherCode: data.code, status: data.status, password, userId: user.id, departmentId: data.departmentId },

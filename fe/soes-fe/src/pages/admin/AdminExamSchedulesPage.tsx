@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useAuthStore } from '../../store/authStore'
 import type { AdminExamSchedule } from './types/admin.types'
 import { AdminStatusBadge, ExamStatusBadge } from './components/AdminBadges'
 import AdminButton from './components/AdminButton'
@@ -27,6 +28,7 @@ import { useAdminExamSchedules } from './hooks/useAdminExamSchedules'
 const editableScheduleStatuses: AdminExamSchedule['status'][] = ['DRAFT', 'SCHEDULED']
 
 export default function AdminExamSchedulesPage() {
+  const canManage = useAuthStore((state) => state.user?.permissions?.includes('SCHEDULES_MANAGE') ?? false)
   const [page, setPage] = useState(1)
   const [keyword, setKeyword] = useState('')
   const [departmentId, setDepartmentId] = useState('')
@@ -74,7 +76,7 @@ export default function AdminExamSchedulesPage() {
         icon={<CalendarClock size={20} />}
         title="Lịch thi và Phân công"
         description="Tạo ca thi tập trung từ đề cuối kỳ đã được duyệt, gán lớp, hình thức/IP và phân công giảng viên coi thi."
-        action={<AdminButton icon={<Plus size={17} />} onClick={openCreateModal}>Tạo lịch thi</AdminButton>}
+        action={canManage ? <AdminButton icon={<Plus size={17} />} onClick={openCreateModal}>Tạo lịch thi</AdminButton> : undefined}
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_500px]">
@@ -136,6 +138,7 @@ export default function AdminExamSchedulesPage() {
                 <ScheduleListItem
                   key={item.id}
                   item={item}
+                  canManage={canManage}
                   onEdit={() => openEditModal(item)}
                   onCancel={() => setCancellingSchedule(item)}
                 />
@@ -176,7 +179,7 @@ export default function AdminExamSchedulesPage() {
         </section>
       </div>
 
-      <FinalExamScheduleModal
+      {canManage && <FinalExamScheduleModal
         open={modalOpen}
         exams={readyFinalExams}
         schedules={items}
@@ -187,8 +190,8 @@ export default function AdminExamSchedulesPage() {
         editingSchedule={editingSchedule}
         onClose={closeScheduleModal}
         onSubmit={save}
-      />
-      <CancelExamScheduleDialog
+      />}
+      {canManage && <CancelExamScheduleDialog
         key={cancellingSchedule?.id ?? 'closed-cancel-dialog'}
         schedule={cancellingSchedule}
         onClose={() => setCancellingSchedule(null)}
@@ -202,17 +205,19 @@ export default function AdminExamSchedulesPage() {
             toast.error('Không thể hủy ca thi ở trạng thái hiện tại.')
           }
         }}
-      />
+      />}
     </AdminLayout>
   )
 }
 
 function ScheduleListItem({
   item,
+  canManage,
   onEdit,
   onCancel,
 }: {
   item: AdminExamSchedule
+  canManage: boolean
   onEdit: () => void
   onCancel: () => void
 }) {
@@ -243,7 +248,7 @@ function ScheduleListItem({
           </p>
         </div>
 
-        {canEdit && (
+        {canManage && canEdit && (
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"

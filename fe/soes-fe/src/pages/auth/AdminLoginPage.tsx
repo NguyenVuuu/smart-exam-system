@@ -1,11 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, ShieldCheck, UserCheck, Lock } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { z } from 'zod'
 import { useLogin } from '../../auth/hooks/useLogin'
-import { useAuthStore } from '../../store/authStore'
 import { useSystemSettingsStore } from '../../store/systemSettingsStore'
 
 const adminLoginSchema = z.object({
@@ -18,7 +17,6 @@ type AdminLoginFormValues = z.infer<typeof adminLoginSchema>
 export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const { login, isLoading } = useLogin()
-  const navigate = useNavigate()
 
   const {
     register,
@@ -27,29 +25,13 @@ export default function AdminLoginPage() {
   } = useForm<AdminLoginFormValues>({
     resolver: zodResolver(adminLoginSchema),
     defaultValues: {
-      identifier: 'admin@soes.edu.vn',
-      password: 'admin',
+      identifier: '',
+      password: '',
     },
   })
 
   const onSubmit = (data: AdminLoginFormValues) => {
     login(data)
-  }
-
-  const handleQuickDemoAdmin = () => {
-    // Set admin user directly into Zustand store for seamless demo
-    useAuthStore.getState().setUser({
-      id: 'usr-admin-01',
-      profileId: 'prof-admin-01',
-      email: 'admin@soes.edu.vn',
-      fullName: 'Trần Quang Huy',
-      avatarUrl: null,
-      role: 'ADMIN',
-      studentCode: null,
-      teacherCode: null,
-      adminCode: 'ADM001',
-    })
-    navigate('/admin')
   }
 
   const systemSettings = useSystemSettingsStore((state) => state.settings)
@@ -83,7 +65,7 @@ export default function AdminLoginPage() {
                   {systemSettings.shortName || 'SOES'}
                 </span>
                 <span className="text-[10px] font-bold text-[#10b981] bg-[#10b981]/15 border border-[#10b981]/30 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                  Quản trị viên
+                  Quản trị · Giáo vụ
                 </span>
               </div>
               <span className="text-xs text-slate-400 font-normal block leading-tight mt-0.5 truncate max-w-[200px]" title={systemSettings.slogan}>
@@ -93,7 +75,7 @@ export default function AdminLoginPage() {
           </div>
 
           <div className="pt-2">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Cổng Đăng Nhập Quản Trị</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Đăng nhập quản trị</h1>
             <p className="text-xs text-slate-400 font-normal mt-1 truncate" title={systemSettings.organizationName}>
               {systemSettings.organizationName || 'Hệ thống Quản lý Học vụ & Thẩm định Khảo thí'}
             </p>
@@ -105,7 +87,7 @@ export default function AdminLoginPage() {
           {/* Email / Admin Code Input */}
           <div className="space-y-1.5">
             <label htmlFor="identifier" className="block text-xs font-semibold text-slate-300">
-              Tài khoản Quản trị / Email
+              Mã tài khoản
             </label>
             <div className="relative">
               <input
@@ -113,7 +95,7 @@ export default function AdminLoginPage() {
                 id="identifier"
                 type="text"
                 autoComplete="username"
-                placeholder="admin@soes.edu.vn"
+                placeholder="AD000001 hoặc GVO000001"
                 className={`w-full px-4 py-3 rounded-xl border text-xs text-white placeholder-slate-500 outline-none transition-all bg-[#080d19] ${
                   errors.identifier
                     ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
@@ -173,31 +155,9 @@ export default function AdminLoginPage() {
             className="w-full py-3.5 px-4 bg-[#10b981] hover:bg-[#059669] active:bg-[#047857] disabled:bg-[#10b981]/50 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#10b981]/25 flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
             <Lock size={15} />
-            <span>{isLoading ? 'Đang truy cập...' : 'Đăng nhập Quản trị viên'}</span>
+            <span>{isLoading ? 'Đang truy cập...' : 'Đăng nhập'}</span>
           </button>
         </form>
-
-        {/* Demo Fast Login Accent Box */}
-        <div className="pt-2">
-          <div className="p-3 bg-[#080d19] border border-slate-800/80 rounded-2xl flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#e11d48] text-white font-bold text-xs flex items-center justify-center shrink-0">
-                TQ
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-semibold text-white">Trần Quang Huy</p>
-                <p className="text-[11px] text-slate-400">Tài khoản Quản trị mẫu</p>
-              </div>
-            </div>
-            <button
-              onClick={handleQuickDemoAdmin}
-              className="px-3 py-1.5 bg-[#10b981]/15 hover:bg-[#10b981]/25 text-[#10b981] border border-[#10b981]/30 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
-            >
-              <UserCheck size={13} />
-              <span>Vào nhanh</span>
-            </button>
-          </div>
-        </div>
 
         {/* Switch to Teacher / Student Portal Link */}
         <div className="text-center pt-2 border-t border-slate-800/80">

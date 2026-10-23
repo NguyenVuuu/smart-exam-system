@@ -6,13 +6,13 @@ const id = z.string().trim().min(1)
 export const usersQuerySchema = z.object({
   ...paginationFields,
   keyword: z.string().trim().max(200).optional(),
-  role: z.enum(['ADMIN', 'TEACHER', 'STUDENT']).optional(),
+  role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
   departmentId: id.optional(),
 })
 
 export const createUserSchema = z.object({
-  role: z.enum(['ADMIN', 'TEACHER', 'STUDENT']),
+  role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']),
   code: z.string().trim().max(30).transform((value) => value ? value.toUpperCase() : '').optional().default(''),
   fullName: z.string().trim().min(2).max(150),
   email: z.string().email().optional().nullable(),

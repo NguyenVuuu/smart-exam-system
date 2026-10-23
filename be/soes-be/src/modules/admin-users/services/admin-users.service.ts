@@ -9,13 +9,26 @@ import { notifyUsers } from '../../notifications/notifications.service'
 
 const saltRounds = 12
 
+async function codeBelongsToAnotherProfile(code: string, existing?: { role: CreateUserBody['role']; profileId: string }) {
+  const [admin, teacher, student] = await Promise.all([
+    repo.findAdminByCode(code),
+    repo.findTeacherByCode(code),
+    repo.findStudentByCode(code),
+  ])
+  return Boolean(
+    (admin && (existing?.profileId !== admin.id || !['ADMIN', 'EDUCATION_OFFICER'].includes(existing.role))) ||
+    (teacher && (existing?.profileId !== teacher.id || existing.role !== 'TEACHER')) ||
+    (student && (existing?.profileId !== student.id || existing.role !== 'STUDENT')),
+  )
+}
+
 export async function list(query: UsersQuery) {
   const [total, rows] = await repo.listUsers(query)
   const items = rows.map(toAdminUserDto)
   return { items, pagination: toPagination(query.page, query.pageSize, total) }
 }
 
-export async function getNextCode(role: 'ADMIN' | 'TEACHER' | 'STUDENT') {
+export async function getNextCode(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT') {
   const code = await repo.generateNextUserCode(role)
   return { code }
 }
@@ -28,43 +41,33 @@ export async function create(data: CreateUserBody) {
     userCode = await repo.generateNextUserCode(data.role)
   }
 
-  const duplicate = data.role === 'ADMIN'
-    ? await repo.findAdminByCode(userCode)
-    : data.role === 'TEACHER'
-      ? await repo.findTeacherByCode(userCode)
-      : await repo.findStudentByCode(userCode)
-  if (duplicate) throw new ConflictError('Account code already exists')
+  if (await codeBelongsToAnotherProfile(userCode)) throw new ConflictError('Account code already exists')
   if (data.role === 'TEACHER' && !data.departmentId) throw new ValidationError('Teacher department is required')
 
   const password = await bcrypt.hash(data.password, saltRounds)
   return repo.createUser({ ...data, code: userCode }, password)
 }
 
-export async function update(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string, data: UpdateUserBody) {
+export async function update(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, data: UpdateUserBody) {
   const profile = await repo.findProfile(role, profileId)
   if (!profile) throw new NotFoundError('Account not found')
   const emailOwner = data.email ? await repo.findUserByEmail(data.email) : null
   if (emailOwner && emailOwner.id !== profile.userId) throw new ConflictError('Email already exists')
-  const codeOwner = role === 'ADMIN'
-    ? await repo.findAdminByCode(data.code)
-    : role === 'TEACHER'
-      ? await repo.findTeacherByCode(data.code)
-      : await repo.findStudentByCode(data.code)
-  if (codeOwner && codeOwner.id !== profileId) throw new ConflictError('Account code already exists')
+  if (await codeBelongsToAnotherProfile(data.code, { role, profileId })) throw new ConflictError('Account code already exists')
   if (role === 'TEACHER' && !data.departmentId) throw new ValidationError('Teacher department is required')
   return repo.updateUser(role, profileId, profile.userId, data)
 }
 
-async function requireProfile(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string) {
+async function requireProfile(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string) {
   if (!await repo.findProfile(role, profileId)) throw new NotFoundError('Account not found')
 }
 
-export async function setStatus(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string, status: 'ACTIVE' | 'INACTIVE') {
+export async function setStatus(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, status: 'ACTIVE' | 'INACTIVE') {
   await requireProfile(role, profileId)
   return repo.updateStatus(role, profileId, status)
 }
 
-export async function resetPassword(role: 'ADMIN' | 'TEACHER' | 'STUDENT', profileId: string, rawPassword: string) {
+export async function resetPassword(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, rawPassword: string) {
   await requireProfile(role, profileId)
   return repo.updatePassword(role, profileId, await bcrypt.hash(rawPassword, saltRounds))
 }

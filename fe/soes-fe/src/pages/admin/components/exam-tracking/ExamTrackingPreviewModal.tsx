@@ -2,98 +2,11 @@ import { useEffect, useState } from 'react'
 import { CalendarPlus, CheckCircle2, Code, Eye, EyeOff, Loader2, X } from 'lucide-react'
 import HtmlContent from '../../../../components/common/HtmlContent'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../constants/programmingLanguages'
-import { getTeacherExam } from '../../../teacher/api/teacher-exams.api'
-import type { TeacherExamDetailDto } from '../../../teacher/types/teacher-exam-api.types'
+import { getAdminExamDetail, type AdminExamDetail } from '../../api/admin-content.api'
+import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import type { AdminExam } from '../../types/admin.types'
 import { ExamCategoryBadge, ExamStatusBadge } from '../AdminBadges'
 import AdminButton from '../AdminButton'
-
-type FallbackQuestion = {
-  id: string
-  title?: string
-  content: string
-  type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'PROGRAMMING'
-  points: number
-  difficulty?: 'EASY' | 'MEDIUM' | 'HARD'
-  language?: 'JAVA' | 'C' | 'CPP' | null
-  options?: Array<{ id: string; content: string; isCorrect: boolean }>
-  programmingConfig?: {
-    timeLimitMs: number
-    memoryLimitMb: number
-    maxCodeSizeKb: number
-  } | null
-  testCases?: Array<{
-    id: string
-    input: string
-    expectedOutput: string
-    isHidden: boolean
-  }>
-}
-
-const fallbackQuestions: FallbackQuestion[] = [
-  {
-    id: 'fb-q1',
-    title: 'Trong Java, từ khóa nào dùng để kế thừa một lớp cha?',
-    content: 'Trong ngôn ngữ lập trình Java, từ khóa nào sau đây được sử dụng để một lớp kế thừa từ một lớp khác?',
-    type: 'SINGLE_CHOICE',
-    points: 0.5,
-    difficulty: 'EASY',
-    options: [
-      { id: 'opt1', content: 'implements', isCorrect: false },
-      { id: 'opt2', content: 'extends', isCorrect: true },
-      { id: 'opt3', content: 'inherits', isCorrect: false },
-      { id: 'opt4', content: 'instanceof', isCorrect: false },
-    ],
-  },
-  {
-    id: 'fb-q2',
-    title: 'Phương thức main trong Java Console',
-    content: 'Phương thức nào là điểm bắt đầu thực thi chính của một ứng dụng Java Console chuẩn?',
-    type: 'SINGLE_CHOICE',
-    points: 0.5,
-    difficulty: 'EASY',
-    options: [
-      { id: 'opt5', content: 'public void start()', isCorrect: false },
-      { id: 'opt6', content: 'public static void main(String[] args)', isCorrect: true },
-      { id: 'opt7', content: 'public void run()', isCorrect: false },
-      { id: 'opt8', content: 'public int init()', isCorrect: false },
-    ],
-  },
-  {
-    id: 'fb-q3',
-    title: 'Tính tổng các số chẵn trong mảng số nguyên',
-    content: 'Viết chương trình đọc vào một số nguyên n (1 <= n <= 10^5) và mảng n số nguyên. In ra tổng của tất cả các số chẵn có trong mảng. Nếu không có số chẵn nào, in ra 0.',
-    type: 'PROGRAMMING',
-    points: 2.0,
-    difficulty: 'MEDIUM',
-    language: 'JAVA',
-    programmingConfig: {
-      timeLimitMs: 1000,
-      memoryLimitMb: 256,
-      maxCodeSizeKb: 64,
-    },
-    testCases: [
-      {
-        id: 'tc-1',
-        input: '5\n1 2 3 4 5',
-        expectedOutput: '6',
-        isHidden: false,
-      },
-      {
-        id: 'tc-2',
-        input: '4\n1 3 5 7',
-        expectedOutput: '0',
-        isHidden: false,
-      },
-      {
-        id: 'tc-3',
-        input: '6\n2 4 6 8 10 12',
-        expectedOutput: '42',
-        isHidden: true,
-      },
-    ],
-  },
-]
 
 const canCreateCentralSchedule = (exam: AdminExam) => exam.category === 'FINAL' && exam.status === 'APPROVED'
 
@@ -106,19 +19,23 @@ export default function ExamTrackingPreviewModal({
   onClose: () => void
   onCreateSchedule: (exam: AdminExam) => void
 }) {
-  const [examDetail, setExamDetail] = useState<TeacherExamDetailDto | null>(null)
+  const [examDetail, setExamDetail] = useState<AdminExamDetail | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+  const canManageSchedules = useBackofficePermission('SCHEDULES_MANAGE')
 
   useEffect(() => {
     let isMounted = true
     if (exam?.id) {
       setLoading(true)
-      getTeacherExam(exam.id)
+      setError(false)
+      setExamDetail(null)
+      getAdminExamDetail(exam.id)
         .then((detail) => {
           if (isMounted) setExamDetail(detail)
         })
         .catch(() => {
-          if (isMounted) setExamDetail(null)
+          if (isMounted) { setExamDetail(null); setError(true) }
         })
         .finally(() => {
           if (isMounted) setLoading(false)
@@ -134,9 +51,7 @@ export default function ExamTrackingPreviewModal({
 
   if (!exam) return null
 
-  const displayQuestions = examDetail?.questions && examDetail.questions.length > 0
-    ? examDetail.questions
-    : fallbackQuestions
+  const displayQuestions = examDetail?.id === exam.id ? examDetail.questions : []
 
   const formatLabel =
     exam.structure === 'PROGRAMMING'
@@ -191,6 +106,8 @@ export default function ExamTrackingPreviewModal({
             </div>
 
             <div className="flex-1 divide-y divide-gray-100 overflow-y-auto p-2">
+              {error && <p role="alert" className="p-4 text-sm text-rose-700">Không thể tải nội dung đề thi.</p>}
+              {!loading && !error && displayQuestions.length === 0 && <p className="p-4 text-sm text-slate-500">Đề thi chưa có câu hỏi.</p>}
               {displayQuestions.map((question, idx) => {
                 const isProgramming = question.type === 'PROGRAMMING'
                 const difficultyLabel =
@@ -337,7 +254,7 @@ export default function ExamTrackingPreviewModal({
             <AdminButton tone="secondary" onClick={onClose}>
               Đóng
             </AdminButton>
-            {canCreateCentralSchedule(exam) && (
+            {canManageSchedules && canCreateCentralSchedule(exam) && (
               <AdminButton
                 icon={<CalendarPlus size={16} />}
                 onClick={() => {

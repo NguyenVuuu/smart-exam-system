@@ -19,7 +19,7 @@ export async function getScheduleWorkspace(scheduleParams: ScheduleListParams) {
     apiClient.get<ApiResponse<ApiPage<DepartmentApiDto>>>('/admin/departments', { params: { ...params, status: 'ACTIVE' } }),
     apiClient.get<ApiResponse<ApiPage<SubjectApiDto>>>('/admin/subjects', { params: { ...params, status: 'ACTIVE' } }),
     apiClient.get<ApiResponse<ApiPage<CourseOfferingApiDto>>>('/admin/course-offerings', { params: { ...params, status: 'ACTIVE' } }),
-    apiClient.get<ApiResponse<ApiPage<UserApiDto>>>('/admin/users', { params: { ...params, role: 'TEACHER', status: 'ACTIVE' } }),
+    apiClient.get<ApiResponse<ApiPage<UserApiDto>>>('/admin/users/references', { params: { ...params, role: 'TEACHER', status: 'ACTIVE' } }),
     apiClient.get<ApiResponse<ApiPage<SemesterApiDto>>>('/admin/semesters', { params }),
   ])
   return {

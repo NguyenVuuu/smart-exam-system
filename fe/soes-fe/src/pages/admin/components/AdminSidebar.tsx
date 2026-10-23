@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   Users,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -20,12 +21,15 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
 import { useSystemSettingsStore } from '../../../store/systemSettingsStore'
+import type { UserPermission } from '../../../types/auth.types'
 
 interface SubNavItem {
   label: string
   icon: ReactNode
   path: string
   badgeCount?: number
+  permission?: UserPermission
+  adminOnly?: boolean
 }
 
 interface NavGroup {
@@ -38,16 +42,23 @@ const NAV_GROUPS: NavGroup[] = [
   {
     id: 'overview',
     title: 'TỔNG QUAN',
-    items: [{ label: 'Dashboard', icon: <Home size={18} />, path: '/admin' }],
+    items: [{ label: 'Dashboard', icon: <Home size={18} />, path: '/admin', adminOnly: true }],
   },
   {
     id: 'academic',
     title: 'HỌC VỤ',
     items: [
-      { label: 'Học kỳ và Năm học', icon: <Calendar size={18} />, path: '/admin/academic' },
-      { label: 'Bộ môn và Môn học', icon: <BookOpen size={18} />, path: '/admin/academic-structure' },
-      { label: 'Lớp học phần và Xếp lớp', icon: <GraduationCap size={18} />, path: '/admin/class-sections' },
-      { label: 'Người dùng và Tài khoản', icon: <Users size={18} />, path: '/admin/users' },
+      { label: 'Học kỳ và Năm học', icon: <Calendar size={18} />, path: '/admin/academic', permission: 'ACADEMIC_VIEW' },
+      { label: 'Bộ môn và Môn học', icon: <BookOpen size={18} />, path: '/admin/academic-structure', permission: 'ACADEMIC_VIEW' },
+      { label: 'Lớp học phần và Xếp lớp', icon: <GraduationCap size={18} />, path: '/admin/class-sections', permission: 'ACADEMIC_VIEW' },
+    ],
+  },
+  {
+    id: 'accounts',
+    title: 'TÀI KHOẢN & PHÂN QUYỀN',
+    items: [
+      { label: 'Người dùng và Tài khoản', icon: <Users size={18} />, path: '/admin/users', permission: 'USERS_VIEW' },
+      { label: 'Phân quyền', icon: <ShieldCheck size={18} />, path: '/admin/permissions', adminOnly: true },
     ],
   },
   {
@@ -58,11 +69,13 @@ const NAV_GROUPS: NavGroup[] = [
         label: 'Ngân hàng câu hỏi chung',
         icon: <Database size={18} />,
         path: '/admin/shared-question-bank',
+        permission: 'QUESTION_BANK_VIEW',
       },
       {
         label: 'Theo dõi đề thi',
         icon: <FileCheck size={18} />,
         path: '/admin/exams',
+        permission: 'EXAMS_VIEW',
       },
     ],
   },
@@ -70,29 +83,30 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'proctoring',
     title: 'TỔ CHỨC THI',
     items: [
-      { label: 'Lịch thi và Phân công', icon: <Calendar size={18} />, path: '/admin/exam-schedules' },
-      { label: 'Giám sát thi', icon: <ShieldAlert size={18} />, path: '/admin/proctoring' },
+      { label: 'Lịch thi và Phân công', icon: <Calendar size={18} />, path: '/admin/exam-schedules', permission: 'SCHEDULES_VIEW' },
+      { label: 'Giám sát thi', icon: <ShieldAlert size={18} />, path: '/admin/proctoring', permission: 'MONITORING_VIEW' },
     ],
   },
   {
     id: 'reports',
     title: 'BÁO CÁO',
-    items: [{ label: 'Báo cáo', icon: <BarChart3 size={18} />, path: '/admin/reports' }],
+    items: [{ label: 'Báo cáo', icon: <BarChart3 size={18} />, path: '/admin/reports', permission: 'REPORTS_VIEW' }],
   },
   {
     id: 'system',
     title: 'HỆ THỐNG',
     items: [
-      { label: 'Audit Log', icon: <ScrollText size={18} />, path: '/admin/audit-logs' },
-      { label: 'Cấu hình', icon: <Settings size={18} />, path: '/admin/settings' },
+      { label: 'Audit Log', icon: <ScrollText size={18} />, path: '/admin/audit-logs', permission: 'AUDIT_VIEW' },
+      { label: 'Cấu hình', icon: <Settings size={18} />, path: '/admin/settings', permission: 'SETTINGS_VIEW' },
     ],
   },
 ]
 
-const ALL_ADMIN_GROUP_IDS = ['overview', 'academic', 'expertise', 'proctoring', 'reports', 'system']
+const ALL_ADMIN_GROUP_IDS = ['overview', 'academic', 'accounts', 'expertise', 'proctoring', 'reports', 'system']
 const STORAGE_KEY_ADMIN_EXPANDED = 'soes_admin_expanded_groups'
 const STORAGE_KEY_ADMIN_SCROLL = 'soes_admin_sidebar_scroll'
 const STORAGE_KEY_ADMIN_COLLAPSED = 'soes_admin_is_collapsed'
+const failedLogoUrls = new Set<string>()
 
 export let persistentAdminIsCollapsed: boolean = false
 
@@ -100,6 +114,13 @@ export default function AdminSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAuthStore((state) => state.user)
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) =>
+      (!item.adminOnly || user?.role === 'ADMIN') &&
+      (!item.permission || user?.permissions?.includes(item.permission)),
+    ),
+  })).filter((group) => group.items.length > 0)
   const { logout } = useLogout()
   const navRef = useRef<HTMLElement>(null)
 
@@ -129,7 +150,7 @@ export default function AdminSidebar() {
 
   // Khi route thay đổi: chỉ mở nhóm của route đang active nếu nó chưa có, tuyệt đối không can thiệp các nhóm khác
   useEffect(() => {
-    const currentGroup = NAV_GROUPS.find((g) =>
+    const currentGroup = visibleGroups.find((g) =>
       g.items.some((item) => isNavItemActive(item.path)),
     )
     if (currentGroup) {
@@ -195,6 +216,7 @@ export default function AdminSidebar() {
   }
 
   const systemSettings = useSystemSettingsStore((state) => state.settings)
+  const [failedLogo, setFailedLogo] = useState<string | null>(null)
 
   return (
     <aside
@@ -208,10 +230,14 @@ export default function AdminSidebar() {
         isCollapsed ? 'justify-center px-0' : 'px-4'
       }`}>
         <div className={`flex items-center shrink-0 min-w-0 ${isCollapsed ? 'justify-center w-full' : 'gap-3'}`}>
-          {systemSettings.logoUrl ? (
+          {systemSettings.logoUrl && failedLogo !== systemSettings.logoUrl && !failedLogoUrls.has(systemSettings.logoUrl) ? (
             <img
               src={systemSettings.logoUrl}
               alt="Logo"
+              onError={() => {
+                failedLogoUrls.add(systemSettings.logoUrl)
+                setFailedLogo(systemSettings.logoUrl)
+              }}
               className={`${isCollapsed ? 'w-10 h-10' : 'w-11 h-11'} object-contain shrink-0 mx-auto`}
             />
           ) : (
@@ -225,7 +251,7 @@ export default function AdminSidebar() {
                 {systemSettings.shortName || 'SOES'}
               </span>
               <span className="text-[11px] font-semibold text-[#10b981] bg-[#10b981]/15 px-2 py-0.5 rounded-md uppercase shrink-0 border border-[#10b981]/30">
-                Quản trị viên
+                {user?.role === 'EDUCATION_OFFICER' ? 'Giáo vụ' : 'Quản trị viên'}
               </span>
             </div>
           )}
@@ -238,7 +264,7 @@ export default function AdminSidebar() {
         onScroll={handleNavScroll}
         className="flex-1 py-3 px-3 space-y-3 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {NAV_GROUPS.map((group, groupIdx) => {
+        {visibleGroups.map((group, groupIdx) => {
           const isGroupExpanded = expandedGroupIds.includes(group.id)
 
           return (
@@ -324,7 +350,9 @@ export default function AdminSidebar() {
                 <p className="text-xs font-semibold text-white truncate">
                   {user?.fullName ?? 'Trần Quang Huy'}
                 </p>
-                <p className="text-[11px] text-slate-400 font-normal truncate">Quản trị viên</p>
+                <p className="text-[11px] text-slate-400 font-normal truncate">
+                  {user?.role === 'EDUCATION_OFFICER' ? 'Giáo vụ' : 'Quản trị viên'}
+                </p>
               </div>
             )}
           </div>

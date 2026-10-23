@@ -1,5 +1,6 @@
 ﻿import { Archive, Edit } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
+import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { AdminSubject, Department } from '../../types/admin.types'
 import { AdminStatusBadge } from '../AdminBadges'
@@ -15,6 +16,7 @@ export default function SubjectsTable({
   onEditSubject: (subj: AdminSubject) => void
   onArchiveSubject: (subj: AdminSubject) => void
 }) {
+  const canManage = useBackofficePermission('ACADEMIC_MANAGE')
   const subjectColumns: ColumnDef<AdminSubject>[] = [
     {
       header: 'MÃ MÔN',
@@ -75,7 +77,7 @@ export default function SubjectsTable({
 
   return (
     <DataTable
-      columns={subjectColumns}
+      columns={canManage ? subjectColumns : subjectColumns.filter((column) => column.header !== 'THAO TÁC')}
       data={subjects}
       keyExtractor={(item) => item.id}
       emptyText="Chưa có môn học phù hợp."

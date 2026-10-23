@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
+import { examDetailInclude } from '../../teacher-exams/repositories/teacher-exams.repository'
 import type { ExamTrackingQuery, QuestionBankQuery } from '../validators/admin-content.validator'
 
 export const bankInclude = {
@@ -54,6 +55,8 @@ export function listBank(query: QuestionBankQuery) {
 export function findBankItem(id: string) {
   return prisma.questionBankItem.findUnique({ where: { id }, include: bankInclude })
 }
+
+export const findExamDetail = (id: string) => prisma.exam.findUnique({ where: { id }, include: examDetailInclude })
 
 export function listExams(query: ExamTrackingQuery) {
   const where: Prisma.ExamWhereInput = {

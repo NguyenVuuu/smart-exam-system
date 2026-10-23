@@ -5,6 +5,7 @@ interface AdminPageHeaderProps {
   title: string
   description: string
   action?: ReactNode
+  className?: string
 }
 
 export default function AdminPageHeader({
@@ -12,9 +13,10 @@ export default function AdminPageHeader({
   title,
   description,
   action,
+  className = 'mb-6',
 }: AdminPageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`${className} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
       <div className="flex min-w-0 items-center gap-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
           {icon}

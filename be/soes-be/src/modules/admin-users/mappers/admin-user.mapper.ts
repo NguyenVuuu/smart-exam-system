@@ -8,7 +8,7 @@ export function toAdminUserDto(user: UserRow): AdminUserDto {
   if (user.admin) return {
     id: user.id, profileId: user.admin.id, code: user.admin.adminCode,
     fullName: user.fullName, email: user.email ?? null, phoneNumber: user.phoneNumber ?? null,
-    avatarUrl: user.avatarUrl ?? null, role: 'ADMIN', status: user.admin.status,
+    avatarUrl: user.avatarUrl ?? null, role: user.admin.role, status: user.admin.status,
     position: null, department: null,
   }
   if (user.teacher) return {

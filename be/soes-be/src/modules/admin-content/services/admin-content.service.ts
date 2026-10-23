@@ -1,5 +1,6 @@
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors/AppError'
 import { toPagination } from '../../../utils/pagination'
+import { toExamQuestionsDto } from '../../teacher-exams/mappers/teacher-exam.mapper'
 import { runSerializable } from '../../../utils/transaction'
 import { toAdminExamTrackingDto, toAdminQuestionBankItemDto } from '../mappers/admin-content.mapper'
 import * as repo from '../repositories/admin-content.repository'
@@ -57,4 +58,10 @@ export async function restoreQuestion(userId: string, id: string) {
 export async function listExams(query: ExamTrackingQuery) {
   const [total, rows] = await repo.listExams(query)
   return { items: rows.map(toAdminExamTrackingDto), pagination: toPagination(query.page, query.pageSize, total) }
+}
+
+export async function getExamDetail(id: string) {
+  const exam = await repo.findExamDetail(id)
+  if (!exam) throw new NotFoundError('Exam not found')
+  return { id: exam.id, questions: toExamQuestionsDto(exam.examQuestions) }
 }

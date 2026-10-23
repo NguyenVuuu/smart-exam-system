@@ -17,7 +17,10 @@ import type { AdminSubject, Department } from './types/admin.types'
 
 type StructureTab = 'DEPARTMENTS' | 'SUBJECTS'
 
+import { useBackofficePermission } from '../../auth/hooks/useBackofficePermission'
+
 export default function AdminDepartmentsSubjectsPage() {
+  const canManage = useBackofficePermission('ACADEMIC_MANAGE')
   const data = useAdminStructure()
   const [tab, setTab] = useState<StructureTab>('DEPARTMENTS')
   const [search, setSearch] = useState('')
@@ -112,7 +115,7 @@ export default function AdminDepartmentsSubjectsPage() {
     <AdminLayout>
       <AdminPageHeader icon={<BookOpen size={20} />} title="Bộ môn và Môn học"
         description="Quản lý bộ môn, phạm vi chuyên môn, bổ nhiệm Trưởng bộ môn và danh mục môn học."
-        action={<AdminButton icon={<Plus size={17} />} onClick={openCreate}>{tab === 'DEPARTMENTS' ? 'Thêm bộ môn' : 'Thêm môn học'}</AdminButton>}
+        action={canManage && <AdminButton icon={<Plus size={17} />} onClick={openCreate}>{tab === 'DEPARTMENTS' ? 'Thêm bộ môn' : 'Thêm môn học'}</AdminButton>}
       />
       <div className="mb-5"><AdminSegmentedTabs value={tab} onChange={setTab} tabs={[
         { value: 'DEPARTMENTS', label: 'Bộ môn' }, { value: 'SUBJECTS', label: 'Môn học' },
@@ -130,7 +133,7 @@ export default function AdminDepartmentsSubjectsPage() {
           ? <DepartmentsTable departments={filteredDepartments} onOpenHeadModal={(item) => { setHeadDepartment(item); setSelectedHeadId(item.headUserId ?? 'NONE') }} onEditDepartment={openDepartment} />
           : <SubjectsTable subjects={filteredSubjects} departmentsById={departmentsById} onEditSubject={openSubject} onArchiveSubject={(item) => void archiveSubject(item)} />)}
       </AdminTablePanel>
-      <DepartmentSubjectFormModal open={modalOpen} tab={tab} editingDepartmentId={editingDepartmentId}
+      <DepartmentSubjectFormModal open={canManage && modalOpen} tab={tab} editingDepartmentId={editingDepartmentId}
         editingSubjectId={editingSubjectId} departments={data.departments} teacherCandidates={data.teachers}
         departmentNameInput={departmentName} onDepartmentNameChange={setDepartmentName}
         departmentHeadInput={departmentHeadId} onDepartmentHeadChange={setDepartmentHeadId}
@@ -139,7 +142,7 @@ export default function AdminDepartmentsSubjectsPage() {
         onSubjectDepartmentChange={setSubjectDepartmentId} subjectCreditsInput={subjectCredits}
         onSubjectCreditsChange={setSubjectCredits} subjectStatusInput={subjectStatus}
         onSubjectStatusChange={setSubjectStatus} onClose={() => setModalOpen(false)} onConfirm={() => void save()} />
-      <DepartmentHeadModal department={headDepartment} teacherCandidates={data.teachers}
+      <DepartmentHeadModal department={canManage ? headDepartment : null} teacherCandidates={data.teachers}
         selectedHeadUserId={selectedHeadId} onSelect={setSelectedHeadId} onClose={() => setHeadDepartment(null)}
         onConfirm={() => void saveHead()} />
     </AdminLayout>

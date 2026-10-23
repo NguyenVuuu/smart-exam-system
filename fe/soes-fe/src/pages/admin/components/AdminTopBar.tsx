@@ -43,7 +43,7 @@ export default function AdminTopBar() {
           )}
         </button>
         <span className="text-xs font-semibold text-slate-400 hidden sm:inline">
-          Cổng Quản Trị & Khảo Thí Hệ Thống (Admin Portal)
+          Cổng Quản trị và Giáo vụ
         </span>
       </div>
 
@@ -102,7 +102,7 @@ export default function AdminTopBar() {
                 {user?.fullName ?? 'Trần Quang Huy'}
               </p>
               <p className="text-[11px] text-slate-400 font-normal leading-none mt-0.5">
-                Quản trị viên
+                {user?.role === 'EDUCATION_OFFICER' ? 'Giáo vụ' : 'Quản trị viên'}
               </p>
             </div>
             <ChevronDown size={14} className="text-slate-400" />

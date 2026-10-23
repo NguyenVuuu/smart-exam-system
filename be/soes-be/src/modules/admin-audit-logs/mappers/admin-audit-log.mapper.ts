@@ -5,7 +5,7 @@ export const auditLogUserSelect = {
   id: true,
   fullName: true,
   email: true,
-  admin: { select: { adminCode: true } },
+  admin: { select: { adminCode: true, role: true } },
   teacher: { select: { teacherCode: true } },
   student: { select: { studentCode: true } },
 } satisfies Prisma.UserSelect
@@ -13,7 +13,7 @@ export const auditLogUserSelect = {
 type AuditLogWithUser = Prisma.AuditLogGetPayload<{ include: { user: { select: typeof auditLogUserSelect } } }>
 
 const toActorDto = (user: AuditLogWithUser['user']): AuditActorDto => {
-  if (user.admin) return { id: user.id, code: user.admin.adminCode, fullName: user.fullName, email: user.email, role: 'ADMIN' }
+  if (user.admin) return { id: user.id, code: user.admin.adminCode, fullName: user.fullName, email: user.email, role: user.admin.role }
   if (user.teacher) return { id: user.id, code: user.teacher.teacherCode, fullName: user.fullName, email: user.email, role: 'TEACHER' }
   if (user.student) return { id: user.id, code: user.student.studentCode, fullName: user.fullName, email: user.email, role: 'STUDENT' }
   return { id: user.id, code: null, fullName: user.fullName, email: user.email, role: 'UNKNOWN' }

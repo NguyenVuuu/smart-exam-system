@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useAuthStore } from '../../../../store/authStore'
 import type { AdminUser, Department } from '../../types/admin.types'
 import { getNextUserCode } from '../../api/admin-management.api'
 import { AdminField, AdminInput } from '../AdminFormFields'
@@ -46,21 +47,17 @@ export default function UserFormModal({
   onClose: () => void
   onConfirm: () => void
 }) {
-  const [suggestedCode, setSuggestedCode] = useState<string>('')
-
+  const isAdmin = useAuthStore((state) => state.user?.role === 'ADMIN')
   useEffect(() => {
     if (open && !editingUserId) {
       let isMounted = true
       getNextUserCode(roleInput)
         .then((res) => {
           if (isMounted && res?.code) {
-            setSuggestedCode(res.code)
             onCodeChange(res.code)
           }
         })
-        .catch(() => {
-          if (isMounted) setSuggestedCode('')
-        })
+        .catch(() => undefined)
       return () => {
         isMounted = false
       }
@@ -78,22 +75,30 @@ export default function UserFormModal({
     >
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <AdminField label="Mã tài khoản (Tự động cấp)">
+          <AdminField label="Mã tài khoản">
             <AdminInput
-              value={!editingUserId ? (suggestedCode || codeInput || 'Đang tạo mã...') : codeInput}
-              onChange={(event) => onCodeChange(event.target.value)}
-              disabled={true}
+              value={codeInput}
+              onChange={(event) => onCodeChange(event.target.value.toUpperCase().replace(/\s+/g, ''))}
+              maxLength={30}
+              autoCapitalize="characters"
+              spellCheck={false}
+              disabled={Boolean(editingUserId)}
               placeholder="VD: SV2026001"
             />
           </AdminField>
           <AdminField label="Vai trò">
             <AdminSelect
               value={roleInput}
-              onChange={(value) => onRoleChange(value as AdminUser['role'])}
+              onChange={(value) => {
+                onCodeChange('')
+                onRoleChange(value as AdminUser['role'])
+              }}
+              disabled={Boolean(editingUserId)}
               options={[
                 { value: 'STUDENT', label: 'Sinh viên' },
                 { value: 'TEACHER', label: 'Giảng viên' },
-                { value: 'ADMIN', label: 'Quản trị viên' },
+                ...(isAdmin ? [{ value: 'ADMIN', label: 'Quản trị viên' }] : []),
+                { value: 'EDUCATION_OFFICER', label: 'Giáo vụ' },
               ]}
             />
           </AdminField>
@@ -127,9 +132,9 @@ export default function UserFormModal({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <AdminField label="Bộ môn">
             <AdminSelect
-              value={roleInput === 'ADMIN' ? 'NONE' : departmentInput}
+              value={roleInput === 'ADMIN' || roleInput === 'EDUCATION_OFFICER' ? 'NONE' : departmentInput}
               onChange={onDepartmentChange}
-              disabled={roleInput === 'ADMIN'}
+              disabled={roleInput === 'ADMIN' || roleInput === 'EDUCATION_OFFICER'}
               options={[
                 { value: 'NONE', label: 'Không áp dụng' },
                 ...departments.map((item) => ({ value: item.id, label: item.name })),
