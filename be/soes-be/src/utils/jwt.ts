@@ -1,6 +1,6 @@
 import jwt, { SignOptions } from 'jsonwebtoken'
 
-export type AccountRole = 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT'
+export type AccountRole = 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'DEPARTMENT_HEAD' | 'STUDENT'
 
 export interface JwtPayload {
   sub: string       // User.id

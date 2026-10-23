@@ -20,16 +20,20 @@ const REFRESH_PREFIX = 'refresh:'
 const BLACKLIST_PREFIX = 'blacklist:'
 
 export const refreshTokenStore = {
-  async set(userId: string, token: string, ttlSeconds: number): Promise<void> {
-    await redis.set(`${REFRESH_PREFIX}${userId}`, token, 'EX', ttlSeconds)
+  async set(key: string, token: string, ttlSeconds: number): Promise<void> {
+    await redis.set(`${REFRESH_PREFIX}${key}`, token, 'EX', ttlSeconds)
   },
 
-  async get(userId: string): Promise<string | null> {
-    return redis.get(`${REFRESH_PREFIX}${userId}`)
+  async get(key: string): Promise<string | null> {
+    return redis.get(`${REFRESH_PREFIX}${key}`)
   },
 
-  async delete(userId: string): Promise<void> {
-    await redis.del(`${REFRESH_PREFIX}${userId}`)
+  async delete(key: string): Promise<void> {
+    await redis.del(`${REFRESH_PREFIX}${key}`)
+    const matched = await redis.keys(`${REFRESH_PREFIX}${key}*`)
+    if (matched.length > 0) {
+      await redis.del(...matched)
+    }
   },
 }
 
