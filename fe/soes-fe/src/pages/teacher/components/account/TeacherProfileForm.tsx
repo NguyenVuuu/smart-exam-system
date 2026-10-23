@@ -74,13 +74,13 @@ export default function TeacherProfileForm() {
             />
           </AccountFormField>
 
-          <AccountFormField label="Mã giảng viên" icon={<UserCheck size={15} />}>
+          <AccountFormField label="Mã người dùng" icon={<UserCheck size={15} />}>
             <input
               type="text"
               readOnly
               value={user?.teacherCode ?? '-'}
               className={readonlyInputClass}
-              title="Mã giảng viên chính thức"
+              title="Mã người dùng chính thức"
             />
           </AccountFormField>
 

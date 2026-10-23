@@ -1,16 +1,21 @@
 import { create } from 'zustand'
-import type { User } from '../types/auth.types'
+import type { AvailableRole, RoleSelectionRequired, User } from '../types/auth.types'
 import { tokenStorage } from '../utils/token'
 
 interface AuthState {
   user: User | null
   accessToken: string | null
   isAuthenticated: boolean
-  isInitialized: boolean // true once the startup refresh-token check has completed
+  /** true once the startup refresh-token check has completed */
+  isInitialized: boolean
+
+  /** Pending role-selection data — set when API returns requireRoleSelection */
+  pendingRoleSelection: RoleSelectionRequired | null
 
   setUser: (user: User) => void
   setAccessToken: (token: string) => void
   setInitialized: (initialized: boolean) => void
+  setPendingRoleSelection: (data: RoleSelectionRequired | null) => void
   logout: () => void
 }
 
@@ -19,6 +24,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
   isAuthenticated: false,
   isInitialized: false,
+  pendingRoleSelection: null,
 
   setUser(user) {
     set({ user })
@@ -33,8 +39,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isInitialized: initialized })
   },
 
+  setPendingRoleSelection(data) {
+    set({ pendingRoleSelection: data })
+  },
+
   logout() {
     tokenStorage.clearAccessToken()
-    set({ user: null, accessToken: null, isAuthenticated: false, isInitialized: true })
+    set({
+      user: null,
+      accessToken: null,
+      isAuthenticated: false,
+      isInitialized: true,
+      pendingRoleSelection: null,
+    })
   },
 }))
+
+/** Derived selector — available roles during pending selection */
+export const selectAvailableRoles = (state: AuthState): AvailableRole[] =>
+  state.pendingRoleSelection?.availableRoles ?? []

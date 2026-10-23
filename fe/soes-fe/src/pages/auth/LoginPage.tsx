@@ -7,8 +7,8 @@ import { useLogin } from '../../auth/hooks/useLogin'
 import { useSystemSettingsStore } from '../../store/systemSettingsStore'
 
 const loginSchema = z.object({
-  identifier: z.string().min(1, 'Identifier is required'),
-  password: z.string().min(1, 'Password is required'),
+  username: z.string().min(1, 'Vui lòng nhập mã đăng nhập'),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 })
 
 type LoginFormValues = z.infer<typeof loginSchema>
@@ -27,7 +27,7 @@ export default function LoginPage() {
   })
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 font-sans">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 font-sans select-none">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -48,32 +48,32 @@ export default function LoginPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit(login)} noValidate className="space-y-4">
-          {/* Identifier */}
+          {/* Username / account code */}
           <div className="space-y-1">
-            <label htmlFor="identifier" className="block text-xs font-bold text-gray-700">
-              Student Code / Teacher Code / Email
+            <label htmlFor="username" className="block text-xs font-bold text-gray-700">
+              Mã đăng nhập
             </label>
             <input
-              {...register('identifier')}
-              id="identifier"
+              {...register('username')}
+              id="username"
               type="text"
               autoComplete="username"
-              placeholder="admin@soes.edu.vn / SV000001 / GV000001"
+              placeholder="Nhập mã tài khoản của bạn..."
               className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none transition-colors ${
-                errors.identifier
+                errors.username
                   ? 'border-red-400 focus:border-red-500 bg-red-50'
                   : 'border-gray-200 focus:border-blue-500 bg-gray-50/50'
               }`}
             />
-            {errors.identifier && (
-              <p className="text-[11px] text-red-500">{errors.identifier.message}</p>
+            {errors.username && (
+              <p className="text-[11px] text-red-500">{errors.username.message}</p>
             )}
           </div>
 
           {/* Password */}
           <div className="space-y-1">
             <label htmlFor="password" className="block text-xs font-bold text-gray-700">
-              Password
+              Mật khẩu
             </label>
             <div className="relative">
               <input
@@ -81,7 +81,7 @@ export default function LoginPage() {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
-                placeholder="Enter your password..."
+                placeholder="Nhập mật khẩu của bạn..."
                 className={`w-full px-3.5 py-2.5 pr-10 rounded-xl border text-xs outline-none transition-colors ${
                   errors.password
                     ? 'border-red-400 focus:border-red-500 bg-red-50'
@@ -107,7 +107,7 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
           >
-            {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            {isLoading ? 'Đang xác thực...' : 'Đăng nhập'}
           </button>
         </form>
       </div>

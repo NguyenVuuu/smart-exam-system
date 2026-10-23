@@ -57,7 +57,7 @@ export default function TeacherAccountSidebarCard({ user }: { user: User | null 
       <div className="space-y-3.5 border-t border-gray-100 pt-5 text-xs">
         <div className="flex items-center justify-between">
           <span className="font-medium text-gray-400 flex items-center gap-1.5">
-            <IdCard size={14} /> Mã giảng viên
+            <IdCard size={14} /> Mã người dùng
           </span>
           <span className="font-semibold text-gray-800 font-mono">
             {user?.teacherCode ?? '-'}
