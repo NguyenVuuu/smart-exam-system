@@ -10,36 +10,41 @@ Tai lieu nay mo ta schema nghiep vu hien tai o muc domain. Khi co khac biet, uu 
 - ORM: Prisma.
 - Primary key hau het la UUID string.
 - Timestamp dung `DateTime`; ung dung/DB luu theo UTC.
-- Password luu rieng tren profile vai tro: `Student.password`, `Teacher.password`, `Admin.password`.
-- `User` chua thong tin ca nhan chung; moi vai tro co profile rieng.
+- Moi nguoi dung chi co **DUY NHAT 1 TAI KHOAN** `User`. Mat khau (`password`), trang thai (`status`), va cac vai tro (`roles: UserRole[]`) luu tap trung tren bang `User`.
+- Cac bang profile `Student`, `Teacher`, `Admin` dong vai tro ho so hoc vu/chuyen mon va **khong con luu cot mat khau**.
 - File binary khong luu truc tiep trong PostgreSQL; database chi luu metadata/path/object key.
 
 ## Identity
 
 ### User
 
-Thong tin ca nhan chung: `email`, `phoneNumber`, `fullName`, `avatarUrl`.
+Thong tin tai khoan va ca nhan:
+- `username`: unique, nullable string (ho tro dang nhap).
+- `email`: unique, nullable string (ho tro dang nhap va lien he).
+- `password`: string hash bcrypt.
+- `status`: enum `AccountStatus` (`ACTIVE`, `INACTIVE`, `SUSPENDED`).
+- `roles`: mang enum `UserRole[]` (`ADMIN`, `EDUCATION_OFFICER`, `TEACHER`, `DEPARTMENT_HEAD`, `STUDENT`).
+- `phoneNumber`, `fullName`, `avatarUrl`.
 
+Mot `User` dai dien cho 1 nguoi dung duy nhat va co the co nhieu profile dong thoi (multi-role).
 Relation chinh:
-
-- `student`, `teacher`, `admin`
+- `students[]`, `teachers[]`, `admins[]` (onDelete: Cascade)
 - `notifications`, `auditLogs`
 - nguoi tao schedule, nguoi invalidate attempt, nguoi xem/review/detect violation, nguoi chup evidence
 
 ### Student
 
-Field chinh: `studentCode` unique, `password`, `status`, `userId` unique.
+Field chinh: `studentCode` unique, `status`, `userId` (co index, FK to User voi onDelete: Cascade).
 
 Relation: `enrollments`, `examAttempts`, `targetExamSchedules`, `gradeAppeals`.
 
 ### Teacher
 
-Field chinh: `teacherCode` unique, `password`, `status`, `position`, `departmentId`, `userId` unique.
+Field chinh: `teacherCode` unique, `status`, `position`, `departmentId`, `userId` (co index, FK to User voi onDelete: Cascade).
 
-`position`: `LECTURER`, `DEPARTMENT_HEAD`.
+`position`: `LECTURER` hoac `DEPARTMENT_HEAD`.
 
 Relation:
-
 - course offerings phu trach
 - exams tao ra/review
 - posts, materials, questions
@@ -50,9 +55,11 @@ Relation:
 
 ### Admin
 
-Field chinh: `adminCode` unique, `password`, `status`, `userId` unique.
+Field chinh: `adminCode` unique, `status`, `role` (BackofficeRole), `userId` (co index, FK to User voi onDelete: Cascade).
 
-Relation toi question bank reviews/removals.
+`role`: `ADMIN` hoac `EDUCATION_OFFICER`.
+
+Relation toi question bank reviews/removals, permission overrides.
 
 ## Academic
 

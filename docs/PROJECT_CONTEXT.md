@@ -16,7 +16,18 @@ Codebase hien tai gom:
 - Supabase Storage cho course materials, question images, AI source files va system assets.
 - MinIO cho proctoring evidence.
 
-## 2. Doi tuong su dung
+## 2. Doi tuong su dung va Mo hinh Tai khoan
+
+### Mo hinh Tai khoan duy nhat (Single User Account)
+
+He thong ap dung kien truc **1 User = 1 Tai khoan duy nhat**:
+- Nguoi dung chi co duy nhat mot thuc the `User` luu thong tin dang nhap chung: `password` (bcrypt), `status` (`ACTIVE`, `INACTIVE`, `SUSPENDED`), `roles` (`UserRole[]`), `username` (unique, nullable), `email` (unique, nullable), `phoneNumber`, `fullName`, `avatarUrl`.
+- 5 vai tro trong he thong duoc dinh nghia tai enum `UserRole`: `ADMIN`, `EDUCATION_OFFICER`, `TEACHER`, `DEPARTMENT_HEAD`, `STUDENT`.
+- Cac bang profile `Student`, `Teacher`, `Admin` khong luu mat khau ma chi dong vai tro profile hoc vu/chuyen mon.
+- Nguoi dung chi dang nhap bang `username`, trong do `username` phai trung voi ma tai khoan (vi du `22002885`). Email va ma dinh danh profile khong duoc chap nhan.
+- Khi dang nhap:
+  - Neu user chi co **1 role**: he thong phat token ngay va chuyen huong truc tiep vao trang chu tuong ung.
+  - Neu user co **tu 2 role tro len**: he thong hien thi danh sach cac o lua chon (boxes) dai dien cho tung role ma user so huu. Chon role nao se gui request xac nhan va redirect den giao dien cua role do.
 
 ### Admin
 
@@ -27,6 +38,17 @@ Admin quan tri he thong va hoc vu:
 - Quan ly lich thi tap trung, dac biet final exam.
 - Theo doi shared question bank, exam tracking, audit logs va monitoring.
 - Cau hinh he thong, logo, defaults, tich hop va code generation settings.
+
+Role: `ADMIN` (Admin.role = ADMIN).
+
+### Giao vu (Education Officer)
+
+Giao vu ho tro cong tac hanh chinh va to chuc ky thi:
+
+- Co quyen truy cap backoffice theo permission duoc cap.
+- Khong co quyen SETTINGS_MANAGE mac dinh.
+
+Role: `EDUCATION_OFFICER` (Admin.role = EDUCATION_OFFICER, prefix `GVO`).
 
 ### Teacher
 
@@ -40,7 +62,18 @@ Teacher to chuc day hoc va danh gia:
 - Giam sat realtime, xem/cap nhat vi pham, chup bang chung thu cong.
 - Cham diem, finalize diem, cong bo ket qua, xu ly phuc khao.
 
-Teacher co `position`: `LECTURER` hoac `DEPARTMENT_HEAD`. `DEPARTMENT_HEAD` co them mot so permission quan tri hoc vu/duyet cau hoi tuy theo mapper auth.
+Role: `TEACHER` (Teacher.position = LECTURER).
+
+### Truong bo mon (Department Head)
+
+Truong bo mon co day du chuc nang giang vien, them:
+
+- `APPROVE_SHARED_QUESTION`: duyet cau hoi vao ngan hang chung.
+- `APPROVE_FINAL_EXAM`: duyet de thi cuoi ky.
+- `VIEW_DEPARTMENT_EXAMS`: xem de thi cua bo mon.
+- `VIEW_DEPARTMENT_REPORTS`: xem bao cao cua bo mon.
+
+Role: `DEPARTMENT_HEAD` (Teacher.position = DEPARTMENT_HEAD).
 
 ### Student
 
@@ -52,6 +85,8 @@ Student su dung cong thong tin hoc tap va lam bai:
 - Gui heartbeat webcam/screen, ghi nhan vi pham phia client.
 - Xem ket qua khi thoa chinh sach cong bo diem.
 - Tao phuc khao diem cho attempt da co ket qua.
+
+Role: `STUDENT`.
 
 ## 3. Chuc nang chinh
 

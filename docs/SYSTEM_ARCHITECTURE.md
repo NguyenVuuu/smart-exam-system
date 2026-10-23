@@ -104,8 +104,16 @@ Moi module thuong chia thanh `routes`, `controllers`, `services`, `repositories`
 Login dung `identifier` theo prefix:
 
 - `SV...`: Student.
-- `GV...`: Teacher.
+- `GV...`: Teacher hoac DEPARTMENT_HEAD (phan biet boi `Teacher.position`).
+- `GVO...`: Education Officer.
 - `AD...`: Admin.
+
+Mot User co the co nhieu role. Login flow:
+
+1. POST `/api/auth/login` — xac thuc identifier + password.
+   - 1 role: tra ve accessToken truc tiep.
+   - >=2 role: tra ve `selectionToken` + `availableRoles`.
+2. POST `/api/auth/select-role` — chon role, nhan accessToken.
 
 Access token JWT chua `sub`, `profileId`, `role`, `jti`.
 
@@ -118,11 +126,12 @@ Refresh token:
 Session rule hien tai:
 
 - Student chi duoc mot active session de giam rui ro thi ho.
-- Teacher va Admin co the dang nhap lai tu nhieu thiet bi.
+- Cac role khac co the dang nhap lai tu nhieu thiet bi.
 
 Authorization:
 
-- Backend dung `authenticate`, `requireRoles`, `requireAdmin`, `requireTeacher`, `requireStudent`.
+- Backend dung `authenticate`, `requireRoles`, `requireAdmin`, `requireTeacher`, `requireStudent`, `requireBackoffice`.
+- `requireTeacher()` cho phep ca `TEACHER` va `DEPARTMENT_HEAD`.
 - Frontend dung `RoleRoute` de chan route theo role.
 
 ## Database

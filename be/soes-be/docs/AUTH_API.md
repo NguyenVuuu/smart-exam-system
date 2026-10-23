@@ -4,15 +4,19 @@ Base URL: `/api/auth`
 
 ## Overview
 
-Auth hiện dùng mã tài khoản theo vai trò, không dùng email làm identifier đăng nhập.
+He thong ap dung kien truc **1 User = 1 Tai khoan duy nhat**:
+- Moi nguoi dung chi co duy nhat 1 tai khoan `User` chua credentials: `password`, `status` (`ACTIVE`, `INACTIVE`, `SUSPENDED`), va mang cac vai tro `roles: UserRole[]`.
+- 5 vai tro duoc ho tro qua enum `UserRole`: `ADMIN`, `EDUCATION_OFFICER`, `TEACHER`, `DEPARTMENT_HEAD`, `STUDENT`.
+- Cac bang profile `Student`, `Teacher`, `Admin` khong con luu cot `password`.
+- Dang nhap chi bang `username`; gia tri nay chinh la ma tai khoan (vi du `22002885`). Email va ma profile khac khong phai thong tin dang nhap.
 
-| Role | Identifier | Bảng profile |
+| Role | Identifier | Bang profile |
 |---|---|---|
-| `STUDENT` | `SV...` | `Student.studentCode` |
-| `TEACHER` | `GV...` | `Teacher.teacherCode` |
-| `ADMIN` | `AD...` | `Admin.adminCode` |
-
-Email và phone là thông tin liên hệ trong `User`.
+| `STUDENT` | `username` (ma tai khoan) | `Student` (studentCode) |
+| `TEACHER` | `username` (ma tai khoan) | `Teacher` (teacherCode, position=LECTURER) |
+| `DEPARTMENT_HEAD` | `username` (ma tai khoan) | `Teacher` (teacherCode, position=DEPARTMENT_HEAD) |
+| `ADMIN` | `username` (ma tai khoan) | `Admin` (adminCode, role=ADMIN) |
+| `EDUCATION_OFFICER` | `username` (ma tai khoan) | `Admin` (adminCode, role=EDUCATION_OFFICER) |
 
 Access token payload:
 
@@ -20,30 +24,37 @@ Access token payload:
 {
   "sub": "user-id",
   "profileId": "student-or-teacher-or-admin-id",
-  "role": "STUDENT"
+  "role": "STUDENT",
+  "jti": "uuid"
 }
 ```
 
-Refresh token lưu trong HttpOnly cookie và Redis.
+Refresh token luu trong HttpOnly cookie va Redis theo key `refreshToken:${userId}:${role}`.
 
 Session rule:
 
-- Student chỉ có một phiên active. Nếu Redis đã có refresh token cho student đó, login tiếp trả `409`.
-- Teacher/Admin có thể login lại từ nhiều thiết bị.
-- Profile `INACTIVE` trả `403`.
+- Student chi co mot phien active tai mot thoi diem. Login khi da co session tra `409 Conflict`.
+- Teacher/Admin/EducationOfficer/DepartmentHead co the dang nhap dong thoi tu nhieu thiet bi.
+- User `status != ACTIVE` tra `403 Forbidden`.
+
+---
 
 ## POST `/login`
+
+Buoc 1 dang nhap: xac thuc tai khoan bang username va password.
 
 Request:
 
 ```json
 {
-  "identifier": "SV000001",
-  "password": "123456"
+  "username": "SV000001", // Ma tai khoan, phai trung voi User.username
+  "password": "yourpassword"
 }
 ```
 
-Response `200`:
+### Response khi User co 1 role (Single-role direct login)
+
+HTTP `200` — Dang nhap thanh cong truc tiep, cookie `refreshToken` duoc set va tra ve access token:
 
 ```json
 {
@@ -56,29 +67,105 @@ Response `200`:
       "profileId": "student-id",
       "role": "STUDENT",
       "fullName": "Nguyen Van A",
-      "email": "student@example.com",
+      "email": "student@soes.edu.vn",
       "phoneNumber": null,
       "avatarUrl": null,
-      "studentCode": "SV000001"
+      "studentCode": "SV000001",
+      "teacherCode": null,
+      "adminCode": null,
+      "availableRoles": ["STUDENT"]
     }
   }
 }
 ```
 
-Cookie:
+### Response khi User co tu 2 role tro len (Multi-role selection required)
 
-- `refreshToken`: HttpOnly.
+HTTP `200` — Yeu cau chon role, KHONG set cookie:
+
+```json
+{
+  "success": true,
+  "message": "Role selection required",
+  "data": {
+    "requireRoleSelection": true,
+    "selectionToken": "uuid-v4",
+    "availableRoles": [
+      {
+        "role": "TEACHER",
+        "name": "Giảng viên",
+        "profileId": "teacher-id",
+        "code": "GV000002",
+        "position": "LECTURER"
+      },
+      {
+        "role": "STUDENT",
+        "name": "Sinh viên",
+        "profileId": "student-id",
+        "code": "SV000002"
+      }
+    ],
+    "user": {
+      "id": "user-id",
+      "fullName": "Le Minh Cuong",
+      "avatarUrl": null
+    }
+  }
+}
+```
+
+`selectionToken` het han sau 5 phut (luu trong Redis) va chi duoc su dung mot lan duy nhat.
 
 Common errors:
 
-- `401`: invalid credentials.
-- `403`: inactive account.
-- `409`: student account already signed in on another device.
+- `401`: invalid credentials (tai khoan khong ton tai hoac sai mat khau).
+- `403`: tai khoan bi khoa/inactive (`User.status != ACTIVE`).
+- `409`: student dang co mot phien lam viec khac dang hoat dong.
 - `422`: validation failed.
+
+---
+
+## POST `/select-role`
+
+Buoc 2 dang nhap: chon role khi co nhieu role.
+
+Goi sau khi nhan `requireRoleSelection: true` tu `/login`.
+
+Request:
+
+```json
+{
+  "selectionToken": "uuid-v4",
+  "role": "TEACHER"
+}
+```
+
+`role` phai la mot trong: `ADMIN`, `EDUCATION_OFFICER`, `TEACHER`, `DEPARTMENT_HEAD`, `STUDENT`.
+
+Response `200` — dang nhap thanh cong, cookie `refreshToken` duoc set:
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "accessToken": "jwt",
+    "user": { ... }
+  }
+}
+```
+
+Errors:
+
+- `401`: selectionToken het han hoac khong hop le.
+- `403`: role yeu cau khong co trong danh sach cho phep.
+- `404`: profile khong tim thay.
+
+---
 
 ## POST `/refresh-token`
 
-Đọc `refreshToken` từ cookie.
+Doc `refreshToken` tu cookie.
 
 Response `200`:
 
@@ -86,19 +173,19 @@ Response `200`:
 {
   "success": true,
   "message": "Token refreshed",
-  "data": {
-    "accessToken": "jwt"
-  }
+  "data": { "accessToken": "jwt" }
 }
 ```
 
 Errors:
 
-- `401`: missing/invalid/expired refresh token, token không khớp Redis, hoặc account inactive.
+- `401`: missing/invalid/expired refresh token, token khong khop Redis, hoac account inactive.
+
+---
 
 ## POST `/logout`
 
-Yêu cầu access token hợp lệ để xóa refresh token trong Redis và blacklist access token còn hạn.
+Yeu cau access token hop le de xoa refresh token trong Redis va blacklist access token con han.
 
 Headers:
 
@@ -114,6 +201,8 @@ Response `200`:
   "message": "Logged out successfully"
 }
 ```
+
+---
 
 ## GET `/me`
 
@@ -132,20 +221,26 @@ Response `200`:
   "data": {
     "id": "user-id",
     "profileId": "teacher-id",
-    "role": "TEACHER",
-    "fullName": "Tran Thi B",
-    "email": "teacher@example.com",
-    "phoneNumber": "0900000000",
+    "role": "DEPARTMENT_HEAD",
+    "fullName": "Tran Thi Bich",
+    "email": "gv001@soes.edu.vn",
+    "phoneNumber": null,
     "avatarUrl": null,
     "teacherCode": "GV000001",
-    "position": "LECTURER"
+    "studentCode": null,
+    "adminCode": null,
+    "position": "DEPARTMENT_HEAD",
+    "departmentId": "dept-id",
+    "permissions": ["APPROVE_SHARED_QUESTION", "APPROVE_FINAL_EXAM", "VIEW_DEPARTMENT_EXAMS", "VIEW_DEPARTMENT_REPORTS"]
   }
 }
 ```
 
+---
+
 ## PATCH `/me`
 
-Cập nhật thông tin liên hệ của `User`.
+Cap nhat thong tin lien he cua `User`.
 
 Headers:
 
@@ -164,13 +259,15 @@ Request:
 
 Rules:
 
-- `email` optional, có thể `null` hoặc chuỗi rỗng để xóa.
-- `phoneNumber` optional, tối đa 20 ký tự, có thể `null` hoặc chuỗi rỗng để xóa.
-- Email nếu có phải unique trong `User`.
+- `email` optional, co the `null` hoac chuoi rong de xoa.
+- `phoneNumber` optional, toi da 20 ky tu.
+- Email neu co phai unique trong `User`.
+
+---
 
 ## PATCH `/me/password`
 
-Đổi mật khẩu profile đang đăng nhập.
+Doi mat khau profile dang dang nhap.
 
 Headers:
 
@@ -189,28 +286,23 @@ Request:
 
 Rules:
 
-- `newPassword` dài 6-100 ký tự.
-- Mật khẩu được hash bằng bcrypt trước khi lưu.
+- `newPassword` dai 6-100 ky tu.
+- Mat khau duoc hash bang bcrypt truoc khi luu.
+
+---
 
 ## Response format
 
 Success:
 
 ```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {}
-}
+{ "success": true, "message": "OK", "data": {} }
 ```
 
 Error:
 
 ```json
-{
-  "success": false,
-  "message": "Invalid credentials"
-}
+{ "success": false, "message": "Invalid credentials" }
 ```
 
 Validation error:
@@ -219,8 +311,6 @@ Validation error:
 {
   "success": false,
   "message": "Validation failed",
-  "errors": [
-    { "field": "identifier", "message": "Identifier is required" }
-  ]
+  "errors": [{ "field": "username", "message": "Username is required" }]
 }
 ```
