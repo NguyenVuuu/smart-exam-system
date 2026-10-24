@@ -45,6 +45,7 @@ export const updateStudentVisibility = async (req: Request, res: Response) => se
   ),
 )
 export const listApprovals = async (req: Request, res: Response) => send(res, await service.listApprovals(req.user!.profileId, examApprovalQuerySchema.parse(req.query)))
+export const getApproval = async (req: Request, res: Response) => send(res, await service.getApproval(req.user!.profileId, idParam.parse(req.params).id))
 export const approve = async (req: Request, res: Response) => send(res, await service.approve(req.user!.profileId, idParam.parse(req.params).id))
 export const reject = async (req: Request, res: Response) => send(res, await service.reject(req.user!.profileId, idParam.parse(req.params).id, examRejectionSchema.parse(req.body).reason))
 export const listSchedules = async (req: Request, res: Response) => send(res, await scheduleService.list(req.user!.profileId, idParam.parse(req.params).id))

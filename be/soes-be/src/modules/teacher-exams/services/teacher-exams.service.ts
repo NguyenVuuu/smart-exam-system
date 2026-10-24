@@ -433,14 +433,37 @@ export async function listApprovals(
   teacherId: string,
   query: ExamApprovalQuery,
 ) {
-  const teacher = await teacherContext(teacherId);
-  if (teacher.position !== "DEPARTMENT_HEAD")
-    throw new ForbiddenError("Department head permission required");
-  const [total, rows] = await repo.listApprovals(teacher.departmentId!, query);
+  const groupId = await reviewerGroupId(teacherId)
+  const [total, rows] = await repo.listApprovals(groupId, query);
   return {
-    items: rows.map((row) => toTeacherExamDto(row, teacherId)),
+    items: rows.map((round) => ({
+      ...toTeacherExamDto(round.exam, teacherId),
+      reviewRound: { id: round.id, version: round.version, status: round.status, submittedAt: round.submittedAt },
+    })),
     pagination: toPagination(query.page, query.pageSize, total),
   };
+}
+
+async function reviewerGroupId(teacherId: string) {
+  const teacher = await repo.findReviewerGroup(teacherId)
+  const department = teacher?.department
+  const group = department?.reviewGroup
+  if (teacher?.status !== 'ACTIVE' || teacher.user.status !== 'ACTIVE' || department?.status !== 'ACTIVE'
+    || group?.status !== 'ACTIVE' || !group.members.length) {
+    throw new ForbiddenError('Active review group membership required')
+  }
+  return group.id
+}
+
+export async function getApproval(teacherId: string, examId: string) {
+  const groupId = await reviewerGroupId(teacherId)
+  const round = await repo.findApprovalRound(groupId, examId)
+  if (!round) throw new NotFoundError('Approval request not found')
+  return {
+    ...toTeacherExamDto(round.exam, teacherId),
+    reviewRound: { id: round.id, version: round.version, status: round.status, submittedAt: round.submittedAt },
+    snapshot: round.snapshot,
+  }
 }
 
 async function review(

@@ -36,6 +36,7 @@ router.patch('/exams/:id/schedules/:scheduleId/submissions/:attemptId/final-scor
 router.patch('/exams/:id/schedules/:scheduleId/final-scores', asyncHandler(controller.finalizeSubmissionScores))
 router.patch('/exams/:id/schedules/:scheduleId/results', asyncHandler(controller.updateResultRelease))
 router.get('/exam-approvals', asyncHandler(controller.listApprovals))
+router.get('/exam-approvals/:id', asyncHandler(controller.getApproval))
 router.post('/exam-approvals/:id/approve', asyncHandler(controller.approve))
 router.post('/exam-approvals/:id/reject', asyncHandler(controller.reject))
 router.post('/proctoring/extend-time', asyncHandler(controller.extendTime))

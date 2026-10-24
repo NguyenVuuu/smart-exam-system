@@ -267,19 +267,49 @@ export function replaceQuestions(
   })
 }
 
-export function listApprovals(departmentId: string, query: ExamApprovalQuery) {
-  const where: Prisma.ExamWhereInput = {
-    type: 'FINAL', approvalStatus: query.status, subject: { departmentId },
-    ...(query.subjectId && { subjectId: query.subjectId }),
-    ...(query.semesterId && { semesterId: query.semesterId }),
-    ...(query.keyword && { title: { contains: query.keyword, mode: 'insensitive' } }),
+export function findReviewerGroup(teacherId: string) {
+  return prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: {
+      status: true,
+      user: { select: { status: true } },
+      department: { select: {
+        status: true,
+        reviewGroup: { select: {
+          id: true, status: true,
+          members: { where: { teacherId, status: 'ACTIVE' }, select: { id: true } },
+        } },
+      } },
+    },
+  })
+}
+
+export function listApprovals(groupId: string, query: ExamApprovalQuery) {
+  const roundStatus = query.status === 'REJECTED' ? 'REVISION_REQUESTED' : query.status
+  const where: Prisma.ExamReviewRoundWhereInput = {
+    groupId, status: roundStatus,
+    exam: {
+      type: 'FINAL',
+      ...(query.subjectId && { subjectId: query.subjectId }),
+      ...(query.semesterId && { semesterId: query.semesterId }),
+      ...(query.keyword && { title: { contains: query.keyword, mode: 'insensitive' } }),
+    },
   }
   return Promise.all([
-    prisma.exam.count({ where }),
-    prisma.exam.findMany({
-      where, include: examInclude,
+    prisma.examReviewRound.count({ where }),
+    prisma.examReviewRound.findMany({
+      where,
+      include: { exam: { include: examInclude } },
       skip: (query.page - 1) * query.pageSize, take: query.pageSize,
-      orderBy: { updatedAt: 'asc' },
+      orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }],
     }),
   ])
+}
+
+export function findApprovalRound(groupId: string, examId: string) {
+  return prisma.examReviewRound.findFirst({
+    where: { groupId, examId, exam: { type: 'FINAL' } },
+    orderBy: { version: 'desc' },
+    include: { exam: { include: examInclude } },
+  })
 }

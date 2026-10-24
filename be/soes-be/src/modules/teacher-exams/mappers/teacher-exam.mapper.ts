@@ -16,7 +16,7 @@ export function examCapabilities(row: ExamRow, ownerId: string): ExamCapabilitie
   return {
     canEdit: editable,
     canDelete: editable && row._count.schedules === 0,
-    canSubmitForApproval: owns && row.status === 'DRAFT' && row._count.examQuestions > 0,
+    canSubmitForApproval: owns && row.status === 'DRAFT' && row.approvalStatus !== 'PENDING' && row._count.examQuestions > 0,
     canSchedule: owns && row.type !== 'FINAL' && row.status === 'READY',
     canLock: owns && row.type !== 'FINAL' && row.status === 'READY'
       && row.schedules.some((schedule) => schedule.status !== 'CANCELLED'),
