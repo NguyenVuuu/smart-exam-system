@@ -67,8 +67,10 @@ export async function setStatus(teacherId: string, status: 'ACTIVE' | 'INACTIVE'
     const actor = await activeHead(tx, teacherId)
     const group = await repo.findGroup(tx, actor.departmentId!)
     if (!group) throw new NotFoundError('Department review group not found')
-    if (status === 'INACTIVE' && await repo.hasOpenRounds(tx, group.id)) {
-      throw new ConflictError('Cannot deactivate a review group with pending exams')
+    if (status === 'INACTIVE' && (await repo.hasOpenRounds(tx, group.id) || await tx.questionBankItem.count({
+      where: { status: 'PENDING', removedAt: null, question: { subject: { departmentId: actor.departmentId! } } },
+    }))) {
+      throw new ConflictError('Resolve pending exams and questions before deactivating the group')
     }
     if (status !== group.status) await tx.departmentReviewGroup.update({ where: { id: group.id }, data: { status } })
     return repo.findGroup(tx, actor.departmentId!)

@@ -45,7 +45,9 @@ stubModule('../../admin-users/controllers/admin-users.controller', {
   getNextCode: ok, listUsers: ok, listReferences: ok, createUser: ok, updateUser: ok,
   setStatus: ok, resetPassword: ok, enroll: ok, listEnrollments: ok, withdraw: ok,
 })
-stubModule('../../exam-review-groups/controllers/backoffice-review-group.controller', { list: ok, get: ok })
+stubModule('../../exam-review-groups/controllers/backoffice-review-group.controller', {
+  list: ok, get: ok, listDepartments: ok, create: ok, rename: ok, setStatus: ok, candidates: ok, addMember: ok, removeMember: ok,
+})
 stubModule('../../admin-academic/controllers/academic.controller', {
   listSemesters: ok, createSemester: ok, updateSemester: ok, activateSemester: ok,
   listDepartments: ok, createDepartment: ok, updateDepartment: ok, assignDepartmentHead: ok,
@@ -75,6 +77,7 @@ test('shared admin routers enforce only the permissions of the matched endpoint'
       ['/users', 'USERS_VIEW', 200],
       ['/review-groups', '', 403],
       ['/review-groups', 'REVIEW_GROUP_VIEW', 200],
+      ['/review-groups/departments', 'REVIEW_GROUP_VIEW', 200],
       ['/review-groups/group-id', 'REVIEW_GROUP_VIEW', 200],
       ['/users/references', 'SCHEDULES_VIEW', 200],
       ['/users/references', '', 403],
@@ -103,6 +106,8 @@ test('shared admin routers enforce only the permissions of the matched endpoint'
       ['POST', '/course-offerings/course/enrollments', 'ACADEMIC_MANAGE', 200],
       ['POST', '/users', 'USERS_VIEW', 403],
       ['POST', '/users', 'USERS_MANAGE', 200],
+      ['POST', '/review-groups', 'REVIEW_GROUP_VIEW', 403],
+      ['POST', '/review-groups', 'REVIEW_GROUP_MANAGE_ALL', 200],
       ['POST', '/semesters', 'SCHEDULES_MANAGE', 403],
     ] as const) {
       const response = await fetch(`${base}${path}`, { method, headers: { 'x-permissions': permissions } })

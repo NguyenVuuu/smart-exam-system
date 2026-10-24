@@ -10,6 +10,7 @@ const destinations: Array<[UserPermission, string]> = [
   ['USERS_VIEW', '/admin/users'],
   ['QUESTION_BANK_VIEW', '/admin/shared-question-bank'],
   ['EXAMS_VIEW', '/admin/exams'],
+  ['REVIEW_GROUP_VIEW', '/admin/review-groups'],
   ['MONITORING_VIEW', '/admin/proctoring'],
   ['REPORTS_VIEW', '/admin/reports'],
   ['AUDIT_VIEW', '/admin/audit-logs'],

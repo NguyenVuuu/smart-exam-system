@@ -21,10 +21,12 @@ test('department group management enforces the current head and pending-round ru
   type Group = { id: string; departmentId: string; name: string; status: 'ACTIVE' | 'INACTIVE'; members: { teacherId: string }[] }
   const state: { group: Group | null } = { group: null }
   let pendingRounds = 0
+  let pendingQuestions = 0
   const memberships = new Map<string, { id: string; teacherId: string; status: 'ACTIVE' | 'INACTIVE' }>()
   const audits: string[] = []
   let refreshes = 0
   const tx = {
+    questionBankItem: { count: async () => pendingQuestions },
     departmentReviewGroup: {
       create: async ({ data }: { data: { departmentId: string; name: string; members: { create: { teacherId: string } } } }) => {
         state.group = { id: 'group', departmentId: data.departmentId, name: data.name, status: 'ACTIVE', members: [data.members.create] }
@@ -92,6 +94,9 @@ test('department group management enforces the current head and pending-round ru
   pendingRounds = 1
   await assert.rejects(service.setStatus('head', 'INACTIVE'), { statusCode: 409 })
   pendingRounds = 0
+  pendingQuestions = 1
+  await assert.rejects(service.setStatus('head', 'INACTIVE'), { statusCode: 409 })
+  pendingQuestions = 0
   await service.setStatus('head', 'INACTIVE')
   assert.equal(state.group?.status, 'INACTIVE')
   await service.setStatus('head', 'ACTIVE')

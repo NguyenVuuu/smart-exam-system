@@ -7,7 +7,7 @@ const groupView = {
     where: { status: 'ACTIVE' as const },
     select: {
       teacherId: true, joinedAt: true,
-      teacher: { select: { teacherCode: true, status: true, user: { select: { fullName: true, status: true } } } },
+      teacher: { select: { teacherCode: true, position: true, status: true, user: { select: { fullName: true, status: true } } } },
     },
     orderBy: { joinedAt: 'asc' as const },
   },
@@ -22,4 +22,11 @@ export function listGroups() {
 
 export function findGroup(id: string) {
   return prisma.departmentReviewGroup.findUnique({ where: { id }, select: groupView })
+}
+
+export function listDepartments() {
+  return prisma.department.findMany({
+    select: { id: true, code: true, name: true, status: true, reviewGroup: { select: { id: true } } },
+    orderBy: { code: 'asc' },
+  })
 }
