@@ -6,6 +6,8 @@ import {
   X,
   XCircle,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import AppBadge from '../../components/common/AppBadge'
@@ -16,6 +18,9 @@ import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { useTeacherApprovals } from './hooks/useTeacherApprovals'
+import { getExamApprovalDetail } from './api/teacher-approvals.api'
+import { getReviewGroup } from './api/teacher-review-groups.api'
+import { toReviewExam } from './mappers/teacher-review-snapshot.mapper'
 import type { Exam } from './types/teacher-exam.types'
 import type { Question } from './types/teacher-question-bank.types'
 import { formatDateTime } from '../../utils/date.utils'
@@ -41,6 +46,7 @@ type ApprovalItem =
       authorId: string
       authorName: string
       createdAt: string
+      version: number
       source: Exam
     }
 
@@ -65,13 +71,16 @@ const examCategoryLabel = {
 
 export default function TeacherDepartmentApprovalPage() {
   const user = useAuthStore((state) => state.user)
-  const canApprove = user?.permissions?.some((permission) =>
-    permission === 'APPROVE_FINAL_EXAM' || permission === 'APPROVE_SHARED_QUESTION',
-  )
-  const approvals = useTeacherApprovals(Boolean(canApprove))
+  const canReviewQuestions = Boolean(user?.permissions?.includes('APPROVE_SHARED_QUESTION'))
+  const groupQuery = useQuery({ queryKey: ['teacher', 'review-group'], queryFn: getReviewGroup, retry: false })
+  const canReviewExams = Boolean(groupQuery.data?.status === 'ACTIVE'
+    && groupQuery.data.members.some((member) => member.teacherId === user?.profileId))
+  const approvals = useTeacherApprovals(canReviewQuestions, canReviewExams)
 
-  const [activeKind, setActiveKind] = useState<ApprovalKind>('QUESTION')
+  const [selectedKind, setSelectedKind] = useState<ApprovalKind>('QUESTION')
+  const activeKind = canReviewQuestions && (selectedKind === 'QUESTION' || !canReviewExams) ? 'QUESTION' : 'EXAM'
   const [reviewing, setReviewing] = useState<ApprovalItem | null>(null)
+  const [openingId, setOpeningId] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<ApprovalItem | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
 
@@ -95,7 +104,8 @@ export default function TeacherDepartmentApprovalPage() {
       subjectName: exam.subjectName,
       authorId: exam.authorId,
       authorName: exam.authorName,
-      createdAt: exam.createdAt,
+      createdAt: exam.reviewRound.submittedAt,
+      version: exam.reviewRound.version,
       source: exam,
     }))
 
@@ -108,9 +118,7 @@ export default function TeacherDepartmentApprovalPage() {
       render: (item) => (
         <div>
           <p className="line-clamp-1 text-sm font-semibold text-gray-900">{item.title}</p>
-          <p className="mt-1 text-xs text-gray-500">
-            {item.kind === 'EXAM' ? 'Đề thi cuối kỳ' : 'Câu hỏi dùng chung'}
-          </p>
+          <p className="mt-1 text-xs text-gray-500">{item.kind === 'EXAM' ? `Đề thi cuối kỳ · Lần gửi ${item.version}` : 'Câu hỏi dùng chung'}</p>
         </div>
       ),
     },
@@ -136,7 +144,8 @@ export default function TeacherDepartmentApprovalPage() {
       render: (item) => (
         <div className="flex justify-end gap-2">
           <button
-            onClick={() => setReviewing(item)}
+            onClick={() => void openReview(item)}
+            disabled={openingId === item.id}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
             aria-label="Xem nội dung"
             title="Xem nội dung"
@@ -154,8 +163,8 @@ export default function TeacherDepartmentApprovalPage() {
           <button
             onClick={() => setRejecting(item)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
-            aria-label="Từ chối"
-            title="Từ chối"
+            aria-label={item.kind === 'EXAM' ? 'Yêu cầu sửa' : 'Từ chối'}
+            title={item.kind === 'EXAM' ? 'Yêu cầu sửa' : 'Từ chối'}
           >
             <XCircle size={17} />
           </button>
@@ -164,8 +173,24 @@ export default function TeacherDepartmentApprovalPage() {
     },
   ]
 
+  const openReview = async (item: ApprovalItem) => {
+    if (item.kind === 'QUESTION') {
+      setReviewing(item)
+      return
+    }
+    setOpeningId(item.id)
+    try {
+      const detail = await getExamApprovalDetail(item.id)
+      setReviewing({ ...item, source: toReviewExam(detail), version: detail.reviewRound.version })
+    } catch {
+      toast.error('Không thể tải phiên bản đề đã gửi duyệt. Vui lòng thử lại.')
+    } finally {
+      setOpeningId(null)
+    }
+  }
+
   const approve = async (item: ApprovalItem) => {
-    if (item.authorId === user?.profileId) {
+    if (item.kind === 'QUESTION' && item.authorId === user?.profileId) {
       toast.error('Không thể tự duyệt nội dung do chính mình tạo.')
       return
     }
@@ -174,7 +199,14 @@ export default function TeacherDepartmentApprovalPage() {
       else await approvals.approveQuestion(item.id)
       setReviewing(null)
       toast.success(item.kind === 'EXAM' ? 'Đã duyệt đề thi cuối kỳ.' : 'Đã đưa câu hỏi vào ngân hàng chung.')
-    } catch { toast.error('Nội dung đã thay đổi trạng thái hoặc bạn không có quyền duyệt.') }
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        toast.error('Nội dung đã được xử lý trước. Danh sách đang được tải lại.')
+        void approvals.retry()
+      } else {
+        toast.error('Nội dung đã thay đổi trạng thái hoặc bạn không có quyền duyệt.')
+      }
+    }
   }
 
   const reject = async () => {
@@ -184,20 +216,27 @@ export default function TeacherDepartmentApprovalPage() {
       else await approvals.rejectQuestion(rejecting.id, rejectionReason.trim())
       setRejecting(null)
       setRejectionReason('')
-      toast.success('Đã từ chối và gửi lý do cho tác giả.')
-    } catch { toast.error('Không thể từ chối nội dung ở trạng thái hiện tại.') }
+      toast.success(rejecting.kind === 'EXAM' ? 'Đã yêu cầu tác giả sửa đề.' : 'Đã từ chối câu hỏi và gửi lý do cho tác giả.')
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        toast.error('Nội dung đã được xử lý trước. Danh sách đang được tải lại.')
+        void approvals.retry()
+      } else {
+        toast.error('Nội dung đã được xử lý hoặc bạn không còn quyền duyệt.')
+      }
+    }
   }
 
-  if (!canApprove) {
+  if (!canReviewQuestions && !canReviewExams) {
     return (
       <TeacherShell>
         <TeacherPageHeader
           title="Duyệt chuyên môn"
-          description="Chỉ Trưởng bộ môn hoặc người được ủy quyền mới truy cập được màn hình này"
+          description="Quyền duyệt câu hỏi và tư cách thành viên nhóm duyệt đề được kiểm tra riêng"
           icon={<ShieldCheck size={21} />}
         />
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
-          Tài khoản này không có quyền duyệt chuyên môn của Bộ môn.
+          {groupQuery.isLoading ? 'Đang kiểm tra quyền duyệt...' : 'Bạn chưa có quyền duyệt câu hỏi chung hoặc chưa là thành viên đang hoạt động của nhóm duyệt đề.'}
         </div>
       </TeacherShell>
     )
@@ -207,17 +246,17 @@ export default function TeacherDepartmentApprovalPage() {
     <TeacherShell>
       <TeacherPageHeader
         title="Duyệt chuyên môn"
-        description="Duyệt câu hỏi chung và đề cuối kỳ thuộc bộ môn bạn phụ trách. Không thể tự duyệt nội dung do chính mình soạn."
+        description="Duyệt câu hỏi chung theo quyền bộ môn và đề cuối kỳ theo tư cách thành viên nhóm. Đề thi có thể do chính bạn gửi duyệt."
         icon={<ShieldCheck size={21} />}
       />
 
       <div className="inline-flex w-full max-w-md rounded-full bg-white p-1 shadow-sm ring-1 ring-gray-100">
-        <Tab active={activeKind === 'QUESTION'} onClick={() => setActiveKind('QUESTION')}>
+        {canReviewQuestions && <Tab active={activeKind === 'QUESTION'} onClick={() => setSelectedKind('QUESTION')}>
           Câu hỏi chờ duyệt ({questionItems.length})
-        </Tab>
-        <Tab active={activeKind === 'EXAM'} onClick={() => setActiveKind('EXAM')}>
+        </Tab>}
+        {canReviewExams && <Tab active={activeKind === 'EXAM'} onClick={() => setSelectedKind('EXAM')}>
           Đề cuối kỳ ({examItems.length})
-        </Tab>
+        </Tab>}
       </div>
 
       <DataTable
@@ -309,7 +348,7 @@ function ReviewModal({
           <div>
             <h3 className="text-xs font-bold text-gray-900">Xem nội dung duyệt chuyên môn</h3>
             <p className="mt-0.5 text-xs text-gray-500">
-              {item.kind === 'EXAM' ? 'Đề thi cuối kỳ' : 'Câu hỏi dùng chung'} • {item.subjectName}
+              {item.kind === 'EXAM' ? `Đề thi cuối kỳ · Lần gửi ${item.version}` : 'Câu hỏi dùng chung'} • {item.subjectName}
             </p>
           </div>
           <button
@@ -331,7 +370,7 @@ function ReviewModal({
             onClick={onReject}
             className="rounded-xl bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100"
           >
-            Từ chối
+            {item.kind === 'EXAM' ? 'Yêu cầu sửa' : 'Từ chối'}
           </button>
           <button
             onClick={onApprove}
@@ -489,7 +528,7 @@ function RejectModal({
       <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-100 p-5">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Từ chối nội dung</h2>
+            <h2 className="text-base font-semibold text-gray-900">{item.kind === 'EXAM' ? 'Yêu cầu sửa đề' : 'Từ chối câu hỏi'}</h2>
             <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">{item.title}</p>
           </div>
           <button onClick={onClose} aria-label="Đóng" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -497,7 +536,7 @@ function RejectModal({
           </button>
         </div>
         <div className="p-5">
-          <label className="text-xs font-semibold text-gray-700">Lý do từ chối</label>
+          <label className="text-xs font-semibold text-gray-700">{item.kind === 'EXAM' ? 'Lý do yêu cầu sửa' : 'Lý do từ chối'}</label>
           <textarea
             value={reason}
             onChange={(event) => onReasonChange(event.target.value)}
@@ -515,7 +554,7 @@ function RejectModal({
             onClick={onSubmit}
             className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
           >
-            Xác nhận từ chối
+            {item.kind === 'EXAM' ? 'Gửi yêu cầu sửa' : 'Xác nhận từ chối'}
           </button>
         </div>
       </div>

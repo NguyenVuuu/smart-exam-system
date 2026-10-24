@@ -78,7 +78,6 @@ const NAV_GROUPS: NavGroup[] = [
         label: 'Duyệt chuyên môn',
         icon: <ShieldCheck size={19} />,
         path: '/teacher/department-approvals',
-        requiredPermissions: ['APPROVE_SHARED_QUESTION', 'APPROVE_FINAL_EXAM'],
       },
     ],
   },

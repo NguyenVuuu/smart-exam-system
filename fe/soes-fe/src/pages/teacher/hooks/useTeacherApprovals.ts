@@ -5,25 +5,35 @@ import { toQuestion } from '../mappers/teacher-question.mapper'
 import type { Exam } from '../types/teacher-exam.types'
 import type { Question } from '../types/teacher-question-bank.types'
 
-export function useTeacherApprovals(enabled: boolean) {
+export function useTeacherApprovals(questionsEnabled: boolean, examsEnabled: boolean) {
   const [questions, setQuestions] = useState<Array<{ itemId: string; question: Question }>>([])
-  const [exams, setExams] = useState<Exam[]>([])
-  const [loading, setLoading] = useState(enabled)
+  const [exams, setExams] = useState<Array<Exam & { reviewRound: api.ExamApprovalDto['reviewRound'] }>>([])
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!enabled) return
+    if (!questionsEnabled && !examsEnabled) {
+      setQuestions([])
+      setExams([])
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const [questionRows, examRows] = await Promise.all([
-        api.getPendingQuestionApprovals(), api.getPendingExamApprovals(),
+      const [questionResult, examResult] = await Promise.allSettled([
+        questionsEnabled ? api.getPendingQuestionApprovals() : Promise.resolve([]),
+        examsEnabled ? api.getPendingExamApprovals() : Promise.resolve([]),
       ])
-      setQuestions(questionRows.map((row) => ({ itemId: row.id, question: toQuestion(row.question) })))
-      setExams(examRows.map(toExam))
+      setQuestions(questionResult.status === 'fulfilled'
+        ? questionResult.value.map((row) => ({ itemId: row.id, question: toQuestion(row.question) })) : [])
+      setExams(examResult.status === 'fulfilled'
+        ? examResult.value.map((row) => ({ ...toExam(row), reviewRound: row.reviewRound })) : [])
+      if (questionResult.status === 'rejected' || examResult.status === 'rejected') {
+        setError('Không thể tải một phần hàng đợi duyệt chuyên môn.')
+      }
     } catch { setError('Không thể tải hàng đợi duyệt chuyên môn.') }
     finally { setLoading(false) }
-  }, [enabled])
+  }, [questionsEnabled, examsEnabled])
 
   useEffect(() => { void Promise.resolve().then(load) }, [load])
 

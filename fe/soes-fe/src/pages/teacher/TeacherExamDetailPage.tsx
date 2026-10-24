@@ -408,6 +408,14 @@ function TeacherExamDetailContent({
               />
             )}
 
+            {!isCourseSubmissionView && exam.category === 'FINAL' && exam.status === 'REJECTED' && exam.rejectionReason && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+                <p className="font-semibold">Đề cần chỉnh sửa trước khi gửi duyệt lại</p>
+                <p className="mt-1 whitespace-pre-wrap">{exam.rejectionReason}</p>
+                <button type="button" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)} className="mt-3 font-semibold text-blue-700 underline">Mở trình chỉnh sửa đề</button>
+              </div>
+            )}
+
             {isCourseSubmissionView ? (
               <CourseReviewTabs
                 activeTab={courseReviewTab}
@@ -628,13 +636,9 @@ function MakeupScheduleModal({
     password?: string | null;
   }) => Promise<void>;
 }) {
-  const defaultStart = new Date(Date.now() + 30 * 60 * 1000);
-  const defaultEnd = new Date(
-    defaultStart.getTime() + defaultDurationMinutes * 60 * 1000,
-  );
   const [studentIds, setStudentIds] = useState<string[]>([]);
-  const [startTime, setStartTime] = useState(toLocalInputValue(defaultStart));
-  const [endTime, setEndTime] = useState(toLocalInputValue(defaultEnd));
+  const [startTime, setStartTime] = useState(() => toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000)));
+  const [endTime, setEndTime] = useState(() => toLocalInputValue(new Date(Date.now() + (30 + defaultDurationMinutes) * 60 * 1000)));
   const [durationMinutes, setDurationMinutes] = useState(
     defaultDurationMinutes,
   );
