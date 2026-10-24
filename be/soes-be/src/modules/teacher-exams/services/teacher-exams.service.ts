@@ -472,25 +472,7 @@ async function review(
   approved: boolean,
   reason?: string,
 ) {
-  const teacher = await teacherContext(teacherId);
-  if (teacher.position !== "DEPARTMENT_HEAD")
-    throw new ForbiddenError("Department head permission required");
-  const exam = await repo.findExam(examId);
-  if (
-    !exam ||
-    exam.subject.departmentId !== teacher.departmentId ||
-    exam.type !== "FINAL"
-  )
-    throw new NotFoundError("Approval request not found");
-  if (exam.createdById === teacherId)
-    throw new ForbiddenError("Cannot review your own exam");
-  const reviewed = await lifecycleRepo.reviewExam(
-    examId,
-    teacherId,
-    approved,
-    reason,
-  );
-  if (!reviewed) throw new ConflictError("Exam has already been reviewed");
+  const reviewed = await lifecycleRepo.reviewExam(examId, teacherId, approved, reason)
   return toTeacherExamDto(reviewed, teacherId);
 }
 

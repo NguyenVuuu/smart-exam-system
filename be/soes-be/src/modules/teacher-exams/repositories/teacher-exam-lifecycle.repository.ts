@@ -169,20 +169,68 @@ export function setStudentVisibility(
 }
 
 export function reviewExam(id: string, reviewerId: string, approved: boolean, reason?: string) {
-  return prisma.$transaction(async (tx) => {
-    const claimed = await tx.exam.updateMany({
-      where: { id, approvalStatus: 'PENDING' },
+  return runSerializable(async (tx) => {
+    if (!approved && !reason?.trim()) throw new ValidationError('Revision reason is required')
+    const reviewer = await tx.teacher.findUnique({
+      where: { id: reviewerId },
+      select: { id: true, status: true, departmentId: true, userId: true, user: { select: { status: true } } },
+    })
+    if (!reviewer || reviewer.status !== 'ACTIVE' || reviewer.user.status !== 'ACTIVE' || !reviewer.departmentId) {
+      throw new ForbiddenError('Active review group membership required')
+    }
+    const round = await tx.examReviewRound.findFirst({
+      where: { examId: id }, orderBy: { version: 'desc' },
+      select: {
+        id: true, version: true, status: true, groupId: true,
+        exam: { select: {
+          id: true, type: true, status: true, approvalStatus: true,
+          subject: { select: { departmentId: true } },
+        } },
+        group: { select: { departmentId: true, status: true, department: { select: { status: true } } } },
+      },
+    })
+    if (!round || round.exam.type !== 'FINAL' || round.exam.subject.departmentId !== reviewer.departmentId
+      || round.group.departmentId !== reviewer.departmentId) {
+      throw new NotFoundError('Approval request not found')
+    }
+    const membership = await tx.departmentReviewMember.findUnique({
+      where: { groupId_teacherId: { groupId: round.groupId, teacherId: reviewerId } },
+      select: { status: true },
+    })
+    if (round.group.status !== 'ACTIVE' || round.group.department.status !== 'ACTIVE' || membership?.status !== 'ACTIVE') {
+      throw new ForbiddenError('Active review group membership required')
+    }
+    if (round.status !== 'PENDING' || round.exam.approvalStatus !== 'PENDING' || round.exam.status !== 'DRAFT') {
+      throw new ConflictError('Review round has already been decided or is not ready')
+    }
+    const now = new Date()
+    const nextRoundStatus = approved ? 'APPROVED' : 'REVISION_REQUESTED'
+    const claimedRound = await tx.examReviewRound.updateMany({
+      where: { id: round.id, status: 'PENDING' },
+      data: { status: nextRoundStatus, decidedAt: now },
+    })
+    if (!claimedRound.count) throw new ConflictError('Review round has already been decided')
+    await tx.examReviewDecision.create({
+      data: { roundId: round.id, reviewerId, type: approved ? 'APPROVE' : 'REQUEST_REVISION', reason: approved ? null : reason!.trim() },
+    })
+    const claimedExam = await tx.exam.updateMany({
+      where: { id, type: 'FINAL', status: 'DRAFT', approvalStatus: 'PENDING' },
       data: {
         approvalStatus: approved ? 'APPROVED' : 'REJECTED',
         status: approved ? 'READY' : 'DRAFT',
-        reviewedAt: new Date(),
-        rejectionReason: approved ? null : reason,
+        reviewedById: reviewerId,
+        reviewedAt: now,
+        rejectionReason: approved ? null : reason!.trim(),
       },
     })
-    if (!claimed.count) return null
-    return tx.exam.update({
-      where: { id }, data: { reviewedBy: { connect: { id: reviewerId } } }, include: examInclude,
+    if (!claimedExam.count) throw new ConflictError('Exam state changed during review')
+    await writeAuditLog(tx, {
+      userId: reviewer.userId,
+      action: approved ? 'APPROVE_FINAL_EXAM' : 'REQUEST_FINAL_EXAM_REVISION',
+      entityType: 'ExamReviewRound', entityId: round.id,
+      metadata: { examId: id, version: round.version, decision: approved ? 'APPROVE' : 'REQUEST_REVISION', reason: approved ? null : reason!.trim() },
     })
+    return tx.exam.findUniqueOrThrow({ where: { id }, include: examInclude })
   })
 }
 
