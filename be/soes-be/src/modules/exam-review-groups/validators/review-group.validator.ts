@@ -7,3 +7,5 @@ export const groupBodySchema = z.object({
 export const groupStatusSchema = z.object({
   status: z.enum(['ACTIVE', 'INACTIVE']),
 }).strict()
+
+export const memberParamSchema = z.object({ teacherId: z.string().uuid() })

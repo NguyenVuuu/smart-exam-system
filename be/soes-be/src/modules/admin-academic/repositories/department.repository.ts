@@ -33,7 +33,7 @@ export const findDepartmentByCode = (code: string) => prisma.department.findUniq
 export const createDepartment = (data: DepartmentBody) => prisma.department.create({ data, include: departmentInclude })
 export const updateDepartment = (id: string, data: DepartmentBody) => prisma.department.update({ where: { id }, data, include: departmentInclude })
 export const findTeacherForHeadAssignment = (tx: Prisma.TransactionClient, teacherId: string) => tx.teacher.findUnique({
-  where: { id: teacherId }, select: { id: true, status: true, departmentId: true },
+  where: { id: teacherId }, select: { id: true, status: true, departmentId: true, user: { select: { status: true } } },
 })
 
 export async function assignDepartmentHead(

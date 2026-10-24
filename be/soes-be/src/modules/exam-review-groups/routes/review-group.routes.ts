@@ -10,5 +10,8 @@ router.get('/review-group', asyncHandler(controller.get))
 router.post('/review-group', asyncHandler(controller.create))
 router.patch('/review-group', asyncHandler(controller.rename))
 router.patch('/review-group/status', asyncHandler(controller.setStatus))
+router.get('/review-group/candidates', asyncHandler(controller.listCandidates))
+router.put('/review-group/members/:teacherId', asyncHandler(controller.addMember))
+router.delete('/review-group/members/:teacherId', asyncHandler(controller.removeMember))
 
 export default router
