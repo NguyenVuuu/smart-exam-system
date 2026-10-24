@@ -6,6 +6,7 @@ export const BACKOFFICE_PERMISSION_CATALOG = [
   { key: 'QUESTION_BANK_VIEW', label: 'Xem ngân hàng câu hỏi chung', group: 'Chuyên môn', module: 'Ngân hàng câu hỏi chung', action: 'VIEW' },
   { key: 'QUESTION_BANK_MANAGE', label: 'Gỡ và khôi phục câu hỏi trong ngân hàng chung', group: 'Chuyên môn', module: 'Ngân hàng câu hỏi chung', action: 'MANAGE' },
   { key: 'EXAMS_VIEW', label: 'Theo dõi đề thi', group: 'Chuyên môn', module: 'Theo dõi đề thi', action: 'VIEW' },
+  { key: 'REVIEW_GROUP_VIEW', label: 'Xem nhóm duyệt đề thuộc phạm vi bộ môn', group: 'Chuyên môn', module: 'Nhóm duyệt đề', action: 'VIEW' },
   { key: 'SCHEDULES_VIEW', label: 'Xem lịch thi', group: 'Tổ chức thi', module: 'Lịch thi và phân công', action: 'VIEW' },
   { key: 'SCHEDULES_MANAGE', label: 'Tạo, sửa, hủy lịch thi và phân công coi thi', group: 'Tổ chức thi', module: 'Lịch thi và phân công', action: 'MANAGE' },
   { key: 'MONITORING_VIEW', label: 'Giám sát kỳ thi', group: 'Tổ chức thi', module: 'Giám sát kỳ thi', action: 'VIEW' },
