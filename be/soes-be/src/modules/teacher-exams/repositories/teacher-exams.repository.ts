@@ -56,6 +56,17 @@ export const findExam = (id: string) => prisma.exam.findUnique({ where: { id }, 
 export const findExamDetail = (id: string) => prisma.exam.findUnique({
   where: { id }, include: examDetailInclude,
 })
+
+export function findOwnedReviewHistory(examId: string, teacherId: string) {
+  return prisma.examReviewRound.findMany({
+    where: { examId, exam: { createdById: teacherId } },
+    select: {
+      id: true, version: true, status: true, submittedAt: true, decidedAt: true,
+      decision: { select: { type: true, reason: true, createdAt: true, reviewer: { select: { id: true, user: { select: { fullName: true } } } } } },
+    },
+    orderBy: { version: 'desc' },
+  })
+}
 export const hasClosedCourseExamAccess = (teacherId: string, examId: string) => prisma.examScheduleCourse.count({
   where: {
     courseOffering: { teacherId },

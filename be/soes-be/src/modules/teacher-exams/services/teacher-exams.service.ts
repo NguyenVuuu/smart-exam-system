@@ -219,6 +219,12 @@ export async function get(teacherId: string, examId: string) {
   return toTeacherExamDetailDto(exam, teacherId);
 }
 
+export async function getReviewHistory(teacherId: string, examId: string) {
+  const exam = await repo.findExam(examId)
+  if (!exam || exam.createdById !== teacherId) throw new NotFoundError('Exam not found')
+  return repo.findOwnedReviewHistory(examId, teacherId)
+}
+
 async function validateSubject(teacherId: string, subjectId: string) {
   const teacher = await teacherContext(teacherId);
   const subject = await repo.findSubjectInDepartment(

@@ -32,6 +32,8 @@ test('review queue exposes snapshots only to current group members, including th
       assert.equal(groupId, 'group')
       return examId === 'exam' ? round : null
     },
+    findExam: async (examId: string) => examId === 'exam' ? { id: 'exam', createdById: 'teacher' } : { id: examId, createdById: 'another-teacher' },
+    findOwnedReviewHistory: async () => [{ id: 'round', version: 1, status: 'PENDING' }],
   })
   stub(mapperId, { toTeacherExamDto: (exam: { id: string }) => ({ id: exam.id }) })
   delete require.cache[serviceId]
@@ -50,6 +52,8 @@ test('review queue exposes snapshots only to current group members, including th
   const detail = await service.getApproval('teacher', 'exam')
   assert.deepEqual(detail.snapshot, round.snapshot)
   await assert.rejects(service.getApproval('teacher', 'other-exam'), { statusCode: 404 })
+  assert.equal((await service.getReviewHistory('teacher', 'exam')).length, 1)
+  await assert.rejects(service.getReviewHistory('teacher', 'other-exam'), { statusCode: 404 })
 
   member = false
   await assert.rejects(service.listApprovals('teacher', query), { statusCode: 403 })

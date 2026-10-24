@@ -89,4 +89,11 @@ test('final exam submission creates a review round without automatic approval', 
   ])
   assert.equal(concurrent.filter((result) => result.status === 'fulfilled').length, 1)
   assert.equal(rounds.length, 1)
+
+  rounds[0].status = 'REVISION_REQUESTED'
+  state.approvalStatus = 'REJECTED'
+  await repository.submitFinalExam('exam', 'head')
+  assert.deepEqual(rounds.map((round) => round.version), [1, 2])
+  assert.equal(rounds[0].status, 'REVISION_REQUESTED')
+  assert.equal(rounds[1].status, 'PENDING')
 })
