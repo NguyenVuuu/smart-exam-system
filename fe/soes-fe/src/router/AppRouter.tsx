@@ -40,6 +40,7 @@ import TeacherInvigilationSchedulePage from '../pages/teacher/TeacherInvigilatio
 import TeacherLiveProctorPage from '../pages/teacher/TeacherLiveProctorPage'
 import TeacherQuestionAuditPage from '../pages/teacher/TeacherQuestionAuditPage'
 import TeacherQuestionBankPage from '../pages/teacher/TeacherQuestionBankPage'
+import TeacherReviewGroupPage from '../pages/teacher/TeacherReviewGroupPage'
 import GuestRoute from './GuestRoute'
 import BackofficeHome from './BackofficeHome'
 import BackofficeRoute from './BackofficeRoute'
@@ -303,6 +304,14 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherDepartmentApprovalPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/teacher/review-group"
+          element={
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
+              <TeacherReviewGroupPage />
             </RoleRoute>
           }
         />

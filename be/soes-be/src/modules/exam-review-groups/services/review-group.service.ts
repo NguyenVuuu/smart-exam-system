@@ -25,7 +25,7 @@ export async function get(teacherId: string) {
     if (actor.position !== 'DEPARTMENT_HEAD' && !group.members.some((member) => member.teacherId === teacherId)) {
       throw new ForbiddenError('Review group membership required')
     }
-    return group
+    return { ...group, canManage: actor.position === 'DEPARTMENT_HEAD' }
   })
 }
 
