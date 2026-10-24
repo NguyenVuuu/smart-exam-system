@@ -26,8 +26,9 @@ async function audit(tx: Prisma.TransactionClient, userId: string, groupId: stri
   })
 }
 
-export function create(adminId: string, userId: string, departmentId: string, name: string, reason: string) {
-  return runSerializable(async (tx) => {
+export async function create(adminId: string, userId: string, departmentId: string, name: string, reason: string) {
+  try {
+    return await runSerializable(async (tx) => {
     await manager(tx, adminId, userId)
     const department = await tx.department.findUnique({ where: { id: departmentId }, select: { status: true } })
     if (!department || department.status !== 'ACTIVE') throw new NotFoundError('Active department not found')
@@ -42,7 +43,13 @@ export function create(adminId: string, userId: string, departmentId: string, na
     })
     await audit(tx, userId, group.id, 'REVIEW_GROUP_SUPPORT_CREATED', reason, null, { departmentId, name, headId: head.id })
     return repo.findGroup(tx, departmentId)
-  })
+    })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ConflictError('Department already has a review group')
+    }
+    throw error
+  }
 }
 
 export function rename(adminId: string, userId: string, id: string, name: string, reason: string) {
