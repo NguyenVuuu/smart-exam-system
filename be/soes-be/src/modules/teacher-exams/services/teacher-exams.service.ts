@@ -387,21 +387,11 @@ export async function submit(teacherId: string, examId: string) {
   const exam = await requireOwnedDraft(teacherId, examId);
   if (!exam._count.examQuestions)
     throw new ValidationError("Exam must contain at least one question");
-  const teacher = await teacherContext(teacherId);
-  const isHead = teacher.position === "DEPARTMENT_HEAD";
+  if (exam.type === 'FINAL') {
+    return toTeacherExamDto(await lifecycleRepo.submitFinalExam(examId, teacherId), teacherId)
+  }
 
-  const data =
-    exam.type === "FINAL"
-      ? isHead
-        ? {
-            status: "READY" as const,
-            approvalStatus: "APPROVED" as const,
-            reviewedById: teacherId,
-            reviewedAt: new Date(),
-            rejectionReason: null,
-          }
-        : { approvalStatus: "PENDING" as const, rejectionReason: null }
-      : {
+  const data = {
           status: "READY" as const,
           approvalStatus: "NOT_REQUIRED" as const,
           rejectionReason: null,

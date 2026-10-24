@@ -58,7 +58,7 @@ export async function refreshOpenRounds(tx: Prisma.TransactionClient, groupId: s
   const [rounds, members] = await Promise.all([
     tx.examReviewRound.findMany({
       where: { groupId, status: { in: ['WAITING_FOR_REVIEWERS', 'PENDING'] } },
-      select: { id: true, submittedById: true, status: true },
+      select: { id: true, status: true },
     }),
     tx.departmentReviewMember.findMany({
       where: { groupId, status: 'ACTIVE', teacher: { departmentId, status: 'ACTIVE', user: { status: 'ACTIVE' } } },
@@ -66,7 +66,7 @@ export async function refreshOpenRounds(tx: Prisma.TransactionClient, groupId: s
     }),
   ])
   for (const round of rounds) {
-    const eligible = members.some((member) => member.teacherId !== round.submittedById)
+    const eligible = members.length > 0
     const nextStatus = eligible ? 'PENDING' : 'WAITING_FOR_REVIEWERS'
     if (nextStatus !== round.status) {
       await tx.examReviewRound.updateMany({ where: { id: round.id, status: round.status }, data: { status: nextStatus } })

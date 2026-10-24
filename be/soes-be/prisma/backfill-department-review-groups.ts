@@ -76,7 +76,7 @@ async function reconcile() {
       if (!groupId) continue
       const eligibleReviewers = await tx.departmentReviewMember.count({
         where: {
-          groupId, status: 'ACTIVE', teacherId: { not: exam.createdById },
+          groupId, status: 'ACTIVE',
           teacher: { departmentId: exam.subject.departmentId, status: 'ACTIVE', user: { status: 'ACTIVE' } },
         },
       })
