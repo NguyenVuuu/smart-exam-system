@@ -94,11 +94,7 @@ export default function TeacherQuestionBankPage() {
   const handleShareToSharedBank = async (qId: string) => {
     try {
       await questionApi.share(qId)
-      toast.success(
-        canApproveSharedQuestions || user?.position === 'DEPARTMENT_HEAD'
-          ? 'Đã đưa câu hỏi vào ngân hàng chung toàn trường (Tự động duyệt).'
-          : 'Đã gửi câu hỏi để Trưởng bộ môn duyệt vào ngân hàng chung.'
-      )
+      toast.success('Đã gửi câu hỏi cho nhóm duyệt bộ môn. Thành viên nhóm sẽ duyệt ở bước riêng.')
     } catch {
       toast.error('Không thể gửi câu hỏi duyệt. Vui lòng kiểm tra lại trạng thái.')
     }

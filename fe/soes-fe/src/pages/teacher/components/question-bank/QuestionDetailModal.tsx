@@ -81,6 +81,12 @@ export default function QuestionDetailModal({
 
         {/* Modal Body */}
         <div className="overflow-y-auto space-y-5 px-6 py-5 text-sm text-gray-800">
+          {question.reviewStatus === 'REJECTED' && question.rejectionReason && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-900">
+              <p className="font-semibold">Lý do cần sửa trước khi gửi lại</p>
+              <p className="mt-1 whitespace-pre-wrap">{question.rejectionReason}</p>
+            </div>
+          )}
           {question.type === 'PROGRAMMING' && (
             <div>
               <span className="text-xs font-bold uppercase text-gray-400 tracking-wider block mb-1">

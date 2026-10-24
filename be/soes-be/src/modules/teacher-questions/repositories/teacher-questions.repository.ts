@@ -2,6 +2,8 @@ import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import type { ApprovalQuery, QuestionBody, QuestionsQuery } from '../validators/teacher-questions.validator'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../../errors/AppError'
+import { runSerializable } from '../../../utils/transaction'
 
 export const questionInclude = {
   subject: { select: { id: true, code: true, name: true, departmentId: true } },
@@ -50,6 +52,28 @@ export async function teacherDepartment(teacherId: string) {
   return prisma.teacher.findUnique({
     where: { id: teacherId }, select: { departmentId: true, position: true, userId: true },
   })
+}
+
+export async function reviewerDepartment(teacherId: string) {
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: {
+      departmentId: true, status: true,
+      user: { select: { status: true } },
+      department: { select: {
+        status: true,
+        reviewGroup: { select: {
+          status: true,
+          members: { where: { teacherId, status: 'ACTIVE' }, select: { id: true } },
+        } },
+      } },
+    },
+  })
+  if (teacher?.status !== 'ACTIVE' || teacher.user.status !== 'ACTIVE'
+    || teacher.department?.status !== 'ACTIVE'
+    || teacher.department.reviewGroup?.status !== 'ACTIVE'
+    || !teacher.department.reviewGroup.members.length) return null
+  return teacher.departmentId
 }
 
 export const findSubjectInDepartment = (subjectId: string, departmentId: string) => prisma.subject.findFirst({
@@ -149,7 +173,6 @@ export function updateQuestion(
   ownerId: string,
   expectedUpdatedAt: Date,
   data: QuestionBody,
-  autoApprove: boolean,
 ) {
   const { options, testCases, timeLimitMs, memoryLimitMb, maxCodeSizeKb, ...question } = data
   const programming = question.type === 'PROGRAMMING'
@@ -167,22 +190,7 @@ export function updateQuestion(
       select: { id: true, status: true, removedAt: true },
     })
     if (sharedItem && !sharedItem.removedAt && ['PENDING', 'APPROVED'].includes(sharedItem.status)) {
-      const bank = await tx.questionBank.upsert({
-        where: { subjectId: data.subjectId },
-        update: {},
-        create: { subjectId: data.subjectId },
-      })
-      await tx.questionBankItem.update({
-        where: { id: sharedItem.id },
-        data: {
-          questionBankId: bank.id,
-          status: autoApprove ? 'APPROVED' : 'PENDING',
-          reviewedAt: autoApprove ? new Date() : null,
-          reviewedByTeacherId: autoApprove ? ownerId : null,
-          reviewedById: null,
-          rejectionReason: null,
-        },
-      })
+      throw new ConflictError('Pending or approved shared questions cannot be edited')
     }
 
     return tx.question.update({
@@ -205,9 +213,35 @@ export function submitToSharedBank(
   questionId: string,
   subjectId: string,
   actorUserId: string,
-  autoApprove?: { reviewedByTeacherId: string; reviewedAt: Date },
+  teacherId: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return runSerializable(async (tx) => {
+    const author = await tx.teacher.findUnique({
+      where: { id: teacherId },
+      select: { departmentId: true, status: true, userId: true, user: { select: { status: true } } },
+    })
+    if (!author || author.status !== 'ACTIVE' || author.user.status !== 'ACTIVE' || author.userId !== actorUserId) {
+      throw new ForbiddenError('Active teacher account required')
+    }
+    const question = await tx.question.findUnique({
+      where: { id: questionId },
+      select: { ownerId: true, archivedAt: true, subjectId: true, subject: { select: { departmentId: true, department: { select: { status: true, reviewGroup: { select: { id: true, status: true } } } } } }, questionBankItem: { select: { status: true, removedAt: true } } },
+    })
+    if (!question || question.ownerId !== teacherId || question.subjectId !== subjectId || question.subject.departmentId !== author.departmentId) {
+      throw new NotFoundError('Question not found')
+    }
+    if (question.archivedAt) throw new ConflictError('Archived question cannot be submitted')
+    if (question.questionBankItem && !question.questionBankItem.removedAt && ['PENDING', 'APPROVED'].includes(question.questionBankItem.status)) {
+      throw new ConflictError('Question is already pending or approved')
+    }
+    const group = question.subject.department.reviewGroup
+    if (question.subject.department.status !== 'ACTIVE' || group?.status !== 'ACTIVE') {
+      throw new ConflictError('An active department review group is required')
+    }
+    const eligible = await tx.departmentReviewMember.count({
+      where: { groupId: group.id, status: 'ACTIVE', teacher: { departmentId: question.subject.departmentId, status: 'ACTIVE', user: { status: 'ACTIVE' } } },
+    })
+    if (!eligible) throw new ConflictError('Review group has no active members')
     await tx.question.update({ where: { id: questionId }, data: { updatedAt: new Date() } })
     const bank = await tx.questionBank.upsert({
       where: { subjectId }, update: {}, create: { subjectId },
@@ -217,25 +251,23 @@ export function submitToSharedBank(
       create: {
         questionId,
         questionBankId: bank.id,
-        status: autoApprove ? 'APPROVED' : 'PENDING',
-        reviewedByTeacherId: autoApprove?.reviewedByTeacherId ?? null,
-        reviewedAt: autoApprove?.reviewedAt ?? null,
+        status: 'PENDING',
       },
       update: {
         questionBankId: bank.id,
-        status: autoApprove ? 'APPROVED' : 'PENDING',
+        status: 'PENDING',
         removedAt: null,
         removedByTeacherId: null,
         removalReason: null,
-        reviewedAt: autoApprove?.reviewedAt ?? null,
+        reviewedAt: null,
         reviewedById: null,
-        reviewedByTeacherId: autoApprove?.reviewedByTeacherId ?? null,
+        reviewedByTeacherId: null,
         rejectionReason: null,
       },
     })
     await writeAuditLog(tx, {
       userId: actorUserId,
-      action: autoApprove ? 'AUTO_APPROVE_SHARED_QUESTION' : 'SUBMIT_SHARED_QUESTION',
+      action: 'SUBMIT_SHARED_QUESTION',
       entityType: 'QuestionBankItem',
       entityId: item.id,
     })
@@ -246,6 +278,7 @@ export function submitToSharedBank(
 export function listApprovals(departmentId: string, query: ApprovalQuery) {
   const where: Prisma.QuestionBankItemWhereInput = {
     status: query.status,
+    removedAt: null,
     question: {
       subject: { departmentId },
       ...(query.subjectId && { subjectId: query.subjectId }),
@@ -273,21 +306,42 @@ export const findBankItem = (id: string) => prisma.questionBankItem.findUnique({
 export function reviewBankItem(
   id: string,
   reviewerId: string,
-  actorUserId: string,
   approved: boolean,
   reason?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return runSerializable(async (tx) => {
+    if (!approved && !reason?.trim()) throw new ValidationError('Revision reason is required')
+    const reviewer = await tx.teacher.findUnique({
+      where: { id: reviewerId },
+      select: { departmentId: true, status: true, userId: true, user: { select: { status: true } } },
+    })
+    if (!reviewer || reviewer.status !== 'ACTIVE' || reviewer.user.status !== 'ACTIVE' || !reviewer.departmentId) {
+      throw new ForbiddenError('Active review group membership required')
+    }
+    const item = await tx.questionBankItem.findUnique({
+      where: { id },
+      select: { status: true, removedAt: true, question: { select: { subject: { select: { departmentId: true, department: { select: { status: true, reviewGroup: { select: { id: true, status: true } } } } } } } } },
+    })
+    if (!item || item.question.subject.departmentId !== reviewer.departmentId) throw new NotFoundError('Approval request not found')
+    const group = item.question.subject.department.reviewGroup
+    if (item.question.subject.department.status !== 'ACTIVE' || group?.status !== 'ACTIVE') {
+      throw new ForbiddenError('Active review group membership required')
+    }
+    const membership = await tx.departmentReviewMember.findUnique({
+      where: { groupId_teacherId: { groupId: group.id, teacherId: reviewerId } }, select: { status: true },
+    })
+    if (membership?.status !== 'ACTIVE') throw new ForbiddenError('Active review group membership required')
+    if (item.status !== 'PENDING' || item.removedAt) throw new ConflictError('Approval request has already been reviewed')
     const result = await tx.questionBankItem.updateMany({
-      where: { id, status: 'PENDING' },
+      where: { id, status: 'PENDING', removedAt: null },
       data: {
         status: approved ? 'APPROVED' : 'REJECTED', reviewedByTeacherId: reviewerId,
         reviewedAt: new Date(), rejectionReason: approved ? null : reason,
       },
     })
-    if (!result.count) return false
+    if (!result.count) throw new ConflictError('Approval request has already been reviewed')
     await writeAuditLog(tx, {
-      userId: actorUserId, action: approved ? 'APPROVE_SHARED_QUESTION' : 'REJECT_SHARED_QUESTION',
+      userId: reviewer.userId, action: approved ? 'APPROVE_SHARED_QUESTION' : 'REJECT_SHARED_QUESTION',
       entityType: 'QuestionBankItem', entityId: id, metadata: reason ? { reason } : undefined,
     })
     return true

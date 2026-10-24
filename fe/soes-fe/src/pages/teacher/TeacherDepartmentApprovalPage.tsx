@@ -71,10 +71,10 @@ const examCategoryLabel = {
 
 export default function TeacherDepartmentApprovalPage() {
   const user = useAuthStore((state) => state.user)
-  const canReviewQuestions = Boolean(user?.permissions?.includes('APPROVE_SHARED_QUESTION'))
   const groupQuery = useQuery({ queryKey: ['teacher', 'review-group'], queryFn: getReviewGroup, retry: false })
   const canReviewExams = Boolean(groupQuery.data?.status === 'ACTIVE'
     && groupQuery.data.members.some((member) => member.teacherId === user?.profileId))
+  const canReviewQuestions = canReviewExams
   const approvals = useTeacherApprovals(canReviewQuestions, canReviewExams)
 
   const [selectedKind, setSelectedKind] = useState<ApprovalKind>('QUESTION')
@@ -190,10 +190,6 @@ export default function TeacherDepartmentApprovalPage() {
   }
 
   const approve = async (item: ApprovalItem) => {
-    if (item.kind === 'QUESTION' && item.authorId === user?.profileId) {
-      toast.error('Không thể tự duyệt nội dung do chính mình tạo.')
-      return
-    }
     try {
       if (item.kind === 'EXAM') await approvals.approveExam(item.id)
       else await approvals.approveQuestion(item.id)
@@ -232,11 +228,11 @@ export default function TeacherDepartmentApprovalPage() {
       <TeacherShell>
         <TeacherPageHeader
           title="Duyệt chuyên môn"
-          description="Quyền duyệt câu hỏi và tư cách thành viên nhóm duyệt đề được kiểm tra riêng"
+          description="Chỉ thành viên đang hoạt động của nhóm duyệt bộ môn được xử lý câu hỏi và đề thi"
           icon={<ShieldCheck size={21} />}
         />
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
-          {groupQuery.isLoading ? 'Đang kiểm tra quyền duyệt...' : 'Bạn chưa có quyền duyệt câu hỏi chung hoặc chưa là thành viên đang hoạt động của nhóm duyệt đề.'}
+          {groupQuery.isLoading ? 'Đang kiểm tra quyền duyệt...' : 'Bạn chưa là thành viên đang hoạt động của nhóm duyệt bộ môn.'}
         </div>
       </TeacherShell>
     )
@@ -246,7 +242,7 @@ export default function TeacherDepartmentApprovalPage() {
     <TeacherShell>
       <TeacherPageHeader
         title="Duyệt chuyên môn"
-        description="Duyệt câu hỏi chung theo quyền bộ môn và đề cuối kỳ theo tư cách thành viên nhóm. Đề thi có thể do chính bạn gửi duyệt."
+        description="Thành viên nhóm duyệt bộ môn xử lý câu hỏi dùng chung và đề cuối kỳ sau khi tác giả gửi duyệt."
         icon={<ShieldCheck size={21} />}
       />
 
