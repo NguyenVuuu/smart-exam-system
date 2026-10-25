@@ -3,14 +3,17 @@ import {
   ChevronDown,
   HelpCircle,
   KeyRound,
+  Loader2,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  RefreshCw,
   UserRound,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
+import { useSwitchRole } from '../../../auth/hooks/useSwitchRole'
 import { useAuthStore } from '../../../store/authStore'
 import type { TeacherNotification } from '../api/teacher-notifications.api'
 import { useTeacherNotifications } from '../hooks/useTeacherNotifications'
@@ -22,6 +25,8 @@ export default function TeacherTopBar() {
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
   const { logout } = useLogout()
+  const { switchRole, isLoading: isSwitching } = useSwitchRole()
+  const hasMultipleRoles = (user?.availableRoles?.length ?? 0) >= 2
   const { items: notifications, unreadCount, loading, error, load, markRead, markAllRead } = useTeacherNotifications()
   const [openUserMenu, setOpenUserMenu] = useState(false)
   const [openNotifications, setOpenNotifications] = useState(false)
@@ -211,6 +216,27 @@ export default function TeacherTopBar() {
                   <span>Đổi mật khẩu</span>
                 </button>
               </div>
+
+              {/* Đổi vai trò — chỉ hiển thị khi có ≥ 2 vai trò */}
+              {hasMultipleRoles && (
+                <div className="space-y-0.5">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpenUserMenu(false)
+                      void switchRole()
+                    }}
+                    disabled={isSwitching}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 cursor-pointer group disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-colors">
+                      {isSwitching ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                    </div>
+                    <span>{isSwitching ? 'Đang chuyển...' : 'Chuyển vai trò'}</span>
+                  </button>
+                </div>
+              )}
 
               {/* Logout button */}
               <div className="mt-1.5 border-t border-gray-100 pt-1.5">

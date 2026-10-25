@@ -33,11 +33,13 @@ export const manualGradeSchema = z.object({
 })
 export const finalizeScoreSchema = z.object({
   score: z.coerce.number().min(0).max(1000),
+  reason: z.string().trim().min(5).max(1000).optional(),
 })
 export const bulkFinalizeScoresSchema = z.object({
   items: z.array(z.object({
     attemptId: z.string().min(1),
     score: z.coerce.number().min(0).max(1000),
+    reason: z.string().trim().min(5).max(1000).optional(),
   })).min(1),
 })
 export const resultReleaseSchema = z.object({

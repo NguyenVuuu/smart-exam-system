@@ -172,9 +172,10 @@ export default function ExamDetailTabContent({
             }
             onViewSubmission={onViewSubmission}
             onViewViolations={onViewViolations}
-            onFinalizeOne={async (submission, score) => {
-              await submissionData.finalizeOne(submission.attemptId, score)
+            onFinalizeOne={async (submission, score, reason) => {
+              await submissionData.finalizeOne(submission.attemptId, score, reason)
             }}
+            onPrepareFinalize={submissionData.prepareFinalize}
             onFinalizeAll={submissionData.finalizeMany}
             pendingFinalizeCount={submissionData.pendingFinalizeCount}
             loading={submissionData.loading}

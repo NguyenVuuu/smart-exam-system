@@ -562,7 +562,7 @@ export function finalizeScores(input: {
   userId: string
   examId: string
   scheduleId: string
-  items: Array<{ attemptId: string; score: number }>
+  items: Array<{ attemptId: string; score: number; reason?: string }>
 }) {
   return prisma.$transaction(async (tx) => {
     const attemptIds = input.items.map((item) => item.attemptId)
@@ -588,13 +588,27 @@ export function finalizeScores(input: {
 
     const blocked = attempts.filter((attempt) => attempt._count.violations > 0 && !attempt.violationsViewedAt)
     if (blocked.length) {
-      return { blockedAttemptIds: blocked.map((attempt) => attempt.id), updated: [] }
+      return { blockedAttemptIds: blocked.map((attempt) => attempt.id), requiresReason: [], updated: [] }
     }
 
-    const scores = new Map(input.items.map((item) => [item.attemptId, item.score]))
+    // Kiểm tra: nếu điểm chốt khác điểm hệ thống thì phải có lý do
+    const itemMap = new Map(input.items.map((item) => [item.attemptId, item]))
+    const requiresReason = attempts
+      .filter((attempt) => {
+        const item = itemMap.get(attempt.id)!
+        const autoScore = attempt.autoScore === null ? null : Number(attempt.autoScore)
+        const scoreChanged = autoScore === null ? item.score !== 0 : item.score !== autoScore
+        return scoreChanged && !item.reason?.trim()
+      })
+      .map((attempt) => attempt.id)
+    if (requiresReason.length) {
+      return { blockedAttemptIds: [], requiresReason, updated: [] }
+    }
+
     const updated = []
     for (const attempt of attempts) {
-      const score = scores.get(attempt.id)!
+      const item = itemMap.get(attempt.id)!
+      const score = item.score
       updated.push(await tx.examAttempt.update({
         where: { id: attempt.id },
         data: {
@@ -611,6 +625,7 @@ export function finalizeScores(input: {
         },
       }))
 
+      const autoScore = attempt.autoScore === null ? null : Number(attempt.autoScore)
       await writeAuditLog(tx, {
         userId: input.userId,
         action: 'FINALIZE_EXAM_SCORE',
@@ -618,8 +633,10 @@ export function finalizeScores(input: {
         entityId: attempt.id,
         metadata: {
           previousScore: attempt.totalScore === null ? null : Number(attempt.totalScore),
-          autoScore: attempt.autoScore === null ? null : Number(attempt.autoScore),
+          autoScore,
           finalizedScore: score,
+          scoreChanged: autoScore !== null && score !== autoScore,
+          reason: item.reason ?? null,
           examScheduleId: input.scheduleId,
         },
       })
@@ -630,7 +647,7 @@ export function finalizeScores(input: {
       data: { resultsPublishedAt: new Date(), resultReleaseMode: 'MANUAL' },
     })
 
-    return { blockedAttemptIds: [], updated }
+    return { blockedAttemptIds: [], requiresReason: [], updated }
   })
 }
 

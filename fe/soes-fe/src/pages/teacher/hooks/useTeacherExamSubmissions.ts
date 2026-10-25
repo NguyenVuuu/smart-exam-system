@@ -137,16 +137,57 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     await reload();
   };
 
-  const finalizeOne = async (attemptId: string, score: number) => {
-    await finalizeTeacherSubmissionScore(examId, scheduleId, attemptId, score);
+  const finalizeOne = async (attemptId: string, score: number, reason?: string) => {
+    await finalizeTeacherSubmissionScore(examId, scheduleId, attemptId, score, reason);
     await reload();
   };
 
+  /**
+   * Lấy toàn bộ bài chưa chốt trong ca (không phân trang),
+   * áp dụng scoreOverrides từ UI (user đã sửa trên bất kỳ trang nào),
+   * và đánh dấu những bài có điểm thay đổi so với autoScore.
+   * Dùng cho luồng "Chốt cả ca" để component biết ai cần nhập lý do.
+   */
+  const prepareFinalize = async (
+    scoreOverrides: Record<string, string>,
+  ): Promise<Array<{
+    attemptId: string;
+    studentCode: string;
+    studentName: string;
+    autoScore: number;
+    score: number;
+    isChanged: boolean;
+    violationBlocked: boolean;
+  }>> => {
+    const allSubmissions = (
+      await getAllTeacherExamSubmissions(examId, scheduleId)
+    ).map(toExamSubmission);
+
+    return allSubmissions
+      .filter((s) => s.status !== "PUBLISHED")
+      .map((s) => {
+        const auto = s.autoScore ?? 0;
+        const raw = scoreOverrides[s.attemptId];
+        const score = raw !== undefined && raw !== "" ? Number(raw) : (s.finalScore ?? auto);
+        const isChanged = Math.abs(score - auto) > 0.001;
+        const violationBlocked = s.violationCount > 0 && !s.violationsViewed;
+        return {
+          attemptId: s.attemptId,
+          studentCode: s.studentCode,
+          studentName: s.studentName,
+          autoScore: auto,
+          score,
+          isChanged,
+          violationBlocked,
+        };
+      });
+  };
+
   const finalizeMany = async (
-    scoreOverrides: Array<{ attemptId: string; score: number }>,
+    scoreOverrides: Array<{ attemptId: string; score: number; reason?: string }>,
   ) => {
     const overrideMap = new Map(
-      scoreOverrides.map((item) => [item.attemptId, item.score]),
+      scoreOverrides.map((item) => [item.attemptId, item]),
     );
     const allSubmissions = (
       await getAllTeacherExamSubmissions(examId, scheduleId)
@@ -161,14 +202,14 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     if (blockedCount > 0) {
       throw Object.assign(new Error("VIOLATIONS_NOT_VIEWED"), { blockedCount });
     }
-    const itemsToFinalize = readyToFinalize.map((submission) => ({
-      attemptId: submission.attemptId,
-      score:
-        overrideMap.get(submission.attemptId) ??
-        submission.finalScore ??
-        submission.autoScore ??
-        0,
-    }));
+    const itemsToFinalize = readyToFinalize.map((submission) => {
+      const override = overrideMap.get(submission.attemptId);
+      return {
+        attemptId: submission.attemptId,
+        score: override?.score ?? submission.finalScore ?? submission.autoScore ?? 0,
+        reason: override?.reason,
+      };
+    });
     if (!itemsToFinalize.length) return 0;
     await finalizeTeacherSubmissionScores(examId, scheduleId, itemsToFinalize);
     await reload();
@@ -187,6 +228,7 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     reload,
     markViolationsViewed,
     finalizeOne,
+    prepareFinalize,
     finalizeMany,
   };
 }

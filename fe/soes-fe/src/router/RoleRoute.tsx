@@ -10,9 +10,13 @@ interface RoleRouteProps {
 }
 
 export default function RoleRoute({ children, allowedRoles }: RoleRouteProps) {
-  const { isInitialized, isAuthenticated, user } = useAuthStore()
+  const { isInitialized, isAuthenticated, user, pendingRoleSelection } = useAuthStore()
 
   if (!isInitialized) return <LoadingScreen />
+
+  // Đang trong luồng chuyển vai trò — điều hướng sang trang chọn role
+  if (pendingRoleSelection) return <Navigate to="/select-role" replace />
+
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />
 
   const role = resolveRole(user)

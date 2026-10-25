@@ -326,12 +326,13 @@ export const finalizeTeacherSubmissionScore = (
   scheduleId: string,
   attemptId: string,
   score: number,
-) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/final-score`, { score })
+  reason?: string,
+) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/final-score`, { score, reason })
 
 export const finalizeTeacherSubmissionScores = (
   examId: string,
   scheduleId: string,
-  items: Array<{ attemptId: string; score: number }>,
+  items: Array<{ attemptId: string; score: number; reason?: string }>,
 ) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/final-scores`, { items })
 
 export const updateTeacherResultRelease = (
