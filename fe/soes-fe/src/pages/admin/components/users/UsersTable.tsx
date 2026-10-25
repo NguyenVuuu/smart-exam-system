@@ -56,14 +56,9 @@ export default function UsersTable({
       ),
     },
     {
-      header: 'BỘ MÔN / CHỨC DANH',
+      header: 'BỘ MÔN',
       width: '260px',
-      render: (item) =>
-        item.position === 'DEPARTMENT_HEAD' ? (
-          <AppBadge tone="amber">Trưởng bộ môn</AppBadge>
-        ) : (
-          <span className="text-sm text-slate-600">{item.departmentName ?? '—'}</span>
-        ),
+      render: (item) => <span className="text-sm text-slate-600">{item.departmentName ?? '—'}</span>,
     },
     {
       header: 'TRẠNG THÁI',
