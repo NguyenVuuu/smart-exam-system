@@ -419,20 +419,19 @@ function ExamReviewContent({ exam, questionNotes, onQuestionNoteChange }: {
   const orderedQuestions = exam.questions.slice().sort((a, b) => a.order - b.order)
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
+      <div className="grid shrink-0 grid-cols-2 gap-3 text-xs md:grid-cols-4">
         <PreviewStat label="Loại bài thi" value={examCategoryLabel[exam.category ?? 'FINAL']} />
         <PreviewStat label="Tổng câu" value={exam.questions.length} />
         <PreviewStat label="Thời lượng" value={`${exam.defaultDurationMinutes} phút`} />
         <PreviewStat label="Tổng điểm" value={`${exam.totalPoints} điểm`} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-100">
-        <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-100">
+        <div className="shrink-0 border-b border-gray-100 bg-gray-50 px-4 py-3">
           <p className="text-sm font-semibold text-gray-900">{exam.title}</p>
           <p className="mt-0.5 text-xs text-gray-500">{exam.description}</p>
-          <p className="mt-1 text-xs text-amber-700">Chọn biểu tượng góp ý ở từng câu cần sửa trước khi gửi yêu cầu.</p>
         </div>
-        <div className="h-full divide-y divide-gray-100 overflow-y-auto pb-12">
+        <div className="min-h-0 flex-1 divide-y divide-gray-100 overflow-y-auto pb-4">
           {orderedQuestions.map((item) => {
             const questionId = item.snapshotQuestionId ?? item.questionId
             const note = questionNotes[questionId] ?? ''
