@@ -1,5 +1,5 @@
 import { Eye, ShieldAlert, CheckCircle2, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import AppBadge from "../../../../components/common/AppBadge";
 import AppSelect from "../../../../components/common/AppSelect";
@@ -268,11 +268,6 @@ export function ExamSubmissionsTab({
       return next;
     });
   }, [submissions]);
-
-  const readyToFinalize = useMemo(
-    () => submissions.filter((submission) => submission.status !== "PUBLISHED"),
-    [submissions],
-  );
 
   const parsedScore = (submission: ExamSubmission) => {
     const value = Number(
