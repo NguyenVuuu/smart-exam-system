@@ -1,12 +1,15 @@
-import { Bell, ChevronDown, HelpCircle, PanelLeftClose, PanelLeftOpen, UserCheck } from 'lucide-react'
+import { Bell, ChevronDown, HelpCircle, Loader2, PanelLeftClose, PanelLeftOpen, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLogout } from '../../../auth/hooks/useLogout'
+import { useSwitchRole } from '../../../auth/hooks/useSwitchRole'
 import { useAuthStore } from '../../../store/authStore'
 import { persistentAdminIsCollapsed } from './AdminSidebar'
 
 export default function AdminTopBar() {
   const user = useAuthStore((s) => s.user)
   const { logout } = useLogout()
+  const { switchRole, isLoading: isSwitching } = useSwitchRole()
+  const hasMultipleRoles = (user?.availableRoles?.length ?? 0) >= 2
   const [openUserMenu, setOpenUserMenu] = useState(false)
   const [openNotifications, setOpenNotifications] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => persistentAdminIsCollapsed)
@@ -116,30 +119,19 @@ export default function AdminTopBar() {
               </div>
 
               <div className="py-1">
-                <button
-                  onClick={() => {
-                    setOpenUserMenu(false)
-                    useAuthStore.getState().setUser({
-                      id: 'usr-teacher-01',
-                      profileId: 'prof-teacher-01',
-                      email: 'teacher@soes.edu.vn',
-                      fullName: 'TS. Nguyễn Văn Giảng',
-                      avatarUrl: null,
-                      role: 'TEACHER',
-                      studentCode: null,
-                      teacherCode: 'GV000001',
-                      adminCode: null,
-                    })
-                    window.location.href = '/teacher'
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-colors flex items-center gap-2"
-                >
-                  <UserCheck size={14} className="text-[#10b981]" />
-                  <span>Chuyển sang Cổng Giảng viên</span>
-                </button>
-              </div>
-
-              <div className="py-1">
+                {hasMultipleRoles && (
+                  <button
+                    onClick={() => {
+                      setOpenUserMenu(false)
+                      void switchRole()
+                    }}
+                    disabled={isSwitching}
+                    className="w-full text-left px-4 py-2 text-xs font-medium text-indigo-400 hover:bg-slate-800/60 hover:text-indigo-300 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isSwitching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    <span>{isSwitching ? 'Đang chuyển...' : 'Chuyển vai trò'}</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setOpenUserMenu(false)

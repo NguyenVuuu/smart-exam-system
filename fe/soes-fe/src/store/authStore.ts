@@ -16,6 +16,8 @@ interface AuthState {
   setAccessToken: (token: string) => void
   setInitialized: (initialized: boolean) => void
   setPendingRoleSelection: (data: RoleSelectionRequired | null) => void
+  /** Xóa phiên hiện tại nhưng giữ pendingRoleSelection để điều hướng chọn role */
+  clearSessionForRoleSwitch: (pending: RoleSelectionRequired) => void
   logout: () => void
 }
 
@@ -41,6 +43,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setPendingRoleSelection(data) {
     set({ pendingRoleSelection: data })
+  },
+
+  /** Chỉ lưu pending selection — KHÔNG xóa session. Token cũ sẽ bị server
+   *  blacklist tự động khi user hoàn tất chọn role mới (issueTokens gọi logout cũ). */
+  clearSessionForRoleSwitch(pending) {
+    set({ pendingRoleSelection: pending })
   },
 
   logout() {
