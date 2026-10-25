@@ -17,6 +17,7 @@ export interface AppSelectProps<T extends string | number = string> {
   menuClassName?: string
   disabled?: boolean
   placeholder?: string
+  ariaLabel?: string
   accent?: 'blue' | 'emerald'
 }
 
@@ -29,6 +30,7 @@ export default function AppSelect<T extends string | number = string>({
   menuClassName = '',
   disabled = false,
   placeholder = 'Chọn',
+  ariaLabel,
   accent = 'blue',
 }: AppSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
@@ -104,6 +106,7 @@ export default function AppSelect<T extends string | number = string>({
     >
       <button
         type="button"
+        aria-label={ariaLabel}
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
         className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-normal text-slate-800 shadow-xs transition-colors focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 ${accentClassName.button} ${buttonClassName}`}

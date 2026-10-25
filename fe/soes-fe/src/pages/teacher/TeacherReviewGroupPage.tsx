@@ -4,6 +4,7 @@ import { Plus, RefreshCw, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '../../store/authStore'
+import AppSelect from '../../components/common/AppSelect'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
@@ -128,12 +129,17 @@ export default function TeacherReviewGroupPage() {
                     if (!candidateId) return
                     void perform(() => api.addReviewGroupMember(candidateId), 'Đã thêm thành viên vào nhóm.')
                   }}>
-                    <label htmlFor="review-group-candidate" className="mb-2 block text-xs font-semibold text-slate-600">Thêm giảng viên cùng bộ môn</label>
+                    <span className="mb-2 block text-xs font-semibold text-slate-600">Thêm giảng viên cùng bộ môn</span>
                     <div className="flex gap-2">
-                      <select id="review-group-candidate" value={candidateId} onChange={(event) => setCandidateId(event.target.value)} disabled={candidatesQuery.isLoading || saving} className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                        <option value="">{candidatesQuery.isLoading ? 'Đang tải giảng viên...' : 'Chọn giảng viên'}</option>
-                        {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.user.fullName} ({candidate.teacherCode})</option>)}
-                      </select>
+                      <AppSelect
+                        ariaLabel="Thêm giảng viên cùng bộ môn"
+                        value={candidateId}
+                        onChange={setCandidateId}
+                        options={candidates.map((candidate) => ({ value: candidate.id, label: `${candidate.user.fullName} (${candidate.teacherCode})` }))}
+                        placeholder={candidatesQuery.isLoading ? 'Đang tải giảng viên...' : 'Chọn giảng viên'}
+                        disabled={candidatesQuery.isLoading || saving || candidates.length === 0}
+                        className="min-w-0 flex-1"
+                      />
                       <button type="submit" disabled={saving || !candidateId} className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"><Plus size={14} /> Thêm</button>
                     </div>
                     {candidatesQuery.isError && <p className="mt-2 text-xs text-rose-600">Không tải được danh sách giảng viên.</p>}

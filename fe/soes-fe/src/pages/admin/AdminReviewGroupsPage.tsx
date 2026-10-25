@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore'
 import { getApiErrorMessage } from '../../api/errors'
 import AdminLayout from './components/AdminLayout'
 import AdminPageHeader from './components/AdminPageHeader'
+import AdminSelect from './components/AdminSelect'
 import {
   addReviewGroupMember, createReviewGroup, listReviewCandidates, listReviewDepartments,
   listReviewGroups, removeReviewGroupMember, renameReviewGroup, setReviewGroupStatus,
@@ -86,7 +87,7 @@ export default function AdminReviewGroupsPage() {
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Bộ môn ({groups.length})</h2>
         {loading ? <p className="text-sm text-slate-500">Đang tải...</p> : groups.length === 0 ? <p className="text-sm text-slate-500">Chưa có nhóm duyệt đề.</p> : (
           <div className="space-y-1">
-            {groups.map((group) => <button key={group.id} type="button" onClick={() => { setSelectedId(group.id); setName(group.name) }} className={`w-full rounded-lg px-3 py-2 text-left text-sm ${selectedId === group.id ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50'}`}>
+            {groups.map((group) => <button key={group.id} type="button" onClick={() => { setSelectedId(group.id); setName(group.name); setTeacherId(''); setCandidates([]) }} className={`w-full rounded-lg px-3 py-2 text-left text-sm ${selectedId === group.id ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50'}`}>
               <span className="block font-semibold">{group.department.name}</span>
               <span className="text-xs text-slate-500">{group.department.code} · {group.members.length} thành viên · {group.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã ngừng'}</span>
             </button>)}
@@ -120,12 +121,28 @@ export default function AdminReviewGroupsPage() {
               <button className={buttonClass} type="button" disabled={saving} onClick={() => void perform(() => setReviewGroupStatus(selected.id, selected.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE', reason.trim()), 'Đã cập nhật trạng thái nhóm.')}>{selected.status === 'ACTIVE' ? 'Ngừng nhóm' : 'Kích hoạt nhóm'}</button>
             </div>
             <div className="flex flex-wrap gap-2">
-              <select aria-label="Giảng viên thêm vào nhóm" className={`${fieldClass} min-w-48 flex-1`} value={teacherId} onChange={(event) => setTeacherId(event.target.value)}><option value="">Chọn giảng viên cùng bộ môn</option>{availableCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.user.fullName} ({candidate.teacherCode})</option>)}</select>
+              <AdminSelect
+                ariaLabel="Giảng viên thêm vào nhóm"
+                value={teacherId}
+                onChange={setTeacherId}
+                options={availableCandidates.map((candidate) => ({ value: candidate.id, label: `${candidate.user.fullName} (${candidate.teacherCode})` }))}
+                placeholder="Chọn giảng viên cùng bộ môn"
+                disabled={saving || availableCandidates.length === 0}
+                className="min-w-48 flex-1"
+              />
               <button className={buttonClass} type="button" disabled={saving || !teacherId} onClick={() => void perform(async () => { await addReviewGroupMember(selected.id, teacherId, reason.trim()); setTeacherId('') }, 'Đã thêm thành viên.')}>Thêm thành viên</button>
             </div>
           </>}
           {availableDepartments.length > 0 && <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-            <select aria-label="Bộ môn chưa có nhóm" className={`${fieldClass} min-w-48 flex-1`} value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}><option value="">Chọn bộ môn chưa có nhóm</option>{availableDepartments.map((department) => <option key={department.id} value={department.id}>{department.name} ({department.code})</option>)}</select>
+            <AdminSelect
+              ariaLabel="Bộ môn chưa có nhóm"
+              value={departmentId}
+              onChange={setDepartmentId}
+              options={availableDepartments.map((department) => ({ value: department.id, label: `${department.name} (${department.code})` }))}
+              placeholder="Chọn bộ môn chưa có nhóm"
+              disabled={saving}
+              className="min-w-48 flex-1"
+            />
             <input aria-label="Tên nhóm mới" className={`${fieldClass} min-w-48 flex-1`} value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} placeholder="Tên nhóm mới" />
             <button className={buttonClass} type="button" disabled={saving || !departmentId || newGroupName.trim().length < 3} onClick={() => void perform(async () => { await createReviewGroup(departmentId, newGroupName.trim(), reason.trim()); setNewGroupName(''); setDepartmentId('') }, 'Đã tạo nhóm duyệt đề.')}>Tạo nhóm</button>
           </div>}
