@@ -17,7 +17,7 @@ const buttonClass = 'rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold t
 
 export default function AdminReviewGroupsPage() {
   const user = useAuthStore((state) => state.user)
-  const canManage = user?.role === 'ADMIN' && Boolean(user.permissions?.includes('REVIEW_GROUP_MANAGE_ALL'))
+  const canManage = Boolean(user?.permissions?.includes('REVIEW_GROUP_MANAGE_ALL'))
   const [groups, setGroups] = useState<BackofficeReviewGroup[]>([])
   const [departments, setDepartments] = useState<ReviewDepartment[]>([])
   const [candidates, setCandidates] = useState<ReviewCandidate[]>([])
@@ -81,7 +81,7 @@ export default function AdminReviewGroupsPage() {
   }
 
   return <AdminLayout>
-    <AdminPageHeader icon={<ShieldCheck size={22} />} title="Nhóm duyệt đề" description="Xem nhóm duyệt cố định của tất cả bộ môn. Admin được cấp quyền riêng có thể hỗ trợ cập nhật nhóm." />
+    <AdminPageHeader icon={<ShieldCheck size={22} />} title="Nhóm duyệt đề" description="Xem nhóm duyệt cố định của tất cả bộ môn. Tài khoản được cấp quyền có thể hỗ trợ cập nhật nhóm." />
     <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
       <aside className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Bộ môn ({groups.length})</h2>

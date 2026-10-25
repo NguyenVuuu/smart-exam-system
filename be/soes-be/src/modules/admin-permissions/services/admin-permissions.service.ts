@@ -1,4 +1,4 @@
-import { ForbiddenError, NotFoundError } from '../../../errors/AppError'
+import { NotFoundError } from '../../../errors/AppError'
 import type { BackofficeRole } from '@prisma/client'
 import {
   BACKOFFICE_PERMISSION_CATALOG,
@@ -52,16 +52,9 @@ export async function updateOverride(input: {
 }) {
   const account = await repository.findAccountById(input.adminId)
   if (!account) throw new NotFoundError('Backoffice account not found')
-  if (input.permission === 'REVIEW_GROUP_MANAGE_ALL' && input.allowed === true && account.role !== 'ADMIN') {
-    throw new ForbiddenError('Review group support is reserved for Admin accounts')
-  }
-
   return repository.updateOverride(input)
 }
 
 export function updateRolePermission(input: Parameters<typeof repository.updateRolePermission>[0]) {
-  if (input.permission === 'REVIEW_GROUP_MANAGE_ALL' && input.allowed && input.role !== 'ADMIN') {
-    throw new ForbiddenError('Review group support is reserved for the Admin role')
-  }
   return repository.updateRolePermission(input)
 }

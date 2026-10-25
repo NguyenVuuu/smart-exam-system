@@ -9,10 +9,9 @@ interface PermissionMatrixProps {
   overrides?: Array<{ permission: UserPermission; allowed: boolean }>
   onChange: (item: PermissionItem, allowed: boolean) => void
   onReset?: (item: PermissionItem) => void
-  disabledPermissions?: UserPermission[]
 }
 
-export default function PermissionMatrix({ catalog, permissions, overrides, onChange, onReset, disabledPermissions = [] }: PermissionMatrixProps) {
+export default function PermissionMatrix({ catalog, permissions, overrides, onChange, onReset }: PermissionMatrixProps) {
   const groups = useMemo(() => {
     const entries = new Map<string, Map<string, PermissionItem[]>>()
     for (const item of catalog) {
@@ -52,17 +51,15 @@ export default function PermissionMatrix({ catalog, permissions, overrides, onCh
                   {(['VIEW', 'MANAGE'] as const).map((action) => {
                     const item = items.find((permission) => permission.action === action)
                     const checked = item ? permissions.includes(item.key) : false
-                    const disabled = item ? disabledPermissions.includes(item.key) : false
                     return (
                       <td key={action} className="border-l border-slate-100 px-3 py-3 text-center">
                         {item ? (
                           <div className="relative inline-flex items-center justify-center">
-                            <label title={disabled ? 'Chỉ dành cho Admin' : item.label} className={`inline-flex items-center justify-center ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}>
+                            <label title={item.label} className="inline-flex cursor-pointer items-center justify-center">
                               <input
                                 type="checkbox"
                                 className="peer sr-only"
                                 checked={checked}
-                                disabled={disabled}
                                 aria-label={`${module}: ${item.label}`}
                                 onChange={() => onChange(item, !checked)}
                               />
@@ -70,7 +67,7 @@ export default function PermissionMatrix({ catalog, permissions, overrides, onCh
                                 {checked && <Check size={14} strokeWidth={3} />}
                               </span>
                             </label>
-                            {overridden.has(item.key) && onReset && !disabled && (
+                            {overridden.has(item.key) && onReset && (
                               <button
                                 type="button"
                                 onClick={() => onReset(item)}

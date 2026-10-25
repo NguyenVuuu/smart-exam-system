@@ -269,7 +269,6 @@ export default function AdminPermissionsPage() {
                   <PermissionMatrix
                     catalog={workspace.catalog}
                     permissions={target.kind === 'role' ? target.permissions : target.account.permissions}
-                    disabledPermissions={(target.kind === 'role' ? target.role : target.account.role) === 'EDUCATION_OFFICER' ? ['REVIEW_GROUP_MANAGE_ALL'] : []}
                     overrides={target.kind === 'account' ? target.account.overrides : undefined}
                     onChange={openChange}
                     onReset={target.kind === 'account' ? (item) => openChange(item, null) : undefined}

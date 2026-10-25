@@ -2,14 +2,24 @@ import { Prisma } from '@prisma/client'
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors/AppError'
 import { runSerializable } from '../../../utils/transaction'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
+import { resolveBackofficePermissions } from '../../auth/permissions/backoffice-permissions'
 import * as repo from '../repositories/review-group.repository'
 
 async function manager(tx: Prisma.TransactionClient, adminId: string, userId: string) {
   const admin = await tx.admin.findUnique({
-    where: { id: adminId }, select: { userId: true, role: true, status: true, user: { select: { status: true } } },
+    where: { id: adminId }, select: {
+      userId: true, role: true, status: true, user: { select: { status: true } },
+      permissionOverrides: { select: { permission: true, allowed: true } },
+    },
   })
-  if (!admin || admin.userId !== userId || admin.role !== 'ADMIN' || admin.status !== 'ACTIVE' || admin.user.status !== 'ACTIVE') {
-    throw new ForbiddenError('Admin support permission required')
+  if (!admin || admin.userId !== userId || admin.status !== 'ACTIVE' || admin.user.status !== 'ACTIVE') {
+    throw new ForbiddenError('Review group management permission required')
+  }
+  const rolePermissions = await tx.backofficeRolePermission.findMany({
+    where: { role: admin.role }, select: { permission: true },
+  })
+  if (!resolveBackofficePermissions(rolePermissions, admin.permissionOverrides).includes('REVIEW_GROUP_MANAGE_ALL')) {
+    throw new ForbiddenError('Review group management permission required')
   }
 }
 

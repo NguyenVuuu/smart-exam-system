@@ -2,11 +2,17 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import Module from 'node:module'
 
-test('only Admin support can change a group, with same-department members and an audit reason', async (context) => {
+test('backoffice support requires an effective permission, same-department members and an audit reason', async (context) => {
   let role: 'ADMIN' | 'EDUCATION_OFFICER' = 'EDUCATION_OFFICER'
+  let roleGranted = false
+  let override: boolean | null = null
   const audit: Array<{ action: string; metadata: { reason: string } }> = []
   const tx = {
-    admin: { findUnique: async () => ({ userId: 'user', role, status: 'ACTIVE', user: { status: 'ACTIVE' } }) },
+    admin: { findUnique: async () => ({
+      userId: 'user', role, status: 'ACTIVE', user: { status: 'ACTIVE' },
+      permissionOverrides: override === null ? [] : [{ permission: 'REVIEW_GROUP_MANAGE_ALL', allowed: override }],
+    }) },
+    backofficeRolePermission: { findMany: async () => roleGranted ? [{ permission: 'REVIEW_GROUP_MANAGE_ALL' }] : [] },
     departmentReviewGroup: { findUnique: async () => ({ departmentId: 'department' }) },
     departmentReviewMember: {
       findUnique: async () => null,
@@ -44,12 +50,21 @@ test('only Admin support can change a group, with same-department members and an
   const service = require('./backoffice-review-group-management.service') as typeof import('./backoffice-review-group-management.service')
 
   await assert.rejects(service.addMember('profile', 'user', 'group', 'teacher', 'Hỗ trợ bộ môn'), { statusCode: 403 })
-  role = 'ADMIN'
+  override = true
   await assert.rejects(service.addMember('profile', 'user', 'group', 'teacher', 'Hỗ trợ bộ môn'), { statusCode: 403 })
   candidateDepartment = 'department'
   await service.addMember('profile', 'user', 'group', 'teacher', 'Hỗ trợ bộ môn')
   assert.equal(audit.length, 1)
   assert.equal(audit[0].metadata.reason, 'Hỗ trợ bộ môn')
+  override = false
+  roleGranted = true
+  await assert.rejects(service.addMember('profile', 'user', 'group', 'teacher', 'Hỗ trợ bộ môn'), { statusCode: 403 })
+  override = null
+  await service.rename('profile', 'user', 'group', 'Group', 'Hỗ trợ bộ môn')
+  role = 'ADMIN'
+  roleGranted = false
+  await assert.rejects(service.addMember('profile', 'user', 'group', 'teacher', 'Hỗ trợ bộ môn'), { statusCode: 403 })
+  roleGranted = true
   candidatePosition = 'DEPARTMENT_HEAD'
   await assert.rejects(service.removeMember('profile', 'user', 'group', 'teacher', 'Hỗ trợ bộ môn'), { statusCode: 403 })
 })
