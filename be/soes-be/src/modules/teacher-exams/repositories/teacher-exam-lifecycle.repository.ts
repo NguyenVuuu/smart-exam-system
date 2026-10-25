@@ -171,7 +171,8 @@ export function setStudentVisibility(
 
 export function reviewExam(id: string, reviewerId: string, approved: boolean, reason?: string, questionNotes: ExamQuestionReviewNote[] = []) {
   return runSerializable(async (tx) => {
-    if (!approved && !reason?.trim()) throw new ValidationError('Revision reason is required')
+    const revisionReason = reason?.trim() || null
+    if (!approved && !revisionReason && questionNotes.length === 0) throw new ValidationError('At least one revision note is required')
     const reviewer = await tx.teacher.findUnique({
       where: { id: reviewerId },
       select: { id: true, status: true, departmentId: true, userId: true, user: { select: { status: true } } },
@@ -221,7 +222,7 @@ export function reviewExam(id: string, reviewerId: string, approved: boolean, re
     await tx.examReviewDecision.create({
       data: {
         roundId: round.id, reviewerId, type: approved ? 'APPROVE' : 'REQUEST_REVISION',
-        reason: approved ? null : reason!.trim(),
+        reason: approved ? null : revisionReason,
         questionFeedback: questionFeedback.length ? questionFeedback : Prisma.DbNull,
       },
     })
@@ -232,7 +233,7 @@ export function reviewExam(id: string, reviewerId: string, approved: boolean, re
         status: approved ? 'READY' : 'DRAFT',
         reviewedById: reviewerId,
         reviewedAt: now,
-        rejectionReason: approved ? null : reason!.trim(),
+        rejectionReason: approved ? null : revisionReason,
       },
     })
     if (!claimedExam.count) throw new ConflictError('Exam state changed during review')
@@ -240,7 +241,7 @@ export function reviewExam(id: string, reviewerId: string, approved: boolean, re
       userId: reviewer.userId,
       action: approved ? 'APPROVE_FINAL_EXAM' : 'REQUEST_FINAL_EXAM_REVISION',
       entityType: 'ExamReviewRound', entityId: round.id,
-      metadata: { examId: id, version: round.version, decision: approved ? 'APPROVE' : 'REQUEST_REVISION', reason: approved ? null : reason!.trim(), questionFeedback },
+      metadata: { examId: id, version: round.version, decision: approved ? 'APPROVE' : 'REQUEST_REVISION', reason: approved ? null : revisionReason, questionFeedback },
     })
     return tx.exam.findUniqueOrThrow({ where: { id }, include: examInclude })
   })

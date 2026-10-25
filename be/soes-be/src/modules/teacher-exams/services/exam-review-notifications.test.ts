@@ -53,7 +53,7 @@ test('final exam workflow notifies the review group and the author at the correc
   const service = require('./teacher-exams.service') as typeof import('./teacher-exams.service')
   await service.submit('author', 'exam')
   await service.approve('reviewer', 'exam')
-  await service.reject('reviewer', 'exam', 'Please revise question one', [
+  await service.reject('reviewer', 'exam', undefined, [
     { questionId: 'question', note: 'Check the answer key' },
   ])
   assert.deepEqual(sent.map(({ users, link }) => ({ users, link })), [

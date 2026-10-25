@@ -224,12 +224,13 @@ export default function TeacherDepartmentApprovalPage() {
   }
 
   const reject = async () => {
-    if (!rejecting || rejectionReason.trim().length < 5) return
+    if (!rejecting) return
+    const notes = Object.entries(questionNotes)
+      .filter(([, note]) => note.trim())
+      .map(([questionId, note]) => ({ questionId, note: note.trim() }))
+    if (rejecting.kind === 'EXAM' ? notes.length === 0 : rejectionReason.trim().length < 5) return
     try {
-      if (rejecting.kind === 'EXAM') await approvals.rejectExam(rejecting.id, rejectionReason.trim(),
-        Object.entries(questionNotes)
-          .filter(([, note]) => note.trim())
-          .map(([questionId, note]) => ({ questionId, note: note.trim() })))
+      if (rejecting.kind === 'EXAM') await approvals.rejectExam(rejecting.id, notes)
       else await approvals.rejectQuestion(rejecting.id, rejectionReason.trim())
       setRejecting(null)
       setRejectionReason('')
@@ -298,6 +299,10 @@ export default function TeacherDepartmentApprovalPage() {
           onClose={() => { setReviewing(null); setQuestionNotes({}); setRejectionReason('') }}
           onApprove={() => approve(reviewing)}
           onReject={() => {
+            if (reviewing.kind === 'EXAM' && !Object.values(questionNotes).some((note) => note.trim())) {
+              toast.error('Hãy ghi góp ý ở ít nhất một câu trước khi yêu cầu sửa đề.')
+              return
+            }
             setRejecting(reviewing)
             setReviewing(null)
           }}
@@ -593,28 +598,29 @@ function RejectModal({
           </button>
         </div>
         <div className="space-y-4 overflow-y-auto p-5">
-          <label className="text-xs font-semibold text-gray-700">{item.kind === 'EXAM' ? 'Lý do yêu cầu sửa' : 'Lý do từ chối'}</label>
-          <textarea
-            value={reason}
-            onChange={(event) => onReasonChange(event.target.value)}
-            rows={4}
-            placeholder="Nhập lý do để giảng viên chỉnh sửa và gửi duyệt lại..."
-            className="mt-2 w-full rounded-xl border border-gray-200 p-3 text-sm outline-none transition-colors focus:border-blue-500"
-          />
-          {item.kind === 'EXAM' && <p className="text-xs text-gray-500">
-            {Object.values(questionNotes).filter((note) => note.trim()).length} câu có góp ý sửa. Muốn thay đổi góp ý, quay lại nội dung đề và chọn biểu tượng cạnh câu hỏi.
-          </p>}
+          {item.kind === 'EXAM' ? <p className="text-sm text-gray-700">
+            Xác nhận gửi yêu cầu sửa đề với {Object.values(questionNotes).filter((note) => note.trim()).length} góp ý theo câu hỏi cho người ra đề?
+          </p> : <label className="block text-xs font-semibold text-gray-700">
+            Lý do từ chối
+            <textarea
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              rows={4}
+              placeholder="Nhập lý do từ chối câu hỏi"
+              className="mt-2 w-full rounded-xl border border-gray-200 p-3 text-sm font-normal outline-none transition-colors focus:border-blue-500"
+            />
+          </label>}
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
           <button onClick={onClose} className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200">
             Hủy
           </button>
           <button
-            disabled={reason.trim().length < 5}
+            disabled={item.kind === 'EXAM' ? !Object.values(questionNotes).some((note) => note.trim()) : reason.trim().length < 5}
             onClick={onSubmit}
             className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
           >
-            {item.kind === 'EXAM' ? 'Gửi yêu cầu sửa' : 'Xác nhận từ chối'}
+            {item.kind === 'EXAM' ? 'Xác nhận gửi' : 'Xác nhận từ chối'}
           </button>
         </div>
       </div>

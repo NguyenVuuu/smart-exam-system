@@ -57,5 +57,5 @@ export const approveQuestion = (id: string) => post(`/teacher/question-approvals
 export const rejectQuestion = (id: string, reason: string) => post(`/teacher/question-approvals/${id}/reject`, { reason })
 export const approveExam = (id: string) => post(`/teacher/exam-approvals/${id}/approve`)
 export interface ExamQuestionRevisionNote { questionId: string; note: string }
-export const rejectExam = (id: string, reason: string, questionNotes: ExamQuestionRevisionNote[]) =>
-  post(`/teacher/exam-approvals/${id}/reject`, { reason, questionNotes })
+export const rejectExam = (id: string, questionNotes: ExamQuestionRevisionNote[]) =>
+  post(`/teacher/exam-approvals/${id}/reject`, { questionNotes })

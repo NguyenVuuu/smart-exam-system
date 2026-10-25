@@ -53,7 +53,7 @@ export function useTeacherApprovals(questionsEnabled: boolean, examsEnabled: boo
     approveQuestion: (id: string) => mutate(() => api.approveQuestion(id)),
     rejectQuestion: (id: string, reason: string) => mutate(() => api.rejectQuestion(id, reason)),
     approveExam: (id: string) => mutate(() => api.approveExam(id)),
-    rejectExam: (id: string, reason: string, questionNotes: api.ExamQuestionRevisionNote[]) =>
-      mutate(() => api.rejectExam(id, reason, questionNotes)),
+    rejectExam: (id: string, questionNotes: api.ExamQuestionRevisionNote[]) =>
+      mutate(() => api.rejectExam(id, questionNotes)),
   }
 }

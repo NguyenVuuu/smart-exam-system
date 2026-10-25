@@ -14,6 +14,7 @@ type State = {
 
 test('one atomic review decision wins, including a decision by the author', async (context) => {
   let storedFeedback: unknown
+  let storedReason: string | null | undefined
   const state: State = {
     roundStatus: 'PENDING', approvalStatus: 'PENDING', examStatus: 'DRAFT',
     membershipStatus: 'ACTIVE', decisionCount: 0, auditCount: 0, failAudit: false,
@@ -37,8 +38,9 @@ test('one atomic review decision wins, including a decision by the author', asyn
         },
       },
       departmentReviewMember: { findUnique: async () => ({ status: local.membershipStatus }) },
-      examReviewDecision: { create: async ({ data }: { data: { questionFeedback: unknown } }) => {
+      examReviewDecision: { create: async ({ data }: { data: { questionFeedback: unknown; reason: string | null } }) => {
         storedFeedback = data.questionFeedback
+        storedReason = data.reason
         local.decisionCount += 1
       } },
       exam: {
@@ -130,5 +132,14 @@ test('one atomic review decision wins, including a decision by the author', asyn
   ])
   assert.deepEqual(storedFeedback, [{
     questionId: 'question-1', order: 1, title: 'Question one', note: 'Correct the answer key',
+  }])
+
+  Object.assign(state, { roundStatus: 'PENDING', approvalStatus: 'PENDING', examStatus: 'DRAFT', decisionCount: 0, auditCount: 0 })
+  await repository.reviewExam('exam', 'author', false, undefined, [
+    { questionId: 'question-1', note: 'Revise this answer' },
+  ])
+  assert.equal(storedReason, null)
+  assert.deepEqual(storedFeedback, [{
+    questionId: 'question-1', order: 1, title: 'Question one', note: 'Revise this answer',
   }])
 })

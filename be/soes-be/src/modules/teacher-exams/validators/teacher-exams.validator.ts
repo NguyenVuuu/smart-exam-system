@@ -145,11 +145,13 @@ export const examApprovalQuerySchema = z.object({
 })
 
 export const examRejectionSchema = z.object({
-  reason: z.string().trim().min(5).max(1000),
+  reason: z.string().trim().min(5).max(1000).optional(),
   questionNotes: z.array(z.object({
     questionId: z.string().uuid(),
     note: z.string().trim().min(1).max(1000),
   })).max(500).default([]),
+}).refine((value) => Boolean(value.reason) || value.questionNotes.length > 0, {
+  path: ['questionNotes'], message: 'At least one question revision note is required',
 }).refine((value) => new Set(value.questionNotes.map(({ questionId }) => questionId)).size === value.questionNotes.length, {
   path: ['questionNotes'], message: 'Each question can have only one revision note',
 })

@@ -515,7 +515,7 @@ async function review(
         approved ? 'Đề thi cuối kỳ đã được duyệt' : 'Đề thi cuối kỳ cần chỉnh sửa',
         approved
           ? `Đề "${reviewed.title}" đã được nhóm duyệt đề phê duyệt.`
-          : `Đề "${reviewed.title}" có yêu cầu sửa. Mở chi tiết đề để xem lý do và góp ý từng câu.`,
+          : `Đề "${reviewed.title}" có yêu cầu sửa. Mở chi tiết đề để xem góp ý theo từng câu.`,
         { link: `/teacher/exams/${examId}` },
       ),
     ]
@@ -536,7 +536,7 @@ async function review(
 
 export const approve = (teacherId: string, examId: string) =>
   review(teacherId, examId, true);
-export const reject = (teacherId: string, examId: string, reason: string, questionNotes: ExamQuestionReviewNote[] = []) =>
+export const reject = (teacherId: string, examId: string, reason: string | undefined, questionNotes: ExamQuestionReviewNote[] = []) =>
   review(teacherId, examId, false, reason, questionNotes);
 
 export async function extendAttemptTime(
