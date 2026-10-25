@@ -481,7 +481,9 @@ export async function finalizeScore(
   attemptId: string,
   data: FinalizeScoreBody,
 ) {
-  return finalizeScores(teacherId, userId, examId, scheduleId, { items: [{ attemptId, score: data.score }] })
+  return finalizeScores(teacherId, userId, examId, scheduleId, {
+    items: [{ attemptId, score: data.score, reason: data.reason }],
+  })
 }
 
 export async function finalizeScores(
@@ -500,6 +502,11 @@ export async function finalizeScores(
   if (!result) throw new NotFoundError('Exam submissions not found')
   if (result.blockedAttemptIds.length) {
     throw new ConflictError('Some submissions have violations that must be opened before finalizing scores')
+  }
+  if (result.requiresReason.length) {
+    throw new ValidationError(
+      `Điểm chốt khác điểm hệ thống, cần nhập lý do cho: ${result.requiresReason.join(', ')}`,
+    )
   }
 
   await Promise.all(result.updated.map((item) => notifyUsers(
