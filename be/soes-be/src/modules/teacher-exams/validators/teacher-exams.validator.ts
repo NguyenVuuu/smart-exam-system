@@ -144,7 +144,18 @@ export const examApprovalQuerySchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).default('PENDING'),
 })
 
-export const examRejectionSchema = z.object({ reason: z.string().trim().min(5).max(1000) })
+export const examRejectionSchema = z.object({
+  reason: z.string().trim().min(5).max(1000).optional(),
+  questionNotes: z.array(z.object({
+    questionId: z.string().uuid(),
+    note: z.string().trim().min(1).max(1000),
+  })).max(500).default([]),
+}).refine((value) => Boolean(value.reason) || value.questionNotes.length > 0, {
+  path: ['questionNotes'], message: 'At least one question revision note is required',
+}).refine((value) => new Set(value.questionNotes.map(({ questionId }) => questionId)).size === value.questionNotes.length, {
+  path: ['questionNotes'], message: 'Each question can have only one revision note',
+})
+export type ExamQuestionReviewNote = z.infer<typeof examRejectionSchema>['questionNotes'][number]
 export const examStudentVisibilitySchema = z.object({
   visibility: z.enum(['VISIBLE', 'HIDDEN']),
 })

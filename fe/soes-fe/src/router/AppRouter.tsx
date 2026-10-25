@@ -8,6 +8,7 @@ import AdminExamSchedulesPage from '../pages/admin/AdminExamSchedulesPage'
 import AdminExamTrackingPage from '../pages/admin/AdminExamTrackingPage'
 import AdminProctoringPage from '../pages/admin/AdminProctoringPage'
 import AdminReportsPage from '../pages/admin/AdminReportsPage'
+import AdminReviewGroupsPage from '../pages/admin/AdminReviewGroupsPage'
 import AdminSettingsPage from '../pages/admin/AdminSettingsPage'
 import AdminSharedQuestionBankPage from '../pages/admin/AdminSharedQuestionBankPage'
 import AdminUsersPage from '../pages/admin/AdminUsersPage'
@@ -40,6 +41,7 @@ import TeacherInvigilationSchedulePage from '../pages/teacher/TeacherInvigilatio
 import TeacherLiveProctorPage from '../pages/teacher/TeacherLiveProctorPage'
 import TeacherQuestionAuditPage from '../pages/teacher/TeacherQuestionAuditPage'
 import TeacherQuestionBankPage from '../pages/teacher/TeacherQuestionBankPage'
+import TeacherReviewGroupPage from '../pages/teacher/TeacherReviewGroupPage'
 import GuestRoute from './GuestRoute'
 import BackofficeHome from './BackofficeHome'
 import BackofficeRoute from './BackofficeRoute'
@@ -137,6 +139,7 @@ export default function AppRouter() {
           }
         />
         <Route path="/admin/exam-approvals" element={<Navigate to="/admin/exams" replace />} />
+        <Route path="/admin/review-groups" element={<BackofficeRoute permission="REVIEW_GROUP_VIEW"><AdminReviewGroupsPage /></BackofficeRoute>} />
         <Route
           path="/admin/exam-schedules"
           element={
@@ -303,6 +306,14 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherDepartmentApprovalPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/teacher/review-group"
+          element={
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
+              <TeacherReviewGroupPage />
             </RoleRoute>
           }
         />

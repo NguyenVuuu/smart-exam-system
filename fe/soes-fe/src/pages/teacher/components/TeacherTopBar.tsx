@@ -62,7 +62,9 @@ export default function TeacherTopBar() {
   const selectNotification = (notification: TeacherNotification) => {
     void markRead(notification.id)
     setOpenNotifications(false)
-    if (notification.title.toLocaleLowerCase('vi').includes('phúc khảo')) {
+    if (notification.link?.startsWith('/teacher/')) {
+      navigate(notification.link)
+    } else if (notification.title.toLocaleLowerCase('vi').includes('phúc khảo')) {
       navigate('/teacher/grading-reports?tab=appeals')
     }
   }

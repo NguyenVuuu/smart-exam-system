@@ -83,7 +83,6 @@ export async function update(
     teacherId,
     question.updatedAt,
     data,
-    teacher.position === "DEPARTMENT_HEAD",
   );
   if (!updated)
     throw new ConflictError(
@@ -142,47 +141,27 @@ export async function share(teacherId: string, id: string) {
     throw new ConflictError("Question is already in shared bank");
   }
 
-  const isHead = teacher.position === "DEPARTMENT_HEAD";
   const item = await repo.submitToSharedBank(
     id,
     question.subjectId,
     teacher.userId,
-    isHead
-      ? { reviewedByTeacherId: teacherId, reviewedAt: new Date() }
-      : undefined,
+    teacherId,
   );
   return { itemId: item.id, status: item.status };
 }
 
 export async function listApprovals(teacherId: string, query: ApprovalQuery) {
-  const teacher = await requireTeacher(teacherId);
-  if (teacher.position !== "DEPARTMENT_HEAD")
-    throw new ForbiddenError("Department head permission required");
-  const [total, items] = await repo.listApprovals(teacher.departmentId!, query);
+  const departmentId = await repo.reviewerDepartment(teacherId);
+  if (!departmentId) throw new ForbiddenError("Active review group membership required");
+  const [total, items] = await repo.listApprovals(departmentId, query);
   return {
     items: items.map(toQuestionApprovalDto),
     pagination: toPagination(query.page, query.pageSize, total),
   };
 }
 
-async function requireReviewable(teacherId: string, itemId: string) {
-  const teacher = await requireTeacher(teacherId);
-  if (teacher.position !== "DEPARTMENT_HEAD")
-    throw new ForbiddenError("Department head permission required");
-  const item = await repo.findBankItem(itemId);
-  if (!item || item.question.subject.departmentId !== teacher.departmentId)
-    throw new NotFoundError("Approval request not found");
-  if (item.question.ownerId === teacherId)
-    throw new ForbiddenError("Cannot review your own question");
-  if (item.status !== "PENDING")
-    throw new ConflictError("Approval request has already been reviewed");
-  return { item, teacher };
-}
-
 export async function approve(teacherId: string, itemId: string) {
-  const { teacher } = await requireReviewable(teacherId, itemId);
-  if (!(await repo.reviewBankItem(itemId, teacherId, teacher.userId, true)))
-    throw new ConflictError("Approval request has already been reviewed");
+  await repo.reviewBankItem(itemId, teacherId, true);
   return { id: itemId, status: "APPROVED" };
 }
 
@@ -191,17 +170,7 @@ export async function reject(
   itemId: string,
   reason: string,
 ) {
-  const { teacher } = await requireReviewable(teacherId, itemId);
-  if (
-    !(await repo.reviewBankItem(
-      itemId,
-      teacherId,
-      teacher.userId,
-      false,
-      reason,
-    ))
-  )
-    throw new ConflictError("Approval request has already been reviewed");
+  await repo.reviewBankItem(itemId, teacherId, false, reason);
   return { id: itemId, status: "REJECTED" };
 }
 

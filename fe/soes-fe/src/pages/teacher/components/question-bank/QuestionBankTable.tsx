@@ -121,8 +121,9 @@ export default function QuestionBankTable({
       align: 'right',
       render: (q) => {
         const isArchived = Boolean(q.archivedAt)
+        const lockedInSharedBank = !q.removedAt && (q.reviewStatus === 'PENDING_REVIEW' || q.reviewStatus === 'APPROVED')
         const canShareQuestion =
-          activeTab === 'PERSONAL' && !isArchived && (!q.reviewStatus || q.reviewStatus === 'PRIVATE')
+          activeTab === 'PERSONAL' && !isArchived && !lockedInSharedBank
 
         return (
           <div className="flex items-center justify-end gap-1 text-gray-400">
@@ -177,7 +178,7 @@ export default function QuestionBankTable({
                     <CloudUpload size={16} />
                   </button>
                 )}
-                <button
+                {!lockedInSharedBank && <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onEdit(q)
@@ -186,8 +187,8 @@ export default function QuestionBankTable({
                   title="Chỉnh sửa câu hỏi"
                 >
                   <Edit size={16} />
-                </button>
-                <button
+                </button>}
+                {!lockedInSharedBank && <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onArchive(q)
@@ -196,7 +197,7 @@ export default function QuestionBankTable({
                   title="Lưu trữ câu hỏi"
                 >
                   <Archive size={16} />
-                </button>
+                </button>}
               </>
             )}
           </div>

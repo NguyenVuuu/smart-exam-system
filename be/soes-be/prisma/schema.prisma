@@ -62,6 +62,10 @@ model Teacher {
   questionBankReviews  QuestionBankItem[]    @relation("QuestionBankTeacherReviews")
   questionBankRemovals QuestionBankItem[]    @relation("QuestionBankTeacherRemovals")
   examReviews          Exam[]                @relation("TeacherExamReviews")
+  reviewGroupsCreated  DepartmentReviewGroup[] @relation("ReviewGroupCreator")
+  reviewGroupMemberships DepartmentReviewMember[]
+  reviewRoundsSubmitted ExamReviewRound[]     @relation("ReviewRoundSubmitter")
+  reviewDecisions      ExamReviewDecision[]   @relation("ReviewDecisionReviewer")
   handledGradeAppeals  GradeAppeal[]         @relation("TeacherGradeAppealHandlers")
   proctorAssignments   ExamScheduleProctor[]
   department           Department?           @relation("DepartmentTeachers", fields: [departmentId], references: [id])
@@ -115,6 +119,69 @@ model Department {
   updatedAt   DateTime         @updatedAt
   teachers    Teacher[]        @relation("DepartmentTeachers")
   subjects    Subject[]        @relation("DepartmentSubjects")
+  reviewGroup DepartmentReviewGroup?
+}
+
+model DepartmentReviewGroup {
+  id           String                    @id @default(uuid())
+  departmentId String                    @unique
+  name         String
+  status       ReviewGroupStatus         @default(ACTIVE)
+  createdById  String
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  department   Department                @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  createdBy    Teacher                   @relation("ReviewGroupCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  members      DepartmentReviewMember[]
+  rounds       ExamReviewRound[]
+}
+
+model DepartmentReviewMember {
+  id        String                  @id @default(uuid())
+  groupId   String
+  teacherId String
+  status    ReviewGroupMemberStatus @default(ACTIVE)
+  joinedAt  DateTime                @default(now())
+  leftAt    DateTime?
+  group     DepartmentReviewGroup   @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  teacher   Teacher                 @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  @@unique([groupId, teacherId])
+  @@index([teacherId, status])
+}
+
+model ExamReviewRound {
+  id            String                @id @default(uuid())
+  examId        String
+  groupId       String
+  version       Int
+  status        ExamReviewRoundStatus @default(WAITING_FOR_REVIEWERS)
+  snapshot      Json
+  submittedById String
+  submittedAt   DateTime              @default(now())
+  decidedAt     DateTime?
+  updatedAt     DateTime              @updatedAt
+  exam          Exam                  @relation(fields: [examId], references: [id], onDelete: Restrict)
+  group         DepartmentReviewGroup @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  submittedBy   Teacher              @relation("ReviewRoundSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+  decision      ExamReviewDecision?
+
+  @@unique([examId, version])
+  @@index([groupId, status, submittedAt])
+}
+
+model ExamReviewDecision {
+  id         String                 @id @default(uuid())
+  roundId    String                 @unique
+  reviewerId String
+  type       ExamReviewDecisionType
+  reason     String?
+  questionFeedback Json?
+  createdAt  DateTime               @default(now())
+  round      ExamReviewRound        @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  reviewer   Teacher                @relation("ReviewDecisionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([reviewerId])
 }
 
 model CodeGenerationSetting {
@@ -451,6 +518,7 @@ model Exam {
   examQuestions          ExamQuestion[]
   sections               ExamSection[]
   schedules              ExamSchedule[]
+  reviewRounds           ExamReviewRound[]
 
   @@index([subjectId])
   @@index([semesterId])
@@ -1042,6 +1110,28 @@ enum ExamApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum ReviewGroupStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ReviewGroupMemberStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ExamReviewRoundStatus {
+  WAITING_FOR_REVIEWERS
+  PENDING
+  APPROVED
+  REVISION_REQUESTED
+}
+
+enum ExamReviewDecisionType {
+  APPROVE
+  REQUEST_REVISION
 }
 
 enum AttemptStatus {

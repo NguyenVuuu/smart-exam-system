@@ -12,6 +12,7 @@ import {
   LogOut,
   ShieldAlert,
   ShieldCheck,
+  Users,
 } from 'lucide-react'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -72,11 +73,11 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'department-approval',
     title: 'BỘ MÔN',
     items: [
+      { label: 'Nhóm duyệt đề', icon: <Users size={19} />, path: '/teacher/review-group' },
       {
         label: 'Duyệt chuyên môn',
         icon: <ShieldCheck size={19} />,
         path: '/teacher/department-approvals',
-        requiredPermissions: ['APPROVE_SHARED_QUESTION', 'APPROVE_FINAL_EXAM'],
       },
     ],
   },
@@ -123,12 +124,13 @@ export default function TeacherSidebar() {
     }
     return location.pathname === path || location.pathname.startsWith(`${path}/`)
   }
+  const activeGroupId = navGroups.find((group) => group.items.some((item) => isNavItemActive(item.path)))?.id
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY_TEACHER_COLLAPSED)
       if (saved !== null) return saved === 'true'
-    } catch {}
+    } catch { /* Session storage may be unavailable. */ }
     return persistentTeacherIsCollapsed
   })
 
@@ -139,26 +141,9 @@ export default function TeacherSidebar() {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) return parsed
       }
-    } catch {}
+    } catch { /* Session storage may be unavailable. */ }
     return ALL_TEACHER_GROUP_IDS
   })
-
-  // Khi route thay đổi: chỉ mở nhóm của route đang active nếu chưa mở, giữ nguyên các nhóm khác
-  useEffect(() => {
-    const currentGroup = navGroups.find((g) =>
-      g.items.some((item) => isNavItemActive(item.path)),
-    )
-    if (currentGroup) {
-      setExpandedGroupIds((prev) => {
-        if (prev.includes(currentGroup.id)) return prev
-        const next = [...prev, currentGroup.id]
-        try {
-          sessionStorage.setItem(STORAGE_KEY_TEACHER_EXPANDED, JSON.stringify(next))
-        } catch {}
-        return next
-      })
-    }
-  }, [location.pathname, navGroups])
 
   // Khôi phục vị trí scroll ngay khi render
   useLayoutEffect(() => {
@@ -168,7 +153,7 @@ export default function TeacherSidebar() {
         if (savedScroll) {
           navRef.current.scrollTop = Number(savedScroll) || 0
         }
-      } catch {}
+      } catch { /* Session storage may be unavailable. */ }
     }
   }, [location.pathname])
 
@@ -179,7 +164,7 @@ export default function TeacherSidebar() {
         persistentTeacherIsCollapsed = next
         try {
           sessionStorage.setItem(STORAGE_KEY_TEACHER_COLLAPSED, String(next))
-        } catch {}
+        } catch { /* Session storage may be unavailable. */ }
         return next
       })
     }
@@ -191,7 +176,7 @@ export default function TeacherSidebar() {
     persistentTeacherIsCollapsed = isCollapsed
     try {
       sessionStorage.setItem(STORAGE_KEY_TEACHER_COLLAPSED, String(isCollapsed))
-    } catch {}
+    } catch { /* Session storage may be unavailable. */ }
   }, [isCollapsed])
 
   const toggleGroup = (groupId: string) => {
@@ -199,7 +184,7 @@ export default function TeacherSidebar() {
       const next = prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
       try {
         sessionStorage.setItem(STORAGE_KEY_TEACHER_EXPANDED, JSON.stringify(next))
-      } catch {}
+      } catch { /* Session storage may be unavailable. */ }
       return next
     })
   }
@@ -207,7 +192,7 @@ export default function TeacherSidebar() {
   const handleNavScroll = (e: React.UIEvent<HTMLElement>) => {
     try {
       sessionStorage.setItem(STORAGE_KEY_TEACHER_SCROLL, String(e.currentTarget.scrollTop))
-    } catch {}
+    } catch { /* Session storage may be unavailable. */ }
   }
 
   const systemSettings = useSystemSettingsStore((state) => state.settings)
@@ -254,7 +239,7 @@ export default function TeacherSidebar() {
         className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {navGroups.map((group, groupIdx) => {
-          const isGroupExpanded = expandedGroupIds.includes(group.id)
+          const isGroupExpanded = expandedGroupIds.includes(group.id) || activeGroupId === group.id
 
           return (
             <div key={group.id} className="space-y-1">

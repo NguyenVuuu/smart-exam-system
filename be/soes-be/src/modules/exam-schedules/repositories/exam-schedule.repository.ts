@@ -61,7 +61,11 @@ export function findCreationContext(tx: Prisma.TransactionClient, examId: string
   return Promise.all([
     tx.exam.findUnique({
       where: { id: examId },
-      select: { id: true, subjectId: true, semesterId: true, type: true, status: true, approvalStatus: true, examQuestions: { select: { id: true } } },
+      select: {
+        id: true, subjectId: true, semesterId: true, type: true, status: true, approvalStatus: true,
+        examQuestions: { select: { id: true } },
+        reviewRounds: { orderBy: { version: 'desc' }, take: 1, select: { status: true } },
+      },
     }),
     tx.courseOffering.findMany({
       where: { id: { in: courseOfferingIds } },
@@ -168,6 +172,7 @@ export function listReadyFinalExams() {
       subject: { select: { id: true, code: true, name: true, departmentId: true } },
       semester: { select: { id: true, code: true, name: true } },
       _count: { select: { examQuestions: true } },
+      reviewRounds: { orderBy: { version: 'desc' }, take: 1, select: { status: true } },
     },
     orderBy: { title: 'asc' },
   })

@@ -100,6 +100,7 @@ export interface Exam {
   totalPoints: number
   createdAt: string
   rejectionReason?: string
+  revisionFeedback?: Array<{ questionId: string; order: number; title: string; note: string }>
   lockedReason?: string
 }
 

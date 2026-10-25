@@ -20,7 +20,7 @@ export const listAccounts = () => prisma.admin.findMany({
 
 export const findAccountById = (adminId: string) => prisma.admin.findUnique({
   where: { id: adminId },
-  select: { id: true },
+  select: { id: true, role: true },
 })
 
 export const updateOverride = (input: {

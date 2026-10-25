@@ -1,4 +1,4 @@
-import type { ViolationRecord } from '../../types/teacher-exam.types'
+import type { ViolationRecord } from '../types/teacher-exam.types'
 
 export const violationTypeLabels: Record<ViolationRecord['type'], string> = {
   PHONE_DETECTED: 'Phát hiện điện thoại',

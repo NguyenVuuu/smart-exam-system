@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, Code, Edit, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Code, Edit, MessageSquareText, Trash2 } from 'lucide-react'
 import AppSelect from '../../../../components/common/AppSelect'
 import type { ExamQuestionItem, ExamSection } from '../../types/teacher-exam.types'
 import type { Question } from '../../types/teacher-question-bank.types'
@@ -6,6 +6,7 @@ import { questionTypeLabel } from '../../constants/ExamEditorConfig'
 
 export function QuestionRow({
   item,
+  revisionNote,
   index,
   sections,
   isCollapsed,
@@ -16,6 +17,7 @@ export function QuestionRow({
   onRemove,
 }: {
   item: ExamQuestionItem
+  revisionNote?: string
   index: number
   sections: ExamSection[]
   isCollapsed: boolean
@@ -47,6 +49,7 @@ export function QuestionRow({
             {item.points} điểm
           </span>
         </div>
+        {revisionNote && <RevisionFeedback note={revisionNote} />}
       </div>
     )
   }
@@ -120,8 +123,19 @@ export function QuestionRow({
           </div>
         </div>
       </div>
+      {revisionNote && <RevisionFeedback note={revisionNote} />}
     </div>
   )
+}
+
+function RevisionFeedback({ note }: { note: string }) {
+  return <div className="mt-3 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+    <MessageSquareText size={15} className="mt-0.5 shrink-0" />
+    <div>
+      <p className="font-semibold">Góp ý cần sửa từ nhóm duyệt</p>
+      <p className="mt-1 whitespace-pre-wrap leading-relaxed">{note}</p>
+    </div>
+  </div>
 }
 
 export function QuestionAnswerPreview({ question }: { question: Question }) {

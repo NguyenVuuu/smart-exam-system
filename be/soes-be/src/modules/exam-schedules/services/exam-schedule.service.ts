@@ -10,6 +10,10 @@ import type { ScheduleBody, SchedulesQuery } from '../validators/exam-schedule.v
 
 const saltRounds = 10
 
+function latestRoundApproved(rounds: Array<{ status: string }>) {
+  return rounds.length === 0 || rounds[0].status === 'APPROVED'
+}
+
 function flattenAssignments(data: Pick<ScheduleWriteInput, 'courses'>) {
   return {
     courseIds: data.courses.map(({ courseOfferingId }) => courseOfferingId),
@@ -41,7 +45,8 @@ async function validateContext(
   const { courseIds, teacherIds } = flattenAssignments(input)
   const [exam, courses, teachers] = await repo.findCreationContext(tx, input.examId, courseIds, teacherIds)
   if (!exam) throw new NotFoundError('Exam not found')
-  if (exam.type !== 'FINAL' || exam.status !== 'READY' || exam.approvalStatus !== 'APPROVED') {
+  if (exam.type !== 'FINAL' || exam.status !== 'READY' || exam.approvalStatus !== 'APPROVED'
+    || !latestRoundApproved(exam.reviewRounds)) {
     throw new ValidationError('Only approved and ready final exams can be centrally scheduled')
   }
   if (!exam.examQuestions.length) throw new ValidationError('Exam has no questions')
@@ -72,7 +77,10 @@ export async function get(id: string) {
   return toExamScheduleDto(row)
 }
 
-export const listReadyExams = () => repo.listReadyFinalExams()
+export async function listReadyExams() {
+  const exams = await repo.listReadyFinalExams()
+  return exams.flatMap(({ reviewRounds, ...exam }) => latestRoundApproved(reviewRounds) ? [exam] : [])
+}
 
 export async function create(createdById: string, data: ScheduleBody) {
   const input = await prepareInput(data)

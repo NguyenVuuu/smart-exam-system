@@ -7,8 +7,8 @@ import { createExamQuestion, deleteExamQuestions, type SnapshotInput } from './e
 export const examInclude = {
   subject: { select: { id: true, code: true, name: true, departmentId: true } },
   semester: { select: { id: true, code: true, name: true, status: true } },
-  createdBy: { select: { id: true, user: { select: { fullName: true } } } },
-  reviewedBy: { select: { id: true, user: { select: { fullName: true } } } },
+  createdBy: { select: { id: true, userId: true, user: { select: { fullName: true } } } },
+  reviewedBy: { select: { id: true, userId: true, user: { select: { fullName: true } } } },
   sections: { orderBy: { orderIndex: 'asc' as const }, include: { _count: { select: { questions: true } } } },
   schedules: {
     select: {
@@ -56,6 +56,24 @@ export const findExam = (id: string) => prisma.exam.findUnique({ where: { id }, 
 export const findExamDetail = (id: string) => prisma.exam.findUnique({
   where: { id }, include: examDetailInclude,
 })
+
+export function findOwnedReviewHistory(examId: string, teacherId: string) {
+  return prisma.examReviewRound.findMany({
+    where: { examId, exam: { createdById: teacherId } },
+    select: {
+      id: true, version: true, status: true, submittedAt: true, decidedAt: true,
+      decision: { select: { type: true, reason: true, questionFeedback: true, createdAt: true, reviewer: { select: { id: true, user: { select: { fullName: true } } } } } },
+    },
+    orderBy: { version: 'desc' },
+  })
+}
+export function findLatestRevisionFeedback(examId: string, teacherId: string) {
+  return prisma.examReviewRound.findFirst({
+    where: { examId, status: 'REVISION_REQUESTED', exam: { createdById: teacherId } },
+    orderBy: { version: 'desc' },
+    select: { decision: { select: { questionFeedback: true } } },
+  })
+}
 export const hasClosedCourseExamAccess = (teacherId: string, examId: string) => prisma.examScheduleCourse.count({
   where: {
     courseOffering: { teacherId },
@@ -267,19 +285,59 @@ export function replaceQuestions(
   })
 }
 
-export function listApprovals(departmentId: string, query: ExamApprovalQuery) {
-  const where: Prisma.ExamWhereInput = {
-    type: 'FINAL', approvalStatus: query.status, subject: { departmentId },
-    ...(query.subjectId && { subjectId: query.subjectId }),
-    ...(query.semesterId && { semesterId: query.semesterId }),
-    ...(query.keyword && { title: { contains: query.keyword, mode: 'insensitive' } }),
+export function findReviewerGroup(teacherId: string) {
+  return prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: {
+      status: true,
+      user: { select: { status: true } },
+      department: { select: {
+        status: true,
+        reviewGroup: { select: {
+          id: true, status: true,
+          members: { where: { teacherId, status: 'ACTIVE' }, select: { id: true } },
+        } },
+      } },
+    },
+  })
+}
+
+export function findReviewNotificationTargets(departmentId: string) {
+  return prisma.departmentReviewMember.findMany({
+    where: {
+      group: { departmentId, status: 'ACTIVE' }, status: 'ACTIVE',
+      teacher: { status: 'ACTIVE', user: { status: 'ACTIVE' } },
+    },
+    select: { teacher: { select: { userId: true } } },
+  })
+}
+
+export function listApprovals(groupId: string, query: ExamApprovalQuery) {
+  const roundStatus = query.status === 'REJECTED' ? 'REVISION_REQUESTED' : query.status
+  const where: Prisma.ExamReviewRoundWhereInput = {
+    groupId, status: roundStatus,
+    exam: {
+      type: 'FINAL',
+      ...(query.subjectId && { subjectId: query.subjectId }),
+      ...(query.semesterId && { semesterId: query.semesterId }),
+      ...(query.keyword && { title: { contains: query.keyword, mode: 'insensitive' } }),
+    },
   }
   return Promise.all([
-    prisma.exam.count({ where }),
-    prisma.exam.findMany({
-      where, include: examInclude,
+    prisma.examReviewRound.count({ where }),
+    prisma.examReviewRound.findMany({
+      where,
+      include: { exam: { include: examInclude } },
       skip: (query.page - 1) * query.pageSize, take: query.pageSize,
-      orderBy: { updatedAt: 'asc' },
+      orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }],
     }),
   ])
+}
+
+export function findApprovalRound(groupId: string, examId: string) {
+  return prisma.examReviewRound.findFirst({
+    where: { groupId, examId, exam: { type: 'FINAL' } },
+    orderBy: { version: 'desc' },
+    include: { exam: { include: examInclude } },
+  })
 }

@@ -52,8 +52,9 @@ export async function updateOverride(input: {
 }) {
   const account = await repository.findAccountById(input.adminId)
   if (!account) throw new NotFoundError('Backoffice account not found')
-
   return repository.updateOverride(input)
 }
 
-export const updateRolePermission = repository.updateRolePermission
+export function updateRolePermission(input: Parameters<typeof repository.updateRolePermission>[0]) {
+  return repository.updateRolePermission(input)
+}

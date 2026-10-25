@@ -1,5 +1,5 @@
-import { formatDate, formatSessionRange, parseDateTimeParts } from '../../../../../utils/date.utils'
-import type { ExamSchedule } from '../../../types/teacher-exam.types'
+import { formatDate, formatSessionRange, parseDateTimeParts } from '../../../utils/date.utils'
+import type { ExamSchedule } from '../types/teacher-exam.types'
 
 export function formatSessionTime(session: ExamSchedule) {
   return formatSessionRange(session.startTime, session.endTime)

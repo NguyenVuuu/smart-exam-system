@@ -62,6 +62,7 @@ export const assignDepartmentHead = async (req: Request, res: Response) =>
     await departmentService.assignHead(
       idParam.parse(req.params).id,
       departmentHeadSchema.parse(req.body).teacherId,
+      req.user!.id,
     ),
   );
 

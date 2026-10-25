@@ -1,0 +1,4 @@
+INSERT INTO "BackofficeRolePermission" ("role", "permission") VALUES
+('ADMIN', 'REVIEW_GROUP_VIEW'),
+('EDUCATION_OFFICER', 'REVIEW_GROUP_VIEW')
+ON CONFLICT DO NOTHING;

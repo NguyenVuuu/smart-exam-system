@@ -77,6 +77,7 @@ const NAV_GROUPS: NavGroup[] = [
         path: '/admin/exams',
         permission: 'EXAMS_VIEW',
       },
+      { label: 'Nhóm duyệt đề', icon: <ShieldCheck size={18} />, path: '/admin/review-groups', permission: 'REVIEW_GROUP_VIEW' },
     ],
   },
   {
