@@ -393,7 +393,7 @@ function TeacherExamDetailContent({
             ) : (
               <ExamDetailHeader
                 exam={exam}
-                onEdit={() => navigate(`/teacher/exams/${exam.id}/edit`)}
+                onEdit={() => navigate(`/teacher/exams/${exam.id}/edit${exam.status === 'REJECTED' ? '?step=QUESTIONS' : ''}`)}
                 onPublish={() => void 0}
                 onPreview={() => setIsPreviewOpen(true)}
                 onCopy={() => void handleCopyExam()}
@@ -423,7 +423,7 @@ function TeacherExamDetailContent({
                     ))}
                   </div>
                 )}
-                <button type="button" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)} className="mt-3 font-semibold text-blue-700 underline">Mở trình chỉnh sửa đề</button>
+                <button type="button" onClick={() => navigate(`/teacher/exams/${exam.id}/edit?step=QUESTIONS`)} className="mt-3 font-semibold text-blue-700 underline">Mở trình chỉnh sửa đề</button>
               </div>
             )}
 

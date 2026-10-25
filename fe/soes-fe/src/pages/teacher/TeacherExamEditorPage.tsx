@@ -86,6 +86,7 @@ export default function TeacherExamEditorPage() {
   const navigate = useNavigate()
   const { examId } = useParams<{ examId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
+  const openQuestions = searchParams.get('step') === 'QUESTIONS'
   const { courses, semesterOptions, currentSemesterId } = useTeacherCourses()
   const { questions: bankQuestions, subjects } = useTeacherQuestions()
   const copyFromId = searchParams.get('copyFrom')
@@ -98,7 +99,7 @@ export default function TeacherExamEditorPage() {
   const initialTypeFromUrl = (searchParams.get('type') as ExamType) || 'MULTIPLE_CHOICE'
   const initialSections = buildInitialSections(initialTypeFromUrl)
 
-  const [activeStep, setActiveStep] = useState<WizardStepId>('INFO')
+  const [activeStep, setActiveStep] = useState<WizardStepId>(openQuestions ? 'QUESTIONS' : 'INFO')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [examCategory, setExamCategory] = useState<ExamCategory>('QUIZ')
@@ -136,13 +137,16 @@ export default function TeacherExamEditorPage() {
     setSubjectId(sourceExam.subjectId)
     setSemesterId(sourceExam.semesterId)
     setSections(nextSections)
-    setActiveSectionId(nextSections[0].id)
+    const firstFlaggedQuestion = sourceExam.questions.find((item) =>
+      sourceExam.revisionFeedback?.some((feedback) => feedback.questionId === item.snapshotQuestionId),
+    )
+    setActiveSectionId(openQuestions && firstFlaggedQuestion?.sectionId ? firstFlaggedQuestion.sectionId : nextSections[0].id)
     setDurationMinutes(sourceExam.defaultDurationMinutes)
     setTargetTotalPoints(sourceExam.totalPoints)
     setQuestions(sourceExam.questions.map((item) => ({
       ...item, question: { ...item.question },
     })))
-  }, [isCopy, sourceExam])
+  }, [isCopy, openQuestions, sourceExam])
 
   useEffect(() => {
     if (!sourceId || sourceLoading || !sourceError) return
@@ -166,6 +170,11 @@ export default function TeacherExamEditorPage() {
   const totalPoints = sumPointsPrecisely(questions.map((item) => item.points))
   const stepIndex = WIZARD_STEPS.findIndex((step) => step.id === activeStep)
   const visibleQuestions = questions.filter((item) => item.sectionId === activeSectionId)
+  const revisionNotes = useMemo(() => new Map(
+    !isCopy && sourceExam?.status === 'REJECTED'
+      ? sourceExam.revisionFeedback?.map(({ questionId, note }) => [questionId, note] as const) ?? []
+      : [],
+  ), [isCopy, sourceExam])
 
   const sectionStats = useMemo(
     () =>
@@ -463,6 +472,7 @@ export default function TeacherExamEditorPage() {
                   activeSectionId={activeSectionId}
                   setActiveSectionId={setActiveSectionId}
                   visibleQuestions={visibleQuestions}
+                  revisionNotes={revisionNotes}
                   questions={questions}
                   setQuestions={setQuestions}
                   collapsedQuestionIds={collapsedQuestionIds}

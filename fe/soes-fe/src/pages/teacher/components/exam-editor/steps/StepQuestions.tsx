@@ -12,6 +12,7 @@ export function StepQuestions(props: {
   activeSectionId: string
   setActiveSectionId: (value: string) => void
   visibleQuestions: ExamQuestionItem[]
+  revisionNotes: Map<string, string>
   questions: ExamQuestionItem[]
   setQuestions: (value: ExamQuestionItem[]) => void
   collapsedQuestionIds: string[]
@@ -47,20 +48,25 @@ export function StepQuestions(props: {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            {props.sections.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => props.setActiveSectionId(section.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                  props.activeSectionId === section.id
-                    ? 'border-blue-500 bg-blue-50 text-blue-800'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {section.title}
-              </button>
-            ))}
+            {props.sections.map((section) => {
+              const noteCount = props.questions.filter((item) => item.sectionId === section.id
+                && item.snapshotQuestionId && props.revisionNotes.has(item.snapshotQuestionId)).length
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => props.setActiveSectionId(section.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                    props.activeSectionId === section.id
+                      ? 'border-blue-500 bg-blue-50 text-blue-800'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {section.title}
+                  {noteCount > 0 && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">{noteCount} góp ý</span>}
+                </button>
+              )
+            })}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -97,6 +103,7 @@ export function StepQuestions(props: {
               <QuestionRow
                 key={item.questionId}
                 item={item}
+                revisionNote={item.snapshotQuestionId ? props.revisionNotes.get(item.snapshotQuestionId) : undefined}
                 index={sectionIndex}
                 sections={props.sections}
                 isCollapsed={props.collapsedQuestionIds.includes(item.questionId)}
