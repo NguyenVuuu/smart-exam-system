@@ -2,6 +2,8 @@ import {
   Check,
   CheckCircle2,
   Eye,
+  MessageSquarePlus,
+  MessageSquareText,
   ShieldCheck,
   X,
   XCircle,
@@ -164,8 +166,8 @@ export default function TeacherDepartmentApprovalPage() {
           <button
             onClick={() => void openReject(item)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
-            aria-label={item.kind === 'EXAM' ? 'Yêu cầu sửa' : 'Từ chối'}
-            title={item.kind === 'EXAM' ? 'Yêu cầu sửa' : 'Từ chối'}
+            aria-label={item.kind === 'EXAM' ? 'Mở đề để góp ý sửa' : 'Từ chối'}
+            title={item.kind === 'EXAM' ? 'Mở đề để góp ý sửa' : 'Từ chối'}
           >
             <XCircle size={17} />
           </button>
@@ -182,6 +184,8 @@ export default function TeacherDepartmentApprovalPage() {
     setOpeningId(item.id)
     try {
       const detail = await getExamApprovalDetail(item.id)
+      setQuestionNotes({})
+      setRejectionReason('')
       setReviewing({ ...item, source: toReviewExam(detail), version: detail.reviewRound.version })
     } catch {
       toast.error('Không thể tải phiên bản đề đã gửi duyệt. Vui lòng thử lại.')
@@ -191,26 +195,23 @@ export default function TeacherDepartmentApprovalPage() {
   }
 
   const openReject = async (item: ApprovalItem) => {
-    if (item.kind === 'QUESTION' || item.source.questions.length) {
-      setRejecting(item)
+    if (item.kind === 'EXAM') {
+      await openReview(item)
       return
     }
-    setOpeningId(item.id)
-    try {
-      const detail = await getExamApprovalDetail(item.id)
-      setRejecting({ ...item, source: toReviewExam(detail), version: detail.reviewRound.version })
-    } catch {
-      toast.error('Không thể tải câu hỏi của phiên bản đề đã gửi duyệt.')
-    } finally {
-      setOpeningId(null)
-    }
+    setRejecting(item)
   }
 
   const approve = async (item: ApprovalItem) => {
+    if (item.kind === 'EXAM' && Object.values(questionNotes).some((note) => note.trim())) {
+      toast.error('Đề đang có góp ý cần sửa. Hãy gửi yêu cầu sửa hoặc xóa các góp ý trước khi duyệt.')
+      return
+    }
     try {
       if (item.kind === 'EXAM') await approvals.approveExam(item.id)
       else await approvals.approveQuestion(item.id)
       setReviewing(null)
+      setQuestionNotes({})
       toast.success(item.kind === 'EXAM' ? 'Đã duyệt đề thi cuối kỳ.' : 'Đã đưa câu hỏi vào ngân hàng chung.')
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 409) {
@@ -292,7 +293,9 @@ export default function TeacherDepartmentApprovalPage() {
       {reviewing && (
         <ReviewModal
           item={reviewing}
-          onClose={() => setReviewing(null)}
+          questionNotes={questionNotes}
+          onQuestionNoteChange={(questionId, note) => setQuestionNotes((current) => ({ ...current, [questionId]: note }))}
+          onClose={() => { setReviewing(null); setQuestionNotes({}); setRejectionReason('') }}
           onApprove={() => approve(reviewing)}
           onReject={() => {
             setRejecting(reviewing)
@@ -307,11 +310,10 @@ export default function TeacherDepartmentApprovalPage() {
           reason={rejectionReason}
           onReasonChange={setRejectionReason}
           questionNotes={questionNotes}
-          onQuestionNoteChange={(questionId, note) => setQuestionNotes((current) => ({ ...current, [questionId]: note }))}
           onClose={() => {
             setRejecting(null)
-            setRejectionReason('')
-            setQuestionNotes({})
+            if (rejecting.kind === 'EXAM') setReviewing(rejecting)
+            else setRejectionReason('')
           }}
           onSubmit={reject}
         />
@@ -349,11 +351,15 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
 
 function ReviewModal({
   item,
+  questionNotes,
+  onQuestionNoteChange,
   onClose,
   onApprove,
   onReject,
 }: {
   item: ApprovalItem
+  questionNotes: Record<string, string>
+  onQuestionNoteChange: (questionId: string, note: string) => void
   onClose: () => void
   onApprove: () => void
   onReject: () => void
@@ -381,7 +387,7 @@ function ReviewModal({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-6">
-          {exam && <ExamReviewContent exam={exam} />}
+          {exam && <ExamReviewContent exam={exam} questionNotes={questionNotes} onQuestionNoteChange={onQuestionNoteChange} />}
           {question && <QuestionReviewContent question={question} />}
         </div>
 
@@ -404,7 +410,12 @@ function ReviewModal({
   )
 }
 
-function ExamReviewContent({ exam }: { exam: Exam }) {
+function ExamReviewContent({ exam, questionNotes, onQuestionNoteChange }: {
+  exam: Exam
+  questionNotes: Record<string, string>
+  onQuestionNoteChange: (questionId: string, note: string) => void
+}) {
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
   const orderedQuestions = exam.questions.slice().sort((a, b) => a.order - b.order)
   return (
     <>
@@ -419,10 +430,14 @@ function ExamReviewContent({ exam }: { exam: Exam }) {
         <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
           <p className="text-sm font-semibold text-gray-900">{exam.title}</p>
           <p className="mt-0.5 text-xs text-gray-500">{exam.description}</p>
+          <p className="mt-1 text-xs text-amber-700">Chọn biểu tượng góp ý ở từng câu cần sửa trước khi gửi yêu cầu.</p>
         </div>
         <div className="h-full divide-y divide-gray-100 overflow-y-auto pb-12">
-          {orderedQuestions.map((item) => (
-            <div key={`${exam.id}-${item.questionId}-${item.order}`} className="space-y-2 p-4">
+          {orderedQuestions.map((item) => {
+            const questionId = item.snapshotQuestionId ?? item.questionId
+            const note = questionNotes[questionId] ?? ''
+            const noteOpen = activeNoteId === questionId || Boolean(note.trim())
+            return <div key={`${exam.id}-${questionId}-${item.order}`} className="space-y-2 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-blue-600">Câu {item.order}</span>
                 <AppBadge tone={item.question.type === 'PROGRAMMING' ? 'emerald' : 'blue'} shape="rounded">
@@ -434,11 +449,32 @@ function ExamReviewContent({ exam }: { exam: Exam }) {
                 <AppBadge tone="amber" shape="rounded">
                   {item.points} điểm
                 </AppBadge>
+                <button
+                  type="button"
+                  onClick={() => setActiveNoteId((current) => current === questionId ? null : questionId)}
+                  aria-label={`Ghi chú yêu cầu sửa câu ${item.order}`}
+                  title={`Ghi chú yêu cầu sửa câu ${item.order}`}
+                  className={`ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${note.trim() ? 'bg-amber-50 text-amber-700' : 'text-gray-500 hover:bg-amber-50 hover:text-amber-700'}`}
+                >
+                  {note.trim() ? <MessageSquareText size={16} /> : <MessageSquarePlus size={16} />}
+                  <span>Góp ý sửa</span>
+                </button>
               </div>
               <HtmlContent content={item.question.content} className="text-sm font-medium leading-7 text-gray-900" />
               <QuestionAnswerBlock question={item.question} />
+              {noteOpen && <label className="block rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-xs font-semibold text-amber-800">
+                Nội dung cần sửa ở câu {item.order}
+                <textarea
+                  value={note}
+                  onChange={(event) => onQuestionNoteChange(questionId, event.target.value)}
+                  maxLength={1000}
+                  rows={2}
+                  placeholder="Ghi rõ nội dung tác giả cần chỉnh sửa"
+                  className="mt-2 w-full rounded-lg border border-amber-200 bg-white p-2.5 text-sm font-normal text-gray-900 outline-none focus:border-amber-500"
+                />
+              </label>}
             </div>
-          ))}
+          })}
         </div>
       </div>
     </>
@@ -535,7 +571,6 @@ function RejectModal({
   reason,
   onReasonChange,
   questionNotes,
-  onQuestionNoteChange,
   onClose,
   onSubmit,
 }: {
@@ -543,7 +578,6 @@ function RejectModal({
   reason: string
   onReasonChange: (value: string) => void
   questionNotes: Record<string, string>
-  onQuestionNoteChange: (questionId: string, note: string) => void
   onClose: () => void
   onSubmit: () => void
 }) {
@@ -568,25 +602,9 @@ function RejectModal({
             placeholder="Nhập lý do để giảng viên chỉnh sửa và gửi duyệt lại..."
             className="mt-2 w-full rounded-xl border border-gray-200 p-3 text-sm outline-none transition-colors focus:border-blue-500"
           />
-          {item.kind === 'EXAM' && (
-            <div className="space-y-3 border-t border-gray-100 pt-4">
-              <p className="text-xs font-semibold text-gray-700">Góp ý từng câu (nếu cần)</p>
-              {item.source.questions.slice().sort((a, b) => a.order - b.order).map((question) => {
-                const questionId = question.snapshotQuestionId ?? question.questionId
-                return <label key={questionId} className="block text-xs font-medium text-gray-700">
-                  Câu {question.order}: {question.question.title}
-                  <textarea
-                    value={questionNotes[questionId] ?? ''}
-                    onChange={(event) => onQuestionNoteChange(questionId, event.target.value)}
-                    maxLength={1000}
-                    rows={2}
-                    placeholder="Nêu nội dung cần sửa ở câu này"
-                    className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-blue-500"
-                  />
-                </label>
-              })}
-            </div>
-          )}
+          {item.kind === 'EXAM' && <p className="text-xs text-gray-500">
+            {Object.values(questionNotes).filter((note) => note.trim()).length} câu có góp ý sửa. Muốn thay đổi góp ý, quay lại nội dung đề và chọn biểu tượng cạnh câu hỏi.
+          </p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
           <button onClick={onClose} className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200">
