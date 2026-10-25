@@ -7,7 +7,6 @@ interface ExamEditorHeaderProps {
   onSaveDraft: () => void
   onPublishExam: () => void
   examCategory: ExamCategory
-  isDepartmentHead: boolean
 }
 
 export const ExamEditorHeader: React.FC<ExamEditorHeaderProps> = ({
@@ -15,7 +14,6 @@ export const ExamEditorHeader: React.FC<ExamEditorHeaderProps> = ({
   onSaveDraft,
   onPublishExam,
   examCategory,
-  isDepartmentHead,
 }) => {
   return (
     <div className="flex items-center justify-between gap-4">
@@ -40,13 +38,13 @@ export const ExamEditorHeader: React.FC<ExamEditorHeaderProps> = ({
           type="button"
           onClick={onPublishExam}
           className={`px-5 py-2 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 ${
-            examCategory === 'FINAL' && !isDepartmentHead
+            examCategory === 'FINAL'
               ? 'bg-amber-600 hover:bg-amber-700'
               : 'bg-blue-600 hover:bg-blue-700'
           }`}
         >
           <CheckCircle2 size={15} />
-          {examCategory === 'FINAL' && !isDepartmentHead
+          {examCategory === 'FINAL'
             ? 'Gửi duyệt đề thi'
             : 'Tạo & Công bố đề'}
         </button>

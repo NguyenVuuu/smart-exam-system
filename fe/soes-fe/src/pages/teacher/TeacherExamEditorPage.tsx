@@ -44,7 +44,6 @@ import type { Question } from './types/teacher-question-bank.types'
 import { useTeacherCourses } from './hooks/useTeacherCourses'
 import { useTeacherExamDetail } from './hooks/useTeacherExamDetail'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
-import { useAuthStore } from '../../store/authStore'
 import { getApiErrorMessage, getApiFieldErrors, type ApiFieldErrors } from '../../api/errors'
 import * as examApi from './api/teacher-exams.api'
 import type { TeacherExamQuestionInput } from './api/teacher-exams.api'
@@ -84,11 +83,6 @@ const toExamQuestionInput = (item: ExamQuestionItem): TeacherExamQuestionInput =
 }
 
 export default function TeacherExamEditorPage() {
-  const user = useAuthStore((state) => state.user)
-  const isDepartmentHead =
-    user?.position === 'DEPARTMENT_HEAD' ||
-    Boolean(user?.permissions?.includes('APPROVE_FINAL_EXAM'))
-
   const navigate = useNavigate()
   const { examId } = useParams<{ examId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -378,7 +372,7 @@ export default function TeacherExamEditorPage() {
       if (submit) await examApi.submitTeacherExam(saved.id)
       toast.success(
         submit
-          ? examCategory === 'FINAL' && !isDepartmentHead
+          ? examCategory === 'FINAL'
             ? 'Đã gửi đề thi cuối kỳ để duyệt.'
             : 'Đã hoàn tất đề thi.'
           : `Đã lưu nháp ${examTypeLabel[examType]} với ${questions.length} câu hỏi.`,
@@ -418,7 +412,6 @@ export default function TeacherExamEditorPage() {
             onSaveDraft={handleSaveDraft}
             onPublishExam={handlePublishExam}
             examCategory={examCategory}
-            isDepartmentHead={isDepartmentHead}
           />
 
           <ExamEditorWizardNav
