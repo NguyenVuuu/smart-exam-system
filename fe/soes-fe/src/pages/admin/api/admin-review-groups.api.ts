@@ -39,7 +39,10 @@ export async function listReviewCandidates(groupId: string) {
   const response = await apiClient.get<ApiResponse<ReviewCandidate[]>>(`${root}/${groupId}/candidates`)
   return response.data.data
 }
-export const createReviewGroup = (departmentId: string, name: string, reason: string) => apiClient.post(root, { departmentId, name, reason })
+export async function createReviewGroup(departmentId: string, name: string, reason: string) {
+  const response = await apiClient.post<ApiResponse<BackofficeReviewGroup>>(root, { departmentId, name, reason })
+  return response.data.data
+}
 export const renameReviewGroup = (id: string, name: string, reason: string) => apiClient.patch(`${root}/${id}`, { name, reason })
 export const setReviewGroupStatus = (id: string, status: 'ACTIVE' | 'INACTIVE', reason: string) => apiClient.patch(`${root}/${id}/status`, { status, reason })
 export const addReviewGroupMember = (id: string, teacherId: string, reason: string) => apiClient.put(`${root}/${id}/members/${teacherId}`, { reason })

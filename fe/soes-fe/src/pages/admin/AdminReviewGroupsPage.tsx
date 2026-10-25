@@ -1,9 +1,10 @@
-import { ShieldCheck } from 'lucide-react'
+import { Plus, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '../../store/authStore'
 import { getApiErrorMessage } from '../../api/errors'
 import AdminLayout from './components/AdminLayout'
+import AdminModal from './components/AdminModal'
 import AdminPageHeader from './components/AdminPageHeader'
 import AdminSelect from './components/AdminSelect'
 import {
@@ -25,6 +26,8 @@ export default function AdminReviewGroupsPage() {
   const [departmentId, setDepartmentId] = useState('')
   const [name, setName] = useState('')
   const [newGroupName, setNewGroupName] = useState('')
+  const [createReason, setCreateReason] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
   const [reason, setReason] = useState('')
   const [teacherId, setTeacherId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -80,8 +83,25 @@ export default function AdminReviewGroupsPage() {
     } finally { setSaving(false) }
   }
 
+  const createGroup = async () => {
+    if (!departmentId || newGroupName.trim().length < 3 || createReason.trim().length < 5) return
+    setSaving(true)
+    try {
+      const created = await createReviewGroup(departmentId, newGroupName.trim(), createReason.trim())
+      await refresh()
+      setSelectedId(created.id)
+      setDepartmentId('')
+      setNewGroupName('')
+      setCreateReason('')
+      setCreateOpen(false)
+      toast.success('Đã tạo nhóm duyệt đề.')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Không thể tạo nhóm duyệt đề.'))
+    } finally { setSaving(false) }
+  }
+
   return <AdminLayout>
-    <AdminPageHeader icon={<ShieldCheck size={22} />} title="Nhóm duyệt đề" description="Xem nhóm duyệt cố định của tất cả bộ môn. Tài khoản được cấp quyền có thể hỗ trợ cập nhật nhóm." />
+    <AdminPageHeader icon={<ShieldCheck size={22} />} title="Nhóm duyệt đề" description="Xem nhóm duyệt cố định của tất cả bộ môn. Tài khoản được cấp quyền có thể hỗ trợ cập nhật nhóm." action={canManage && availableDepartments.length > 0 ? <button type="button" className={`${buttonClass} inline-flex items-center gap-2`} onClick={() => setCreateOpen(true)}><Plus size={16} /> Tạo nhóm</button> : undefined} />
     <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
       <aside className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Bộ môn ({groups.length})</h2>
@@ -133,21 +153,21 @@ export default function AdminReviewGroupsPage() {
               <button className={buttonClass} type="button" disabled={saving || !teacherId} onClick={() => void perform(async () => { await addReviewGroupMember(selected.id, teacherId, reason.trim()); setTeacherId('') }, 'Đã thêm thành viên.')}>Thêm thành viên</button>
             </div>
           </>}
-          {availableDepartments.length > 0 && <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-            <AdminSelect
-              ariaLabel="Bộ môn chưa có nhóm"
-              value={departmentId}
-              onChange={setDepartmentId}
-              options={availableDepartments.map((department) => ({ value: department.id, label: `${department.name} (${department.code})` }))}
-              placeholder="Chọn bộ môn chưa có nhóm"
-              disabled={saving}
-              className="min-w-48 flex-1"
-            />
-            <input aria-label="Tên nhóm mới" className={`${fieldClass} min-w-48 flex-1`} value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} placeholder="Tên nhóm mới" />
-            <button className={buttonClass} type="button" disabled={saving || !departmentId || newGroupName.trim().length < 3} onClick={() => void perform(async () => { await createReviewGroup(departmentId, newGroupName.trim(), reason.trim()); setNewGroupName(''); setDepartmentId('') }, 'Đã tạo nhóm duyệt đề.')}>Tạo nhóm</button>
-          </div>}
         </div>}
       </section>
     </div>
+    <AdminModal open={createOpen} title="Tạo nhóm duyệt đề" description="Mỗi bộ môn có một nhóm duyệt cố định. Trưởng bộ môn sẽ được thêm vào nhóm khi tạo." confirmText="Tạo nhóm" confirmDisabled={saving || !departmentId || newGroupName.trim().length < 3 || createReason.trim().length < 5} onClose={() => { if (!saving) setCreateOpen(false) }} onConfirm={() => void createGroup()} size="md">
+      <div className="space-y-4">
+        <label className="block text-sm font-medium">Bộ môn chưa có nhóm
+          <AdminSelect ariaLabel="Bộ môn chưa có nhóm" value={departmentId} onChange={setDepartmentId} options={availableDepartments.map((department) => ({ value: department.id, label: `${department.name} (${department.code})` }))} placeholder="Chọn bộ môn" disabled={saving} className="mt-1 w-full" />
+        </label>
+        <label className="block text-sm font-medium">Tên nhóm
+          <input className={`${fieldClass} mt-1`} value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} maxLength={120} placeholder="Ví dụ: Nhóm duyệt đề Công nghệ phần mềm" />
+        </label>
+        <label className="block text-sm font-medium">Lý do tạo nhóm
+          <textarea className={`${fieldClass} mt-1`} value={createReason} onChange={(event) => setCreateReason(event.target.value)} maxLength={1000} rows={3} placeholder="Nêu lý do tạo nhóm (ít nhất 5 ký tự)" />
+        </label>
+      </div>
+    </AdminModal>
   </AdminLayout>
 }
