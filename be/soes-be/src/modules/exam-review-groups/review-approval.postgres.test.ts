@@ -71,8 +71,16 @@ test('PostgreSQL accepts one group decision per submitted exam and question', { 
     await submitFinalExam(revisedExam.id, headId)
     assert.equal((await prisma.exam.findUniqueOrThrow({ where: { id: revisedExam.id } })).approvalStatus, 'PENDING')
     assert.equal((await listReadyExams()).some((item) => item.id === revisedExam.id), false)
-    await reviewExam(revisedExam.id, lecturerId, false, 'Cần sửa ma trận và đáp án.')
+    await reviewExam(revisedExam.id, lecturerId, false, 'Cần sửa ma trận và đáp án.', [
+      { questionId: examQuestion.id, note: 'Kiểm tra lại đáp án câu 1.' },
+    ])
     assert.equal((await prisma.exam.findUniqueOrThrow({ where: { id: revisedExam.id } })).rejectionReason, 'Cần sửa ma trận và đáp án.')
+    const revisionDecision = await prisma.examReviewDecision.findFirstOrThrow({
+      where: { round: { examId: revisedExam.id, version: 1 } },
+    })
+    assert.deepEqual(revisionDecision.questionFeedback, [{
+      questionId: examQuestion.id, order: 1, title: 'Original question', note: 'Kiểm tra lại đáp án câu 1.',
+    }])
     await prisma.examQuestion.update({ where: { id: examQuestion.id }, data: { title: 'Revised question' } })
     await submitFinalExam(revisedExam.id, headId)
     const latest = await prisma.examReviewRound.findFirstOrThrow({ where: { examId: revisedExam.id }, orderBy: { version: 'desc' } })

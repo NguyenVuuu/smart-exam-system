@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import * as api from '../api/teacher-approvals.api'
 import { toExam } from '../mappers/teacher-exam.mapper'
 import { toQuestion } from '../mappers/teacher-question.mapper'
+import { getSocket } from '../../../api/socket'
 import type { Exam } from '../types/teacher-exam.types'
 import type { Question } from '../types/teacher-question-bank.types'
 
@@ -36,6 +37,15 @@ export function useTeacherApprovals(questionsEnabled: boolean, examsEnabled: boo
   }, [questionsEnabled, examsEnabled])
 
   useEffect(() => { void Promise.resolve().then(load) }, [load])
+  useEffect(() => {
+    const socket = getSocket()
+    const refreshQueue = (notification: { link?: string | null }) => {
+      if (notification.link === '/teacher/department-approvals'
+        || notification.link?.startsWith('/teacher/exams/')) void load()
+    }
+    socket.on('notification:created', refreshQueue)
+    return () => { socket.off('notification:created', refreshQueue) }
+  }, [load])
 
   const mutate = async (action: () => Promise<unknown>) => { await action(); await load() }
   return {
@@ -43,6 +53,7 @@ export function useTeacherApprovals(questionsEnabled: boolean, examsEnabled: boo
     approveQuestion: (id: string) => mutate(() => api.approveQuestion(id)),
     rejectQuestion: (id: string, reason: string) => mutate(() => api.rejectQuestion(id, reason)),
     approveExam: (id: string) => mutate(() => api.approveExam(id)),
-    rejectExam: (id: string, reason: string) => mutate(() => api.rejectExam(id, reason)),
+    rejectExam: (id: string, reason: string, questionNotes: api.ExamQuestionRevisionNote[]) =>
+      mutate(() => api.rejectExam(id, reason, questionNotes)),
   }
 }

@@ -176,6 +176,7 @@ model ExamReviewDecision {
   reviewerId String
   type       ExamReviewDecisionType
   reason     String?
+  questionFeedback Json?
   createdAt  DateTime               @default(now())
   round      ExamReviewRound        @relation(fields: [roundId], references: [id], onDelete: Restrict)
   reviewer   Teacher                @relation("ReviewDecisionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)

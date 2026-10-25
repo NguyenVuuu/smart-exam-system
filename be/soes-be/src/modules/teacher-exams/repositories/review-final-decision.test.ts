@@ -13,6 +13,7 @@ type State = {
 }
 
 test('one atomic review decision wins, including a decision by the author', async (context) => {
+  let storedFeedback: unknown
   const state: State = {
     roundStatus: 'PENDING', approvalStatus: 'PENDING', examStatus: 'DRAFT',
     membershipStatus: 'ACTIVE', decisionCount: 0, auditCount: 0, failAudit: false,
@@ -25,6 +26,7 @@ test('one atomic review decision wins, including a decision by the author', asyn
       examReviewRound: {
         findFirst: async () => ({
           id: 'round', version: 1, status: local.roundStatus, groupId: 'group',
+          snapshot: { examQuestions: [{ id: 'question-1', orderIndex: 1, title: 'Question one' }] },
           exam: { id: 'exam', type: 'FINAL', status: local.examStatus, approvalStatus: local.approvalStatus, subject: { departmentId: 'department' } },
           group: { departmentId: 'department', status: 'ACTIVE', department: { status: 'ACTIVE' } },
         }),
@@ -35,7 +37,10 @@ test('one atomic review decision wins, including a decision by the author', asyn
         },
       },
       departmentReviewMember: { findUnique: async () => ({ status: local.membershipStatus }) },
-      examReviewDecision: { create: async () => { local.decisionCount += 1 } },
+      examReviewDecision: { create: async ({ data }: { data: { questionFeedback: unknown } }) => {
+        storedFeedback = data.questionFeedback
+        local.decisionCount += 1
+      } },
       exam: {
         updateMany: async ({ data }: { data: { status: State['examStatus']; approvalStatus: State['approvalStatus'] } }) => {
           if (local.approvalStatus !== 'PENDING') return { count: 0 }
@@ -114,4 +119,16 @@ test('one atomic review decision wins, including a decision by the author', asyn
   assert.equal(state.roundStatus, 'PENDING')
   assert.equal(state.approvalStatus, 'PENDING')
   assert.equal(state.decisionCount, 0)
+
+  state.failAudit = false
+  await assert.rejects(repository.reviewExam('exam', 'author', false, 'Please revise this exam', [
+    { questionId: 'another-question', note: 'Wrong answer' },
+  ]), { statusCode: 422 })
+  assert.equal(state.decisionCount, 0)
+  await repository.reviewExam('exam', 'author', false, 'Please revise this exam', [
+    { questionId: 'question-1', note: 'Correct the answer key' },
+  ])
+  assert.deepEqual(storedFeedback, [{
+    questionId: 'question-1', order: 1, title: 'Question one', note: 'Correct the answer key',
+  }])
 })

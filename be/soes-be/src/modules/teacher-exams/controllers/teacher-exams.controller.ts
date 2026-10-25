@@ -48,7 +48,10 @@ export const updateStudentVisibility = async (req: Request, res: Response) => se
 export const listApprovals = async (req: Request, res: Response) => send(res, await service.listApprovals(req.user!.profileId, examApprovalQuerySchema.parse(req.query)))
 export const getApproval = async (req: Request, res: Response) => send(res, await service.getApproval(req.user!.profileId, idParam.parse(req.params).id))
 export const approve = async (req: Request, res: Response) => send(res, await service.approve(req.user!.profileId, idParam.parse(req.params).id))
-export const reject = async (req: Request, res: Response) => send(res, await service.reject(req.user!.profileId, idParam.parse(req.params).id, examRejectionSchema.parse(req.body).reason))
+export const reject = async (req: Request, res: Response) => {
+  const body = examRejectionSchema.parse(req.body)
+  send(res, await service.reject(req.user!.profileId, idParam.parse(req.params).id, body.reason, body.questionNotes))
+}
 export const listSchedules = async (req: Request, res: Response) => send(res, await scheduleService.list(req.user!.profileId, idParam.parse(req.params).id))
 export const createSchedule = async (req: Request, res: Response) => send(res, await scheduleService.create(req.user!.profileId, req.user!.id, idParam.parse(req.params).id, teacherExamScheduleBodySchema.parse(req.body)), 201)
 export const updateSchedule = async (req: Request, res: Response) => {

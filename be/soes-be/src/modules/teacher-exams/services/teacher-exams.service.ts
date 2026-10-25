@@ -5,7 +5,9 @@ import {
   ValidationError,
 } from "../../../errors/AppError";
 import { randomInt, randomUUID } from "crypto";
+import { logger } from "../../../lib/logger";
 import { toPagination } from "../../../utils/pagination";
+import { notifyUsers } from "../../notifications/notifications.service";
 import {
   toTeacherExamDetailDto,
   toTeacherExamDto,
@@ -17,6 +19,7 @@ import type {
   ExamApprovalQuery,
   ExamBody,
   ExamQuestionInput,
+  ExamQuestionReviewNote,
   ExamsQuery,
 } from "../validators/teacher-exams.validator";
 import type { SnapshotSource } from "../repositories/exam-question-snapshot.repository";
@@ -216,7 +219,17 @@ export async function get(teacherId: string, examId: string) {
     : 0;
   if (!exam || (exam.createdById !== teacherId && !hasCourseAccess))
     throw new NotFoundError("Exam not found");
-  return toTeacherExamDetailDto(exam, teacherId);
+  const detail = toTeacherExamDetailDto(exam, teacherId);
+  if (exam.createdById !== teacherId || exam.type !== 'FINAL' || exam.approvalStatus !== 'REJECTED') return detail;
+  const round = await repo.findLatestRevisionFeedback(examId, teacherId);
+  const feedback = round?.decision?.questionFeedback;
+  const revisionFeedback = Array.isArray(feedback)
+    ? feedback.filter((item): item is { questionId: string; order: number; title: string; note: string } =>
+        item !== null && typeof item === 'object' && !Array.isArray(item)
+        && typeof item.questionId === 'string' && typeof item.order === 'number'
+        && typeof item.title === 'string' && typeof item.note === 'string')
+    : [];
+  return { ...detail, revisionFeedback };
 }
 
 export async function getReviewHistory(teacherId: string, examId: string) {
@@ -394,7 +407,19 @@ export async function submit(teacherId: string, examId: string) {
   if (!exam._count.examQuestions)
     throw new ValidationError("Exam must contain at least one question");
   if (exam.type === 'FINAL') {
-    return toTeacherExamDto(await lifecycleRepo.submitFinalExam(examId, teacherId), teacherId)
+    const submitted = await lifecycleRepo.submitFinalExam(examId, teacherId)
+    try {
+      const members = await repo.findReviewNotificationTargets(submitted.subject.departmentId)
+      await notifyUsers(
+        members.map(({ teacher }) => teacher.userId),
+        'Đề thi cuối kỳ cần duyệt',
+        `Đề "${submitted.title}" đã được gửi tới nhóm duyệt đề.`,
+        { link: '/teacher/department-approvals' },
+      )
+    } catch (error) {
+      logger.error('Could not notify final exam reviewers', { examId, error: String(error) })
+    }
+    return toTeacherExamDto(submitted, teacherId)
   }
 
   const data = {
@@ -477,15 +502,42 @@ async function review(
   examId: string,
   approved: boolean,
   reason?: string,
+  questionNotes: ExamQuestionReviewNote[] = [],
 ) {
-  const reviewed = await lifecycleRepo.reviewExam(examId, teacherId, approved, reason)
+  const reviewed = await lifecycleRepo.reviewExam(examId, teacherId, approved, reason, questionNotes)
+  try {
+    const members = await repo.findReviewNotificationTargets(reviewed.subject.departmentId)
+    const otherReviewers = members.map(({ teacher }) => teacher.userId)
+      .filter((userId) => userId !== reviewed.createdBy.userId && userId !== reviewed.reviewedBy?.userId)
+    const notifications = [
+      notifyUsers(
+        [reviewed.createdBy.userId],
+        approved ? 'Đề thi cuối kỳ đã được duyệt' : 'Đề thi cuối kỳ cần chỉnh sửa',
+        approved
+          ? `Đề "${reviewed.title}" đã được nhóm duyệt đề phê duyệt.`
+          : `Đề "${reviewed.title}" có yêu cầu sửa. Mở chi tiết đề để xem lý do và góp ý từng câu.`,
+        { link: `/teacher/exams/${examId}` },
+      ),
+    ]
+    if (otherReviewers.length) {
+      notifications.push(notifyUsers(
+        otherReviewers,
+        approved ? 'Đề thi cuối kỳ đã được duyệt' : 'Đề thi cuối kỳ đã yêu cầu sửa',
+        `Đề "${reviewed.title}" đã được một thành viên trong nhóm xử lý.`,
+        { link: '/teacher/department-approvals' },
+      ))
+    }
+    await Promise.all(notifications)
+  } catch (error) {
+    logger.error('Could not notify final exam decision', { examId, error: String(error) })
+  }
   return toTeacherExamDto(reviewed, teacherId);
 }
 
 export const approve = (teacherId: string, examId: string) =>
   review(teacherId, examId, true);
-export const reject = (teacherId: string, examId: string, reason: string) =>
-  review(teacherId, examId, false, reason);
+export const reject = (teacherId: string, examId: string, reason: string, questionNotes: ExamQuestionReviewNote[] = []) =>
+  review(teacherId, examId, false, reason, questionNotes);
 
 export async function extendAttemptTime(
   teacherId: string,

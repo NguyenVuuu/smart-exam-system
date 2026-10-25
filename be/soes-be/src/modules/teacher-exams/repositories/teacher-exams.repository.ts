@@ -7,8 +7,8 @@ import { createExamQuestion, deleteExamQuestions, type SnapshotInput } from './e
 export const examInclude = {
   subject: { select: { id: true, code: true, name: true, departmentId: true } },
   semester: { select: { id: true, code: true, name: true, status: true } },
-  createdBy: { select: { id: true, user: { select: { fullName: true } } } },
-  reviewedBy: { select: { id: true, user: { select: { fullName: true } } } },
+  createdBy: { select: { id: true, userId: true, user: { select: { fullName: true } } } },
+  reviewedBy: { select: { id: true, userId: true, user: { select: { fullName: true } } } },
   sections: { orderBy: { orderIndex: 'asc' as const }, include: { _count: { select: { questions: true } } } },
   schedules: {
     select: {
@@ -62,9 +62,16 @@ export function findOwnedReviewHistory(examId: string, teacherId: string) {
     where: { examId, exam: { createdById: teacherId } },
     select: {
       id: true, version: true, status: true, submittedAt: true, decidedAt: true,
-      decision: { select: { type: true, reason: true, createdAt: true, reviewer: { select: { id: true, user: { select: { fullName: true } } } } } },
+      decision: { select: { type: true, reason: true, questionFeedback: true, createdAt: true, reviewer: { select: { id: true, user: { select: { fullName: true } } } } } },
     },
     orderBy: { version: 'desc' },
+  })
+}
+export function findLatestRevisionFeedback(examId: string, teacherId: string) {
+  return prisma.examReviewRound.findFirst({
+    where: { examId, status: 'REVISION_REQUESTED', exam: { createdById: teacherId } },
+    orderBy: { version: 'desc' },
+    select: { decision: { select: { questionFeedback: true } } },
   })
 }
 export const hasClosedCourseExamAccess = (teacherId: string, examId: string) => prisma.examScheduleCourse.count({
@@ -292,6 +299,16 @@ export function findReviewerGroup(teacherId: string) {
         } },
       } },
     },
+  })
+}
+
+export function findReviewNotificationTargets(departmentId: string) {
+  return prisma.departmentReviewMember.findMany({
+    where: {
+      group: { departmentId, status: 'ACTIVE' }, status: 'ACTIVE',
+      teacher: { status: 'ACTIVE', user: { status: 'ACTIVE' } },
+    },
+    select: { teacher: { select: { userId: true } } },
   })
 }
 

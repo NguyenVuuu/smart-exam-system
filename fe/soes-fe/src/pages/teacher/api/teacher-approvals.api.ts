@@ -56,4 +56,6 @@ const post = (path: string, data?: unknown) => apiClient.post(path, data)
 export const approveQuestion = (id: string) => post(`/teacher/question-approvals/${id}/approve`)
 export const rejectQuestion = (id: string, reason: string) => post(`/teacher/question-approvals/${id}/reject`, { reason })
 export const approveExam = (id: string) => post(`/teacher/exam-approvals/${id}/approve`)
-export const rejectExam = (id: string, reason: string) => post(`/teacher/exam-approvals/${id}/reject`, { reason })
+export interface ExamQuestionRevisionNote { questionId: string; note: string }
+export const rejectExam = (id: string, reason: string, questionNotes: ExamQuestionRevisionNote[]) =>
+  post(`/teacher/exam-approvals/${id}/reject`, { reason, questionNotes })

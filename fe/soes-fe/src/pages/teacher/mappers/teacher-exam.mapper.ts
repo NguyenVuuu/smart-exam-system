@@ -44,6 +44,7 @@ export const toExam = (dto: TeacherExamDto): Exam => ({
 
 export const toExamDetail = (dto: TeacherExamDetailDto): Exam => ({
   ...toExam(dto),
+  revisionFeedback: dto.revisionFeedback,
   questions: dto.questions.map((item) => ({
     questionId: item.sourceQuestionId ?? item.id,
     snapshotQuestionId: item.id,

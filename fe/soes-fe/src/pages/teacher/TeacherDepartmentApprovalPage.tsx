@@ -83,6 +83,7 @@ export default function TeacherDepartmentApprovalPage() {
   const [openingId, setOpeningId] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<ApprovalItem | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
+  const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({})
 
   const questionItems: ApprovalItem[] = approvals.questions
     .map(({ itemId, question }) => ({
@@ -161,7 +162,7 @@ export default function TeacherDepartmentApprovalPage() {
             <CheckCircle2 size={17} />
           </button>
           <button
-            onClick={() => setRejecting(item)}
+            onClick={() => void openReject(item)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
             aria-label={item.kind === 'EXAM' ? 'Yêu cầu sửa' : 'Từ chối'}
             title={item.kind === 'EXAM' ? 'Yêu cầu sửa' : 'Từ chối'}
@@ -189,6 +190,22 @@ export default function TeacherDepartmentApprovalPage() {
     }
   }
 
+  const openReject = async (item: ApprovalItem) => {
+    if (item.kind === 'QUESTION' || item.source.questions.length) {
+      setRejecting(item)
+      return
+    }
+    setOpeningId(item.id)
+    try {
+      const detail = await getExamApprovalDetail(item.id)
+      setRejecting({ ...item, source: toReviewExam(detail), version: detail.reviewRound.version })
+    } catch {
+      toast.error('Không thể tải câu hỏi của phiên bản đề đã gửi duyệt.')
+    } finally {
+      setOpeningId(null)
+    }
+  }
+
   const approve = async (item: ApprovalItem) => {
     try {
       if (item.kind === 'EXAM') await approvals.approveExam(item.id)
@@ -208,10 +225,14 @@ export default function TeacherDepartmentApprovalPage() {
   const reject = async () => {
     if (!rejecting || rejectionReason.trim().length < 5) return
     try {
-      if (rejecting.kind === 'EXAM') await approvals.rejectExam(rejecting.id, rejectionReason.trim())
+      if (rejecting.kind === 'EXAM') await approvals.rejectExam(rejecting.id, rejectionReason.trim(),
+        Object.entries(questionNotes)
+          .filter(([, note]) => note.trim())
+          .map(([questionId, note]) => ({ questionId, note: note.trim() })))
       else await approvals.rejectQuestion(rejecting.id, rejectionReason.trim())
       setRejecting(null)
       setRejectionReason('')
+      setQuestionNotes({})
       toast.success(rejecting.kind === 'EXAM' ? 'Đã yêu cầu tác giả sửa đề.' : 'Đã từ chối câu hỏi và gửi lý do cho tác giả.')
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 409) {
@@ -285,9 +306,12 @@ export default function TeacherDepartmentApprovalPage() {
           item={rejecting}
           reason={rejectionReason}
           onReasonChange={setRejectionReason}
+          questionNotes={questionNotes}
+          onQuestionNoteChange={(questionId, note) => setQuestionNotes((current) => ({ ...current, [questionId]: note }))}
           onClose={() => {
             setRejecting(null)
             setRejectionReason('')
+            setQuestionNotes({})
           }}
           onSubmit={reject}
         />
@@ -510,18 +534,22 @@ function RejectModal({
   item,
   reason,
   onReasonChange,
+  questionNotes,
+  onQuestionNoteChange,
   onClose,
   onSubmit,
 }: {
   item: ApprovalItem
   reason: string
   onReasonChange: (value: string) => void
+  questionNotes: Record<string, string>
+  onQuestionNoteChange: (questionId: string, note: string) => void
   onClose: () => void
   onSubmit: () => void
 }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-100 p-5">
           <div>
             <h2 className="text-base font-semibold text-gray-900">{item.kind === 'EXAM' ? 'Yêu cầu sửa đề' : 'Từ chối câu hỏi'}</h2>
@@ -531,7 +559,7 @@ function RejectModal({
             <X size={18} />
           </button>
         </div>
-        <div className="p-5">
+        <div className="space-y-4 overflow-y-auto p-5">
           <label className="text-xs font-semibold text-gray-700">{item.kind === 'EXAM' ? 'Lý do yêu cầu sửa' : 'Lý do từ chối'}</label>
           <textarea
             value={reason}
@@ -540,6 +568,25 @@ function RejectModal({
             placeholder="Nhập lý do để giảng viên chỉnh sửa và gửi duyệt lại..."
             className="mt-2 w-full rounded-xl border border-gray-200 p-3 text-sm outline-none transition-colors focus:border-blue-500"
           />
+          {item.kind === 'EXAM' && (
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <p className="text-xs font-semibold text-gray-700">Góp ý từng câu (nếu cần)</p>
+              {item.source.questions.slice().sort((a, b) => a.order - b.order).map((question) => {
+                const questionId = question.snapshotQuestionId ?? question.questionId
+                return <label key={questionId} className="block text-xs font-medium text-gray-700">
+                  Câu {question.order}: {question.question.title}
+                  <textarea
+                    value={questionNotes[questionId] ?? ''}
+                    onChange={(event) => onQuestionNoteChange(questionId, event.target.value)}
+                    maxLength={1000}
+                    rows={2}
+                    placeholder="Nêu nội dung cần sửa ở câu này"
+                    className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-blue-500"
+                  />
+                </label>
+              })}
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
           <button onClick={onClose} className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200">

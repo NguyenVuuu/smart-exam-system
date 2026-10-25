@@ -31,8 +31,16 @@ export function useTeacherNotifications() {
     }
 
     socket.on('grade_appeal:created', handleAppealCreated)
+    const handleNotificationCreated = (notification: { title?: string; link?: string | null }) => {
+      void load()
+      if (notification.link?.startsWith('/teacher/')) {
+        toast.info(notification.title ?? 'Có thông báo mới')
+      }
+    }
+    socket.on('notification:created', handleNotificationCreated)
     return () => {
       socket.off('grade_appeal:created', handleAppealCreated)
+      socket.off('notification:created', handleNotificationCreated)
     }
   }, [load])
 
