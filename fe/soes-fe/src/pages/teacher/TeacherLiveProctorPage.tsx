@@ -18,7 +18,7 @@ import ProctoringAssignmentPicker from './components/proctoring/ProctoringAssign
 import ProctoringMetrics from './components/proctoring/ProctoringMetrics'
 import StudentLiveTable from './components/proctoring/StudentLiveTable'
 import ViolationLogTable from './components/proctoring/ViolationLogTable'
-import { violationTypeLabels } from './components/proctoring/violationLog.constants'
+import { violationTypeLabels } from './constants/violationLog.constants'
 import { useTeacherProctorAssignments } from './hooks/useTeacherProctorAssignments'
 import { useLiveProctorSocket } from './hooks/useLiveProctorSocket'
 import {

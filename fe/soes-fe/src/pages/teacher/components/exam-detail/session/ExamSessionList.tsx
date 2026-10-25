@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppCard from '../../../../../components/common/AppCard'
 import type { ExamSchedule } from '../../../types/teacher-exam.types'
-import { formatSessionTime } from './session-time.utils'
+import { formatSessionTime } from '../../../utils/session-time.utils'
 
 function getSessionEffectiveStatus(session: ExamSchedule): ExamSchedule['status'] {
   if (session.status === 'CANCELLED' || session.status === 'DRAFT') {

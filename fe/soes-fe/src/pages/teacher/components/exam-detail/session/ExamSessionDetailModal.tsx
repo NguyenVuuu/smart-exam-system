@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { releaseLabel } from '../../../constants/ExamEditorConfig'
 import type { ExamSchedule } from '../../../types/teacher-exam.types'
-import { formatDisplayDate, parseSessionDateTime } from './session-time.utils'
+import { formatDisplayDate, parseSessionDateTime } from '../../../utils/session-time.utils'
 
 const statusLabel: Record<ExamSchedule['status'], string> = {
   DRAFT: 'Bản nháp',

@@ -1,19 +1,13 @@
 import {
-  Check,
   CheckCircle2,
   Eye,
-  MessageSquarePlus,
-  MessageSquareText,
   ShieldCheck,
-  X,
   XCircle,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import AppBadge from '../../components/common/AppBadge'
-import HtmlContent from '../../components/common/HtmlContent'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
 import { useAuthStore } from '../../store/authStore'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -23,59 +17,19 @@ import { useTeacherApprovals } from './hooks/useTeacherApprovals'
 import { getExamApprovalDetail } from './api/teacher-approvals.api'
 import { getReviewGroup } from './api/teacher-review-groups.api'
 import { toReviewExam } from './mappers/teacher-review-snapshot.mapper'
-import type { Exam } from './types/teacher-exam.types'
-import type { Question } from './types/teacher-question-bank.types'
 import { formatDateTime } from '../../utils/date.utils'
-
-type ApprovalKind = 'QUESTION' | 'EXAM'
-
-type ApprovalItem =
-  | {
-      kind: 'QUESTION'
-      id: string
-      title: string
-      subjectName: string
-      authorId: string
-      authorName: string
-      createdAt: string
-      source: Question
-    }
-  | {
-      kind: 'EXAM'
-      id: string
-      title: string
-      subjectName: string
-      authorId: string
-      authorName: string
-      createdAt: string
-      version: number
-      source: Exam
-    }
-
-const questionTypeLabel = {
-  SINGLE_CHOICE: 'Một đáp án',
-  MULTIPLE_CHOICE: 'Nhiều đáp án',
-  TRUE_FALSE: 'Đúng / Sai',
-  PROGRAMMING: 'Lập trình',
-} as const
-
-const difficultyLabel = {
-  EASY: 'Dễ',
-  MEDIUM: 'Trung bình',
-  HARD: 'Khó',
-} as const
-
-const examCategoryLabel = {
-  QUIZ: 'Quiz',
-  MIDTERM: 'Giữa kỳ',
-  FINAL: 'Cuối kỳ',
-} as const
+import type { ApprovalItem, ApprovalKind } from './types/teacher-approval.types'
+import ApprovalTabs from './components/department-approval/ApprovalTabs'
+import ApprovalReviewModal from './components/department-approval/ApprovalReviewModal'
+import ApprovalRejectModal from './components/department-approval/ApprovalRejectModal'
 
 export default function TeacherDepartmentApprovalPage() {
   const user = useAuthStore((state) => state.user)
   const groupQuery = useQuery({ queryKey: ['teacher', 'review-group'], queryFn: getReviewGroup, retry: false })
-  const canReviewExams = Boolean(groupQuery.data?.status === 'ACTIVE'
-    && groupQuery.data.members.some((member) => member.teacherId === user?.profileId))
+  const canReviewExams = Boolean(
+    groupQuery.data?.status === 'ACTIVE'
+    && groupQuery.data.members.some((member) => member.teacherId === user?.profileId),
+  )
   const canReviewQuestions = canReviewExams
   const approvals = useTeacherApprovals(canReviewQuestions, canReviewExams)
 
@@ -87,30 +41,28 @@ export default function TeacherDepartmentApprovalPage() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({})
 
-  const questionItems: ApprovalItem[] = approvals.questions
-    .map(({ itemId, question }) => ({
-      kind: 'QUESTION',
-      id: itemId,
-      title: question.title,
-      subjectName: question.subjectName,
-      authorId: question.teacherId,
-      authorName: question.teacherName,
-      createdAt: question.createdAt,
-      source: question,
-    }))
+  const questionItems: ApprovalItem[] = approvals.questions.map(({ itemId, question }) => ({
+    kind: 'QUESTION',
+    id: itemId,
+    title: question.title,
+    subjectName: question.subjectName,
+    authorId: question.teacherId,
+    authorName: question.teacherName,
+    createdAt: question.createdAt,
+    source: question,
+  }))
 
-  const examItems: ApprovalItem[] = approvals.exams
-    .map((exam) => ({
-      kind: 'EXAM',
-      id: exam.id,
-      title: exam.title,
-      subjectName: exam.subjectName,
-      authorId: exam.authorId,
-      authorName: exam.authorName,
-      createdAt: exam.reviewRound.submittedAt,
-      version: exam.reviewRound.version,
-      source: exam,
-    }))
+  const examItems: ApprovalItem[] = approvals.exams.map((exam) => ({
+    kind: 'EXAM',
+    id: exam.id,
+    title: exam.title,
+    subjectName: exam.subjectName,
+    authorId: exam.authorId,
+    authorName: exam.authorName,
+    createdAt: exam.reviewRound.submittedAt,
+    version: exam.reviewRound.version,
+    source: exam,
+  }))
 
   const activeItems = activeKind === 'QUESTION' ? questionItems : examItems
 
@@ -121,7 +73,9 @@ export default function TeacherDepartmentApprovalPage() {
       render: (item) => (
         <div>
           <p className="line-clamp-1 text-sm font-semibold text-gray-900">{item.title}</p>
-          <p className="mt-1 text-xs text-gray-500">{item.kind === 'EXAM' ? `Đề thi cuối kỳ · Lần gửi ${item.version}` : 'Câu hỏi dùng chung'}</p>
+          <p className="mt-1 text-xs text-gray-500">
+            {item.kind === 'EXAM' ? `Đề thi cuối kỳ · Lần gửi ${item.version}` : 'Câu hỏi dùng chung'}
+          </p>
         </div>
       ),
     },
@@ -269,14 +223,14 @@ export default function TeacherDepartmentApprovalPage() {
         icon={<ShieldCheck size={21} />}
       />
 
-      <div className="inline-flex w-full max-w-md rounded-full bg-white p-1 shadow-sm ring-1 ring-gray-100">
-        {canReviewQuestions && <Tab active={activeKind === 'QUESTION'} onClick={() => setSelectedKind('QUESTION')}>
-          Câu hỏi chờ duyệt ({questionItems.length})
-        </Tab>}
-        {canReviewExams && <Tab active={activeKind === 'EXAM'} onClick={() => setSelectedKind('EXAM')}>
-          Đề cuối kỳ ({examItems.length})
-        </Tab>}
-      </div>
+      <ApprovalTabs
+        activeKind={activeKind}
+        onSelectKind={setSelectedKind}
+        canReviewQuestions={canReviewQuestions}
+        canReviewExams={canReviewExams}
+        questionCount={questionItems.length}
+        examCount={examItems.length}
+      />
 
       <DataTable
         columns={columns}
@@ -292,7 +246,7 @@ export default function TeacherDepartmentApprovalPage() {
       )}
 
       {reviewing && (
-        <ReviewModal
+        <ApprovalReviewModal
           item={reviewing}
           questionNotes={questionNotes}
           onQuestionNoteChange={(questionId, note) => setQuestionNotes((current) => ({ ...current, [questionId]: note }))}
@@ -310,7 +264,7 @@ export default function TeacherDepartmentApprovalPage() {
       )}
 
       {rejecting && (
-        <RejectModal
+        <ApprovalRejectModal
           item={rejecting}
           reason={rejectionReason}
           onReasonChange={setRejectionReason}
@@ -334,295 +288,6 @@ function TeacherShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TeacherTopBar />
         <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-6 py-7 lg:px-8">{children}</main>
-      </div>
-    </div>
-  )
-}
-
-function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`min-w-0 flex-1 rounded-full px-4 py-2.5 text-xs font-semibold transition-all ${
-        active
-          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ReviewModal({
-  item,
-  questionNotes,
-  onQuestionNoteChange,
-  onClose,
-  onApprove,
-  onReject,
-}: {
-  item: ApprovalItem
-  questionNotes: Record<string, string>
-  onQuestionNoteChange: (questionId: string, note: string) => void
-  onClose: () => void
-  onApprove: () => void
-  onReject: () => void
-}) {
-  const exam = item.kind === 'EXAM' ? item.source : null
-  const question = item.kind === 'QUESTION' ? item.source : null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-      <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div>
-            <h3 className="text-xs font-bold text-gray-900">Xem nội dung duyệt chuyên môn</h3>
-            <p className="mt-0.5 text-xs text-gray-500">
-              {item.kind === 'EXAM' ? `Đề thi cuối kỳ · Lần gửi ${item.version}` : 'Câu hỏi dùng chung'} • {item.subjectName}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            aria-label="Đóng"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-6">
-          {exam && <ExamReviewContent exam={exam} questionNotes={questionNotes} onQuestionNoteChange={onQuestionNoteChange} />}
-          {question && <QuestionReviewContent question={question} />}
-        </div>
-
-        <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 bg-white p-4">
-          <button
-            onClick={onReject}
-            className="rounded-xl bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100"
-          >
-            {item.kind === 'EXAM' ? 'Yêu cầu sửa' : 'Từ chối'}
-          </button>
-          <button
-            onClick={onApprove}
-            className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-emerald-700"
-          >
-            Duyệt chuyên môn
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ExamReviewContent({ exam, questionNotes, onQuestionNoteChange }: {
-  exam: Exam
-  questionNotes: Record<string, string>
-  onQuestionNoteChange: (questionId: string, note: string) => void
-}) {
-  const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
-  const orderedQuestions = exam.questions.slice().sort((a, b) => a.order - b.order)
-  return (
-    <>
-      <div className="grid shrink-0 grid-cols-2 gap-3 text-xs md:grid-cols-4">
-        <PreviewStat label="Loại bài thi" value={examCategoryLabel[exam.category ?? 'FINAL']} />
-        <PreviewStat label="Tổng câu" value={exam.questions.length} />
-        <PreviewStat label="Thời lượng" value={`${exam.defaultDurationMinutes} phút`} />
-        <PreviewStat label="Tổng điểm" value={`${exam.totalPoints} điểm`} />
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-100">
-        <div className="shrink-0 border-b border-gray-100 bg-gray-50 px-4 py-3">
-          <p className="text-sm font-semibold text-gray-900">{exam.title}</p>
-          <p className="mt-0.5 text-xs text-gray-500">{exam.description}</p>
-        </div>
-        <div className="min-h-0 flex-1 divide-y divide-gray-100 overflow-y-auto pb-4">
-          {orderedQuestions.map((item) => {
-            const questionId = item.snapshotQuestionId ?? item.questionId
-            const note = questionNotes[questionId] ?? ''
-            const noteOpen = activeNoteId === questionId || Boolean(note.trim())
-            return <div key={`${exam.id}-${questionId}-${item.order}`} className="space-y-2 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-blue-600">Câu {item.order}</span>
-                <AppBadge tone={item.question.type === 'PROGRAMMING' ? 'emerald' : 'blue'} shape="rounded">
-                  {questionTypeLabel[item.question.type]}
-                </AppBadge>
-                <AppBadge tone="gray" shape="rounded">
-                  {difficultyLabel[item.question.difficulty]}
-                </AppBadge>
-                <AppBadge tone="amber" shape="rounded">
-                  {item.points} điểm
-                </AppBadge>
-                <button
-                  type="button"
-                  onClick={() => setActiveNoteId((current) => current === questionId ? null : questionId)}
-                  aria-label={`Ghi chú yêu cầu sửa câu ${item.order}`}
-                  title={`Ghi chú yêu cầu sửa câu ${item.order}`}
-                  className={`ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${note.trim() ? 'bg-amber-50 text-amber-700' : 'text-gray-500 hover:bg-amber-50 hover:text-amber-700'}`}
-                >
-                  {note.trim() ? <MessageSquareText size={16} /> : <MessageSquarePlus size={16} />}
-                  <span>Góp ý sửa</span>
-                </button>
-              </div>
-              <HtmlContent content={item.question.content} className="text-sm font-medium leading-7 text-gray-900" />
-              <QuestionAnswerBlock question={item.question} />
-              {noteOpen && <label className="block rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-xs font-semibold text-amber-800">
-                Nội dung cần sửa ở câu {item.order}
-                <textarea
-                  value={note}
-                  onChange={(event) => onQuestionNoteChange(questionId, event.target.value)}
-                  maxLength={1000}
-                  rows={2}
-                  placeholder="Ghi rõ nội dung tác giả cần chỉnh sửa"
-                  className="mt-2 w-full rounded-lg border border-amber-200 bg-white p-2.5 text-sm font-normal text-gray-900 outline-none focus:border-amber-500"
-                />
-              </label>}
-            </div>
-          })}
-        </div>
-      </div>
-    </>
-  )
-}
-
-function QuestionReviewContent({ question }: { question: Question }) {
-  return (
-    <>
-      <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
-        <PreviewStat label="Môn học" value={question.subjectName} />
-        <PreviewStat label="Dạng câu" value={questionTypeLabel[question.type]} />
-        <PreviewStat label="Độ khó" value={difficultyLabel[question.difficulty]} />
-        <PreviewStat label="Người soạn" value={question.teacherName} />
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-100 p-5">
-        <h4 className="text-base font-semibold text-gray-950">{question.title}</h4>
-        <HtmlContent content={question.content} className="mt-2 text-sm font-medium leading-7 text-gray-900" />
-        <div className="mt-4">
-          <QuestionAnswerBlock question={question} />
-        </div>
-        {question.explanation && (
-          <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <p className="text-xs font-semibold text-blue-700">Giải thích</p>
-            <p className="mt-1 text-sm leading-6 text-blue-900">{question.explanation}</p>
-          </div>
-        )}
-      </div>
-    </>
-  )
-}
-
-function QuestionAnswerBlock({ question }: { question: Question }) {
-  if (question.type === 'PROGRAMMING') {
-    return (
-      <div className="space-y-3">
-        <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
-          <PreviewStat label="Ngôn ngữ" value={question.programmingLanguage ?? 'JAVA'} />
-          <PreviewStat label="Thời gian" value={`${question.timeLimitMs ?? 2000} ms`} />
-          <PreviewStat label="Bộ nhớ" value={`${question.memoryLimitMb ?? 256} MB`} />
-        </div>
-        <div className="rounded-xl border border-gray-100">
-          <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-700">
-            Test case
-          </div>
-          <div className="divide-y divide-gray-100">
-            {(question.testCases ?? []).map((testCase, index) => (
-              <div key={testCase.id} className="grid grid-cols-1 gap-3 p-4 text-xs md:grid-cols-[80px_1fr_1fr_100px]">
-                <span className="text-gray-500">#{index + 1}</span>
-                <span className="font-mono text-gray-700">Input: {testCase.input || '(rỗng)'}</span>
-                <span className="font-mono text-gray-700">Output: {testCase.expectedOutput}</span>
-                <AppBadge tone={testCase.isHidden ? 'gray' : 'emerald'} shape="rounded">
-                  {testCase.isHidden ? 'Ẩn' : 'Mẫu'}
-                </AppBadge>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-      {(question.options ?? []).map((option) => (
-        <div
-          key={option.id}
-          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-            option.isCorrect
-              ? 'border-emerald-100 bg-emerald-50 text-emerald-800'
-              : 'border-gray-100 bg-gray-50 text-gray-600'
-          }`}
-        >
-          {option.isCorrect && <Check size={14} className="shrink-0" />}
-          <span>{option.content}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function PreviewStat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-      <p className="text-xs font-semibold uppercase text-gray-400">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-gray-900">{value}</p>
-    </div>
-  )
-}
-
-function RejectModal({
-  item,
-  reason,
-  onReasonChange,
-  questionNotes,
-  onClose,
-  onSubmit,
-}: {
-  item: ApprovalItem
-  reason: string
-  onReasonChange: (value: string) => void
-  questionNotes: Record<string, string>
-  onClose: () => void
-  onSubmit: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-xs">
-      <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">{item.kind === 'EXAM' ? 'Yêu cầu sửa đề' : 'Từ chối câu hỏi'}</h2>
-            <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">{item.title}</p>
-          </div>
-          <button onClick={onClose} aria-label="Đóng" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="space-y-4 overflow-y-auto p-5">
-          {item.kind === 'EXAM' ? <p className="text-sm text-gray-700">
-            Xác nhận gửi yêu cầu sửa đề với {Object.values(questionNotes).filter((note) => note.trim()).length} góp ý theo câu hỏi cho người ra đề?
-          </p> : <label className="block text-xs font-semibold text-gray-700">
-            Lý do từ chối
-            <textarea
-              value={reason}
-              onChange={(event) => onReasonChange(event.target.value)}
-              rows={4}
-              placeholder="Nhập lý do từ chối câu hỏi"
-              className="mt-2 w-full rounded-xl border border-gray-200 p-3 text-sm font-normal outline-none transition-colors focus:border-blue-500"
-            />
-          </label>}
-        </div>
-        <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
-          <button onClick={onClose} className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200">
-            Hủy
-          </button>
-          <button
-            disabled={item.kind === 'EXAM' ? !Object.values(questionNotes).some((note) => note.trim()) : reason.trim().length < 5}
-            onClick={onSubmit}
-            className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
-          >
-            {item.kind === 'EXAM' ? 'Xác nhận gửi' : 'Xác nhận từ chối'}
-          </button>
-        </div>
       </div>
     </div>
   )

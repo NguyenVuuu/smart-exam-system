@@ -6,7 +6,7 @@ import type { CourseOffering } from '../../types/teacher-course.types'
 import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionForm, type ExamSessionDraft } from './session/ExamSessionForm'
 import { ExamSessionList } from './session/ExamSessionList'
-import { parseSessionDateTime } from './session/session-time.utils'
+import { parseSessionDateTime } from '../../utils/session-time.utils'
 
 interface AssignExamToCourseModalProps {
   isOpen: boolean

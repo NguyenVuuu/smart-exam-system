@@ -3,7 +3,7 @@ import AppBadge from "../../../../components/common/AppBadge";
 import TeacherPagination from "../TeacherPagination";
 import type { ViolationRecord } from "../../types/teacher-exam.types";
 import { formatViolationDateTime } from "../../../../utils/date.utils";
-import { violationTypeLabels } from "./violationLog.constants";
+import { violationTypeLabels } from "../../constants/violationLog.constants";
 
 const severityTone: Record<
   ViolationRecord["severity"],
