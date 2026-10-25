@@ -37,6 +37,8 @@ const SELECTION_PREFIX = 'role_sel:'
 interface SelectionEntry {
   userId: string
   roles: AccountRole[]
+  /** 'LOGIN' = đăng nhập thông thường; 'ROLE_SWITCH' = chuyển vai trò trong phiên */
+  source: 'LOGIN' | 'ROLE_SWITCH'
 }
 
 const ROLE_DISPLAY_NAMES: Record<AccountRole, string> = {
@@ -256,6 +258,7 @@ export async function login(dto: LoginRequestDto): Promise<LoginApiResponseDto> 
   const entry: SelectionEntry = {
     userId: user.id,
     roles: availableRoles.map((r) => r.role),
+    source: 'LOGIN',
   }
   await redis.set(`${SELECTION_PREFIX}${selectionToken}`, JSON.stringify(entry), 'EX', SELECTION_TOKEN_TTL)
 
@@ -302,6 +305,15 @@ export async function selectRole(dto: SelectRoleRequestDto): Promise<LoginRespon
     throw new ForbiddenError('Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động')
   }
 
+  // Xóa tất cả refresh token hiện có của user trên mọi role trước khi issue token mới.
+  // Chỉ áp dụng cho luồng chuyển vai trò trong phiên (ROLE_SWITCH) —
+  // KHÔNG xóa khi là login thông thường để giữ nguyên BR-02 single-device check cho STUDENT.
+  if (entry.source === 'ROLE_SWITCH') {
+    await Promise.all(
+      entry.roles.map((role) => refreshTokenStore.delete(sessionKey(entry.userId, role)))
+    )
+  }
+
   const profile = await buildProfileForRole(user, dto.role)
   return issueTokens(profile)
 }
@@ -332,6 +344,43 @@ export async function refreshAccessToken(token: string): Promise<string> {
   }
 
   return signAccessToken(freshPayload)
+}
+
+/**
+ * Tạo selection token mới cho user đã đăng nhập — dùng để chuyển vai trò
+ * trong phiên mà không cần nhập lại mật khẩu.
+ * Chỉ hợp lệ khi user thực sự có ≥ 2 vai trò đang hoạt động.
+ */
+export async function requestRoleSwitch(userId: string): Promise<RoleSelectionRequiredDto> {
+  const user = await repo.findUserWithProfilesById(userId)
+  if (!user) throw new UnauthorizedError('Người dùng không tồn tại')
+  if (user.status !== 'ACTIVE') throw new ForbiddenError('Tài khoản đã bị khóa')
+
+  const availableRoles = resolveAvailableRoles(user)
+  if (availableRoles.length < 2) {
+    throw new ForbiddenError('Tài khoản chỉ có một vai trò, không cần chuyển')
+  }
+
+  const selectionToken = crypto.randomUUID()
+  const entry: SelectionEntry = {
+    userId: user.id,
+    roles: availableRoles.map((r) => r.role),
+    source: 'ROLE_SWITCH',
+  }
+  await redis.set(`${SELECTION_PREFIX}${selectionToken}`, JSON.stringify(entry), 'EX', SELECTION_TOKEN_TTL)
+
+  logger.info('Role switch requested', { userId: user.id, roles: entry.roles })
+
+  return {
+    requireRoleSelection: true,
+    selectionToken,
+    availableRoles,
+    user: {
+      id: user.id,
+      fullName: user.fullName,
+      avatarUrl: user.avatarUrl,
+    },
+  }
 }
 
 export async function logout(accessToken: string, userId: string): Promise<void> {

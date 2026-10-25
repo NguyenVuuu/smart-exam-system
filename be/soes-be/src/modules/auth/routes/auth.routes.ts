@@ -6,6 +6,7 @@ const router = Router()
 
 router.post('/login', authController.login)
 router.post('/select-role', authController.selectRole)
+router.post('/request-role-switch', authenticate, authController.requestRoleSwitch)
 router.post('/refresh-token', authController.refreshToken)
 router.post('/logout', authController.logout)
 router.get('/me', authenticate, authController.getMe)

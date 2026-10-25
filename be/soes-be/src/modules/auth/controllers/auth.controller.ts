@@ -36,6 +36,19 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
   }
 }
 
+export async function requestRoleSwitch(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized' })
+      return
+    }
+    const data = await authService.requestRoleSwitch(req.user.id)
+    res.json({ success: true, message: 'Role switch token issued', data })
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function selectRole(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = selectRoleSchema.parse(req.body)
