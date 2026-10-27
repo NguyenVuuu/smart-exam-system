@@ -12,6 +12,7 @@ import AppBadge from '../../../../components/common/AppBadge'
 import type { Exam } from '../../types/teacher-exam.types'
 import { getExamCapabilities } from '../../utils/ExamCapabilities'
 import { examStatusLabel, examStatusTone } from '../../constants/examStatus'
+import { ExamBlockchainBadge } from './ExamBlockchainBadge'
 
 const actionButtonClassName =
   'inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors'
@@ -33,6 +34,7 @@ export function ExamDetailHeader({
   onUnlockDistribution,
   visibilitySaving = false,
   contentOnly = false,
+  onTamperedChange,
 }: {
   exam: Exam
   onEdit: () => void
@@ -44,99 +46,105 @@ export function ExamDetailHeader({
   onUnlockDistribution: () => void
   visibilitySaving?: boolean
   contentOnly?: boolean
+  onTamperedChange?: (tampered: boolean) => void
 }) {
   const capabilities = getExamCapabilities(exam)
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-7 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
-        <div className="flex items-center gap-2">
-          <AppBadge tone="blue" shape="rounded" className="text-xs font-semibold px-2.5 py-1">
-            Môn học: {exam.subjectName}
-          </AppBadge>
-          <AppBadge className="text-xs font-semibold px-2.5 py-1">
-            {exam.semesterCode}
-          </AppBadge>
-          <AppBadge tone={examStatusTone[exam.status]} className="text-xs font-semibold px-2.5 py-1">
-            {examStatusLabel[exam.status]}
-          </AppBadge>
-          {exam.status !== 'DRAFT' && exam.studentVisibility === 'HIDDEN' && (
-            <AppBadge className="text-xs font-semibold px-2.5 py-1">
-              <UserX size={13} /> Đã ẩn khỏi SV
+    <div className="space-y-3">
+      <div className="bg-white border border-gray-100 rounded-2xl p-7 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <AppBadge tone="blue" shape="rounded" className="text-xs font-semibold px-2.5 py-1">
+              Môn học: {exam.subjectName}
             </AppBadge>
-          )}
-        </div>
-        <h1 className="mt-2 text-xl font-bold text-gray-900">{exam.title}</h1>
-        <p className="text-sm text-gray-500 mt-1">{exam.description}</p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={onPreview}
-          className={neutralButtonClassName}
-        >
-          <Eye size={actionIconSize} /> Xem đề
-        </button>
-        <button
-          onClick={onCopy}
-          className={neutralButtonClassName}
-        >
-          <Copy size={actionIconSize} /> Sao chép đề
-        </button>
-        {!contentOnly && capabilities.canToggleStudentVisibility && (
-          <button
-            onClick={onToggleStudentVisibility}
-            disabled={visibilitySaving}
-            aria-busy={visibilitySaving}
-            className={
-              `${exam.studentVisibility === 'HIDDEN'
-                ? emeraldButtonClassName
-                : amberButtonClassName} disabled:cursor-not-allowed disabled:opacity-60`
-            }
-          >
-            {exam.studentVisibility === 'HIDDEN' ? (
-              <>
-                <UserCheck size={actionIconSize} /> Hiện cho SV
-              </>
-            ) : (
-              <>
-                <UserX size={actionIconSize} /> Ẩn khỏi SV
-              </>
+            <AppBadge className="text-xs font-semibold px-2.5 py-1">
+              {exam.semesterCode}
+            </AppBadge>
+            <AppBadge tone={examStatusTone[exam.status]} className="text-xs font-semibold px-2.5 py-1">
+              {examStatusLabel[exam.status]}
+            </AppBadge>
+            {exam.status !== 'DRAFT' && exam.studentVisibility === 'HIDDEN' && (
+              <AppBadge className="text-xs font-semibold px-2.5 py-1">
+                <UserX size={13} /> Đã ẩn khỏi SV
+              </AppBadge>
             )}
-          </button>
-        )}
-        {!contentOnly && capabilities.canSchedule && (
+          </div>
+          <h1 className="mt-2 text-xl font-bold text-gray-900">{exam.title}</h1>
+          <p className="text-sm text-gray-500 mt-1">{exam.description}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={onPublish}
-            className={primaryButtonClassName}
-          >
-            <Send size={actionIconSize} /> Tạo ca thi
-          </button>
-        )}
-        {!contentOnly && capabilities.canEdit && (
-          <button
-            onClick={onEdit}
+            onClick={onPreview}
             className={neutralButtonClassName}
           >
-            <Edit size={actionIconSize} /> Sửa cấu hình đề thi
+            <Eye size={actionIconSize} /> Xem đề
           </button>
-        )}
-        {!contentOnly && capabilities.canLock && (
           <button
-            onClick={onLockDistribution}
-            className={amberButtonClassName}
+            onClick={onCopy}
+            className={neutralButtonClassName}
           >
-            <LockKeyhole size={actionIconSize} /> Chốt lịch thi
+            <Copy size={actionIconSize} /> Sao chép đề
           </button>
-        )}
-        {!contentOnly && capabilities.canUnlock && (
-          <button
-            onClick={onUnlockDistribution}
-            className={blueSoftButtonClassName}
-          >
-            <UnlockKeyhole size={actionIconSize} /> Mở lại lịch thi
-          </button>
-        )}
+          {!contentOnly && capabilities.canToggleStudentVisibility && (
+            <button
+              onClick={onToggleStudentVisibility}
+              disabled={visibilitySaving}
+              aria-busy={visibilitySaving}
+              className={
+                `${exam.studentVisibility === 'HIDDEN'
+                  ? emeraldButtonClassName
+                  : amberButtonClassName} disabled:cursor-not-allowed disabled:opacity-60`
+              }
+            >
+              {exam.studentVisibility === 'HIDDEN' ? (
+                <>
+                  <UserCheck size={actionIconSize} /> Hiện cho SV
+                </>
+              ) : (
+                <>
+                  <UserX size={actionIconSize} /> Ẩn khỏi SV
+                </>
+              )}
+            </button>
+          )}
+          {!contentOnly && capabilities.canSchedule && (
+            <button
+              onClick={onPublish}
+              className={primaryButtonClassName}
+            >
+              <Send size={actionIconSize} /> Tạo ca thi
+            </button>
+          )}
+          {!contentOnly && capabilities.canEdit && (
+            <button
+              onClick={onEdit}
+              className={neutralButtonClassName}
+            >
+              <Edit size={actionIconSize} /> Sửa cấu hình đề thi
+            </button>
+          )}
+          {!contentOnly && capabilities.canLock && (
+            <button
+              onClick={onLockDistribution}
+              className={amberButtonClassName}
+            >
+              <LockKeyhole size={actionIconSize} /> Chốt lịch thi
+            </button>
+          )}
+          {!contentOnly && capabilities.canUnlock && (
+            <button
+              onClick={onUnlockDistribution}
+              className={blueSoftButtonClassName}
+            >
+              <UnlockKeyhole size={actionIconSize} /> Mở lại lịch thi
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Blockchain integrity badge — chỉ hiện khi đề đã publish */}
+      {exam.status !== 'DRAFT' && <ExamBlockchainBadge exam={exam} onTamperedChange={onTamperedChange} />}
     </div>
   )
 }

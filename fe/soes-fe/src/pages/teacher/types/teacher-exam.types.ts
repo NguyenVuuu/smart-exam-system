@@ -102,6 +102,11 @@ export interface Exam {
   rejectionReason?: string
   revisionFeedback?: Array<{ questionId: string; order: number; title: string; note: string }>
   lockedReason?: string
+  // Blockchain integrity
+  contentHash?: string | null
+  blockchainTxHash?: string | null
+  blockchainAnchoredAt?: string | null
+  etherscanUrl?: string | null
 }
 
 export interface StudentCodingSubmissionResult {
