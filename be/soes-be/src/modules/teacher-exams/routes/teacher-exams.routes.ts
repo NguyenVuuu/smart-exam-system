@@ -15,6 +15,7 @@ router.get('/exams/:id/review-history', asyncHandler(controller.getReviewHistory
 router.put('/exams/:id', asyncHandler(controller.update))
 router.put('/exams/:id/questions', asyncHandler(controller.replaceQuestions))
 router.post('/exams/:id/submit', asyncHandler(controller.submit))
+router.get('/exams/:id/integrity', asyncHandler(controller.verifyIntegrity))
 router.post('/exams/:id/copy', asyncHandler(controller.copy))
 router.delete('/exams/:id', asyncHandler(controller.remove))
 router.post('/exams/:id/distribution-lock', asyncHandler(controller.lockDistribution))

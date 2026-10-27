@@ -6,6 +6,7 @@ import {
 } from "../../../errors/AppError";
 import { randomInt, randomUUID } from "crypto";
 import { logger } from "../../../lib/logger";
+import { anchorPublishedExam } from "./exam-blockchain.service";
 import { toPagination } from "../../../utils/pagination";
 import { notifyUsers } from "../../notifications/notifications.service";
 import {
@@ -439,6 +440,12 @@ export async function submit(teacherId: string, examId: string) {
   );
   if (!result.count)
     throw new ConflictError("Exam state changed; reload and try again");
+
+  // Anchor hash lên blockchain sau khi publish (fire-and-forget, không block response)
+  void anchorPublishedExam(examId).catch((error) =>
+    logger.error('Unexpected blockchain anchor error', { examId, error: String(error) })
+  );
+
   return toTeacherExamDto((await repo.findExam(examId))!, teacherId);
 }
 
@@ -505,6 +512,14 @@ async function review(
   questionNotes: ExamQuestionReviewNote[] = [],
 ) {
   const reviewed = await lifecycleRepo.reviewExam(examId, teacherId, approved, reason, questionNotes)
+
+  // Anchor hash lên blockchain khi đề FINAL được duyệt (fire-and-forget)
+  if (approved) {
+    void anchorPublishedExam(examId).catch((error) =>
+      logger.error('Unexpected blockchain anchor error for FINAL exam', { examId, error: String(error) })
+    )
+  }
+
   try {
     const members = await repo.findReviewNotificationTargets(reviewed.subject.departmentId)
     const otherReviewers = members.map(({ teacher }) => teacher.userId)

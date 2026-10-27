@@ -6,6 +6,7 @@ export const findOwnedExam = (teacherId: string, examId: string) => prisma.exam.
   where: { id: examId, createdById: teacherId },
   select: {
     id: true, title: true, subjectId: true, semesterId: true, type: true, status: true,
+    contentHash: true,
     _count: { select: { examQuestions: true } },
   },
 })

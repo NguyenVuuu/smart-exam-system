@@ -5,6 +5,7 @@ import * as service from '../services/teacher-exams.service'
 import * as scheduleService from '../services/teacher-exam-schedule.service'
 import * as gradingService from '../services/teacher-exam-grading.service'
 import * as lifecycleService from '../services/teacher-exam-lifecycle.service'
+import * as blockchainService from '../services/exam-blockchain.service'
 import { autoGenerateExamSchema, examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, examStudentVisibilitySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
 import { teacherExamScheduleBodySchema, teacherMakeupScheduleBodySchema, teacherScheduleCancellationSchema } from '../validators/teacher-exam-schedule.validator'
 import { bulkFinalizeScoresSchema, finalizeScoreSchema, invalidateAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
@@ -28,6 +29,7 @@ export const autoGenerate = async (req: Request, res: Response) => send(res, awa
 export const update = async (req: Request, res: Response) => send(res, await service.update(req.user!.profileId, idParam.parse(req.params).id, examBodySchema.parse(req.body)))
 export const replaceQuestions = async (req: Request, res: Response) => send(res, await service.replaceQuestions(req.user!.profileId, idParam.parse(req.params).id, examQuestionsSchema.parse(req.body).items))
 export const submit = async (req: Request, res: Response) => send(res, await service.submit(req.user!.profileId, idParam.parse(req.params).id))
+export const verifyIntegrity = async (req: Request, res: Response) => send(res, await blockchainService.verifyExamIntegrity(idParam.parse(req.params).id))
 export const copy = async (req: Request, res: Response) => send(res, await service.copy(req.user!.profileId, idParam.parse(req.params).id), 201)
 export const remove = async (req: Request, res: Response) => send(res, await service.remove(req.user!.profileId, idParam.parse(req.params).id))
 export const lockDistribution = async (req: Request, res: Response) => send(
