@@ -14,6 +14,7 @@ import type { ScheduleWriteInput } from "../../exam-schedules/types/exam-schedul
 import * as repo from "../repositories/teacher-exam-schedule.repository";
 import { notifyUsers } from "../../notifications/notifications.service";
 import type { TeacherExamScheduleBody, TeacherMakeupScheduleBody } from "../validators/teacher-exam-schedule.validator";
+import { verifyExamIntegrityFast } from "./exam-blockchain.service";
 
 async function toWriteInput(
   teacherId: string,
@@ -79,6 +80,18 @@ async function context(
     throw new ValidationError(
       "Course offering is unavailable or belongs to another subject or semester",
     );
+
+  // Kiểm tra tính toàn vẹn nhanh — so sánh local hash không gọi blockchain
+  // (blockchain verify đầy đủ chỉ dùng khi giảng viên bấm nút verify thủ công trên UI)
+  if (exam.contentHash) {
+    const intact = await verifyExamIntegrityFast(examId, exam.contentHash);
+    if (!intact) {
+      throw new ConflictError(
+        "Không thể tạo ca thi: nội dung đề thi không khớp với bản ghi bảo mật. Đề thi có thể đã bị chỉnh sửa trái phép.",
+      );
+    }
+  }
+
   return { exam, course };
 }
 

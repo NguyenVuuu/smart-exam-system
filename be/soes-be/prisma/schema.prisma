@@ -507,6 +507,9 @@ model Exam {
   rejectionReason        String?
   creationMethod         ExamCreationMethod    @default(MANUAL)
   type                   ExamType              @default(QUIZ)
+  contentHash            String?
+  blockchainTxHash       String?
+  blockchainAnchoredAt   DateTime?
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   createdById            String

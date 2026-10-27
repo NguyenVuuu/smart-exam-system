@@ -86,6 +86,22 @@ export const replaceTeacherExamQuestions = (id: string, items: TeacherExamQuesti
 
 export const submitTeacherExam = (id: string) => apiClient.post(`/teacher/exams/${id}/submit`)
 
+export interface ExamIntegrityResult {
+  examId: string
+  status: 'VALID' | 'TAMPERED' | 'NOT_ANCHORED' | 'BLOCKCHAIN_UNAVAILABLE'
+  currentHash: string
+  onChainHash: string | null
+  contentHashMatch: boolean
+  blockchainTxHash: string | null
+  etherscanUrl: string | null
+  anchoredAt: string | null
+  message: string
+}
+
+export const verifyTeacherExamIntegrity = (id: string) =>
+  apiClient.get<ApiResponse<ExamIntegrityResult>>(`/teacher/exams/${id}/integrity`)
+    .then(({ data }) => data.data)
+
 export const lockTeacherExamDistribution = (id: string) =>
   apiClient.post<ApiResponse<TeacherExamDto>>(`/teacher/exams/${id}/distribution-lock`).then(({ data }) => data.data)
 

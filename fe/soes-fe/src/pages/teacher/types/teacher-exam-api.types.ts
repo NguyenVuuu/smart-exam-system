@@ -35,6 +35,11 @@ export interface TeacherExamDto {
   }>
   capabilities: TeacherExamCapabilities
   createdAt: string
+  // Blockchain integrity
+  contentHash: string | null
+  blockchainTxHash: string | null
+  blockchainAnchoredAt: string | null
+  etherscanUrl: string | null
 }
 
 export interface TeacherExamDetailDto extends TeacherExamDto {

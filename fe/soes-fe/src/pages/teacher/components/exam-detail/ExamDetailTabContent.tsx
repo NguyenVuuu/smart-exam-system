@@ -46,6 +46,7 @@ interface ExamDetailTabContentProps {
   onOpenMakeupModal: () => void
   onViewSubmission: (submission: ExamSubmission) => void
   onViewViolations: (submission: ExamSubmission) => void
+  isTampered?: boolean
 }
 
 export default function ExamDetailTabContent({
@@ -77,6 +78,7 @@ export default function ExamDetailTabContent({
   onOpenMakeupModal,
   onViewSubmission,
   onViewViolations,
+  isTampered = false,
 }: ExamDetailTabContentProps) {
   if (isFinalManagementView) return null
 
@@ -111,6 +113,7 @@ export default function ExamDetailTabContent({
           onEditSession={onEditSession}
           onDeleteSession={onDeleteSession}
           canCreate={canManageSchedules}
+          isTampered={isTampered}
         />
       )
     }

@@ -40,6 +40,11 @@ export const toExam = (dto: TeacherExamDto): Exam => ({
   createdAt: dto.createdAt,
   rejectionReason: dto.rejectionReason ?? undefined,
   capabilities: dto.capabilities,
+  // Blockchain integrity
+  contentHash: dto.contentHash,
+  blockchainTxHash: dto.blockchainTxHash,
+  blockchainAnchoredAt: dto.blockchainAnchoredAt,
+  etherscanUrl: dto.etherscanUrl,
 })
 
 export const toExamDetail = (dto: TeacherExamDetailDto): Exam => ({

@@ -13,6 +13,11 @@ export interface TeacherExamDto {
     id: string; title: string; description: string | null; type: string; targetPoints: number; orderIndex: number
   }>
   capabilities: ExamCapabilities; createdAt: Date; updatedAt: Date
+  // Blockchain integrity fields
+  contentHash: string | null
+  blockchainTxHash: string | null
+  blockchainAnchoredAt: Date | null
+  etherscanUrl: string | null
 }
 
 export interface TeacherExamDetailDto extends TeacherExamDto {

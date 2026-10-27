@@ -44,6 +44,13 @@ export function toTeacherExamDto(row: ExamRow, actorId: string): TeacherExamDto 
       type: section.type, targetPoints: Number(section.targetPoints), orderIndex: section.orderIndex,
     })),
     createdAt: row.createdAt, updatedAt: row.updatedAt,
+    // Blockchain integrity fields
+    contentHash: row.contentHash ?? null,
+    blockchainTxHash: row.blockchainTxHash ?? null,
+    blockchainAnchoredAt: row.blockchainAnchoredAt ?? null,
+    etherscanUrl: row.blockchainTxHash
+      ? `https://sepolia.etherscan.io/tx/${row.blockchainTxHash}`
+      : null,
   }
 }
 

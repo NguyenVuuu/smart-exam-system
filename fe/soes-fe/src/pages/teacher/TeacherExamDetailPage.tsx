@@ -181,6 +181,7 @@ function TeacherExamDetailContent({
     useState<ExamSchedule | null>(null);
   const distributionLock = useExamDistributionLock(exam.id, onRefresh);
   const studentVisibility = useExamStudentVisibility(exam.id, onRefresh);
+  const [isTampered, setIsTampered] = useState(false);
 
   const resultReleaseText =
     resultReleaseMode === "IMMEDIATE"
@@ -260,6 +261,7 @@ function TeacherExamDetailContent({
                 onLockDistribution={distributionLock.requestLock}
                 onUnlockDistribution={distributionLock.requestUnlock}
                 visibilitySaving={studentVisibility.saving}
+                onTamperedChange={setIsTampered}
               />
             )}
 
@@ -317,6 +319,7 @@ function TeacherExamDetailContent({
               onViewViolations={(submission) =>
                 void openSubmissionViolations(submission)
               }
+              isTampered={isTampered}
             />
           </div>
         </main>

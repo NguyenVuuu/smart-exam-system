@@ -1,4 +1,4 @@
-import { CalendarClock, Plus } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Plus } from 'lucide-react'
 import AppCard from '../../../../components/common/AppCard'
 import type { ExamSchedule } from '../../types/teacher-exam.types'
 import { ExamSessionList } from './session/ExamSessionList'
@@ -10,6 +10,7 @@ export default function ExamSessionsTab({
   onEditSession,
   onDeleteSession,
   canCreate = true,
+  isTampered = false,
 }: {
   sessions: ExamSchedule[]
   onCreateSession: () => void
@@ -17,7 +18,9 @@ export default function ExamSessionsTab({
   onEditSession?: (session: ExamSchedule) => void
   onDeleteSession?: (sessionId: string) => void
   canCreate?: boolean
+  isTampered?: boolean
 }) {
+  const createBlocked = isTampered
   return (
     <div className="space-y-5">
       <AppCard className="p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -34,13 +37,27 @@ export default function ExamSessionsTab({
         </div>
 
         {canCreate && (
-          <button
-            type="button"
-            onClick={onCreateSession}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors"
-          >
-            <Plus size={17} /> Tạo ca thi
-          </button>
+          <div className="flex flex-col items-end gap-1.5">
+            <button
+              type="button"
+              onClick={createBlocked ? undefined : onCreateSession}
+              disabled={createBlocked}
+              title={createBlocked ? 'Không thể tạo ca thi: nội dung đề không khớp với bản ghi blockchain' : undefined}
+              className={`px-5 py-2.5 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors ${
+                createBlocked
+                  ? 'bg-gray-300 cursor-not-allowed opacity-60'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              <Plus size={17} /> Tạo ca thi
+            </button>
+            {createBlocked && (
+              <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
+                <AlertTriangle size={12} />
+                Đề thi bị khóa do nội dung không khớp blockchain
+              </p>
+            )}
+          </div>
         )}
       </AppCard>
 
