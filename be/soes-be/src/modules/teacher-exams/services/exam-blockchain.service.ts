@@ -9,6 +9,7 @@ import type { ExamQuestion, ExamQuestionOption, ProgrammingTestCase } from '@pri
 import prisma from '../../../lib/prisma'
 import { computeExamHash, anchorExamHash, verifyExamHash } from '../../../lib/blockchain'
 import { logger } from '../../../lib/logger'
+import { decryptField } from '../../../lib/encryption'
 
 type ExamQuestionWithRelations = ExamQuestion & {
   options: ExamQuestionOption[]
@@ -33,15 +34,15 @@ function buildExamHashContent(
       .sort((a, b) => a.orderIndex - b.orderIndex)
       .map((q) => ({
         orderIndex: q.orderIndex,
-        title: q.title,
-        content: q.content,
+        title: decryptField(q.title),
+        content: decryptField(q.content),
         type: q.type,
         difficulty: q.difficulty,
         points: String(q.points),
         options: q.options
           .sort((a, b) => a.orderIndex - b.orderIndex)
           .map((o) => ({
-            content: o.content,
+            content: decryptField(o.content),
             isCorrect: o.isCorrect,
             orderIndex: o.orderIndex,
           })),
@@ -156,7 +157,8 @@ export async function verifyExamIntegrityFast(examId: string, storedHash: string
   }
 }
 
-export interface ExamIntegrityResult {  examId: string
+export interface ExamIntegrityResult {
+  examId: string
   status: 'VALID' | 'TAMPERED' | 'NOT_ANCHORED' | 'BLOCKCHAIN_UNAVAILABLE'
   currentHash: string
   onChainHash: string | null

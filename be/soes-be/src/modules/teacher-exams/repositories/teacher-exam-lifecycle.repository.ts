@@ -7,6 +7,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '.
 import { runSerializable } from '../../../utils/transaction'
 import { readExamReviewSnapshot } from './exam-review-snapshot.repository'
 import type { ExamQuestionReviewNote } from '../validators/teacher-exams.validator'
+import { decryptField, decryptNullable } from '../../../lib/encryption'
 
 const copySuffix = ' - Bản sao'
 const toCopyTitle = (title: string) => `${title.replace(/( - Bản sao)+$/u, '')}${copySuffix}`
@@ -293,7 +294,18 @@ export function copyExam(sourceId: string, teacherId: string) {
     }
     for (const question of source.examQuestions) {
       await createExamQuestion(tx, copy.id, {
-        question,
+        question: {
+          ...question,
+          // Decrypt trước khi truyền vào createExamQuestion (vì createExamQuestion sẽ encrypt lại)
+          title: decryptField(question.title),
+          content: decryptField(question.content),
+          explanation: decryptNullable(question.explanation),
+          options: question.options.map((o) => ({
+            content: decryptField(o.content),
+            isCorrect: o.isCorrect,
+            orderIndex: o.orderIndex,
+          })),
+        },
         sourceQuestionId: question.sourceQuestionId,
         points: Number(question.points),
         orderIndex: question.orderIndex,

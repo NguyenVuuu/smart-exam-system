@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt'
 import type { Prisma, ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
+import { decryptField, decryptNullable } from '../../../lib/encryption'
 import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
 import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
@@ -225,7 +226,7 @@ function buildReviewItems(
       ? undefined
       : orderedReviewOptions(question.options, attemptQuestion.shuffledOptionIds).map((option) => ({
           id: option.id,
-          content: option.content,
+          content: decryptField(option.content),
           ...(includeAnswerKey ? { isCorrect: option.isCorrect } : {}),
         }))
 
@@ -233,7 +234,7 @@ function buildReviewItems(
       questionId: question.id,
       orderIndex: attemptQuestion.displayOrder,
       type: question.type,
-      content: question.content,
+      content: decryptField(question.content),
       points: Number(question.points),
       score: answer?.score === null || answer?.score === undefined ? null : Number(answer.score),
       isCorrect: answer?.isCorrect ?? null,
@@ -246,7 +247,7 @@ function buildReviewItems(
       ...(includeAnswerKey && !isProgramming
         ? { correctOptionIds: question.options.filter((option) => option.isCorrect).map((option) => option.id) }
         : {}),
-      ...(includeAnswerKey ? { explanation: question.explanation } : {}),
+      ...(includeAnswerKey ? { explanation: decryptNullable(question.explanation) } : {}),
     }
   })
 }
@@ -577,7 +578,7 @@ export async function getExamContent(
       return {
         id:              qId,
         orderIndex:      aq.displayOrder,
-        content:         q.content,
+        content:         decryptField(q.content),
         type:            'PROGRAMMING' as const,
         points,
         draftSourceCode: savedAnswer?.draftSourceCode ?? null,
@@ -598,10 +599,10 @@ export async function getExamContent(
     return {
       id:         qId,
       orderIndex: aq.displayOrder,
-      content:    q.content,
+      content:    decryptField(q.content),
       type:       q.type as 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE',
       points,
-      options:    orderedOptions.map(opt => ({ id: opt.id, content: opt.content })),
+      options:    orderedOptions.map(opt => ({ id: opt.id, content: decryptField(opt.content) })),
       answer:     savedAnswer?.selectedOptionIds ?? [],
     }
   })
