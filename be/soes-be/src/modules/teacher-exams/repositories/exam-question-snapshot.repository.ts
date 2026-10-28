@@ -1,4 +1,5 @@
 import type { Prisma, ProgrammingLanguage, QuestionDifficulty, QuestionType } from '@prisma/client'
+import { encryptField, encryptNullable } from '../../../lib/encryption'
 
 export interface SnapshotSource {
   id: string
@@ -44,15 +45,15 @@ export function createExamQuestion(tx: Prisma.TransactionClient, examId: string,
       orderIndex: input.orderIndex,
       points: input.points,
       sectionId: input.sectionId,
-      title: source.title,
-      content: source.content,
-      explanation: source.explanation,
+      title: encryptField(source.title),
+      content: encryptField(source.content),
+      explanation: encryptNullable(source.explanation),
       type: source.type,
       difficulty: source.difficulty,
       language: source.language,
       options: {
         create: source.options.map(({ content, isCorrect, orderIndex }, index) => ({
-          content,
+          content: encryptField(content),
           isCorrect,
           orderIndex: orderIndex ?? index + 1,
         })),

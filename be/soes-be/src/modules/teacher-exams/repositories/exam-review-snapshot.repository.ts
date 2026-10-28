@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { NotFoundError } from '../../../errors/AppError'
+import { decryptField, decryptNullable } from '../../../lib/encryption'
 
 export async function readExamReviewSnapshot(tx: Prisma.TransactionClient, examId: string): Promise<Prisma.InputJsonValue> {
   const exam = await tx.exam.findUnique({
@@ -20,5 +21,21 @@ export async function readExamReviewSnapshot(tx: Prisma.TransactionClient, examI
     },
   })
   if (!exam) throw new NotFoundError('Exam not found')
-  return JSON.parse(JSON.stringify(exam)) as Prisma.InputJsonValue
+
+  // Decrypt sensitive fields before storing in snapshot JSON
+  const decrypted = {
+    ...exam,
+    examQuestions: exam.examQuestions.map((q) => ({
+      ...q,
+      title: decryptField(q.title),
+      content: decryptField(q.content),
+      explanation: decryptNullable(q.explanation),
+      options: q.options.map((o) => ({
+        ...o,
+        content: decryptField(o.content),
+      })),
+    })),
+  }
+
+  return JSON.parse(JSON.stringify(decrypted)) as Prisma.InputJsonValue
 }
