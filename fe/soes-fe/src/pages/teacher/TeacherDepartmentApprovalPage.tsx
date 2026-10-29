@@ -4,18 +4,16 @@ import {
   ShieldCheck,
   XCircle,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
-import { useAuthStore } from '../../store/authStore'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { useTeacherApprovals } from './hooks/useTeacherApprovals'
 import { getExamApprovalDetail } from './api/teacher-approvals.api'
-import { getReviewGroup } from './api/teacher-review-groups.api'
+import { useReviewGroupAccess } from './hooks/useReviewGroupAccess'
 import { toReviewExam } from './mappers/teacher-review-snapshot.mapper'
 import { formatDateTime } from '../../utils/date.utils'
 import type { ApprovalItem, ApprovalKind } from './types/teacher-approval.types'
@@ -24,12 +22,8 @@ import ApprovalReviewModal from './components/department-approval/ApprovalReview
 import ApprovalRejectModal from './components/department-approval/ApprovalRejectModal'
 
 export default function TeacherDepartmentApprovalPage() {
-  const user = useAuthStore((state) => state.user)
-  const groupQuery = useQuery({ queryKey: ['teacher', 'review-group'], queryFn: getReviewGroup, retry: false })
-  const canReviewExams = Boolean(
-    groupQuery.data?.status === 'ACTIVE'
-    && groupQuery.data.members.some((member) => member.teacherId === user?.profileId),
-  )
+  const accessQuery = useReviewGroupAccess()
+  const canReviewExams = accessQuery.data?.canReview === true
   const canReviewQuestions = canReviewExams
   const approvals = useTeacherApprovals(canReviewQuestions, canReviewExams)
 
@@ -209,7 +203,7 @@ export default function TeacherDepartmentApprovalPage() {
           icon={<ShieldCheck size={21} />}
         />
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
-          {groupQuery.isLoading ? 'Đang kiểm tra quyền duyệt...' : 'Bạn chưa là thành viên đang hoạt động của nhóm duyệt bộ môn.'}
+          {accessQuery.isLoading ? 'Đang kiểm tra quyền duyệt...' : 'Bạn chưa là thành viên đang hoạt động của nhóm duyệt bộ môn.'}
         </div>
       </TeacherShell>
     )

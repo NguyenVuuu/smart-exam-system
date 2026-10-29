@@ -20,6 +20,7 @@ import { useLogout } from '../../../auth/hooks/useLogout'
 import { useAuthStore } from '../../../store/authStore'
 import { useSystemSettingsStore } from '../../../store/systemSettingsStore'
 import type { UserPermission } from '../../../types/auth.types'
+import { useReviewGroupAccess } from '../hooks/useReviewGroupAccess'
 import { getTeacherInitials } from '../utils/teacher-account.utils'
 
 interface SubNavItem {
@@ -27,6 +28,7 @@ interface SubNavItem {
   icon: React.ReactNode
   path: string
   requiredPermissions?: UserPermission[]
+  reviewAccess?: 'canViewGroup' | 'canReview'
 }
 
 interface NavGroup {
@@ -73,11 +75,12 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'department-approval',
     title: 'BỘ MÔN',
     items: [
-      { label: 'Nhóm duyệt đề', icon: <Users size={19} />, path: '/teacher/review-group' },
+      { label: 'Nhóm duyệt đề', icon: <Users size={19} />, path: '/teacher/review-group', reviewAccess: 'canViewGroup' },
       {
         label: 'Duyệt chuyên môn',
         icon: <ShieldCheck size={19} />,
         path: '/teacher/department-approvals',
+        reviewAccess: 'canReview',
       },
     ],
   },
@@ -98,6 +101,7 @@ export default function TeacherSidebar() {
   const userInitials = getTeacherInitials(user?.fullName)
   const { logout } = useLogout()
   const permissions = useAuthStore((state) => state.user?.permissions ?? EMPTY_PERMISSIONS)
+  const reviewAccess = useReviewGroupAccess().data
   const navRef = useRef<HTMLElement>(null)
 
   const navGroups = useMemo(
@@ -106,11 +110,12 @@ export default function TeacherSidebar() {
         ...group,
         items: group.items.filter(
           (item) =>
-            !item.requiredPermissions ||
-            item.requiredPermissions.some((permission) => permissions.includes(permission)),
+            (!item.reviewAccess || reviewAccess?.[item.reviewAccess] === true) &&
+            (!item.requiredPermissions ||
+              item.requiredPermissions.some((permission) => permissions.includes(permission))),
         ),
       })).filter((group) => group.items.length > 0),
-    [permissions],
+    [permissions, reviewAccess],
   )
 
   const isNavItemActive = (path: string) => {

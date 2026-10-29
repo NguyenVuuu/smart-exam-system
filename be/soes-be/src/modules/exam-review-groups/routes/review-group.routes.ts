@@ -6,6 +6,7 @@ import * as controller from '../controllers/review-group.controller'
 
 const router = Router()
 router.use(authenticate, requireTeacher())
+router.get('/review-group/access', asyncHandler(controller.access))
 router.get('/review-group', asyncHandler(controller.get))
 router.post('/review-group', asyncHandler(controller.create))
 router.patch('/review-group', asyncHandler(controller.rename))

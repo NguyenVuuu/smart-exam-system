@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, RefreshCw, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import AppSelect from '../../components/common/AppSelect'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -12,6 +13,7 @@ import * as api from './api/teacher-review-groups.api'
 
 const queryKey = ['teacher', 'review-group']
 const isNotFound = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 404
+const isForbidden = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 403
 
 export default function TeacherReviewGroupPage() {
   const user = useAuthStore((state) => state.user)
@@ -54,6 +56,8 @@ export default function TeacherReviewGroupPage() {
     !group?.members.some((member) => member.teacherId === candidate.id),
   )
   const canCreate = isNotFound(groupQuery.error) && user?.position === 'DEPARTMENT_HEAD'
+
+  if (isForbidden(groupQuery.error)) return <Navigate to="/teacher" replace />
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
