@@ -30,6 +30,16 @@ export interface ReviewGroupCandidate {
 
 const path = '/teacher/review-group'
 
+export interface ReviewGroupAccess {
+  canViewGroup: boolean
+  canReview: boolean
+}
+
+export async function getReviewGroupAccess() {
+  const response = await apiClient.get<ApiResponse<ReviewGroupAccess>>(`${path}/access`)
+  return response.data.data
+}
+
 export async function getReviewGroup() {
   const response = await apiClient.get<ApiResponse<ReviewGroup>>(path)
   return response.data.data

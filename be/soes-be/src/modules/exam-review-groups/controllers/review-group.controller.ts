@@ -3,6 +3,9 @@ import { sendSuccess } from '../../../utils/httpResponse'
 import * as service from '../services/review-group.service'
 import { groupBodySchema, groupStatusSchema, memberParamSchema } from '../validators/review-group.validator'
 
+export const access = async (req: Request, res: Response) =>
+  sendSuccess(res, await service.access(req.user!.profileId))
+
 export const get = async (req: Request, res: Response) =>
   sendSuccess(res, await service.get(req.user!.profileId))
 

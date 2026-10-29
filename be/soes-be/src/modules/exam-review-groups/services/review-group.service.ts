@@ -17,6 +17,18 @@ async function activeHead(tx: Prisma.TransactionClient, teacherId: string) {
   return actor
 }
 
+export async function access(teacherId: string) {
+  return runSerializable(async (tx) => {
+    const actor = await activeActor(tx, teacherId)
+    const group = await repo.findGroup(tx, actor.departmentId!)
+    const isMember = group?.members.some((member) => member.teacherId === teacherId) ?? false
+    return {
+      canViewGroup: actor.position === 'DEPARTMENT_HEAD' || isMember,
+      canReview: group?.status === 'ACTIVE' && isMember,
+    }
+  })
+}
+
 export async function get(teacherId: string) {
   return runSerializable(async (tx) => {
     const actor = await activeActor(tx, teacherId)

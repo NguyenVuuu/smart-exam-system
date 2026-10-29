@@ -47,6 +47,7 @@ import BackofficeHome from './BackofficeHome'
 import BackofficeRoute from './BackofficeRoute'
 import ProtectedRoute from './ProtectedRoute'
 import RoleRoute from './RoleRoute'
+import TeacherReviewAccessRoute from './TeacherReviewAccessRoute'
 
 export default function AppRouter() {
   return (
@@ -305,7 +306,7 @@ export default function AppRouter() {
           path="/teacher/department-approvals"
           element={
             <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
-              <TeacherDepartmentApprovalPage />
+              <TeacherReviewAccessRoute permission="canReview"><TeacherDepartmentApprovalPage /></TeacherReviewAccessRoute>
             </RoleRoute>
           }
         />
@@ -313,7 +314,7 @@ export default function AppRouter() {
           path="/teacher/review-group"
           element={
             <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
-              <TeacherReviewGroupPage />
+              <TeacherReviewAccessRoute permission="canViewGroup"><TeacherReviewGroupPage /></TeacherReviewAccessRoute>
             </RoleRoute>
           }
         />
