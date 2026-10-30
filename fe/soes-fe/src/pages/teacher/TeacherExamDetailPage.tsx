@@ -186,8 +186,6 @@ function TeacherExamDetailContent({
 
   // Nếu đề có contentHash → bắt buộc verify trước khi tạo ca thi
   const requiresVerify = Boolean(exam.contentHash)
-  // Block tạo ca thi nếu: chưa verify HOẶC đã verify nhưng bị tampered
-  const isScheduleBlocked = requiresVerify && (!hasVerified || isTampered)
 
   const resultReleaseText =
     resultReleaseMode === "IMMEDIATE"

@@ -1,4 +1,4 @@
-import { AlertTriangle, BookOpen, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Eye, HelpCircle, MessageSquare, Plus, ShieldAlert, Wrench } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Eye, HelpCircle, MessageSquare, ShieldAlert, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import AppBadge from "../../../../components/common/AppBadge";
