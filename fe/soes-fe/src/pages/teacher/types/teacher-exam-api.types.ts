@@ -157,6 +157,16 @@ export interface TeacherExamSubmissionDto {
     resolution: string | null
     resolvedAt: string | null
   }
+  scoreAdjustments: Array<{
+    id: string
+    adjustmentType: 'SYSTEM_ERROR' | 'VIOLATION' | 'MANUAL_REVIEW' | 'GRADE_APPEAL' | 'OTHER'
+    previousScore: number
+    newScore: number
+    reason: string
+    evidenceUrls: string[]
+    adjustedBy: string
+    adjustedAt: string
+  }>
   sectionScores: Array<{ id: string; title: string; score: number; maxScore: number }>
   answers: Array<{
     questionId: string; selectedOptionIds: string[]; sourceCode: string | null; score: number | null

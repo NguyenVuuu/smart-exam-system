@@ -106,6 +106,16 @@ export interface GetAttemptResultResponseDto {
   reviewConsumed: boolean
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
   reviewItems: AttemptReviewItemDto[]
+  scoreAdjustments: Array<{
+    id: string
+    adjustmentType: string
+    previousScore: number
+    newScore: number
+    reason: string
+    evidenceUrls: string[]
+    adjustedBy: string
+    adjustedAt: string
+  }>
 }
 
 export interface AttemptReviewOptionDto {

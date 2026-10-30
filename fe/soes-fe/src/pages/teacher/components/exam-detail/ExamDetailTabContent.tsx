@@ -47,6 +47,7 @@ interface ExamDetailTabContentProps {
   onViewSubmission: (submission: ExamSubmission) => void
   onViewViolations: (submission: ExamSubmission) => void
   isTampered?: boolean
+  isVerifyRequired?: boolean
 }
 
 export default function ExamDetailTabContent({
@@ -79,6 +80,7 @@ export default function ExamDetailTabContent({
   onViewSubmission,
   onViewViolations,
   isTampered = false,
+  isVerifyRequired = false,
 }: ExamDetailTabContentProps) {
   if (isFinalManagementView) return null
 
@@ -114,6 +116,7 @@ export default function ExamDetailTabContent({
           onDeleteSession={onDeleteSession}
           canCreate={canManageSchedules}
           isTampered={isTampered}
+          isVerifyRequired={isVerifyRequired}
         />
       )
     }
@@ -175,8 +178,14 @@ export default function ExamDetailTabContent({
             }
             onViewSubmission={onViewSubmission}
             onViewViolations={onViewViolations}
-            onFinalizeOne={async (submission, score, reason) => {
-              await submissionData.finalizeOne(submission.attemptId, score, reason)
+            violationsByStudentId={violationData.items.reduce<Record<string, Array<{ id: string; evidenceImageUrl: string }>>>((acc, v) => {
+              if (v.evidenceImageUrl) {
+                acc[v.studentId] = [...(acc[v.studentId] ?? []), { id: v.id, evidenceImageUrl: v.evidenceImageUrl }]
+              }
+              return acc
+            }, {})}
+            onFinalizeOne={async (submission, score, reason, adjustmentType, evidenceUrls, violationIds) => {
+              await submissionData.finalizeOne(submission.attemptId, score, reason, adjustmentType, evidenceUrls, violationIds)
             }}
             onPrepareFinalize={submissionData.prepareFinalize}
             onFinalizeAll={submissionData.finalizeMany}

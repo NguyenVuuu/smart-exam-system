@@ -222,7 +222,7 @@ export const startTeacherLiveScreen = (attemptId: string) =>
 
 export const captureTeacherLiveEvidence = (attemptId: string, streamType: 'WEBCAM' | 'SCREEN', file: File) => {
   const formData = new FormData()
-  formData.append('evidences', file)
+  formData.append('evidence', file)
   return apiClient.post<ApiResponse<ViolationRecord>>(
     `/teacher/proctoring/attempts/${attemptId}/live/${streamType}/capture`,
     formData,
@@ -343,12 +343,15 @@ export const finalizeTeacherSubmissionScore = (
   attemptId: string,
   score: number,
   reason?: string,
-) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/final-score`, { score, reason })
+  adjustmentType?: string,
+  evidenceUrls?: string[],
+  violationIds?: string[],
+) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/final-score`, { score, reason, adjustmentType, evidenceUrls, violationIds })
 
 export const finalizeTeacherSubmissionScores = (
   examId: string,
   scheduleId: string,
-  items: Array<{ attemptId: string; score: number; reason?: string }>,
+  items: Array<{ attemptId: string; score: number; reason?: string; adjustmentType?: string; evidenceUrls?: string[]; violationIds?: string[] }>,
 ) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/final-scores`, { items })
 
 export const updateTeacherResultRelease = (

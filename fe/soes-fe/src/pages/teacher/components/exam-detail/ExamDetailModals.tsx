@@ -239,7 +239,7 @@ export function StudentSubmissionReviewModal({
                 <p className="mt-1">
                   <span className="font-semibold">Lịch sử điều chỉnh:</span>{' '}
                   {submission.scoreAdjustments.map((adjustment) =>
-                    `${adjustment.oldScore}đ → ${adjustment.newScore}đ, ${adjustment.adjustedBy} (${adjustment.adjustedAt})`,
+                    `${adjustment.previousScore}đ → ${adjustment.newScore}đ, ${adjustment.adjustedBy} (${adjustment.adjustedAt})`,
                   ).join(' • ')}
                 </p>
               ) : null}

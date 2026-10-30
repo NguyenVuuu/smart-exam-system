@@ -14,6 +14,7 @@ import { verifyTeacherExamIntegrity, type ExamIntegrityResult } from '../../api/
 interface Props {
   exam: Exam
   onTamperedChange?: (tampered: boolean) => void
+  onVerifiedChange?: (verified: boolean) => void
 }
 
 type VerifyState =
@@ -22,24 +23,30 @@ type VerifyState =
   | { phase: 'done'; result: ExamIntegrityResult }
   | { phase: 'error'; message: string }
 
-export function ExamBlockchainBadge({ exam, onTamperedChange }: Props) {
+export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }: Props) {
   const [verifyState, setVerifyState] = useState<VerifyState>({ phase: 'idle' })
 
   // Chỉ hiển thị khi đề đã publish (có contentHash)
   if (!exam.contentHash && exam.status === 'DRAFT') return null
 
   const isAnchored = Boolean(exam.blockchainTxHash)
+  // Đề không có contentHash thì không cần verify — cho phép tạo ca thi bình thường
+  const requiresVerify = Boolean(exam.contentHash)
 
   const handleVerify = async () => {
     setVerifyState({ phase: 'loading' })
     try {
       const result = await verifyTeacherExamIntegrity(exam.id)
       setVerifyState({ phase: 'done', result })
-      onTamperedChange?.(result.status === 'TAMPERED')
+      const tampered = result.status === 'TAMPERED'
+      onTamperedChange?.(tampered)
+      onVerifiedChange?.(true) // đã verify dù kết quả thế nào
     } catch {
       setVerifyState({ phase: 'error', message: 'Không thể kết nối để verify. Thử lại sau.' })
     }
   }
+
+  void requiresVerify
 
   const verifyResult = verifyState.phase === 'done' ? verifyState.result : null
 
@@ -104,7 +111,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange }: Props) {
 
       {/* Verify button */}
       {exam.contentHash && (
-        <div className="pt-1 border-t border-gray-100">
+        <div className="pt-1 border-t border-gray-100 flex items-center gap-3">
           <button
             onClick={() => void handleVerify()}
             disabled={verifyState.phase === 'loading'}
@@ -122,6 +129,12 @@ export function ExamBlockchainBadge({ exam, onTamperedChange }: Props) {
               </>
             )}
           </button>
+          {verifyState.phase === 'idle' && (
+            <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
+              <ShieldAlert size={12} />
+              Cần kiểm tra toàn vẹn trước khi tạo ca thi
+            </p>
+          )}
         </div>
       )}
 

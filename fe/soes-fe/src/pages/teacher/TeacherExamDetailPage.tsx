@@ -182,6 +182,10 @@ function TeacherExamDetailContent({
   const distributionLock = useExamDistributionLock(exam.id, onRefresh);
   const studentVisibility = useExamStudentVisibility(exam.id, onRefresh);
   const [isTampered, setIsTampered] = useState(false);
+  const [hasVerified, setHasVerified] = useState(false);
+
+  // Nếu đề có contentHash → bắt buộc verify trước khi tạo ca thi
+  const requiresVerify = Boolean(exam.contentHash)
 
   const resultReleaseText =
     resultReleaseMode === "IMMEDIATE"
@@ -262,6 +266,7 @@ function TeacherExamDetailContent({
                 onUnlockDistribution={distributionLock.requestUnlock}
                 visibilitySaving={studentVisibility.saving}
                 onTamperedChange={setIsTampered}
+                onVerifiedChange={setHasVerified}
               />
             )}
 
@@ -320,6 +325,7 @@ function TeacherExamDetailContent({
                 void openSubmissionViolations(submission)
               }
               isTampered={isTampered}
+              isVerifyRequired={requiresVerify && !hasVerified}
             />
           </div>
         </main>

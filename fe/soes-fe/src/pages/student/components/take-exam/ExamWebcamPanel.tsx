@@ -27,6 +27,11 @@ export default function ExamWebcamPanel({ required, stream, status, errorMessage
     if (!video) return
     if (video.srcObject !== stream) video.srcObject = stream
     if (!stream || !isExamWebcamStreamLive(stream)) return
+    // If video is paused or has no dimensions (frozen after tab switch), re-attach stream
+    if (video.paused || (video.videoWidth === 0 && video.readyState >= 2)) {
+      video.srcObject = null
+      video.srcObject = stream
+    }
     void video.play().catch(() => undefined)
   }, [stream])
 

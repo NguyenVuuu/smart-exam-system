@@ -11,6 +11,7 @@ export default function ExamSessionsTab({
   onDeleteSession,
   canCreate = true,
   isTampered = false,
+  isVerifyRequired = false,
 }: {
   sessions: ExamSchedule[]
   onCreateSession: () => void
@@ -19,8 +20,9 @@ export default function ExamSessionsTab({
   onDeleteSession?: (sessionId: string) => void
   canCreate?: boolean
   isTampered?: boolean
+  isVerifyRequired?: boolean
 }) {
-  const createBlocked = isTampered
+  const createBlocked = isTampered || isVerifyRequired
   return (
     <div className="space-y-5">
       <AppCard className="p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -54,7 +56,9 @@ export default function ExamSessionsTab({
             {createBlocked && (
               <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
                 <AlertTriangle size={12} />
-                Đề thi bị khóa do nội dung không khớp blockchain
+                {isTampered
+                  ? 'Đề thi bị khóa do nội dung không khớp blockchain'
+                  : 'Cần kiểm tra toàn vẹn đề thi trước khi tạo ca thi'}
               </p>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { Eye, ShieldAlert, CheckCircle2, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Eye, HelpCircle, MessageSquare, ShieldAlert, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import AppBadge from "../../../../components/common/AppBadge";
@@ -15,11 +15,23 @@ import type {
 
 // ── Types nội bộ ──────────────────────────────────────────────────────────────
 
+type AdjustmentType = 'SYSTEM_ERROR' | 'VIOLATION' | 'MANUAL_REVIEW' | 'OTHER'
+
+const ADJUSTMENT_TYPE_OPTIONS: Array<{ value: AdjustmentType; label: string; icon: React.ReactNode }> = [
+  { value: 'SYSTEM_ERROR', label: 'Hệ thống chấm sai', icon: <Wrench size={14} /> },
+  { value: 'VIOLATION', label: 'Gian lận (có bằng chứng)', icon: <AlertTriangle size={14} /> },
+  { value: 'MANUAL_REVIEW', label: 'Chấm tay / Lập trình', icon: <BookOpen size={14} /> },
+  { value: 'OTHER', label: 'Lý do khác', icon: <HelpCircle size={14} /> },
+]
+
 /** Một dòng sinh viên có điểm thay đổi trong luồng "chốt cả ca" */
 interface ChangedItem {
   submission: ExamSubmission;
   score: number;
   reason: string;
+  adjustmentType: AdjustmentType;
+  evidenceUrls: string[];
+  violationIds: string[];
 }
 
 /** Trạng thái modal bulk */
@@ -27,18 +39,139 @@ type BulkModal =
   | { kind: "confirm" }
   | { kind: "reasons"; items: ChangedItem[]; cursor: number };
 
+// ── ReasonModal — modal nhập lý do cho một bài ────────────────────────────────
+
+function ReasonModal({
+  submission,
+  score,
+  saving,
+  violationEvidences,
+  onConfirm,
+  onClose,
+}: {
+  submission: ExamSubmission
+  score: number
+  saving: boolean
+  violationEvidences: Array<{ id: string; evidenceImageUrl: string }>
+  onConfirm: (reason: string, adjustmentType: AdjustmentType, evidenceUrls: string[], violationIds: string[]) => void
+  onClose: () => void
+}) {
+  const [reason, setReason] = useState('')
+  const [adjustmentType, setAdjustmentType] = useState<AdjustmentType>('OTHER')
+  const [selectedViolationIds, setSelectedViolationIds] = useState<string[]>([])
+
+  const showEvidencePicker = adjustmentType === 'VIOLATION'
+  const canSubmit = reason.trim().length >= 5 && adjustmentType
+
+  const toggleViolation = (id: string) => {
+    setSelectedViolationIds((prev) => prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id])
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <MessageSquare size={20} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-gray-900">Điểm chốt khác điểm hệ thống</h3>
+            <p className="mt-0.5 text-sm text-gray-500">
+              <span className="font-semibold text-gray-800">{submission.studentName}</span>
+              {' '}— Điểm hệ thống: <span className="font-semibold">{submission.autoScore ?? 0}đ</span>
+              {' '}→ Điểm chốt: <span className="font-semibold text-amber-700">{score}đ</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Loại điều chỉnh */}
+        <div className="mb-3">
+          <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+            Loại điều chỉnh <span className="text-rose-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {ADJUSTMENT_TYPE_OPTIONS.map((opt) => (
+              <button key={opt.value} type="button"
+                onClick={() => setAdjustmentType(opt.value)}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors ${
+                  adjustmentType === opt.value
+                    ? 'border-amber-400 bg-amber-50 text-amber-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}>
+                {opt.icon}{opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Ô lý do */}
+        <div className="mb-3">
+          <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+            Mô tả chi tiết <span className="text-rose-500">*</span>
+          </label>
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)}
+            rows={3} maxLength={500}
+            placeholder="Nhập lý do điều chỉnh điểm (ít nhất 5 ký tự)..."
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-900 outline-none focus:border-amber-400 focus:bg-white"
+            autoFocus />
+          <p className="mt-1 text-right text-xs text-gray-400">{reason.length}/500</p>
+        </div>
+
+        {/* Khu vực bằng chứng — chỉ hiện khi chọn VIOLATION */}
+        {showEvidencePicker && violationEvidences.length > 0 && (
+          <div className="mb-4 space-y-2 rounded-xl bg-red-50 border border-red-100 p-3">
+            <p className="text-xs font-semibold text-red-700 flex items-center gap-1.5">
+              <AlertTriangle size={12} /> Chọn ảnh bằng chứng từ hệ thống (tùy chọn)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {violationEvidences.map((v) => (
+                <button key={v.id} type="button" onClick={() => toggleViolation(v.id)}
+                  className={`relative overflow-hidden rounded-lg border-2 transition-all ${
+                    selectedViolationIds.includes(v.id) ? 'border-amber-400' : 'border-gray-200'
+                  }`} style={{ width: 72, height: 72 }}>
+                  <img src={v.evidenceImageUrl} alt="Vi phạm" className="h-full w-full object-cover" />
+                  {selectedViolationIds.includes(v.id) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-amber-400/30">
+                      <CheckCircle2 size={20} className="text-amber-600" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} disabled={saving}
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            Hủy
+          </button>
+          <button type="button"
+            onClick={() => onConfirm(reason.trim(), adjustmentType, [], selectedViolationIds)}
+            disabled={saving || !canSubmit}
+            className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50">
+            {saving ? "Đang chốt..." : "Xác nhận chốt điểm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── BulkReasonsModal — component riêng để tránh stale closure ─────────────────
 
 function BulkReasonsModal({
   initialItems,
   totalPending,
   saving,
+  violationsByStudentId,
   onConfirm,
   onClose,
 }: {
   initialItems: ChangedItem[];
   totalPending: number;
   saving: boolean;
+  violationsByStudentId: Record<string, Array<{ id: string; evidenceImageUrl: string }>>;
   onConfirm: (items: ChangedItem[]) => void;
   onClose: () => void;
 }) {
@@ -46,17 +179,28 @@ function BulkReasonsModal({
   const [cursor, setCursor] = useState(0);
 
   const current = items[cursor]!;
-  const allFilled = items.every((i) => i.reason.trim().length >= 5);
+  const allFilled = items.every((i) => i.reason.trim().length >= 5 && i.adjustmentType);
 
-  const updateReason = (value: string) => {
+  const updateField = (field: keyof ChangedItem, value: unknown) => {
     setItems((prev) =>
-      prev.map((item, idx) => (idx === cursor ? { ...item, reason: value } : item))
+      prev.map((item, idx) => (idx === cursor ? { ...item, [field]: value } : item))
     );
   };
 
+  const systemEvidences = violationsByStudentId[current.submission.studentId] ?? []
+  const showEvidencePicker = current.adjustmentType === 'VIOLATION'
+
+  const toggleSystemEvidence = (id: string) => {
+    const exists = current.violationIds.includes(id)
+    updateField('violationIds', exists
+      ? current.violationIds.filter((v) => v !== id)
+      : [...current.violationIds, id]
+    )
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl">
         {/* Header */}
         <div className="mb-1 flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -72,23 +216,15 @@ function BulkReasonsModal({
           </div>
           {/* Phân trang */}
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => setCursor((c) => c - 1)}
-              disabled={cursor === 0}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40"
-            >
+            <button type="button" onClick={() => setCursor((c) => c - 1)} disabled={cursor === 0}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40">
               <ChevronLeft size={14} />
             </button>
             <span className="min-w-[3rem] text-center text-xs font-semibold text-gray-600">
               {cursor + 1} / {items.length}
             </span>
-            <button
-              type="button"
-              onClick={() => setCursor((c) => c + 1)}
-              disabled={cursor === items.length - 1}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40"
-            >
+            <button type="button" onClick={() => setCursor((c) => c + 1)} disabled={cursor === items.length - 1}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40">
               <ChevronRight size={14} />
             </button>
           </div>
@@ -99,30 +235,42 @@ function BulkReasonsModal({
           <p className="text-sm font-bold text-gray-900">{current.submission.studentName}</p>
           <p className="text-xs text-gray-500 mt-0.5">{current.submission.studentCode}</p>
           <div className="mt-2 flex items-center gap-3 text-xs font-semibold">
-            <span className="text-gray-500">
-              Điểm hệ thống:{" "}
-              <span className="text-gray-800">{current.submission.autoScore ?? 0}đ</span>
-            </span>
+            <span className="text-gray-500">Điểm hệ thống: <span className="text-gray-800">{current.submission.autoScore ?? 0}đ</span></span>
             <span className="text-gray-300">→</span>
             <span className="text-amber-700">Điểm chốt: {current.score}đ</span>
           </div>
         </div>
 
-        {/* Ô lý do */}
-        <div className="mb-4">
+        {/* Loại lý do */}
+        <div className="mb-3">
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-            Lý do điều chỉnh <span className="text-rose-500">*</span>
+            Loại điều chỉnh <span className="text-rose-500">*</span>
           </label>
-          <textarea
-            key={cursor}
-            value={current.reason}
-            onChange={(e) => updateReason(e.target.value)}
-            rows={3}
-            maxLength={500}
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {ADJUSTMENT_TYPE_OPTIONS.map((opt) => (
+              <button key={opt.value} type="button"
+                onClick={() => updateField('adjustmentType', opt.value)}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors ${
+                  current.adjustmentType === opt.value
+                    ? 'border-amber-400 bg-amber-50 text-amber-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}>
+                {opt.icon}{opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Ô lý do */}
+        <div className="mb-3">
+          <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+            Mô tả chi tiết <span className="text-rose-500">*</span>
+          </label>
+          <textarea key={cursor} value={current.reason}
+            onChange={(e) => updateField('reason', e.target.value)}
+            rows={2} maxLength={500}
             placeholder="Nhập lý do (ít nhất 5 ký tự)..."
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-900 outline-none focus:border-amber-400 focus:bg-white"
-            autoFocus
-          />
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-900 outline-none focus:border-amber-400 focus:bg-white" />
           <div className="mt-1 flex items-center justify-between">
             <span className={`text-xs ${current.reason.trim().length >= 5 ? "text-emerald-600" : "text-gray-400"}`}>
               {current.reason.trim().length >= 5 ? "✓ Đã điền" : "Cần ít nhất 5 ký tự"}
@@ -131,42 +279,51 @@ function BulkReasonsModal({
           </div>
         </div>
 
+        {/* Khu vực bằng chứng khi là VIOLATION */}
+        {showEvidencePicker && systemEvidences.length > 0 && (
+          <div className="mb-3 space-y-2 rounded-xl bg-red-50 border border-red-100 p-3">
+            <p className="text-xs font-semibold text-red-700 flex items-center gap-1.5">
+              <AlertTriangle size={12} /> Chọn ảnh bằng chứng từ hệ thống (tùy chọn)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {systemEvidences.map((v) => (
+                <button key={v.id} type="button" onClick={() => toggleSystemEvidence(v.id)}
+                  className={`relative overflow-hidden rounded-lg border-2 transition-all ${
+                    current.violationIds.includes(v.id) ? 'border-amber-400' : 'border-gray-200'
+                  }`} style={{ width: 64, height: 64 }}>
+                  <img src={v.evidenceImageUrl} alt="Vi phạm" className="h-full w-full object-cover" />
+                  {current.violationIds.includes(v.id) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-amber-400/30">
+                      <CheckCircle2 size={16} className="text-amber-600" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tiến độ */}
         <div className="mb-4 flex gap-1">
           {items.map((item, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setCursor(idx)}
+            <button key={idx} type="button" onClick={() => setCursor(idx)}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
-                item.reason.trim().length >= 5
+                item.reason.trim().length >= 5 && item.adjustmentType
                   ? "bg-emerald-400"
-                  : idx === cursor
-                    ? "bg-amber-400"
-                    : "bg-gray-200"
-              }`}
-              title={item.submission.studentName}
-            />
+                  : idx === cursor ? "bg-amber-400" : "bg-gray-200"
+              }`} title={item.submission.studentName} />
           ))}
         </div>
 
         {/* Actions */}
         <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-          >
+          <button type="button" onClick={onClose} disabled={saving}
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">
             Hủy
           </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(items)}
-            disabled={saving || !allFilled}
+          <button type="button" onClick={() => onConfirm(items)} disabled={saving || !allFilled}
             className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-            title={!allFilled ? "Vui lòng điền lý do cho tất cả sinh viên" : undefined}
-          >
+            title={!allFilled ? "Vui lòng điền đầy đủ cho tất cả sinh viên" : undefined}>
             {saving ? "Đang chốt..." : `Chốt cả ca (${totalPending} bài)`}
           </button>
         </div>
@@ -182,6 +339,7 @@ export function ExamSubmissionsTab({
   onSessionChange,
   onViewSubmission,
   onViewViolations,
+  violationsByStudentId = {},
   onFinalizeOne,
   onPrepareFinalize,
   onFinalizeAll,
@@ -207,7 +365,8 @@ export function ExamSubmissionsTab({
   onResultsPublishedChange: (value: boolean) => void;
   onViewSubmission: (submission: ExamSubmission) => void;
   onViewViolations: (submission: ExamSubmission) => void;
-  onFinalizeOne: (submission: ExamSubmission, score: number, reason?: string) => Promise<void>;
+  violationsByStudentId?: Record<string, Array<{ id: string; evidenceImageUrl: string }>>;
+  onFinalizeOne: (submission: ExamSubmission, score: number, reason?: string, adjustmentType?: string, evidenceUrls?: string[], violationIds?: string[]) => Promise<void>;
   onPrepareFinalize: (scoreOverrides: Record<string, string>) => Promise<Array<{
     attemptId: string;
     studentCode: string;
@@ -251,6 +410,7 @@ export function ExamSubmissionsTab({
     score: number;
   } | null>(null);
   const [reason, setReason] = useState("");
+  void reason; void setReason; // unused — now handled inside ReasonModal
 
   // Modal bulk — chốt cả ca
   const [bulkModal, setBulkModal] = useState<BulkModal | null>(null);
@@ -303,7 +463,6 @@ export function ExamSubmissionsTab({
     }
     // Nếu điểm khác autoScore → yêu cầu nhập lý do qua modal
     if (isScoreChanged(submission, score)) {
-      setReason("");
       setReasonModal({ submission, score });
       return;
     }
@@ -319,15 +478,11 @@ export function ExamSubmissionsTab({
     }
   };
 
-  const handleConfirmWithReason = async () => {
+  const handleConfirmWithReason = async (reason: string, adjustmentType: AdjustmentType, evidenceUrls: string[], violationIds: string[]) => {
     if (!reasonModal) return;
-    if (reason.trim().length < 5) {
-      toast.error("Lý do phải có ít nhất 5 ký tự.");
-      return;
-    }
     setSaving(true);
     try {
-      await onFinalizeOne(reasonModal.submission, reasonModal.score, reason.trim());
+      await onFinalizeOne(reasonModal.submission, reasonModal.score, reason, adjustmentType, evidenceUrls, violationIds);
       toast.success("Đã chốt điểm.");
       setReasonModal(null);
     } catch {
@@ -362,9 +517,13 @@ export function ExamSubmissionsTab({
             studentCode: i.studentCode,
             studentName: i.studentName,
             autoScore: i.autoScore,
+            scoreAdjustments: [],
           } as unknown as ExamSubmission,
           score: i.score,
           reason: "",
+          adjustmentType: 'OTHER' as AdjustmentType,
+          evidenceUrls: [],
+          violationIds: [],
         }));
 
       // Lưu tổng bài chưa chốt trong toàn ca để hiển thị đúng trong modal
@@ -387,23 +546,23 @@ export function ExamSubmissionsTab({
     try {
       // Build override map: chỉ truyền những bài user đã sửa điểm (từ scores state)
       // + lý do cho những bài thay đổi. Hook sẽ tự dùng autoScore cho phần còn lại.
-      const overrides: Array<{ attemptId: string; score: number; reason?: string }> = [];
+      const overrides: Array<{ attemptId: string; score: number; reason?: string; adjustmentType?: string; evidenceUrls?: string[]; violationIds?: string[] }> = [];
       // Thêm điểm đã sửa từ UI (tất cả trang)
       for (const [attemptId, raw] of Object.entries(scores)) {
         if (raw !== "" && Number.isFinite(Number(raw))) {
           overrides.push({ attemptId, score: Number(raw) });
         }
       }
-      // Gán reason cho những bài trong reasonItems
-      const reasonMap = new Map((reasonItems ?? []).map((i) => [i.submission.attemptId, i.reason]));
-      const mergedOverrides = overrides.map((item) => ({
-        ...item,
-        reason: reasonMap.get(item.attemptId),
-      }));
+      // Gán reason + adjustmentType + evidenceUrls cho những bài trong reasonItems
+      const reasonMap = new Map((reasonItems ?? []).map((i) => [i.submission.attemptId, i]));
+      const mergedOverrides = overrides.map((item) => {
+        const ri = reasonMap.get(item.attemptId)
+        return { ...item, reason: ri?.reason, adjustmentType: ri?.adjustmentType, evidenceUrls: ri?.evidenceUrls, violationIds: ri?.violationIds }
+      });
       // Thêm những bài có reason nhưng chưa có trong overrides (điểm chưa sửa trực tiếp)
       for (const item of reasonItems ?? []) {
         if (!overrides.some((o) => o.attemptId === item.submission.attemptId)) {
-          mergedOverrides.push({ attemptId: item.submission.attemptId, score: item.score, reason: item.reason });
+          mergedOverrides.push({ attemptId: item.submission.attemptId, score: item.score, reason: item.reason, adjustmentType: item.adjustmentType, evidenceUrls: item.evidenceUrls, violationIds: item.violationIds });
         }
       }
 
@@ -687,76 +846,14 @@ export function ExamSubmissionsTab({
 
       {/* ── Modal lý do — chốt từng bài (điểm thay đổi) ── */}
       {reasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <MessageSquare size={20} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-gray-900">
-                  Điểm chốt khác điểm hệ thống
-                </h3>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  Sinh viên{" "}
-                  <span className="font-semibold text-gray-800">
-                    {reasonModal.submission.studentName}
-                  </span>{" "}
-                  — Điểm hệ thống:{" "}
-                  <span className="font-semibold text-gray-800">
-                    {reasonModal.submission.autoScore ?? 0}đ
-                  </span>{" "}
-                  → Điểm chốt:{" "}
-                  <span className="font-semibold text-amber-700">
-                    {reasonModal.score}đ
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label
-                htmlFor="finalize-reason"
-                className="mb-1.5 block text-sm font-semibold text-gray-700"
-              >
-                Lý do điều chỉnh{" "}
-                <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                id="finalize-reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={3}
-                maxLength={500}
-                placeholder="Nhập lý do điều chỉnh điểm (ít nhất 5 ký tự)..."
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-900 outline-none focus:border-amber-400 focus:bg-white"
-                autoFocus
-              />
-              <p className="mt-1 text-right text-xs text-gray-400">
-                {reason.length}/500
-              </p>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setReasonModal(null)}
-                disabled={saving}
-                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleConfirmWithReason()}
-                disabled={saving || reason.trim().length < 5}
-                className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving ? "Đang chốt..." : "Xác nhận chốt điểm"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ReasonModal
+          submission={reasonModal.submission}
+          score={reasonModal.score}
+          saving={saving}
+          violationEvidences={violationsByStudentId[reasonModal.submission.studentId] ?? []}
+          onConfirm={(r, t, e, v) => void handleConfirmWithReason(r, t, e, v)}
+          onClose={() => setReasonModal(null)}
+        />
       )}
 
       {/* ── Modal bulk — chốt cả ca (xác nhận đơn giản) ── */}
@@ -804,6 +901,7 @@ export function ExamSubmissionsTab({
           initialItems={bulkModal.items}
           totalPending={totalPendingInCa}
           saving={saving}
+          violationsByStudentId={violationsByStudentId}
           onConfirm={(items) => void executeFinalizeAll(items)}
           onClose={() => setBulkModal(null)}
         />

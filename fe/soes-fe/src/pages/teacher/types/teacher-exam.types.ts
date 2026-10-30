@@ -122,9 +122,11 @@ export interface StudentCodingSubmissionResult {
 
 export interface GradeAdjustment {
   id: string
-  oldScore: number
+  adjustmentType: 'SYSTEM_ERROR' | 'VIOLATION' | 'MANUAL_REVIEW' | 'GRADE_APPEAL' | 'OTHER'
+  previousScore: number
   newScore: number
   reason: string
+  evidenceUrls: string[]
   adjustedBy: string
   adjustedAt: string
 }
