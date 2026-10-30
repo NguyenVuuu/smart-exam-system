@@ -35,6 +35,7 @@ export function ExamDetailHeader({
   visibilitySaving = false,
   contentOnly = false,
   onTamperedChange,
+  onVerifiedChange,
 }: {
   exam: Exam
   onEdit: () => void
@@ -47,6 +48,7 @@ export function ExamDetailHeader({
   visibilitySaving?: boolean
   contentOnly?: boolean
   onTamperedChange?: (tampered: boolean) => void
+  onVerifiedChange?: (verified: boolean) => void
 }) {
   const capabilities = getExamCapabilities(exam)
   return (
@@ -144,7 +146,7 @@ export function ExamDetailHeader({
       </div>
 
       {/* Blockchain integrity badge — chỉ hiện khi đề đã publish */}
-      {exam.status !== 'DRAFT' && <ExamBlockchainBadge exam={exam} onTamperedChange={onTamperedChange} />}
+      {exam.status !== 'DRAFT' && <ExamBlockchainBadge exam={exam} onTamperedChange={onTamperedChange} onVerifiedChange={onVerifiedChange} />}
     </div>
   )
 }

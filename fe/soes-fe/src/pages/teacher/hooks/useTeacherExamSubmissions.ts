@@ -137,8 +137,8 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     await reload();
   };
 
-  const finalizeOne = async (attemptId: string, score: number, reason?: string) => {
-    await finalizeTeacherSubmissionScore(examId, scheduleId, attemptId, score, reason);
+  const finalizeOne = async (attemptId: string, score: number, reason?: string, adjustmentType?: string, evidenceUrls?: string[], violationIds?: string[]) => {
+    await finalizeTeacherSubmissionScore(examId, scheduleId, attemptId, score, reason, adjustmentType, evidenceUrls, violationIds);
     await reload();
   };
 
@@ -184,7 +184,7 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
   };
 
   const finalizeMany = async (
-    scoreOverrides: Array<{ attemptId: string; score: number; reason?: string }>,
+    scoreOverrides: Array<{ attemptId: string; score: number; reason?: string; adjustmentType?: string; evidenceUrls?: string[]; violationIds?: string[] }>,
   ) => {
     const overrideMap = new Map(
       scoreOverrides.map((item) => [item.attemptId, item]),
@@ -208,6 +208,9 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
         attemptId: submission.attemptId,
         score: override?.score ?? submission.finalScore ?? submission.autoScore ?? 0,
         reason: override?.reason,
+        adjustmentType: override?.adjustmentType,
+        evidenceUrls: override?.evidenceUrls,
+        violationIds: override?.violationIds,
       };
     });
     if (!itemsToFinalize.length) return 0;

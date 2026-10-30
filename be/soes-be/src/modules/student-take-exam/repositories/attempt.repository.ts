@@ -358,6 +358,20 @@ export async function findAttemptResult(attemptId: string, scheduleId: string, s
           reviewPolicy: true,
         },
       },
+      scoreAdjustments: {
+        orderBy: { createdAt: 'asc' as const },
+        select: {
+          id: true,
+          adjustmentType: true,
+          previousScore: true,
+          newScore: true,
+          reason: true,
+          evidenceUrls: true,
+          violationIds: true,
+          createdAt: true,
+          adjustedBy: { select: { user: { select: { fullName: true } } } },
+        },
+      },
     },
   })
 }

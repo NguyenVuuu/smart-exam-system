@@ -95,6 +95,10 @@ export function toGetAttemptResultResponseDto(result: AttemptResult): GetAttempt
     ...result,
     releaseAt: result.releaseAt?.toISOString() ?? null,
     reviewAvailableAt: result.reviewAvailableAt?.toISOString() ?? null,
+    scoreAdjustments: result.scoreAdjustments.map((adj) => ({
+      ...adj,
+      adjustedAt: adj.adjustedAt instanceof Date ? adj.adjustedAt.toISOString() : adj.adjustedAt,
+    })),
   }
 }
 
