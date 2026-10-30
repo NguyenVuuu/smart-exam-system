@@ -6,6 +6,7 @@ import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
 import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
+import prisma from '../../../lib/prisma'
 import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
 import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
 import { judge0Service, Judge0Service } from '../../../lib/judge0'
@@ -901,6 +902,37 @@ export async function getAttemptResult(
     reason,
     reviewItems: reviewAccess.available
       ? buildReviewItems(attempt, reviewPolicy === 'FULL_AFTER_RELEASE')
+      : [],
+    scoreAdjustments: available
+      ? await Promise.all((attempt.scoreAdjustments ?? []).map(async (adj) => {
+          // Resolve ảnh từ violationIds (ảnh hệ thống tự chụp)
+          let resolvedEvidenceUrls: string[] = []
+          if (adj.violationIds.length > 0) {
+            const violations = await prisma.violation.findMany({
+              where: { id: { in: adj.violationIds }, attemptId },
+              select: { evidences: { select: { objectName: true, storageProvider: true }, take: 1 } },
+            })
+            resolvedEvidenceUrls = await Promise.all(
+              violations.flatMap((v) => v.evidences).map(async (e) => {
+                try {
+                  return e.storageProvider === 'LOCAL'
+                    ? getLocalViolationEvidenceUrl(e.objectName)
+                    : await getViolationEvidenceUrl(e.objectName)
+                } catch { return null }
+              })
+            ).then((urls) => urls.filter((u): u is string => u !== null))
+          }
+          return {
+            id: adj.id,
+            adjustmentType: adj.adjustmentType,
+            previousScore: Number(adj.previousScore),
+            newScore: Number(adj.newScore),
+            reason: adj.reason,
+            evidenceUrls: resolvedEvidenceUrls,
+            adjustedBy: adj.adjustedBy.user.fullName,
+            adjustedAt: adj.createdAt,
+          }
+        }))
       : [],
   }
 }

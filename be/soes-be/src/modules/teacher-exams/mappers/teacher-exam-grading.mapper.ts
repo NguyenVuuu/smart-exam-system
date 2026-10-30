@@ -54,6 +54,16 @@ export function toExamSubmissionDto(row: SubmissionRow): ExamSubmissionDto {
       resolution: gradeAppeal.teacherReply,
       resolvedAt: gradeAppeal.handledAt,
     } : undefined,
+    scoreAdjustments: row.scoreAdjustments.map((adj) => ({
+      id: adj.id,
+      adjustmentType: adj.adjustmentType,
+      previousScore: Number(adj.previousScore),
+      newScore: Number(adj.newScore),
+      reason: adj.reason,
+      evidenceUrls: adj.evidenceUrls,
+      adjustedBy: adj.adjustedBy.user.fullName,
+      adjustedAt: adj.createdAt,
+    })),
     sectionScores: [...sections.values()],
     answers: [...answerByQuestion.values()],
     codingResults: [...latestSubmissionByQuestion.values()].flatMap((submission) =>

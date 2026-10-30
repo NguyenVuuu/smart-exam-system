@@ -108,6 +108,16 @@ export interface AttemptResult {
   reviewConsumed: boolean
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
   reviewItems: AttemptReviewItem[]
+  scoreAdjustments: Array<{
+    id: string
+    adjustmentType: string
+    previousScore: number
+    newScore: number
+    reason: string
+    evidenceUrls: string[]
+    adjustedBy: string
+    adjustedAt: Date
+  }>
 }
 
 export interface AttemptReviewOption {

@@ -1,3 +1,14 @@
+export interface ScoreAdjustmentDto {
+  id: string
+  adjustmentType: 'SYSTEM_ERROR' | 'VIOLATION' | 'MANUAL_REVIEW' | 'GRADE_APPEAL' | 'OTHER'
+  previousScore: number
+  newScore: number
+  reason: string
+  evidenceUrls: string[]
+  adjustedBy: string
+  adjustedAt: Date
+}
+
 export interface ExamSubmissionDto {
   id: string
   examId: string
@@ -21,6 +32,7 @@ export interface ExamSubmissionDto {
     resolution: string | null
     resolvedAt: Date | null
   }
+  scoreAdjustments: ScoreAdjustmentDto[]
   sectionScores: Array<{ id: string; title: string; score: number; maxScore: number }>
   answers: Array<{
     questionId: string

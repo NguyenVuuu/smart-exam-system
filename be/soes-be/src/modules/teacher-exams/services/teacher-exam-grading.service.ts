@@ -439,7 +439,7 @@ export async function grade(
   if (!['PENDING', 'IN_REVIEW'].includes(appeal.status)) {
     throw new ConflictError('This grade appeal has already been completed')
   }
-  const result = await repo.overrideScore(teacherId, userId, examId, scheduleId, attemptId, data.score, data.reason)
+  const result = await repo.overrideScore(teacherId, userId, examId, scheduleId, attemptId, data.score, data.reason, data.adjustmentType, data.evidenceUrls, data.violationIds)
   if (!result) throw new NotFoundError('Exam submission not found')
   const dto = toExamSubmissionDto(result)
   const appealUpdate = {
@@ -482,7 +482,7 @@ export async function finalizeScore(
   data: FinalizeScoreBody,
 ) {
   return finalizeScores(teacherId, userId, examId, scheduleId, {
-    items: [{ attemptId, score: data.score, reason: data.reason }],
+    items: [{ attemptId, score: data.score, reason: data.reason, adjustmentType: data.adjustmentType, evidenceUrls: data.evidenceUrls, violationIds: data.violationIds }],
   })
 }
 

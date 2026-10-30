@@ -30,16 +30,25 @@ export const violationQuerySchema = z.object({
 export const manualGradeSchema = z.object({
   score: z.coerce.number().min(0).max(1000),
   reason: z.string().trim().min(5).max(1000),
+  adjustmentType: z.enum(['SYSTEM_ERROR', 'VIOLATION', 'MANUAL_REVIEW', 'GRADE_APPEAL', 'OTHER']).optional(),
+  evidenceUrls: z.array(z.string().url()).max(10).optional(),
+  violationIds: z.array(z.string().uuid()).max(20).optional(),
 })
 export const finalizeScoreSchema = z.object({
   score: z.coerce.number().min(0).max(1000),
   reason: z.string().trim().min(5).max(1000).optional(),
+  adjustmentType: z.enum(['SYSTEM_ERROR', 'VIOLATION', 'MANUAL_REVIEW', 'GRADE_APPEAL', 'OTHER']).optional(),
+  evidenceUrls: z.array(z.string().url()).max(10).optional(),
+  violationIds: z.array(z.string().uuid()).max(20).optional(),
 })
 export const bulkFinalizeScoresSchema = z.object({
   items: z.array(z.object({
     attemptId: z.string().min(1),
     score: z.coerce.number().min(0).max(1000),
     reason: z.string().trim().min(5).max(1000).optional(),
+    adjustmentType: z.enum(['SYSTEM_ERROR', 'VIOLATION', 'MANUAL_REVIEW', 'GRADE_APPEAL', 'OTHER']).optional(),
+    evidenceUrls: z.array(z.string().url()).max(10).optional(),
+    violationIds: z.array(z.string().uuid()).max(20).optional(),
   })).min(1),
 })
 export const resultReleaseSchema = z.object({

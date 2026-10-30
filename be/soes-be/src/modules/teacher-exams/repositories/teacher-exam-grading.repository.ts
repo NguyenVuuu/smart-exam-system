@@ -25,6 +25,10 @@ export const submissionInclude = {
     orderBy: { createdAt: 'desc' as const },
     take: 1,
   },
+  scoreAdjustments: {
+    orderBy: { createdAt: 'desc' as const },
+    include: { adjustedBy: { select: { id: true, user: { select: { fullName: true } } } } },
+  },
   _count: { select: { violations: true } },
 } 
 
@@ -519,6 +523,9 @@ export function overrideScore(
   attemptId: string,
   score: number,
   reason: string,
+  adjustmentType?: string,
+  evidenceUrls?: string[],
+  violationIds?: string[],
 ) {
   return prisma.$transaction(async (tx) => {
     const attempt = await tx.examAttempt.findFirst({
@@ -549,9 +556,22 @@ export function overrideScore(
         handledAt: new Date(),
       },
     })
+    // Lưu ScoreAdjustment cho phúc khảo
+    await tx.scoreAdjustment.create({
+      data: {
+        attemptId,
+        adjustedById: teacherId,
+        adjustmentType: (adjustmentType as any) ?? 'GRADE_APPEAL',
+        previousScore: Number(attempt.totalScore) ?? 0,
+        newScore: score,
+        reason,
+        evidenceUrls: evidenceUrls ?? [],
+        violationIds: violationIds ?? [],
+      },
+    })
     await writeAuditLog(tx, {
       userId, action: 'OVERRIDE_EXAM_SCORE', entityType: 'ExamAttempt', entityId: attemptId,
-      metadata: { reason, previousScore: Number(attempt.totalScore), newScore: score },
+      metadata: { reason, adjustmentType: adjustmentType ?? 'GRADE_APPEAL', previousScore: Number(attempt.totalScore), newScore: score },
     })
     return updated
   })
@@ -562,7 +582,7 @@ export function finalizeScores(input: {
   userId: string
   examId: string
   scheduleId: string
-  items: Array<{ attemptId: string; score: number; reason?: string }>
+  items: Array<{ attemptId: string; score: number; reason?: string; adjustmentType?: string; evidenceUrls?: string[]; violationIds?: string[] }>
 }) {
   return prisma.$transaction(async (tx) => {
     const attemptIds = input.items.map((item) => item.attemptId)
@@ -609,6 +629,10 @@ export function finalizeScores(input: {
     for (const attempt of attempts) {
       const item = itemMap.get(attempt.id)!
       const score = item.score
+      const previousScore = attempt.totalScore === null ? null : Number(attempt.totalScore)
+      const autoScore = attempt.autoScore === null ? null : Number(attempt.autoScore)
+      const scoreChanged = autoScore !== null && score !== autoScore
+
       updated.push(await tx.examAttempt.update({
         where: { id: attempt.id },
         data: {
@@ -625,18 +649,34 @@ export function finalizeScores(input: {
         },
       }))
 
-      const autoScore = attempt.autoScore === null ? null : Number(attempt.autoScore)
+      // Lưu ScoreAdjustment khi điểm thay đổi và có lý do
+      if (scoreChanged && item.reason?.trim()) {
+        await tx.scoreAdjustment.create({
+          data: {
+            attemptId: attempt.id,
+            adjustedById: input.teacherId,
+            adjustmentType: (item.adjustmentType as any) ?? 'OTHER',
+            previousScore: previousScore ?? 0,
+            newScore: score,
+            reason: item.reason.trim(),
+            evidenceUrls: item.evidenceUrls ?? [],
+            violationIds: item.violationIds ?? [],
+          },
+        })
+      }
+
       await writeAuditLog(tx, {
         userId: input.userId,
         action: 'FINALIZE_EXAM_SCORE',
         entityType: 'ExamAttempt',
         entityId: attempt.id,
         metadata: {
-          previousScore: attempt.totalScore === null ? null : Number(attempt.totalScore),
+          previousScore,
           autoScore,
           finalizedScore: score,
-          scoreChanged: autoScore !== null && score !== autoScore,
+          scoreChanged,
           reason: item.reason ?? null,
+          adjustmentType: item.adjustmentType ?? null,
           examScheduleId: input.scheduleId,
         },
       })

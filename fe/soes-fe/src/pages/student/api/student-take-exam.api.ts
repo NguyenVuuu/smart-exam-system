@@ -47,6 +47,16 @@ export interface AttemptResult {
   reviewConsumed: boolean
   reason: 'AVAILABLE' | 'GRADING' | 'PENDING_RELEASE' | 'NEVER'
   reviewItems: AttemptReviewItem[]
+  scoreAdjustments: Array<{
+    id: string
+    adjustmentType: 'SYSTEM_ERROR' | 'VIOLATION' | 'MANUAL_REVIEW' | 'GRADE_APPEAL' | 'OTHER'
+    previousScore: number
+    newScore: number
+    reason: string
+    evidenceUrls: string[]
+    adjustedBy: string
+    adjustedAt: string
+  }>
 }
 
 export interface GradeAppeal {
