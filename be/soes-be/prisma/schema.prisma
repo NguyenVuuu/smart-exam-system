@@ -67,6 +67,7 @@ model Teacher {
   reviewRoundsSubmitted ExamReviewRound[]     @relation("ReviewRoundSubmitter")
   reviewDecisions      ExamReviewDecision[]   @relation("ReviewDecisionReviewer")
   handledGradeAppeals  GradeAppeal[]         @relation("TeacherGradeAppealHandlers")
+  scoreAdjustments     ScoreAdjustment[]     @relation("TeacherScoreAdjustments")
   proctorAssignments   ExamScheduleProctor[]
   department           Department?           @relation("DepartmentTeachers", fields: [departmentId], references: [id])
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -710,6 +711,7 @@ model ExamAttempt {
   programmingSubmissions ProgrammingSubmission[]
   violations             Violation[]
   gradeAppeals           GradeAppeal[]
+  scoreAdjustments       ScoreAdjustment[]
 
   @@unique([examScheduleId, studentId, attemptNo])
   @@index([studentId])
@@ -738,6 +740,24 @@ model GradeAppeal {
   @@index([studentId, createdAt])
   @@index([handledById])
   @@index([status])
+}
+
+model ScoreAdjustment {
+  id               String              @id @default(uuid())
+  attemptId        String
+  adjustedById     String
+  adjustmentType   ScoreAdjustmentType
+  previousScore    Decimal             @db.Decimal(5, 2)
+  newScore         Decimal             @db.Decimal(5, 2)
+  reason           String
+  evidenceUrls     String[]            @default([])
+  violationIds     String[]            @default([])
+  createdAt        DateTime            @default(now())
+  attempt          ExamAttempt         @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  adjustedBy       Teacher             @relation("TeacherScoreAdjustments", fields: [adjustedById], references: [id])
+
+  @@index([attemptId])
+  @@index([adjustedById])
 }
 
 model ExamAttemptQuestion {
@@ -1263,6 +1283,14 @@ enum GradeAppealStatus {
   IN_REVIEW
   RESOLVED
   REJECTED
+}
+
+enum ScoreAdjustmentType {
+  SYSTEM_ERROR       // Hệ thống chấm sai, điều chỉnh lại
+  VIOLATION          // Phát hiện gian lận, trừ điểm có bằng chứng
+  MANUAL_REVIEW      // Câu hỏi cần chấm tay (tự luận/lập trình)
+  GRADE_APPEAL       // Phúc khảo — sinh viên nộp đơn
+  OTHER              // Lý do khác
 }
 
 enum ViolationEvidenceType {
