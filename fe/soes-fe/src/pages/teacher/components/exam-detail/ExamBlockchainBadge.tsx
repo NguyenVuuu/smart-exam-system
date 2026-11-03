@@ -30,23 +30,20 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
   if (!exam.contentHash && exam.status === 'DRAFT') return null
 
   const isAnchored = Boolean(exam.blockchainAnchoredAt)
-  // Đề không có contentHash thì không cần verify — cho phép tạo ca thi bình thường
-  const requiresVerify = Boolean(exam.contentHash)
-
   const handleVerify = async () => {
+    onVerifiedChange?.(false)
     setVerifyState({ phase: 'loading' })
     try {
       const result = await verifyTeacherExamIntegrity(exam.id)
       setVerifyState({ phase: 'done', result })
       const tampered = result.status === 'TAMPERED'
       onTamperedChange?.(tampered)
-      onVerifiedChange?.(true) // đã verify dù kết quả thế nào
+      onVerifiedChange?.(result.status === 'VALID')
     } catch {
+      onVerifiedChange?.(false)
       setVerifyState({ phase: 'error', message: 'Không thể kết nối để verify. Thử lại sau.' })
     }
   }
-
-  void requiresVerify
 
   const verifyResult = verifyState.phase === 'done' ? verifyState.result : null
 
