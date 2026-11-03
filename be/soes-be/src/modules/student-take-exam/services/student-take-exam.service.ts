@@ -5,6 +5,7 @@ import type { Prisma, ScreenShareStatus, SeverityLevel, ViolationEvidenceType, V
 import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
+import { openExamOption } from '../../../lib/exam-option-secret'
 import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
 import prisma from '../../../lib/prisma'
 import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
@@ -227,8 +228,8 @@ function buildReviewItems(
       ? undefined
       : orderedReviewOptions(question.options, attemptQuestion.shuffledOptionIds).map((option) => ({
           id: option.id,
-          content: decryptField(option.content),
-          ...(includeAnswerKey ? { isCorrect: option.isCorrect } : {}),
+          content: openExamOption(option).content,
+          ...(includeAnswerKey ? { isCorrect: openExamOption(option).isCorrect } : {}),
         }))
 
     return {
@@ -246,7 +247,7 @@ function buildReviewItems(
             options,
           }),
       ...(includeAnswerKey && !isProgramming
-        ? { correctOptionIds: question.options.filter((option) => option.isCorrect).map((option) => option.id) }
+        ? { correctOptionIds: question.options.filter((option) => openExamOption(option).isCorrect).map((option) => option.id) }
         : {}),
       ...(includeAnswerKey ? { explanation: decryptNullable(question.explanation) } : {}),
     }
@@ -603,7 +604,7 @@ export async function getExamContent(
       content:    decryptField(q.content),
       type:       q.type as 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE',
       points,
-      options:    orderedOptions.map(opt => ({ id: opt.id, content: decryptField(opt.content) })),
+      options:    orderedOptions.map(opt => ({ id: opt.id, content: openExamOption({ ...opt, isCorrect: false }).content })),
       answer:     savedAnswer?.selectedOptionIds ?? [],
     }
   })

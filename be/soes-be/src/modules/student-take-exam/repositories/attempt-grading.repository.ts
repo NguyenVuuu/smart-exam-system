@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma'
 import type { AttemptStatus } from '@prisma/client'
+import { openExamOption } from '../../../lib/exam-option-secret'
 
 const sameIds = (left: string[], right: string[]) =>
   left.length === right.length && [...left].sort().every((id, index) => id === [...right].sort()[index])
@@ -35,7 +36,7 @@ export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus
       }
       const answer = answers.get(examQuestion.id)
       if (!answer) continue
-      const correctIds = examQuestion.options.filter(({ isCorrect }) => isCorrect).map(({ id }) => id)
+      const correctIds = examQuestion.options.filter((option) => openExamOption(option).isCorrect).map(({ id }) => id)
       const points = Number(examQuestion.points)
       const isCorrect = sameIds(answer.selectedOptionIds, correctIds)
       const score = examQuestion.type === 'MULTIPLE_CHOICE'

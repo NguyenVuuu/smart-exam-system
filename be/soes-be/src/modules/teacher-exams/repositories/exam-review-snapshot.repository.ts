@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { NotFoundError } from '../../../errors/AppError'
 import { decryptField, decryptNullable, encryptField } from '../../../lib/encryption'
+import { openExamOption } from '../../../lib/exam-option-secret'
 
 type SnapshotEnvelope = { format: 'AES_256_GCM_V1'; ciphertext: string }
 
@@ -57,10 +58,7 @@ export async function readExamReviewSnapshot(tx: Prisma.TransactionClient, examI
       title: decryptField(q.title),
       content: decryptField(q.content),
       explanation: decryptNullable(q.explanation),
-      options: q.options.map((o) => ({
-        ...o,
-        content: decryptField(o.content),
-      })),
+        options: q.options.map((o) => ({ ...o, ...openExamOption(o) })),
     })),
   }
 

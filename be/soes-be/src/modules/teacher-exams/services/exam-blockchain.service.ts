@@ -10,6 +10,7 @@ import prisma from '../../../lib/prisma'
 import { computeExamHash, anchorExamHash, verifyExamHash } from '../../../lib/blockchain'
 import { logger } from '../../../lib/logger'
 import { decryptField } from '../../../lib/encryption'
+import { openExamOption } from '../../../lib/exam-option-secret'
 
 type ExamQuestionWithRelations = ExamQuestion & {
   options: ExamQuestionOption[]
@@ -42,8 +43,8 @@ function buildExamHashContent(
         options: q.options
           .sort((a, b) => a.orderIndex - b.orderIndex)
           .map((o) => ({
-            content: decryptField(o.content),
-            isCorrect: o.isCorrect,
+            content: openExamOption(o).content,
+            isCorrect: openExamOption(o).isCorrect,
             orderIndex: o.orderIndex,
           })),
         // ProgrammingTestCase không có orderIndex — sort theo id để đảm bảo thứ tự ổn định
