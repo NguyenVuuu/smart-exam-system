@@ -12,30 +12,26 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
-import { logger } from './logger'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 12   // 96 bits — recommended for GCM
 const TAG_LENGTH = 16  // 128 bits auth tag
 const ENC_PREFIX = 'enc:'
 
-function getKey(): Buffer | null {
+function getKey(): Buffer {
   const hex = process.env.EXAM_ENCRYPTION_KEY
-  if (!hex) return null
-  if (hex.length !== 64) {
-    logger.warn('EXAM_ENCRYPTION_KEY must be 64 hex chars (32 bytes). Encryption disabled.')
-    return null
+  if (!hex || !/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error('EXAM_ENCRYPTION_KEY must be a 32-byte hexadecimal key')
   }
   return Buffer.from(hex, 'hex')
 }
 
 /**
  * Encrypt một string field. Trả về ciphertext với prefix "enc:".
- * Nếu key chưa cấu hình, trả về plaintext gốc (graceful degradation).
+ * Không bao giờ lưu plaintext khi thiếu khóa.
  */
 export function encryptField(plaintext: string): string {
   const key = getKey()
-  if (!key) return plaintext  // no key → store as-is (backward compat)
 
   const iv = randomBytes(IV_LENGTH)
   const cipher = createCipheriv(ALGORITHM, key, iv)
@@ -53,16 +49,13 @@ export function encryptField(plaintext: string): string {
  * Decrypt một string field.
  * - Nếu bắt đầu bằng "enc:" → decrypt
  * - Nếu không có prefix → plaintext cũ, trả về nguyên
- * - Nếu decrypt thất bại → log warning, trả về chuỗi rỗng
+ * - Dữ liệu cũ chưa mã hóa được đọc để phục vụ chuyển đổi dữ liệu.
+ * - Ciphertext lỗi hoặc thiếu khóa phải báo lỗi.
  */
 export function decryptField(value: string): string {
   if (!value.startsWith(ENC_PREFIX)) return value  // plaintext cũ
 
   const key = getKey()
-  if (!key) {
-    logger.warn('Cannot decrypt: EXAM_ENCRYPTION_KEY not configured')
-    return value
-  }
 
   try {
     const rest = value.slice(ENC_PREFIX.length)
@@ -70,9 +63,16 @@ export function decryptField(value: string): string {
     if (parts.length !== 3) throw new Error('Invalid ciphertext format')
 
     const [ivHex, tagHex, encHex] = parts
+    if (!/^[0-9a-fA-F]+$/.test(ivHex) || !/^[0-9a-fA-F]+$/.test(tagHex)
+      || (encHex.length > 0 && !/^[0-9a-fA-F]+$/.test(encHex))) {
+      throw new Error('Invalid ciphertext encoding')
+    }
     const iv = Buffer.from(ivHex, 'hex')
     const authTag = Buffer.from(tagHex, 'hex')
     const encrypted = Buffer.from(encHex, 'hex')
+    if (iv.length !== IV_LENGTH || authTag.length !== TAG_LENGTH) {
+      throw new Error('Invalid ciphertext length')
+    }
 
     const decipher = createDecipheriv(ALGORITHM, key, iv)
     decipher.setAuthTag(authTag)
@@ -81,9 +81,8 @@ export function decryptField(value: string): string {
       decipher.update(encrypted),
       decipher.final(),
     ]).toString('utf8')
-  } catch (error) {
-    logger.error('Field decryption failed — returning empty string', { error: String(error) })
-    return ''
+  } catch {
+    throw new Error('Encrypted exam data failed authentication')
   }
 }
 
@@ -107,5 +106,5 @@ export function encryptNullable(value: string | null | undefined): string | null
  * Kiểm tra encryption có được cấu hình không.
  */
 export function isEncryptionConfigured(): boolean {
-  return getKey() !== null
+  return Boolean(process.env.EXAM_ENCRYPTION_KEY && /^[0-9a-fA-F]{64}$/.test(process.env.EXAM_ENCRYPTION_KEY))
 }
