@@ -19,6 +19,9 @@ test('review snapshot stores no exam text or answer in JSON', () => {
 
 test('legacy review snapshots remain readable for backfill', () => {
   assert.deepEqual(openReviewSnapshot({ examQuestions: [] }), { examQuestions: [] })
+  assert.deepEqual(openReviewSnapshot({ format: 'MULTIPLE_CHOICE', examQuestions: [] }), {
+    format: 'MULTIPLE_CHOICE', examQuestions: [],
+  })
 })
 
 test('corrupted encrypted snapshot is rejected', () => {

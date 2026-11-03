@@ -13,7 +13,8 @@ export function sealReviewSnapshot(snapshot: unknown): Prisma.JsonObject {
 }
 
 export function openReviewSnapshot(value: Prisma.JsonValue): Prisma.JsonObject {
-  if (value && typeof value === 'object' && !Array.isArray(value) && 'format' in value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)
+    && ('ciphertext' in value || value.format === 'AES_256_GCM_V1')) {
     if (value.format !== 'AES_256_GCM_V1' || typeof value.ciphertext !== 'string'
       || !value.ciphertext.startsWith('enc:')) {
       throw new Error('Invalid encrypted review snapshot')
