@@ -69,8 +69,8 @@ export function createExamQuestion(tx: Prisma.TransactionClient, examId: string,
       }),
       programmingTests: {
         create: source.programmingTests.map(({ input, expectedOutput, isSample, isHidden }) => ({
-          input,
-          expectedOutput,
+          input: encryptField(input),
+          expectedOutput: encryptField(expectedOutput),
           isSample,
           isHidden,
         })),

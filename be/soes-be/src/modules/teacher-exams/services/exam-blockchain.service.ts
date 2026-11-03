@@ -52,8 +52,8 @@ function buildExamHashContent(
           .sort((a, b) => a.id.localeCompare(b.id))
           .map((t) => ({
             id: t.id,
-            input: t.input,
-            expectedOutput: t.expectedOutput,
+            input: decryptField(t.input),
+            expectedOutput: decryptField(t.expectedOutput),
             isHidden: t.isHidden,
           })),
       })),

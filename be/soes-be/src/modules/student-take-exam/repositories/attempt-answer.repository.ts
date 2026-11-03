@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma'
+import { decryptField } from '../../../lib/encryption'
 
 export async function findAttemptForAnswer(
   attemptId: string,
@@ -93,7 +94,9 @@ export async function findProgrammingQuestionWithTestCases(
           type: question.type,
           language: question.language ?? 'UNKNOWN',
           programmingQuestionConfig: question.programmingConfig,
-          programmingTestCases: question.programmingTests,
+          programmingTestCases: question.programmingTests.map((test) => ({
+            ...test, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
+          })),
         }
       : null,
   }

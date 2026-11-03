@@ -307,6 +307,9 @@ export function copyExam(sourceId: string, teacherId: string) {
             ...openExamOption(o),
             orderIndex: o.orderIndex,
           })),
+          programmingTests: question.programmingTests.map((test) => ({
+            ...test, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
+          })),
         },
         sourceQuestionId: question.sourceQuestionId,
         points: Number(question.points),

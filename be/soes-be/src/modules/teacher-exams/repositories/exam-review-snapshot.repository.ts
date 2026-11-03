@@ -59,6 +59,9 @@ export async function readExamReviewSnapshot(tx: Prisma.TransactionClient, examI
       content: decryptField(q.content),
       explanation: decryptNullable(q.explanation),
         options: q.options.map((o) => ({ ...o, ...openExamOption(o) })),
+      programmingTests: q.programmingTests.map((test) => ({
+        ...test, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
+      })),
     })),
   }
 

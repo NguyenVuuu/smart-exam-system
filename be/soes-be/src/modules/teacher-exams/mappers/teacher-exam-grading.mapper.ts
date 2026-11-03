@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { decryptField } from '../../../lib/encryption'
 import type { ExamSubmissionDto } from '../dtos/teacher-exam-grading.dto'
 import type { submissionInclude } from '../repositories/teacher-exam-grading.repository'
 
@@ -71,8 +72,8 @@ export function toExamSubmissionDto(row: SubmissionRow): ExamSubmissionDto {
         questionId: submission.examQuestionId,
         testCaseId: result.testCaseId,
         passed: result.status === 'PASSED',
-        input: result.testCase.input,
-        expectedOutput: result.testCase.expectedOutput,
+        input: decryptField(result.testCase.input),
+        expectedOutput: decryptField(result.testCase.expectedOutput),
         actualOutput: result.actualOutput,
         executionTimeMs: result.executionTimeMs ?? 0,
         memoryKb: result.memoryUsedKb ?? 0,

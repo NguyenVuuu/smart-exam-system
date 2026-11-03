@@ -76,7 +76,7 @@ export function toExamQuestionsDto(questions: ExamDetailRow['examQuestions']) {
       maxCodeSizeKb: question.programmingConfig.maxCodeSizeKb,
     } : null,
     testCases: question.programmingTests.map((test) => ({
-      id: test.id, input: test.input, expectedOutput: test.expectedOutput,
+      id: test.id, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
       isHidden: test.isHidden,
     })),
   }))
