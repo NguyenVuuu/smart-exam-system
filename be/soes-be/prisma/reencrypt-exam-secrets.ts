@@ -4,7 +4,10 @@ import { decryptField, encryptField, isEncryptionConfigured } from '../src/lib/e
 import { openExamOption, sealExamOption } from '../src/lib/exam-option-secret'
 import { openReviewSnapshot, sealReviewSnapshot } from '../src/modules/teacher-exams/repositories/exam-review-snapshot.repository'
 
-type Count = { questions: number; options: number; tests: number; reviewRounds: number }
+type Count = {
+  questions: number; options: number; tests: number; reviewRounds: number
+  sourceQuestions: number; sourceOptions: number; sourceTests: number
+}
 
 async function scan<T extends { id: string }>(
   load: (cursor: string | undefined) => Promise<T[]>,
@@ -27,7 +30,10 @@ async function main() {
   const rotate = (value: string) => value.startsWith(prefix) ? value : encryptField(decryptField(value))
   const rotateNullable = (value: string | null) => value === null ? null : rotate(value)
 
-  const counts: Count = { questions: 0, options: 0, tests: 0, reviewRounds: 0 }
+  const counts: Count = {
+    questions: 0, options: 0, tests: 0, reviewRounds: 0,
+    sourceQuestions: 0, sourceOptions: 0, sourceTests: 0,
+  }
   counts.questions = await scan(
     (cursor) => prisma.examQuestion.findMany({
       select: { id: true, title: true, content: true, explanation: true }, orderBy: { id: 'asc' }, take: 100,
@@ -80,6 +86,45 @@ async function main() {
       await prisma.examReviewRound.update({
         where: { id: row.id }, data: { snapshot: sealReviewSnapshot(openReviewSnapshot(raw)) },
       })
+      return true
+    },
+  )
+  counts.sourceQuestions = await scan(
+    (cursor) => prisma.question.findMany({
+      select: { id: true, title: true, content: true, explanation: true }, orderBy: { id: 'asc' }, take: 100,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    }),
+    async (row) => {
+      if (row.title.startsWith(prefix) && row.content.startsWith(prefix)
+        && (row.explanation === null || row.explanation.startsWith(prefix))) return false
+      await prisma.question.update({ where: { id: row.id }, data: {
+        title: rotate(row.title), content: rotate(row.content), explanation: rotateNullable(row.explanation),
+      } })
+      return true
+    },
+  )
+  counts.sourceOptions = await scan(
+    (cursor) => prisma.questionOption.findMany({
+      select: { id: true, content: true, isCorrect: true }, orderBy: { id: 'asc' }, take: 100,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    }),
+    async (row) => {
+      if (row.content.startsWith(prefix) && !row.isCorrect && openExamOption(row).sealed) return false
+      const opened = openExamOption(row)
+      await prisma.questionOption.update({ where: { id: row.id }, data: sealExamOption(opened.content, opened.isCorrect) })
+      return true
+    },
+  )
+  counts.sourceTests = await scan(
+    (cursor) => prisma.questionProgrammingTestCase.findMany({
+      select: { id: true, input: true, expectedOutput: true }, orderBy: { id: 'asc' }, take: 100,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    }),
+    async (row) => {
+      if (row.input.startsWith(prefix) && row.expectedOutput.startsWith(prefix)) return false
+      await prisma.questionProgrammingTestCase.update({ where: { id: row.id }, data: {
+        input: rotate(row.input), expectedOutput: rotate(row.expectedOutput),
+      } })
       return true
     },
   )

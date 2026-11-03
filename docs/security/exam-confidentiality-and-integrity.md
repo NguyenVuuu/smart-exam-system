@@ -2,7 +2,7 @@
 
 ## Phạm vi
 
-- Các bản ghi `ExamQuestion`, `ExamQuestionOption`, `ProgrammingTestCase` và `ExamReviewRound.snapshot` dùng AES-256-GCM ở phía backend. Khóa không được gửi tới frontend, lưu trong DB hoặc ghi lên blockchain.
+- Các bản ghi mới trong `ExamQuestion`, `ExamQuestionOption`, `ProgrammingTestCase`, `ExamReviewRound.snapshot` và ngân hàng câu hỏi nguồn (`Question`, `QuestionOption`, `QuestionProgrammingTestCase`) dùng AES-256-GCM ở phía backend. Khóa không được gửi tới frontend, lưu trong DB hoặc ghi lên blockchain.
 - `Exam.contentHash` lưu dấu vân tay của bản đề. Hash phiên bản 2 (`v2:<sha256>`) gồm nội dung, đáp án, giải thích, phần thi, cấu hình và test case. Bản hash cũ vẫn được xác minh theo định dạng cũ.
 - Sepolia chỉ lưu hash để đối chiếu tính toàn vẹn. Trạng thái `VALID` chỉ có khi nội dung hiện tại khớp cả hash DB và hash đọc trực tiếp từ blockchain. `NOT_ANCHORED` và `BLOCKCHAIN_UNAVAILABLE` không có nghĩa là đã xác minh.
 
@@ -24,4 +24,4 @@ Thiếu hoặc sai khóa làm thao tác mã hóa/giải mã thất bại. Không
 
 ## Giới hạn hiện tại
 
-Ngân hàng câu hỏi nguồn là dữ liệu riêng với bản đề thi. Nếu người có quyền đọc DB cũng không được xem câu hỏi nguồn trước kỳ thi, cần mở rộng cùng cơ chế mã hóa sang bảng `Question` và các bảng lựa chọn/test case của ngân hàng câu hỏi, kèm các đường đọc/ghi và chuyển dữ liệu cũ.
+Theo yêu cầu hiện tại, dữ liệu ngân hàng câu hỏi nguồn đã có sẵn trong DB không được chuyển đổi tự động. Các bản ghi cũ dạng plaintext vẫn đọc được để tương thích, nên người đọc trực tiếp DB vẫn có thể thấy nội dung đó. Khi được phép chuyển dữ liệu cũ, dùng script `reencrypt-exam-secrets.ts` trong cửa sổ bảo trì và xác minh bộ đếm chạy lại bằng 0.

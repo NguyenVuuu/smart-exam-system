@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "../../../lib/prisma";
+import { encryptField, encryptNullable } from "../../../lib/encryption";
+import { sealExamOption } from "../../../lib/exam-option-secret";
 import type { GeneratedQuestion } from "../schemas/generated-question.schema";
 import type {
   GenerateQuestionsBody,
@@ -164,16 +166,16 @@ function questionCreateData(
     aiGeneration: { connect: { id: generationId } },
     source: "AI_GENERATED",
     aiReviewStatus: "APPROVED",
-    title: question.title,
-    content: programming ? question.content : question.title,
-    explanation: question.explanation || null,
+    title: encryptField(question.title),
+    content: encryptField(programming ? question.content : question.title),
+    explanation: encryptNullable(question.explanation || null),
     type: question.type,
     difficulty: question.difficulty,
     aiDifficultyReason: question.difficultyReason,
     language: programming ? question.language : null,
     options: {
       create: question.options.map((option, orderIndex) => ({
-        ...option,
+        ...sealExamOption(option.content, option.isCorrect),
         orderIndex,
       })),
     },
@@ -188,6 +190,8 @@ function questionCreateData(
       programmingTests: {
         create: question.testCases.map((test, index) => ({
           ...test,
+          input: encryptField(test.input),
+          expectedOutput: encryptField(test.expectedOutput),
           isSample: !test.isHidden,
           orderIndex: index + 1,
         })),

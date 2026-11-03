@@ -1,12 +1,14 @@
 import type { Prisma } from '@prisma/client'
 import type { AdminExamTrackingDto, AdminQuestionBankItemDto } from '../dtos/admin-content.dto'
 import type { bankInclude, trackedExamInclude } from '../repositories/admin-content.repository'
+import { decryptField, decryptNullable } from '../../../lib/encryption'
+import { openExamOption } from '../../../lib/exam-option-secret'
 
 type BankRow = Prisma.QuestionBankItemGetPayload<{ include: typeof bankInclude }>
 type ExamRow = Prisma.ExamGetPayload<{ include: typeof trackedExamInclude }>
 
 export const toAdminQuestionBankItemDto = (row: BankRow): AdminQuestionBankItemDto => ({
-  id: row.id, title: row.question.title, content: row.question.content, explanation: row.question.explanation,
+  id: row.id, title: decryptField(row.question.title), content: decryptField(row.question.content), explanation: decryptNullable(row.question.explanation),
   type: row.question.type, difficulty: row.question.difficulty,
   subject: row.question.subject,
   contributor: { id: row.question.owner.id, fullName: row.question.owner.user.fullName },
@@ -17,14 +19,17 @@ export const toAdminQuestionBankItemDto = (row: BankRow): AdminQuestionBankItemD
   removedAt: row.removedAt,
   removedBy: row.removedByAdmin?.user.fullName ?? row.removedByTeacher?.user.fullName ?? null,
   removalReason: row.removalReason,
-  options: row.question.options.map(({ id, content, isCorrect }) => ({ id, content, isCorrect })),
+  options: row.question.options.map((option) => {
+    const { content, isCorrect } = openExamOption(option)
+    return { id: option.id, content, isCorrect }
+  }),
   programmingConfig: row.question.programmingConfig ? {
     timeLimitMs: row.question.programmingConfig.timeLimitMs,
     memoryLimitMb: Math.round(row.question.programmingConfig.memoryLimitKb / 1024),
     maxCodeSizeKb: row.question.programmingConfig.maxCodeSizeKb,
   } : null,
   testCases: row.question.programmingTests.map((test) => ({
-    id: test.id, input: test.input, expectedOutput: test.expectedOutput,
+    id: test.id, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
     isHidden: test.isHidden,
   })),
 })
