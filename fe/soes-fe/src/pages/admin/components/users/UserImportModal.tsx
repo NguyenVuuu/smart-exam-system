@@ -42,7 +42,7 @@ export default function UserImportModal({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             className="min-h-40"
-            placeholder="SV2026007, Nguyễn Văn Hùng, hung.nv@soes.edu.vn"
+            placeholder="US000007, Nguyễn Văn Hùng, hung.nv@soes.edu.vn"
           />
         </div>
 

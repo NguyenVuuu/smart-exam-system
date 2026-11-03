@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuthStore } from '../../../../store/authStore'
 import type { AdminUser, Department } from '../../types/admin.types'
 import { getNextUserCode } from '../../api/admin-management.api'
@@ -48,12 +48,14 @@ export default function UserFormModal({
   onConfirm: () => void
 }) {
   const isAdmin = useAuthStore((state) => state.user?.role === 'ADMIN')
+  const codeEditedRef = useRef(false)
   useEffect(() => {
     if (open && !editingUserId) {
       let isMounted = true
-      getNextUserCode(roleInput)
+      codeEditedRef.current = false
+      getNextUserCode()
         .then((res) => {
-          if (isMounted && res?.code) {
+          if (isMounted && !codeEditedRef.current && res?.code) {
             onCodeChange(res.code)
           }
         })
@@ -62,7 +64,7 @@ export default function UserFormModal({
         isMounted = false
       }
     }
-  }, [open, editingUserId, roleInput, onCodeChange])
+  }, [open, editingUserId, onCodeChange])
 
   return (
     <AdminModal
@@ -78,19 +80,21 @@ export default function UserFormModal({
           <AdminField label="Mã tài khoản">
             <AdminInput
               value={codeInput}
-              onChange={(event) => onCodeChange(event.target.value.toUpperCase().replace(/\s+/g, ''))}
+              onChange={(event) => {
+                codeEditedRef.current = true
+                onCodeChange(event.target.value.toUpperCase().replace(/\s+/g, ''))
+              }}
               maxLength={30}
               autoCapitalize="characters"
               spellCheck={false}
               disabled={Boolean(editingUserId)}
-              placeholder="VD: SV2026001"
+              placeholder="VD: US000001"
             />
           </AdminField>
           <AdminField label="Vai trò">
             <AdminSelect
               value={roleInput}
               onChange={(value) => {
-                onCodeChange('')
                 onRoleChange(value as AdminUser['role'])
               }}
               disabled={Boolean(editingUserId)}

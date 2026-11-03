@@ -51,7 +51,7 @@ export const findAdminByCode = (code: string) => prisma.admin.findUnique({ where
 export const findTeacherByCode = (code: string) => prisma.teacher.findUnique({ where: { teacherCode: code } })
 export const findStudentByCode = (code: string) => prisma.student.findUnique({ where: { studentCode: code } })
 
-export async function generateNextUserCode(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', tx?: Prisma.TransactionClient): Promise<string> {
+export async function generateNextUserCode(tx?: Prisma.TransactionClient): Promise<string> {
   const db = tx || prisma
   const prefix = 'US'
   const digits = 6
