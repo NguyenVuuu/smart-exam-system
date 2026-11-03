@@ -7,6 +7,7 @@ import {
 import { randomInt, randomUUID } from "crypto";
 import { logger } from "../../../lib/logger";
 import { anchorPublishedExam } from "./exam-blockchain.service";
+import { openReviewSnapshot } from "../repositories/exam-review-snapshot.repository";
 import { toPagination } from "../../../utils/pagination";
 import { notifyUsers } from "../../notifications/notifications.service";
 import {
@@ -500,7 +501,7 @@ export async function getApproval(teacherId: string, examId: string) {
   return {
     ...toTeacherExamDto(round.exam, teacherId),
     reviewRound: { id: round.id, version: round.version, status: round.status, submittedAt: round.submittedAt },
-    snapshot: round.snapshot,
+    snapshot: openReviewSnapshot(round.snapshot),
   }
 }
 
