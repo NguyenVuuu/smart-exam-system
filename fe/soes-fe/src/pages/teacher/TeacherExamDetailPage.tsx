@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ExamDetailBackButton } from "./components/exam-detail/ExamDetailBackButton";
 import { ExamDetailHeader } from "./components/exam-detail/ExamDetailHeader";
@@ -181,11 +181,21 @@ function TeacherExamDetailContent({
     useState<ExamSchedule | null>(null);
   const distributionLock = useExamDistributionLock(exam.id, onRefresh);
   const studentVisibility = useExamStudentVisibility(exam.id, onRefresh);
-  const [isTampered, setIsTampered] = useState(false);
-  const [hasVerified, setHasVerified] = useState(false);
+  const verificationKey = `${exam.id}:${exam.contentHash ?? ''}`;
+  const [tamperedKey, setTamperedKey] = useState<string | null>(null);
+  const [verifiedKey, setVerifiedKey] = useState<string | null>(null);
+  const isTampered = tamperedKey === verificationKey;
+  const hasVerified = verifiedKey === verificationKey;
+  const onTamperedChange = useCallback(
+    (tampered: boolean) => setTamperedKey(tampered ? verificationKey : null),
+    [verificationKey],
+  );
+  const onVerifiedChange = useCallback(
+    (verified: boolean) => setVerifiedKey(verified ? verificationKey : null),
+    [verificationKey],
+  );
 
-  // Nếu đề có contentHash → bắt buộc verify trước khi tạo ca thi
-  const requiresVerify = Boolean(exam.contentHash)
+  const requiresVerify = exam.status === "PUBLISHED";
 
   const resultReleaseText =
     resultReleaseMode === "IMMEDIATE"
@@ -254,7 +264,6 @@ function TeacherExamDetailContent({
                     `/teacher/exams/${exam.id}/edit${exam.status === "REJECTED" ? "?step=QUESTIONS" : ""}`,
                   )
                 }
-                onPublish={() => void 0}
                 onPreview={() => setIsPreviewOpen(true)}
                 onCopy={() => void handleCopyExam()}
                 onToggleStudentVisibility={() =>
@@ -265,8 +274,8 @@ function TeacherExamDetailContent({
                 onLockDistribution={distributionLock.requestLock}
                 onUnlockDistribution={distributionLock.requestUnlock}
                 visibilitySaving={studentVisibility.saving}
-                onTamperedChange={setIsTampered}
-                onVerifiedChange={setHasVerified}
+                onTamperedChange={onTamperedChange}
+                onVerifiedChange={onVerifiedChange}
               />
             )}
 

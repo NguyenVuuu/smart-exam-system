@@ -30,15 +30,6 @@ export interface ExamDefaultsSettingsDto {
   heartbeatTimeoutSeconds: number
 }
 
-export interface CodeGenerationSettingsDto {
-  studentPrefix: string
-  studentDigits: number
-  teacherPrefix: string
-  teacherDigits: number
-  adminPrefix: string
-  adminDigits: number
-}
-
 export interface UpdateGeneralSettingsDto {
   organizationName?: string
   shortName?: string
@@ -61,15 +52,6 @@ export interface UpdateExamDefaultsSettingsDto {
   heartbeatTimeoutSeconds?: number
 }
 
-export interface UpdateCodeGenerationSettingsDto {
-  studentPrefix?: string
-  studentDigits?: number
-  teacherPrefix?: string
-  teacherDigits?: number
-  adminPrefix?: string
-  adminDigits?: number
-}
-
 export interface AiSettingsDto {
   model: string
   maxQuestionsPerRun: number
@@ -86,7 +68,6 @@ export interface AdminSystemSettingsDto {
   environment: string
   general: GeneralSettingsDto
   examDefaults: ExamDefaultsSettingsDto
-  codeGeneration: CodeGenerationSettingsDto
   runtime: {
     heartbeatTimeoutSeconds: number
     accessTokenMinutes: number

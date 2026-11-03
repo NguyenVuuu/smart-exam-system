@@ -24,7 +24,7 @@ const FIXED_TEACHERS = [
   },
 ]
 
-const EXTRA_TEACHER_COUNT = 3 // GV000003 → GV000005
+const EXTRA_TEACHER_COUNT = 3 // US000006 → US000008
 
 export async function seedTeachers(
   prisma: PrismaClient,

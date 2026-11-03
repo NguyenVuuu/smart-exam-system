@@ -4,6 +4,8 @@ import type { ApprovalQuery, QuestionBody, QuestionsQuery } from '../validators/
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../../errors/AppError'
 import { runSerializable } from '../../../utils/transaction'
+import { encryptField, encryptNullable, decryptField } from '../../../lib/encryption'
+import { sealExamOption } from '../../../lib/exam-option-secret'
 
 export const questionInclude = {
   subject: { select: { id: true, code: true, name: true, departmentId: true } },
@@ -86,17 +88,13 @@ export const listActiveSubjects = (departmentId: string) => prisma.subject.findM
 })
 
 const optionsWithOrder = (options: QuestionBody['options']) =>
-  options.map((option, index) => ({ ...option, orderIndex: index }))
+  options.map((option, index) => ({ ...sealExamOption(option.content, option.isCorrect), orderIndex: index }))
 
 function questionFilters(query: QuestionsQuery): Prisma.QuestionWhereInput {
   return {
     ...(query.subjectId && { subjectId: query.subjectId }),
     ...(query.type && { type: query.type }),
     ...(query.difficulty && { difficulty: query.difficulty }),
-    ...(query.keyword && { OR: [
-      { title: { contains: query.keyword, mode: 'insensitive' } },
-      { content: { contains: query.keyword, mode: 'insensitive' } },
-    ] }),
   }
 }
 
@@ -111,6 +109,14 @@ export async function listQuestions(teacherId: string, departmentId: string, que
         ...questionFilters(query), subject: { departmentId },
         questionBankItem: { status: 'APPROVED', removedAt: null },
       }
+  if (query.keyword) {
+    const rows = await prisma.question.findMany({ where, include: questionInclude, orderBy: { updatedAt: 'desc' } })
+    const keyword = query.keyword.toLocaleLowerCase('vi')
+    const matched = rows.filter((row) => [decryptField(row.title), decryptField(row.content)]
+      .some((value) => value.toLocaleLowerCase('vi').includes(keyword)))
+    const offset = (query.page - 1) * query.pageSize
+    return [matched.length, matched.slice(offset, offset + query.pageSize)] as const
+  }
   return Promise.all([
     prisma.question.count({ where }),
     prisma.question.findMany({
@@ -153,14 +159,16 @@ export function createQuestion(ownerId: string, data: QuestionBody) {
   const programming = question.type === 'PROGRAMMING'
   return prisma.question.create({
     data: {
-      ...question, ownerId, source: 'MANUAL',
+      ...question, title: encryptField(question.title), content: encryptField(question.content),
+      explanation: encryptNullable(question.explanation ?? null), ownerId, source: 'MANUAL',
       options: { create: optionsWithOrder(options) },
       ...(programming && {
         programmingConfig: { create: {
           timeLimitMs, memoryLimitKb: memoryLimitMb && memoryLimitMb * 1024, maxCodeSizeKb,
         } },
         programmingTests: { create: testCases.map((test, index) => ({
-          ...test, isSample: !test.isHidden, orderIndex: index + 1,
+          ...test, input: encryptField(test.input), expectedOutput: encryptField(test.expectedOutput),
+          isSample: !test.isHidden, orderIndex: index + 1,
         })) },
       }),
     },
@@ -195,13 +203,16 @@ export function updateQuestion(
 
     return tx.question.update({
       where: { id }, data: {
-        ...question, options: { create: optionsWithOrder(options) },
+        ...question, title: encryptField(question.title), content: encryptField(question.content),
+        explanation: encryptNullable(question.explanation ?? null),
+        options: { create: optionsWithOrder(options) },
         ...(programming && {
           programmingConfig: { create: {
             timeLimitMs, memoryLimitKb: memoryLimitMb && memoryLimitMb * 1024, maxCodeSizeKb,
           } },
           programmingTests: { create: testCases.map((test, index) => ({
-            ...test, isSample: !test.isHidden, orderIndex: index + 1,
+              ...test, input: encryptField(test.input), expectedOutput: encryptField(test.expectedOutput),
+              isSample: !test.isHidden, orderIndex: index + 1,
           })) },
         }),
       }, include: questionInclude,

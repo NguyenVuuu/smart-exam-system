@@ -5,9 +5,10 @@ import { examInclude } from './teacher-exams.repository'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../../errors/AppError'
 import { runSerializable } from '../../../utils/transaction'
-import { readExamReviewSnapshot } from './exam-review-snapshot.repository'
+import { openReviewSnapshot, readExamReviewSnapshot } from './exam-review-snapshot.repository'
 import type { ExamQuestionReviewNote } from '../validators/teacher-exams.validator'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
+import { openExamOption } from '../../../lib/exam-option-secret'
 
 const copySuffix = ' - Bản sao'
 const toCopyTitle = (title: string) => `${title.replace(/( - Bản sao)+$/u, '')}${copySuffix}`
@@ -206,8 +207,10 @@ export function reviewExam(id: string, reviewerId: string, approved: boolean, re
     if (round.status !== 'PENDING' || round.exam.approvalStatus !== 'PENDING' || round.exam.status !== 'DRAFT') {
       throw new ConflictError('Review round has already been decided or is not ready')
     }
-    const snapshot = round.snapshot as { examQuestions?: Array<{ id: string; orderIndex: number; title: string }> }
-    const snapshotQuestions = Array.isArray(snapshot?.examQuestions) ? snapshot.examQuestions : []
+    const snapshot = openReviewSnapshot(round.snapshot)
+    const snapshotQuestions = Array.isArray(snapshot.examQuestions)
+      ? snapshot.examQuestions as Array<{ id: string; orderIndex: number; title: string }>
+      : []
     const questionFeedback = approved ? [] : questionNotes.map(({ questionId, note }) => {
       const question = snapshotQuestions.find(({ id: snapshotId }) => snapshotId === questionId)
       if (!question) throw new ValidationError('Revision note refers to a question outside this review round')
@@ -232,6 +235,7 @@ export function reviewExam(id: string, reviewerId: string, approved: boolean, re
       data: {
         approvalStatus: approved ? 'APPROVED' : 'REJECTED',
         status: approved ? 'READY' : 'DRAFT',
+        anchorRequestedAt: approved ? now : null,
         reviewedById: reviewerId,
         reviewedAt: now,
         rejectionReason: approved ? null : revisionReason,
@@ -301,9 +305,11 @@ export function copyExam(sourceId: string, teacherId: string) {
           content: decryptField(question.content),
           explanation: decryptNullable(question.explanation),
           options: question.options.map((o) => ({
-            content: decryptField(o.content),
-            isCorrect: o.isCorrect,
+            ...openExamOption(o),
             orderIndex: o.orderIndex,
+          })),
+          programmingTests: question.programmingTests.map((test) => ({
+            ...test, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
           })),
         },
         sourceQuestionId: question.sourceQuestionId,

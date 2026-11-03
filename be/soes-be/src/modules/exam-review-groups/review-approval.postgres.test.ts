@@ -3,6 +3,7 @@ import test from 'node:test'
 import { randomUUID } from 'node:crypto'
 import prisma from '../../lib/prisma'
 import { reviewExam, submitFinalExam } from '../teacher-exams/repositories/teacher-exam-lifecycle.repository'
+import { openReviewSnapshot } from '../teacher-exams/repositories/exam-review-snapshot.repository'
 import { listReadyExams } from '../exam-schedules/services/exam-schedule.service'
 import { reviewBankItem, submitToSharedBank } from '../teacher-questions/repositories/teacher-questions.repository'
 
@@ -85,7 +86,9 @@ test('PostgreSQL accepts one group decision per submitted exam and question', { 
     await submitFinalExam(revisedExam.id, headId)
     const latest = await prisma.examReviewRound.findFirstOrThrow({ where: { examId: revisedExam.id }, orderBy: { version: 'desc' } })
     assert.equal(latest.version, 2)
-    assert.equal((latest.snapshot as { examQuestions: Array<{ title: string }> }).examQuestions[0].title, 'Revised question')
+    assert.doesNotMatch(JSON.stringify(latest.snapshot), /Revised question/)
+    const reopened = openReviewSnapshot(latest.snapshot)
+    assert.equal((reopened.examQuestions as Array<{ title: string }>)[0].title, 'Revised question')
     await prisma.departmentReviewMember.update({
       where: { groupId_teacherId: { groupId, teacherId: lecturerId } }, data: { status: 'INACTIVE', leftAt: new Date() },
     })

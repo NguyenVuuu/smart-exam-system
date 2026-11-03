@@ -4,6 +4,7 @@ import { toPagination } from '../../../utils/pagination'
 import { runSerializable } from '../../../utils/transaction'
 import { computeScheduleStatus, toExamScheduleDto } from '../mappers/exam-schedule.mapper'
 import * as repo from '../repositories/exam-schedule.repository'
+import { requireVerifiedExamAnchor, verifyExamIntegrityFast } from '../../teacher-exams/services/exam-blockchain.service'
 import { PROCTOR_TURNOVER_MINUTES } from '../repositories/exam-schedule.repository'
 import type { ScheduleWriteInput } from '../types/exam-schedule.types'
 import type { ScheduleBody, SchedulesQuery } from '../validators/exam-schedule.validator'
@@ -50,6 +51,10 @@ async function validateContext(
     throw new ValidationError('Only approved and ready final exams can be centrally scheduled')
   }
   if (!exam.examQuestions.length) throw new ValidationError('Exam has no questions')
+  if (!exam.contentHash) throw new ConflictError('Đề thi chưa có hash nội dung; vui lòng thử lại sau khi hệ thống ghi nhận đề.')
+  if (!await verifyExamIntegrityFast(exam.id, exam.contentHash)) {
+    throw new ConflictError('Không thể lập lịch thi: nội dung đề không khớp hash đã ghi nhận.')
+  }
   if (courses.length !== courseIds.length || courses.some(({ subjectId, semesterId, status }) =>
     subjectId !== exam.subjectId || semesterId !== exam.semesterId || status !== 'ACTIVE')) {
     throw new ValidationError('All course offerings must be active and belong to the exam subject and semester')
@@ -84,6 +89,7 @@ export async function listReadyExams() {
 
 export async function create(createdById: string, data: ScheduleBody) {
   const input = await prepareInput(data)
+  await requireVerifiedExamAnchor(input.examId)
   const row = await runSerializable(async (tx) => {
     await validateContext(tx, input)
     return repo.createSchedule(tx, input, createdById)
@@ -93,6 +99,7 @@ export async function create(createdById: string, data: ScheduleBody) {
 
 export async function update(id: string, data: ScheduleBody) {
   const input = await prepareInput(data, true)
+  await requireVerifiedExamAnchor(input.examId)
   const row = await runSerializable(async (tx) => {
     const current = await repo.findScheduleInTransaction(tx, id)
     if (!current) throw new NotFoundError('Exam schedule not found')

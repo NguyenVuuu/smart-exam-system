@@ -34,8 +34,8 @@ export async function list(query: UsersQuery) {
   return { items, pagination: toPagination(query.page, query.pageSize, total) }
 }
 
-export async function getNextCode(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT') {
-  const code = await repo.generateNextUserCode(role)
+export async function getNextCode() {
+  const code = await repo.generateNextUserCode()
   return { code }
 }
 
@@ -44,7 +44,7 @@ export async function create(data: CreateUserBody) {
   
   let userCode = data.code?.trim() ? data.code.trim().toUpperCase() : ''
   if (!userCode) {
-    userCode = await repo.generateNextUserCode(data.role)
+    userCode = await repo.generateNextUserCode()
   }
 
   if (await codeBelongsToAnotherProfile(userCode)) throw new ConflictError('Account code already exists')

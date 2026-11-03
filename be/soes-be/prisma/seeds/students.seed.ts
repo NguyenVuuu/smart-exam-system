@@ -35,7 +35,7 @@ const STUDENT_NAMES = [
   'Dang Van AA', 'Bui Thi BB', 'Do Van CC',
 ]
 
-const EXTRA_STUDENT_COUNT = 27 // SV000003 → SV000029
+const EXTRA_STUDENT_COUNT = 27 // US000010 → US000036
 
 export async function seedStudents(prisma: PrismaClient): Promise<Student[]> {
   console.log('Seeding Students...')

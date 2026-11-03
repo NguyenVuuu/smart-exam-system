@@ -185,6 +185,7 @@ model ExamReviewDecision {
   @@index([reviewerId])
 }
 
+// Legacy data retained for existing databases; account codes are now generated as US + six digits.
 model CodeGenerationSetting {
   id            String   @id @default("SYSTEM")
   studentPrefix String   @default("SV")
@@ -511,6 +512,7 @@ model Exam {
   contentHash            String?
   blockchainTxHash       String?
   blockchainAnchoredAt   DateTime?
+  anchorRequestedAt      DateTime?
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   createdById            String

@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client'
-import { seedSettings } from './seeds/settings.seed'
 import { seedDepartments } from './seeds/departments.seed'
 import { seedSemesters } from './seeds/semesters.seed'
 import { seedSubjects } from './seeds/subjects.seed'
@@ -30,8 +29,6 @@ const prisma = new PrismaClient()
 
 async function main() {
   console.log('\n🌱 Starting SOES seed...\n')
-
-  await seedSettings(prisma)
 
   const departments = await seedDepartments(prisma)
   const semesters = await seedSemesters(prisma)

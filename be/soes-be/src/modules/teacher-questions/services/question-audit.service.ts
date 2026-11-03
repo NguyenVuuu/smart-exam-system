@@ -3,6 +3,8 @@ import { toPagination } from '../../../utils/pagination'
 import type { QuestionAuditItemDto, QuestionAuditSummaryDto } from '../dtos/teacher-question.dto'
 import { toTeacherQuestionDto } from '../mappers/teacher-question.mapper'
 import * as repo from '../repositories/teacher-questions.repository'
+import { decryptField, decryptNullable } from '../../../lib/encryption'
+import { openExamOption } from '../../../lib/exam-option-secret'
 import type { QuestionAuditQuery } from '../validators/teacher-questions.validator'
 import {
   auditQuestion,
@@ -24,18 +26,20 @@ interface AuditedQuestion {
 const toAuditableQuestion = (
   question: repo.QuestionAuditCandidate,
 ): AuditableQuestion => ({
-  title: question.title,
-  content: question.content,
-  explanation: question.explanation,
+  title: decryptField(question.title),
+  content: decryptField(question.content),
+  explanation: decryptNullable(question.explanation),
   type: question.type,
   language: question.language,
-  options: question.options,
+  options: question.options.map((option) => openExamOption(option)),
   timeLimitMs: question.programmingConfig?.timeLimitMs,
   memoryLimitMb: question.programmingConfig
     ? Math.round(question.programmingConfig.memoryLimitKb / 1024)
     : undefined,
   maxCodeSizeKb: question.programmingConfig?.maxCodeSizeKb,
-  testCases: question.programmingTests,
+  testCases: question.programmingTests.map((test) => ({
+    ...test, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
+  })),
 })
 
 const summarizeAudit = (questions: AuditedQuestion[]): QuestionAuditSummaryDto => {
@@ -72,8 +76,8 @@ const auditCandidates = (
   const issues = auditQuestion(toAuditableQuestion(question))
   return {
     questionId: question.id,
-    title: question.title,
-    content: question.content,
+    title: decryptField(question.title),
+    content: decryptField(question.content),
     subjectName: question.subject.name,
     issues,
     severity: classifyAuditIssues(issues),

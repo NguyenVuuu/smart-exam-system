@@ -1,5 +1,6 @@
 import type { Prisma, ProgrammingLanguage, QuestionDifficulty, QuestionType } from '@prisma/client'
 import { encryptField, encryptNullable } from '../../../lib/encryption'
+import { sealExamOption } from '../../../lib/exam-option-secret'
 
 export interface SnapshotSource {
   id: string
@@ -53,8 +54,7 @@ export function createExamQuestion(tx: Prisma.TransactionClient, examId: string,
       language: source.language,
       options: {
         create: source.options.map(({ content, isCorrect, orderIndex }, index) => ({
-          content: encryptField(content),
-          isCorrect,
+          ...sealExamOption(content, isCorrect),
           orderIndex: orderIndex ?? index + 1,
         })),
       },
@@ -69,8 +69,8 @@ export function createExamQuestion(tx: Prisma.TransactionClient, examId: string,
       }),
       programmingTests: {
         create: source.programmingTests.map(({ input, expectedOutput, isSample, isHidden }) => ({
-          input,
-          expectedOutput,
+          input: encryptField(input),
+          expectedOutput: encryptField(expectedOutput),
           isSample,
           isHidden,
         })),

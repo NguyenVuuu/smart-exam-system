@@ -6,7 +6,10 @@ import {
 } from "../../../errors/AppError";
 import { randomInt, randomUUID } from "crypto";
 import { logger } from "../../../lib/logger";
+import { decryptField, decryptNullable } from '../../../lib/encryption';
+import { openExamOption } from '../../../lib/exam-option-secret';
 import { anchorPublishedExam } from "./exam-blockchain.service";
+import { openReviewSnapshot } from "../repositories/exam-review-snapshot.repository";
 import { toPagination } from "../../../utils/pagination";
 import { notifyUsers } from "../../notifications/notifications.service";
 import {
@@ -66,15 +69,15 @@ function splitPoints(totalPoints: number, count: number): number[] {
 function toQuestionSnapshot(question: AutoQuestionPoolItem): SnapshotSource {
   return {
     id: question.id,
-    title: question.title,
-    content: question.content,
-    explanation: question.explanation ?? null,
+    title: decryptField(question.title),
+    content: decryptField(question.content),
+    explanation: decryptNullable(question.explanation),
     type: question.type,
     difficulty: question.difficulty,
     language: question.language ?? null,
     options: question.options.map((option, index) => ({
-      content: option.content,
-      isCorrect: option.isCorrect,
+      content: openExamOption(option).content,
+      isCorrect: openExamOption(option).isCorrect,
       orderIndex: index + 1,
     })),
     programmingConfig: question.programmingConfig
@@ -85,8 +88,8 @@ function toQuestionSnapshot(question: AutoQuestionPoolItem): SnapshotSource {
         }
       : null,
     programmingTests: question.programmingTests.map((test) => ({
-      input: test.input,
-      expectedOutput: test.expectedOutput,
+      input: decryptField(test.input),
+      expectedOutput: decryptField(test.expectedOutput),
       isSample: test.isSample,
       isHidden: test.isHidden,
     })),
@@ -370,7 +373,7 @@ export async function replaceQuestions(
   const total = sumPointCents(items.map((item) => item.points));
   if (!arePointTotalsEqual(fromPointCents(total), Number(exam.totalPoints)))
     throw new ValidationError("Question points must equal exam total points");
-  const byId = new Map(questions.map((question) => [question.id, question]));
+  const byId = new Map(questions.map((question) => [question.id, toQuestionSnapshot(question)]));
   const sectionIds = new Set(exam.sections?.map(({ id }) => id) ?? []);
   if (items.some(({ sectionId }) => sectionId && !sectionIds.has(sectionId))) {
     throw new ValidationError("One or more exam sections are invalid");
@@ -427,6 +430,7 @@ export async function submit(teacherId: string, examId: string) {
           status: "READY" as const,
           approvalStatus: "NOT_REQUIRED" as const,
           rejectionReason: null,
+          anchorRequestedAt: new Date(),
         };
 
   const result = await lifecycleRepo.transitionExam(
@@ -500,7 +504,7 @@ export async function getApproval(teacherId: string, examId: string) {
   return {
     ...toTeacherExamDto(round.exam, teacherId),
     reviewRound: { id: round.id, version: round.version, status: round.status, submittedAt: round.submittedAt },
-    snapshot: round.snapshot,
+    snapshot: openReviewSnapshot(round.snapshot),
   }
 }
 

@@ -1,7 +1,6 @@
 import { apiClient } from '../../../api/axios'
 import type {
   AdminSystemSettings,
-  CodeGenerationSettings,
   ExamDefaultsSettings,
   GeneralSettings,
 } from '../types/admin-system-settings.types'
@@ -33,10 +32,6 @@ export const removeSystemLogo = () =>
 
 export const updateExamDefaultsSettings = (payload: Partial<ExamDefaultsSettings>) =>
   apiClient.put<ApiResponse<ExamDefaultsSettings>>('/admin/system-settings/exam-defaults', payload)
-    .then(({ data }) => data.data)
-
-export const updateCodeGenerationSettings = (payload: Partial<CodeGenerationSettings>) =>
-  apiClient.put<ApiResponse<CodeGenerationSettings>>('/admin/system-settings/code-generation', payload)
     .then(({ data }) => data.data)
 
 export const updateAiSettings = (payload: { model?: string; maxQuestionsPerRun?: number; timeoutSeconds?: number }) =>

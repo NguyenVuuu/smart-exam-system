@@ -44,7 +44,7 @@ export default function ExamSessionsTab({
               type="button"
               onClick={createBlocked ? undefined : onCreateSession}
               disabled={createBlocked}
-              title={createBlocked ? 'Không thể tạo ca thi: nội dung đề không khớp với bản ghi blockchain' : undefined}
+              title={isTampered ? 'Không thể tạo ca thi: nội dung đề không khớp với bản ghi blockchain' : isVerifyRequired ? 'Đang chờ hệ thống xác minh đề trên blockchain' : undefined}
               className={`px-5 py-2.5 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors ${
                 createBlocked
                   ? 'bg-gray-300 cursor-not-allowed opacity-60'
@@ -58,7 +58,7 @@ export default function ExamSessionsTab({
                 <AlertTriangle size={12} />
                 {isTampered
                   ? 'Đề thi bị khóa do nội dung không khớp blockchain'
-                  : 'Cần kiểm tra toàn vẹn đề thi trước khi tạo ca thi'}
+                  : 'Đang chờ xác minh đề trên blockchain; hệ thống sẽ tự kiểm tra lại'}
               </p>
             )}
           </div>

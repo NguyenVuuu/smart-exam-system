@@ -30,15 +30,6 @@ export interface ExamDefaultsSettings {
   heartbeatTimeoutSeconds: number
 }
 
-export interface CodeGenerationSettings {
-  studentPrefix: string
-  studentDigits: number
-  teacherPrefix: string
-  teacherDigits: number
-  adminPrefix: string
-  adminDigits: number
-}
-
 export interface AiSettings {
   model: string
   maxQuestionsPerRun: number
@@ -49,7 +40,6 @@ export interface AdminSystemSettings {
   environment: string
   general: GeneralSettings
   examDefaults: ExamDefaultsSettings
-  codeGeneration: CodeGenerationSettings
   ai: {
     provider: string
     model: string
@@ -76,4 +66,4 @@ export interface AdminSystemSettings {
   checkedAt: string
 }
 
-export type SystemSettingsTab = 'GENERAL' | 'EXAM_DEFAULTS' | 'CODE_GENERATION' | 'AI' | 'INTEGRATIONS'
+export type SystemSettingsTab = 'GENERAL' | 'EXAM_DEFAULTS' | 'AI' | 'INTEGRATIONS'

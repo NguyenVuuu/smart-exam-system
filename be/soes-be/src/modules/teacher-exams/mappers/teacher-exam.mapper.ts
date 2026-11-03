@@ -3,6 +3,7 @@ import type { TeacherExamDetailDto, TeacherExamDto } from '../dtos/teacher-exam.
 import type { examDetailInclude, examInclude } from '../repositories/teacher-exams.repository'
 import type { ExamCapabilities } from '../types/teacher-exam.types'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
+import { openExamOption } from '../../../lib/exam-option-secret'
 
 type ExamRow = Prisma.ExamGetPayload<{ include: typeof examInclude }>
 type ExamDetailRow = Prisma.ExamGetPayload<{ include: typeof examDetailInclude }>
@@ -68,14 +69,14 @@ export function toExamQuestionsDto(questions: ExamDetailRow['examQuestions']) {
     title: decryptField(question.title), content: decryptField(question.content), explanation: decryptNullable(question.explanation), type: question.type,
     difficulty: question.difficulty, language: question.language,
     points: Number(question.points), orderIndex: question.orderIndex,
-    options: question.options.map(({ id, content, isCorrect }) => ({ id, content: decryptField(content), isCorrect })),
+    options: question.options.map((option) => ({ id: option.id, ...openExamOption(option) })),
     programmingConfig: question.programmingConfig ? {
       timeLimitMs: question.programmingConfig.timeLimitMs,
       memoryLimitMb: Math.round(question.programmingConfig.memoryLimitKb / 1024),
       maxCodeSizeKb: question.programmingConfig.maxCodeSizeKb,
     } : null,
     testCases: question.programmingTests.map((test) => ({
-      id: test.id, input: test.input, expectedOutput: test.expectedOutput,
+      id: test.id, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
       isHidden: test.isHidden,
     })),
   }))

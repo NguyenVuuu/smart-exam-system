@@ -29,7 +29,11 @@ export const autoGenerate = async (req: Request, res: Response) => send(res, awa
 export const update = async (req: Request, res: Response) => send(res, await service.update(req.user!.profileId, idParam.parse(req.params).id, examBodySchema.parse(req.body)))
 export const replaceQuestions = async (req: Request, res: Response) => send(res, await service.replaceQuestions(req.user!.profileId, idParam.parse(req.params).id, examQuestionsSchema.parse(req.body).items))
 export const submit = async (req: Request, res: Response) => send(res, await service.submit(req.user!.profileId, idParam.parse(req.params).id))
-export const verifyIntegrity = async (req: Request, res: Response) => send(res, await blockchainService.verifyExamIntegrity(idParam.parse(req.params).id))
+export const verifyIntegrity = async (req: Request, res: Response) => {
+  const examId = idParam.parse(req.params).id
+  await service.get(req.user!.profileId, examId)
+  send(res, await blockchainService.verifyExamIntegrity(examId))
+}
 export const copy = async (req: Request, res: Response) => send(res, await service.copy(req.user!.profileId, idParam.parse(req.params).id), 201)
 export const remove = async (req: Request, res: Response) => send(res, await service.remove(req.user!.profileId, idParam.parse(req.params).id))
 export const lockDistribution = async (req: Request, res: Response) => send(

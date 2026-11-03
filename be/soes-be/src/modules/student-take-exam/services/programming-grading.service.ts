@@ -3,6 +3,7 @@ import type {
   ProgrammingTestResultStatus,
 } from '@prisma/client'
 import { Judge0Service, judge0Service } from '../../../lib/judge0'
+import { decryptField } from '../../../lib/encryption'
 import type { Judge0SubmissionResult } from '../../../lib/judge0'
 import * as repo from '../repositories/programming-grading.repository'
 
@@ -43,7 +44,9 @@ export async function gradeProgrammingAnswers(attemptId: string) {
     const sourceCode = codeByQuestion.get(examQuestion.id) ?? ''
     const config = examQuestion.programmingConfig
     const language = examQuestion.language
-    const tests = examQuestion.programmingTests
+    const tests = examQuestion.programmingTests.map((test) => ({
+      ...test, input: decryptField(test.input), expectedOutput: decryptField(test.expectedOutput),
+    }))
     if (!sourceCode.trim() || !language || !config || !tests.length) {
       await repo.saveProgrammingGrade({
         attemptId, questionId: examQuestion.id, sourceCode,

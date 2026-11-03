@@ -50,8 +50,8 @@ export const saveCourseOffering = (id: string | null, payload: CourseOfferingPay
 export const getUsers = () => getAllPages<UserApiDto>('/admin/users')
 export const getUserReferences = (role: 'TEACHER' | 'STUDENT') =>
   getAllPages<UserApiDto>('/admin/users/references', { role, status: 'ACTIVE' })
-export const getNextUserCode = (role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT') =>
-  apiClient.get<ApiResponse<{ code: string }>>('/admin/users/next-code', { params: { role } }).then(unwrap)
+export const getNextUserCode = () =>
+  apiClient.get<ApiResponse<{ code: string }>>('/admin/users/next-code').then(unwrap)
 export const createUser = (payload: UserPayload) => apiClient
   .post<ApiResponse<unknown>>('/admin/users', payload).then(unwrap)
 export const updateUser = (role: UserApiDto['role'], profileId: string, payload: UpdateUserPayload) => apiClient

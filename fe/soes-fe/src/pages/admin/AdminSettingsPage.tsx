@@ -10,7 +10,6 @@ import AdminLayout from './components/AdminLayout'
 import AdminModal from './components/AdminModal'
 import AdminPageHeader from './components/AdminPageHeader'
 import AiSettingsPanel from './components/settings/AiSettingsPanel'
-import CodeGenerationSettingsPanel from './components/settings/CodeGenerationSettingsPanel'
 import ExamDefaultsSettingsPanel from './components/settings/ExamDefaultsSettingsPanel'
 import GeneralSettingsPanel from './components/settings/GeneralSettingsPanel'
 import SystemIntegrationsPanel from './components/settings/SystemIntegrationsPanel'
@@ -51,7 +50,7 @@ export default function AdminSettingsPage() {
       <AdminPageHeader
         icon={<Settings size={20} />}
         title="Cấu hình hệ thống"
-        description="Quản trị thông tin đơn vị, quy tắc thi cử mặc định, định dạng mã và chẩn đoán hạ tầng SOES."
+        description="Quản trị thông tin đơn vị, quy tắc thi mặc định, trợ lý AI và trạng thái hạ tầng SOES."
         action={(
           <div className="flex items-center gap-2">
             <AdminButton
@@ -107,13 +106,6 @@ export default function AdminSettingsPage() {
                 onUpdated={() => void refresh()}
               />
             )}
-            {activeTab === 'CODE_GENERATION' && (
-              <CodeGenerationSettingsPanel
-                key={`code-${data.checkedAt}`}
-                settings={data.codeGeneration}
-                onUpdated={() => void refresh()}
-              />
-            )}
             {activeTab === 'AI' && (
               <AiSettingsPanel
                 key={`ai-${data.checkedAt}`}
@@ -132,7 +124,7 @@ export default function AdminSettingsPage() {
         open={canManage && showResetModal}
         size="md"
         title="Khôi phục Cài đặt gốc Hệ thống"
-        description="Thao tác này sẽ thiết lập lại toàn bộ thông tin đơn vị, quy tắc thi mặc định và định dạng mã về giá trị chuẩn ban đầu."
+        description="Thao tác này sẽ thiết lập lại thông tin đơn vị, quy tắc thi mặc định và cấu hình trợ lý AI về giá trị ban đầu."
         confirmText={resetting ? 'Đang khôi phục...' : 'Khôi phục cài đặt gốc'}
         confirmTone="danger"
         confirmDisabled={resetting}
@@ -144,7 +136,7 @@ export default function AdminSettingsPage() {
           <div className="space-y-1">
             <p className="font-semibold text-rose-950">Lưu ý quan trọng trước khi khôi phục:</p>
             <p className="text-rose-800 leading-relaxed">
-              Tất cả các tùy chỉnh tên trường, logo, hotline hỗ trợ, quy tắc an ninh phòng thi và tiền tố mã tài khoản sẽ quay về trạng thái mặc định của nhà phát triển.
+              Tên đơn vị, logo, hotline hỗ trợ, quy tắc an ninh phòng thi và cấu hình trợ lý AI sẽ quay về giá trị mặc định.
             </p>
           </div>
         </div>

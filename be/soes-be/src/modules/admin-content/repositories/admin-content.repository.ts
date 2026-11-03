@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
+import { decryptField } from '../../../lib/encryption'
 import { examDetailInclude } from '../../teacher-exams/repositories/teacher-exams.repository'
 import type { ExamTrackingQuery, QuestionBankQuery } from '../validators/admin-content.validator'
 
@@ -27,7 +28,7 @@ export async function adminActor(userId: string) {
   return prisma.admin.findFirst({ where: { userId }, select: { id: true } })
 }
 
-export function listBank(query: QuestionBankQuery) {
+export async function listBank(query: QuestionBankQuery) {
   const where: Prisma.QuestionBankItemWhereInput = {
     status: 'APPROVED',
     ...(query.status === 'APPROVED' && { removedAt: null }),
@@ -35,13 +36,17 @@ export function listBank(query: QuestionBankQuery) {
     question: {
       ...(query.subjectId && { subjectId: query.subjectId }),
       ...(query.departmentId && { subject: { departmentId: query.departmentId } }),
-      ...(query.keyword && { OR: [
-        { title: { contains: query.keyword, mode: 'insensitive' } },
-        { content: { contains: query.keyword, mode: 'insensitive' } },
-        { owner: { user: { fullName: { contains: query.keyword, mode: 'insensitive' } } } },
-        { subject: { name: { contains: query.keyword, mode: 'insensitive' } } },
-      ] }),
     },
+  }
+  if (query.keyword) {
+    const rows = await prisma.questionBankItem.findMany({ where, include: bankInclude, orderBy: { reviewedAt: 'desc' } })
+    const keyword = query.keyword.toLocaleLowerCase('vi')
+    const matched = rows.filter(({ question }) => [
+      decryptField(question.title), decryptField(question.content),
+      question.owner.user.fullName, question.subject.name,
+    ].some((value) => value.toLocaleLowerCase('vi').includes(keyword)))
+    const offset = (query.page - 1) * query.pageSize
+    return [matched.length, matched.slice(offset, offset + query.pageSize)] as const
   }
   return Promise.all([
     prisma.questionBankItem.count({ where }),

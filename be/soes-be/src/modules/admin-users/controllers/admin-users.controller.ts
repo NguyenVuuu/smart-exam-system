@@ -7,17 +7,14 @@ import { accountStatusSchema, createUserSchema, enrollmentBodySchema, enrollment
 
 const profileParams = z.object({ role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']), profileId: z.string().min(1) })
 const enrollmentParams = z.object({ courseOfferingId: z.string().min(1), studentId: z.string().min(1).optional() })
-const roleQuery = z.object({ role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']) })
 function requireAdminForAdminAccount(req: Request, role: string) {
   if (role === 'ADMIN' && req.user?.role !== 'ADMIN') {
     throw new ForbiddenError('Only administrators can manage administrator accounts')
   }
 }
 
-export const getNextCode = async (req: Request, res: Response) => {
-  const { role } = roleQuery.parse(req.query)
-  requireAdminForAdminAccount(req, role)
-  send(res, await service.getNextCode(role))
+export const getNextCode = async (_req: Request, res: Response) => {
+  send(res, await service.getNextCode())
 }
 export const listUsers = async (req: Request, res: Response) => {
   send(res, await service.list(usersQuerySchema.parse(req.query)))

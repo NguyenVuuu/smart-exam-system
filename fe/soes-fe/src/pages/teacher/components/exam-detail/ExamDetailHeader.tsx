@@ -3,7 +3,6 @@ import {
   Edit,
   Eye,
   LockKeyhole,
-  Send,
   UnlockKeyhole,
   UserCheck,
   UserX,
@@ -17,7 +16,6 @@ import { ExamBlockchainBadge } from './ExamBlockchainBadge'
 const actionButtonClassName =
   'inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors'
 const neutralButtonClassName = `${actionButtonClassName} bg-gray-100 text-gray-700 hover:bg-gray-200`
-const primaryButtonClassName = `${actionButtonClassName} bg-blue-600 text-white shadow-xs hover:bg-blue-700`
 const amberButtonClassName = `${actionButtonClassName} bg-amber-50 text-amber-700 hover:bg-amber-100`
 const blueSoftButtonClassName = `${actionButtonClassName} bg-blue-50 text-blue-700 hover:bg-blue-100`
 const emeraldButtonClassName = `${actionButtonClassName} bg-emerald-50 text-emerald-700 hover:bg-emerald-100`
@@ -26,7 +24,6 @@ const actionIconSize = 14
 export function ExamDetailHeader({
   exam,
   onEdit,
-  onPublish,
   onPreview,
   onCopy,
   onToggleStudentVisibility,
@@ -39,7 +36,6 @@ export function ExamDetailHeader({
 }: {
   exam: Exam
   onEdit: () => void
-  onPublish: () => void
   onPreview: () => void
   onCopy: () => void
   onToggleStudentVisibility: () => void
@@ -110,14 +106,6 @@ export function ExamDetailHeader({
               )}
             </button>
           )}
-          {!contentOnly && capabilities.canSchedule && (
-            <button
-              onClick={onPublish}
-              className={primaryButtonClassName}
-            >
-              <Send size={actionIconSize} /> Tạo ca thi
-            </button>
-          )}
           {!contentOnly && capabilities.canEdit && (
             <button
               onClick={onEdit}
@@ -146,7 +134,7 @@ export function ExamDetailHeader({
       </div>
 
       {/* Blockchain integrity badge — chỉ hiện khi đề đã publish */}
-      {exam.status !== 'DRAFT' && <ExamBlockchainBadge exam={exam} onTamperedChange={onTamperedChange} onVerifiedChange={onVerifiedChange} />}
+      {exam.status !== 'DRAFT' && <ExamBlockchainBadge key={`${exam.id}:${exam.contentHash ?? ''}`} exam={exam} onTamperedChange={onTamperedChange} onVerifiedChange={onVerifiedChange} />}
     </div>
   )
 }

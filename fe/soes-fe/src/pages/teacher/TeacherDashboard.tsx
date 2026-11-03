@@ -248,7 +248,7 @@ export default function TeacherDashboard() {
               <div className="space-y-3">
                 <div className="p-3 bg-rose-50/70 border border-rose-100 rounded-xl space-y-1">
                   <div className="flex justify-between items-center text-xs font-bold text-rose-800">
-                    <span>Phạm Đức Anh (SV2026003)</span>
+                    <span>Phạm Đức Anh (US000013)</span>
                     <span className="text-xs text-rose-600 font-mono">10:14:20</span>
                   </div>
                   <p className="text-xs text-rose-700">Webcam không phát hiện khuôn mặt quá 15 giây.</p>
@@ -256,7 +256,7 @@ export default function TeacherDashboard() {
 
                 <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-xl space-y-1">
                   <div className="flex justify-between items-center text-xs font-bold text-amber-800">
-                    <span>Trần Minh Nam (SV2026001)</span>
+                    <span>Trần Minh Nam (US000011)</span>
                     <span className="text-xs text-amber-600 font-mono">10:12:05</span>
                   </div>
                   <p className="text-xs text-amber-700">Phát hiện chuyển tab trình duyệt ra ngoài.</p>

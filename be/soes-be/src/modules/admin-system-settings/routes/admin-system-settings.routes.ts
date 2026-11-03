@@ -11,7 +11,6 @@ import {
   removeLogo,
   resetDefaults,
   updateAi,
-  updateCodeGeneration,
   updateExamDefaults,
   updateGeneral,
   uploadLogo,
@@ -34,7 +33,6 @@ router.put('/system-settings/general', requireBackoffice('SETTINGS_MANAGE'), asy
 router.post('/system-settings/logo', requireBackoffice('SETTINGS_MANAGE'), uploadSystemLogo, asyncHandler(uploadLogo))
 router.delete('/system-settings/logo', requireBackoffice('SETTINGS_MANAGE'), asyncHandler(removeLogo))
 router.put('/system-settings/exam-defaults', requireBackoffice('SETTINGS_MANAGE'), asyncHandler(updateExamDefaults))
-router.put('/system-settings/code-generation', requireBackoffice('SETTINGS_MANAGE'), asyncHandler(updateCodeGeneration))
 router.put('/system-settings/ai', requireBackoffice('SETTINGS_MANAGE'), asyncHandler(updateAi))
 router.post('/system-settings/reset-defaults', requireBackoffice('SETTINGS_MANAGE'), asyncHandler(resetDefaults))
 

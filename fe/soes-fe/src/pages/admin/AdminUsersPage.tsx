@@ -35,7 +35,7 @@ export default function AdminUsersPage() {
   const [phone, setPhone] = useState('')
   const [userDepartmentId, setUserDepartmentId] = useState('NONE')
   const [userStatus, setUserStatus] = useState<AdminUser['status']>('ACTIVE')
-  const [importText, setImportText] = useState('SV2026007, Nguyễn Văn Hùng, hung.nv@soes.edu.vn')
+  const [importText, setImportText] = useState('US000007, Nguyễn Văn Hùng, hung.nv@soes.edu.vn')
 
   const filteredUsers = useMemo(() => data.users.filter((item) =>
     (role === 'ALL' || item.role === role) &&

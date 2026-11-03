@@ -17,10 +17,11 @@ const CONTRACT_ABI = [
   'function getHash(string examId) external view returns (string contentHash, uint256 storedAt)',
   'event HashStored(string indexed examId, string contentHash, uint256 storedAt)',
 ]
+const SEPOLIA_CHAIN_ID = 11155111n
 
 export interface BlockchainAnchorResult {
-  txHash: string
-  blockNumber: number
+  txHash: string | null
+  blockNumber: number | null
   anchoredAt: Date
   etherscanUrl: string
 }
@@ -34,7 +35,7 @@ export interface BlockchainVerifyResult {
   etherscanUrl: string | null
 }
 
-function isConfigured(): boolean {
+export function isBlockchainConfigured(): boolean {
   return Boolean(
     process.env.BLOCKCHAIN_RPC_URL
     && process.env.BLOCKCHAIN_PRIVATE_KEY
@@ -92,12 +93,29 @@ export async function anchorExamHash(
   examId: string,
   contentHash: string,
 ): Promise<BlockchainAnchorResult | null> {
-  if (!isConfigured()) {
+  if (!isBlockchainConfigured()) {
     logger.warn('Blockchain not configured — skipping anchor', { examId })
     return null
   }
 
   try {
+    if ((await getProvider().getNetwork()).chainId !== SEPOLIA_CHAIN_ID) {
+      throw new Error('Blockchain RPC is not connected to Sepolia')
+    }
+    const existing = getContract(false)
+    const [storedHash, storedAtRaw] = await existing.getHash(examId) as [string, bigint]
+    if (storedHash) {
+      if (storedHash !== contentHash) {
+        logger.error('On-chain exam hash conflicts with current content', { examId })
+        return null
+      }
+      return {
+        txHash: null,
+        blockNumber: null,
+        anchoredAt: new Date(Number(storedAtRaw) * 1000),
+        etherscanUrl: '',
+      }
+    }
     const contract = getContract(true)
     const tx = await contract.storeHash(examId, contentHash)
     const receipt: ContractTransactionReceipt = await tx.wait(1) // chờ 1 confirmation
@@ -125,7 +143,7 @@ export async function verifyExamHash(
   currentContentHash: string,
   storedTxHash: string,
 ): Promise<BlockchainVerifyResult> {
-  if (!isConfigured()) {
+  if (!isBlockchainConfigured()) {
     return {
       isValid: false,
       onChainHash: null,
@@ -137,6 +155,9 @@ export async function verifyExamHash(
   }
 
   try {
+    if ((await getProvider().getNetwork()).chainId !== SEPOLIA_CHAIN_ID) {
+      throw new Error('Blockchain RPC is not connected to Sepolia')
+    }
     const contract = getContract(false)
     const [onChainHash, storedAtRaw] = await contract.getHash(examId) as [string, bigint]
 
