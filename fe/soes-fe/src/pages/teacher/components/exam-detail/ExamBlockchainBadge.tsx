@@ -79,7 +79,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
       {/* Hash info */}
       {exam.contentHash && (
         <div className="space-y-1">
-          <p className="text-xs text-gray-500">SHA-256 nội dung đề thi:</p>
+          <p className="text-xs text-gray-500">Dấu vân tay nội dung đề thi:</p>
           <code className="block truncate rounded bg-gray-50 px-2 py-1 text-xs font-mono text-gray-700 border border-gray-200">
             {exam.contentHash}
           </code>
