@@ -511,6 +511,7 @@ model Exam {
   contentHash            String?
   blockchainTxHash       String?
   blockchainAnchoredAt   DateTime?
+  anchorRequestedAt      DateTime?
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   createdById            String

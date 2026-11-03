@@ -430,6 +430,7 @@ export async function submit(teacherId: string, examId: string) {
           status: "READY" as const,
           approvalStatus: "NOT_REQUIRED" as const,
           rejectionReason: null,
+          anchorRequestedAt: new Date(),
         };
 
   const result = await lifecycleRepo.transitionExam(

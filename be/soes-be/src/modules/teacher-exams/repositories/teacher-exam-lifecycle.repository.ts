@@ -235,6 +235,7 @@ export function reviewExam(id: string, reviewerId: string, approved: boolean, re
       data: {
         approvalStatus: approved ? 'APPROVED' : 'REJECTED',
         status: approved ? 'READY' : 'DRAFT',
+        anchorRequestedAt: approved ? now : null,
         reviewedById: reviewerId,
         reviewedAt: now,
         rejectionReason: approved ? null : revisionReason,

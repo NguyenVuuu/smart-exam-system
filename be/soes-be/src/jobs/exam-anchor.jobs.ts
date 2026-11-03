@@ -13,7 +13,7 @@ export async function retryPendingExamAnchors(): Promise<void> {
   running = true
   try {
     const exams = await prisma.exam.findMany({
-      where: { status: 'READY', blockchainAnchoredAt: null },
+      where: { status: 'READY', anchorRequestedAt: { not: null }, blockchainAnchoredAt: null },
       select: { id: true },
       orderBy: { createdAt: 'asc' },
       take: BATCH_SIZE,
