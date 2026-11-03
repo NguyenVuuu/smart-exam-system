@@ -7,14 +7,12 @@ import {
   removeSystemLogo,
   resetDefaultSystemSettings,
   updateAiSettings,
-  updateCodeGenerationSettings,
   updateExamDefaultsSettings,
   updateGeneralSettings,
   uploadSystemLogo,
 } from '../services/admin-system-settings.service'
 import {
   updateAiSettingsSchema,
-  updateCodeGenerationSchema,
   updateExamDefaultsSchema,
   updateGeneralSettingsSchema,
 } from '../validators/admin-system-settings.validator'
@@ -62,13 +60,6 @@ export const updateExamDefaults = async (request: Request, response: Response) =
   const userId = request.user?.id || 'SYSTEM'
   const payload = updateExamDefaultsSchema.parse(request.body)
   const result = await updateExamDefaultsSettings(userId, payload)
-  send(response, result)
-}
-
-export const updateCodeGeneration = async (request: Request, response: Response) => {
-  const userId = request.user?.id || 'SYSTEM'
-  const payload = updateCodeGenerationSchema.parse(request.body)
-  const result = await updateCodeGenerationSettings(userId, payload)
   send(response, result)
 }
 

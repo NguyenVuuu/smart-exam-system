@@ -185,6 +185,7 @@ model ExamReviewDecision {
   @@index([reviewerId])
 }
 
+// Legacy data retained for existing databases; account codes are now generated as US + six digits.
 model CodeGenerationSetting {
   id            String   @id @default("SYSTEM")
   studentPrefix String   @default("SV")

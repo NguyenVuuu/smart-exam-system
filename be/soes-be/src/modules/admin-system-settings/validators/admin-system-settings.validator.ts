@@ -23,15 +23,6 @@ export const updateExamDefaultsSchema = z.object({
   heartbeatTimeoutSeconds: z.number().int().min(10, 'Timeout tối thiểu 10s').max(300, 'Timeout tối đa 300s').optional(),
 })
 
-export const updateCodeGenerationSchema = z.object({
-  studentPrefix: z.string().trim().min(1, 'Tiền tố SV không được rỗng').max(10, 'Tiền tố tối đa 10 ký tự').optional(),
-  studentDigits: z.number().int().min(4, 'Độ dài tối thiểu 4').max(12, 'Độ dài tối đa 12').optional(),
-  teacherPrefix: z.string().trim().min(1, 'Tiền tố GV không được rỗng').max(10, 'Tiền tố tối đa 10 ký tự').optional(),
-  teacherDigits: z.number().int().min(4, 'Độ dài tối thiểu 4').max(12, 'Độ dài tối đa 12').optional(),
-  adminPrefix: z.string().trim().min(1, 'Tiền tố AD không được rỗng').max(10, 'Tiền tố tối đa 10 ký tự').optional(),
-  adminDigits: z.number().int().min(4, 'Độ dài tối thiểu 4').max(12, 'Độ dài tối đa 12').optional(),
-})
-
 export const updateAiSettingsSchema = z.object({
   model: z.string().trim().min(1, 'Model không được để trống').max(100).optional(),
   maxQuestionsPerRun: z.number().int()

@@ -1,10 +1,9 @@
-import { Bot, Building2, Hash, PlugZap, ShieldCheck } from 'lucide-react'
+import { Bot, Building2, PlugZap, ShieldCheck } from 'lucide-react'
 import type { SystemSettingsTab } from '../../types/admin-system-settings.types'
 
 const tabs: Array<{ id: SystemSettingsTab; label: string; icon: typeof Building2 }> = [
   { id: 'GENERAL', label: 'Thông tin đơn vị', icon: Building2 },
   { id: 'EXAM_DEFAULTS', label: 'Quy tắc thi mặc định', icon: ShieldCheck },
-  { id: 'CODE_GENERATION', label: 'Định dạng mã tài khoản', icon: Hash },
   { id: 'AI', label: 'Cấu hình Trợ lý AI', icon: Bot },
   { id: 'INTEGRATIONS', label: 'Trạng thái hạ tầng', icon: PlugZap },
 ]

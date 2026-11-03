@@ -11,11 +11,9 @@ import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import type {
   AdminSystemSettingsDto,
   AiSettingsDto,
-  CodeGenerationSettingsDto,
   ExamDefaultsSettingsDto,
   GeneralSettingsDto,
   UpdateAiSettingsDto,
-  UpdateCodeGenerationSettingsDto,
   UpdateExamDefaultsSettingsDto,
   UpdateGeneralSettingsDto,
 } from '../dtos/admin-system-settings.dto'
@@ -63,44 +61,14 @@ function detectLogoMimeType(bytes: Buffer): string | null {
   return null
 }
 
-async function getCodeGenerationSettings(): Promise<CodeGenerationSettingsDto> {
-  const setting = await prisma.codeGenerationSetting.findUnique({
-    where: { id: 'SYSTEM' },
-  })
-
-  if (!setting) {
-    return {
-      studentPrefix: 'SV',
-      studentDigits: 6,
-      teacherPrefix: 'GV',
-      teacherDigits: 6,
-      adminPrefix: 'AD',
-      adminDigits: 6,
-    }
-  }
-
-  return {
-    studentPrefix: setting.studentPrefix,
-    studentDigits: setting.studentDigits,
-    teacherPrefix: setting.teacherPrefix,
-    teacherDigits: setting.teacherDigits,
-    adminPrefix: setting.adminPrefix,
-    adminDigits: setting.adminDigits,
-  }
-}
-
 export async function getAdminSystemSettings(): Promise<AdminSystemSettingsDto> {
   const fileConfig = await readSystemSettingsFile()
-  const [codeGeneration, integrations] = await Promise.all([
-    getCodeGenerationSettings(),
-    getIntegrationStatuses(fileConfig.ai.model),
-  ])
+  const integrations = await getIntegrationStatuses(fileConfig.ai.model)
 
   return {
     environment: appConfig.nodeEnv,
     general: fileConfig.general,
     examDefaults: fileConfig.examDefaults,
-    codeGeneration,
     runtime: {
       heartbeatTimeoutSeconds: Math.round(examConfig.heartbeatTimeoutMs / 1000),
       accessTokenMinutes: AUTH_TOKEN_LIFETIMES.accessMinutes,
@@ -237,43 +205,6 @@ export async function updateExamDefaultsSettings(
   return updated.examDefaults
 }
 
-export async function updateCodeGenerationSettings(
-  userId: string,
-  payload: UpdateCodeGenerationSettingsDto,
-): Promise<CodeGenerationSettingsDto> {
-  const updated = await prisma.codeGenerationSetting.upsert({
-    where: { id: 'SYSTEM' },
-    update: {
-      studentPrefix: payload.studentPrefix,
-      studentDigits: payload.studentDigits,
-      teacherPrefix: payload.teacherPrefix,
-      teacherDigits: payload.teacherDigits,
-      adminPrefix: payload.adminPrefix,
-      adminDigits: payload.adminDigits,
-    },
-    create: {
-      id: 'SYSTEM',
-      studentPrefix: payload.studentPrefix ?? 'SV',
-      studentDigits: payload.studentDigits ?? 6,
-      teacherPrefix: payload.teacherPrefix ?? 'GV',
-      teacherDigits: payload.teacherDigits ?? 6,
-      adminPrefix: payload.adminPrefix ?? 'AD',
-      adminDigits: payload.adminDigits ?? 6,
-    },
-  })
-
-  await safeWriteAuditLog(userId, 'UPDATE_SYSTEM_SETTINGS', 'CODE_GENERATION', payload as Record<string, unknown>)
-
-  return {
-    studentPrefix: updated.studentPrefix,
-    studentDigits: updated.studentDigits,
-    teacherPrefix: updated.teacherPrefix,
-    teacherDigits: updated.teacherDigits,
-    adminPrefix: updated.adminPrefix,
-    adminDigits: updated.adminDigits,
-  }
-}
-
 export async function getStoredAiSettings(): Promise<AiSettingsDto> {
   const fileConfig = await readSystemSettingsFile()
   return fileConfig.ai
@@ -295,27 +226,6 @@ export async function updateAiSettings(
 export async function resetDefaultSystemSettings(userId: string): Promise<AdminSystemSettingsDto> {
   const updated = await updateSystemSettingsFile(() => createDefaultSystemSettings())
   examConfig.setHeartbeatTimeoutSeconds(updated.examDefaults.heartbeatTimeoutSeconds)
-
-  await prisma.codeGenerationSetting.upsert({
-    where: { id: 'SYSTEM' },
-    update: {
-      studentPrefix: 'SV',
-      studentDigits: 6,
-      teacherPrefix: 'GV',
-      teacherDigits: 6,
-      adminPrefix: 'AD',
-      adminDigits: 6,
-    },
-    create: {
-      id: 'SYSTEM',
-      studentPrefix: 'SV',
-      studentDigits: 6,
-      teacherPrefix: 'GV',
-      teacherDigits: 6,
-      adminPrefix: 'AD',
-      adminDigits: 6,
-    },
-  })
 
   await safeWriteAuditLog(userId, 'RESET_SYSTEM_SETTINGS', 'SYSTEM', {
     resetAt: new Date().toISOString(),
