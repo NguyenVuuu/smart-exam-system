@@ -128,6 +128,7 @@ export async function anchorPublishedExam(examId: string): Promise<void> {
         description: true, type: true, format: true, subjectId: true, semesterId: true,
         defaultDurationMinutes: true, sections: true,
         totalPoints: true,
+        contentHash: true,
         blockchainTxHash: true,
         blockchainAnchoredAt: true,
         status: true,
@@ -153,10 +154,15 @@ export async function anchorPublishedExam(examId: string): Promise<void> {
       return
     }
 
-    const contentHash = computeStoredExamHash(exam, 2)
+    const version = hashVersion(exam.contentHash ?? '')
+    const contentHash = computeStoredExamHash(exam, exam.contentHash ? version : 2)
+    if (exam.contentHash && exam.contentHash !== contentHash) {
+      logger.error('Skipping blockchain anchor — stored exam hash does not match content', { examId })
+      return
+    }
 
     // Ghi lên blockchain (có thể mất 15–30s trên Sepolia)
-    const anchor = await anchorExamHash(anchorKey(examId, 2), contentHash)
+    const anchor = await anchorExamHash(anchorKey(examId, exam.contentHash ? version : 2), contentHash)
 
     // Lưu hash + txHash vào DB dù blockchain có thành công hay không
     await prisma.exam.update({

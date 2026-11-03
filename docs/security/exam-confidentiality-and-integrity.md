@@ -18,7 +18,7 @@ Thiếu hoặc sai khóa làm thao tác mã hóa/giải mã thất bại. Không
 ## Vận hành blockchain
 
 - Khi công bố đề thường kỳ/giữa kỳ hoặc duyệt đề cuối kỳ, backend ghi hash lên Sepolia. Nếu chain chưa cấu hình hoặc giao dịch lỗi, đề có thể chỉ có hash cục bộ. Giao diện phải hiển thị đúng trạng thái này.
-- Hiện chưa có job tự động thử lại giao dịch thất bại. Cần xử lý riêng với quyền vận hành, giới hạn tần suất và chính sách khi RPC lỗi. Không tuyên bố `VALID` nếu chưa đọc được chain.
+- Backend thử lại tối đa 10 đề `READY` chưa được anchor mỗi 60 giây khi đã cấu hình blockchain. Trước khi gửi lại, backend kiểm tra hash cục bộ có khớp nội dung hiện tại; nếu không khớp thì bỏ qua và ghi lỗi. Lời gọi ghi lên chain là idempotent theo mã đề và phiên bản hash. Không tuyên bố `VALID` nếu chưa đọc được chain.
 - Trước khi dùng trong môi trường thật, xác nhận chain ID, địa chỉ và mã nguồn hợp đồng, quyền `storeHash`, chính sách chống ghi đè, giao dịch đã xác nhận, chi phí và cơ chế khôi phục.
 
 ## Giới hạn hiện tại

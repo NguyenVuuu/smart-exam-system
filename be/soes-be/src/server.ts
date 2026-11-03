@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { createServer } from 'http'
 import app from './app'
 import { startExamAttemptJobs } from './jobs/exam-attempt.jobs'
+import { startExamAnchorJobs } from './jobs/exam-anchor.jobs'
 import { logger } from './lib/logger'
 import { assertExamEncryptionConfigured } from './lib/encryption'
 import { initializeSystemSettings } from './modules/admin-system-settings/services/admin-system-settings.service'
@@ -17,6 +18,7 @@ async function startServer(): Promise<void> {
 
   httpServer.listen(PORT, () => {
     startExamAttemptJobs()
+    startExamAnchorJobs()
     logger.info(`Server running on port ${PORT}`, { port: PORT, env: process.env.NODE_ENV })
   })
 }

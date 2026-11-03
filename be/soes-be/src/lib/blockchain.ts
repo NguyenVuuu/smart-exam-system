@@ -34,7 +34,7 @@ export interface BlockchainVerifyResult {
   etherscanUrl: string | null
 }
 
-function isConfigured(): boolean {
+export function isBlockchainConfigured(): boolean {
   return Boolean(
     process.env.BLOCKCHAIN_RPC_URL
     && process.env.BLOCKCHAIN_PRIVATE_KEY
@@ -92,7 +92,7 @@ export async function anchorExamHash(
   examId: string,
   contentHash: string,
 ): Promise<BlockchainAnchorResult | null> {
-  if (!isConfigured()) {
+  if (!isBlockchainConfigured()) {
     logger.warn('Blockchain not configured — skipping anchor', { examId })
     return null
   }
@@ -139,7 +139,7 @@ export async function verifyExamHash(
   currentContentHash: string,
   storedTxHash: string,
 ): Promise<BlockchainVerifyResult> {
-  if (!isConfigured()) {
+  if (!isBlockchainConfigured()) {
     return {
       isValid: false,
       onChainHash: null,
