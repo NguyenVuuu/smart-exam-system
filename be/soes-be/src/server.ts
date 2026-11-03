@@ -3,6 +3,7 @@ import { createServer } from 'http'
 import app from './app'
 import { startExamAttemptJobs } from './jobs/exam-attempt.jobs'
 import { logger } from './lib/logger'
+import { assertExamEncryptionConfigured } from './lib/encryption'
 import { initializeSystemSettings } from './modules/admin-system-settings/services/admin-system-settings.service'
 import { initProctoringRealtime } from './modules/proctoring/proctoring-realtime.gateway'
 
@@ -10,6 +11,7 @@ const PORT = process.env.PORT ?? 3000
 const httpServer = createServer(app)
 
 async function startServer(): Promise<void> {
+  assertExamEncryptionConfigured()
   await initializeSystemSettings()
   void initProctoringRealtime(httpServer)
 

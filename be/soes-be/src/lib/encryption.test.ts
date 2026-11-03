@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createCipheriv, randomBytes } from 'node:crypto'
 import { after, before, test } from 'node:test'
-import { decryptField, encryptField, isEncryptionConfigured } from './encryption'
+import { assertExamEncryptionConfigured, decryptField, encryptField, isEncryptionConfigured } from './encryption'
 
 const originalKey = process.env.EXAM_ENCRYPTION_KEY
 const originalKeyId = process.env.EXAM_ENCRYPTION_KEY_ID
@@ -36,6 +36,7 @@ test('AES-GCM encrypts and authenticates exam content', () => {
 test('missing or malformed keys fail closed', () => {
   delete process.env.EXAM_ENCRYPTION_KEY
   assert.equal(isEncryptionConfigured(), false)
+  assert.throws(assertExamEncryptionConfigured, /Exam encryption is unavailable/)
   assert.throws(() => encryptField('secret'), /Exam encryption key/)
   process.env.EXAM_ENCRYPTION_KEY = 'x'.repeat(64)
   assert.throws(() => encryptField('secret'), /Exam encryption key/)

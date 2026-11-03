@@ -137,3 +137,9 @@ export function isEncryptionConfigured(): boolean {
     return false
   }
 }
+
+export function assertExamEncryptionConfigured(): void {
+  if (!isEncryptionConfigured()) {
+    throw new Error('Exam encryption is unavailable: configure EXAM_ENCRYPTION_KEY and EXAM_ENCRYPTION_KEY_ID')
+  }
+}
