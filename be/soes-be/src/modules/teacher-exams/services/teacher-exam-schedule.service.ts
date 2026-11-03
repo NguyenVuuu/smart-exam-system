@@ -83,13 +83,14 @@ async function context(
 
   // Kiểm tra tính toàn vẹn nhanh — so sánh local hash không gọi blockchain
   // (blockchain verify đầy đủ chỉ dùng khi giảng viên bấm nút verify thủ công trên UI)
-  if (exam.contentHash) {
-    const intact = await verifyExamIntegrityFast(examId, exam.contentHash);
-    if (!intact) {
-      throw new ConflictError(
-        "Không thể tạo ca thi: nội dung đề thi không khớp với bản ghi bảo mật. Đề thi có thể đã bị chỉnh sửa trái phép.",
-      );
-    }
+  if (!exam.contentHash) {
+    throw new ConflictError('Đề thi chưa có hash nội dung; vui lòng thử lại sau khi hệ thống ghi nhận đề.');
+  }
+  const intact = await verifyExamIntegrityFast(examId, exam.contentHash);
+  if (!intact) {
+    throw new ConflictError(
+      "Không thể tạo ca thi: nội dung đề thi không khớp với bản ghi bảo mật. Đề thi có thể đã bị chỉnh sửa trái phép.",
+    );
   }
 
   return { exam, course };

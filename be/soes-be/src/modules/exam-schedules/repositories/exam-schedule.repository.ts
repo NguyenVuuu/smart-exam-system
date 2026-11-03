@@ -62,7 +62,7 @@ export function findCreationContext(tx: Prisma.TransactionClient, examId: string
     tx.exam.findUnique({
       where: { id: examId },
       select: {
-        id: true, subjectId: true, semesterId: true, type: true, status: true, approvalStatus: true,
+        id: true, subjectId: true, semesterId: true, type: true, status: true, approvalStatus: true, contentHash: true,
         examQuestions: { select: { id: true } },
         reviewRounds: { orderBy: { version: 'desc' }, take: 1, select: { status: true } },
       },

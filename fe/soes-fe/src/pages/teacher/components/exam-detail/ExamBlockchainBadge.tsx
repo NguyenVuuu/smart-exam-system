@@ -29,7 +29,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
   // Chỉ hiển thị khi đề đã publish (có contentHash)
   if (!exam.contentHash && exam.status === 'DRAFT') return null
 
-  const isAnchored = Boolean(exam.blockchainTxHash)
+  const isAnchored = Boolean(exam.blockchainAnchoredAt)
   // Đề không có contentHash thì không cần verify — cho phép tạo ca thi bình thường
   const requiresVerify = Boolean(exam.contentHash)
 
@@ -56,7 +56,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <ShieldCheck size={16} className="text-indigo-600 shrink-0" />
-          <span className="text-sm font-semibold text-gray-700">Bảo mật đề thi (Blockchain)</span>
+          <span className="text-sm font-semibold text-gray-700">Toàn vẹn đề thi (Blockchain)</span>
         </div>
 
         {isAnchored ? (
@@ -67,7 +67,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
         ) : exam.contentHash ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-            Hash cục bộ (blockchain chưa cấu hình)
+            Chưa xác nhận trên blockchain
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500">
@@ -97,7 +97,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
               </span>
             </span>
           )}
-          <a
+          {exam.blockchainTxHash && <a
             href={exam.etherscanUrl ?? `https://sepolia.etherscan.io`}
             target="_blank"
             rel="noopener noreferrer"
@@ -105,7 +105,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
           >
             <ExternalLink size={12} />
             Xem trên Etherscan
-          </a>
+          </a>}
         </div>
       )}
 

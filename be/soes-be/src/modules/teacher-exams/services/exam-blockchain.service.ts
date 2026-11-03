@@ -11,6 +11,7 @@ import { computeExamHash, anchorExamHash, verifyExamHash } from '../../../lib/bl
 import { logger } from '../../../lib/logger'
 import { decryptField } from '../../../lib/encryption'
 import { openExamOption } from '../../../lib/exam-option-secret'
+import { classifyExamIntegrity, type IntegrityStatus } from './exam-integrity-policy'
 
 type ExamQuestionWithRelations = ExamQuestion & {
   options: ExamQuestionOption[]
@@ -73,6 +74,8 @@ export async function anchorPublishedExam(examId: string): Promise<void> {
         title: true,
         totalPoints: true,
         blockchainTxHash: true,
+        blockchainAnchoredAt: true,
+        status: true,
         examQuestions: {
           orderBy: { orderIndex: 'asc' },
           include: {
@@ -83,13 +86,13 @@ export async function anchorPublishedExam(examId: string): Promise<void> {
       },
     })
 
-    if (!exam || !exam.examQuestions.length) {
+    if (!exam || exam.status !== 'READY' || !exam.examQuestions.length) {
       logger.warn('Skipping blockchain anchor — exam not found or empty', { examId })
       return
     }
 
     // Đã anchor rồi thì không ghi lại — smart contract sẽ revert nếu cố ghi đè
-    if (exam.blockchainTxHash) {
+    if (exam.blockchainAnchoredAt) {
       logger.info('Skipping blockchain anchor — already anchored', { examId, txHash: exam.blockchainTxHash })
       return
     }
@@ -110,7 +113,7 @@ export async function anchorPublishedExam(examId: string): Promise<void> {
       where: { id: examId },
       data: {
         contentHash,
-        blockchainTxHash: anchor?.txHash ?? null,
+        blockchainTxHash: anchor?.txHash ?? exam.blockchainTxHash,
         blockchainAnchoredAt: anchor?.anchoredAt ?? null,
       },
     })
@@ -154,13 +157,13 @@ export async function verifyExamIntegrityFast(examId: string, storedHash: string
     return currentHash === storedHash
   } catch (error) {
     logger.error('Fast integrity check failed', { examId, error: String(error) })
-    return true // fail-open: nếu không check được thì không block tạo ca thi
+    return false
   }
 }
 
 export interface ExamIntegrityResult {
   examId: string
-  status: 'VALID' | 'TAMPERED' | 'NOT_ANCHORED' | 'BLOCKCHAIN_UNAVAILABLE'
+  status: IntegrityStatus
   currentHash: string
   onChainHash: string | null
   contentHashMatch: boolean
@@ -232,14 +235,14 @@ export async function verifyExamIntegrity(examId: string): Promise<ExamIntegrity
     : null
 
   // Nếu có txHash → verify trực tiếp từ chain
-  if (exam.blockchainTxHash) {
-    const result = await verifyExamHash(examId, currentHash, exam.blockchainTxHash)
+  if (exam.blockchainTxHash || exam.blockchainAnchoredAt) {
+    const result = await verifyExamHash(examId, currentHash, exam.blockchainTxHash ?? '')
 
     if (result.onChainHash === null) {
       // Không đọc được chain — dùng local hash để verify
       return {
         examId,
-        status: localHashMatch ? 'VALID' : 'TAMPERED',
+        status: classifyExamIntegrity(currentHash, exam.contentHash, true, null),
         currentHash,
         onChainHash: null,
         contentHashMatch: localHashMatch,
@@ -247,21 +250,21 @@ export async function verifyExamIntegrity(examId: string): Promise<ExamIntegrity
         etherscanUrl,
         anchoredAt: exam.blockchainAnchoredAt,
         message: localHashMatch
-          ? 'Hash nội dung khớp (blockchain không thể kết nối, dùng hash cục bộ).'
+          ? 'Hash cục bộ khớp nhưng không thể xác minh blockchain.'
           : '⚠️ Hash nội dung KHÔNG khớp — đề thi có thể đã bị chỉnh sửa!',
       }
     }
 
     return {
       examId,
-      status: result.isValid ? 'VALID' : 'TAMPERED',
+      status: classifyExamIntegrity(currentHash, exam.contentHash, true, result.onChainHash),
       currentHash,
       onChainHash: result.onChainHash,
-      contentHashMatch: result.isValid,
+      contentHashMatch: localHashMatch,
       blockchainTxHash: exam.blockchainTxHash,
       etherscanUrl,
       anchoredAt: result.storedAt ?? exam.blockchainAnchoredAt,
-      message: result.isValid
+      message: result.isValid && localHashMatch
         ? '✅ Đề thi nguyên vẹn — hash khớp với bản ghi trên blockchain.'
         : '⚠️ Hash nội dung KHÔNG khớp với blockchain — đề thi có thể đã bị chỉnh sửa!',
     }
@@ -270,7 +273,7 @@ export async function verifyExamIntegrity(examId: string): Promise<ExamIntegrity
   // Có contentHash local nhưng chưa ghi được lên chain
   return {
     examId,
-    status: localHashMatch ? 'VALID' : 'TAMPERED',
+    status: classifyExamIntegrity(currentHash, exam.contentHash, false, null),
     currentHash,
     onChainHash: null,
     contentHashMatch: localHashMatch,
@@ -278,7 +281,7 @@ export async function verifyExamIntegrity(examId: string): Promise<ExamIntegrity
     etherscanUrl: null,
     anchoredAt: exam.blockchainAnchoredAt,
     message: localHashMatch
-      ? 'Hash nội dung khớp (chưa có bản ghi blockchain).'
+      ? 'Hash cục bộ khớp; đề chưa được neo lên blockchain.'
       : '⚠️ Hash nội dung KHÔNG khớp — đề thi có thể đã bị chỉnh sửa!',
   }
 }

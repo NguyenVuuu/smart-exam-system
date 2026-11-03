@@ -19,8 +19,8 @@ const CONTRACT_ABI = [
 ]
 
 export interface BlockchainAnchorResult {
-  txHash: string
-  blockNumber: number
+  txHash: string | null
+  blockNumber: number | null
   anchoredAt: Date
   etherscanUrl: string
 }
@@ -98,6 +98,20 @@ export async function anchorExamHash(
   }
 
   try {
+    const existing = getContract(false)
+    const [storedHash, storedAtRaw] = await existing.getHash(examId) as [string, bigint]
+    if (storedHash) {
+      if (storedHash !== contentHash) {
+        logger.error('On-chain exam hash conflicts with current content', { examId })
+        return null
+      }
+      return {
+        txHash: null,
+        blockNumber: null,
+        anchoredAt: new Date(Number(storedAtRaw) * 1000),
+        etherscanUrl: '',
+      }
+    }
     const contract = getContract(true)
     const tx = await contract.storeHash(examId, contentHash)
     const receipt: ContractTransactionReceipt = await tx.wait(1) // chờ 1 confirmation
