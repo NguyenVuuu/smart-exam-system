@@ -12,6 +12,7 @@ import { logger } from '../../../lib/logger'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
 import { openExamOption } from '../../../lib/exam-option-secret'
 import { classifyExamIntegrity, type IntegrityStatus } from './exam-integrity-policy'
+import { ConflictError } from '../../../errors/AppError'
 
 type ExamQuestionWithRelations = ExamQuestion & {
   options: ExamQuestionOption[]
@@ -342,5 +343,12 @@ export async function verifyExamIntegrity(examId: string): Promise<ExamIntegrity
     message: localHashMatch
       ? 'Hash cục bộ khớp; đề chưa được neo lên blockchain.'
       : '⚠️ Hash nội dung KHÔNG khớp — đề thi có thể đã bị chỉnh sửa!',
+  }
+}
+
+export async function requireVerifiedExamAnchor(examId: string): Promise<void> {
+  const result = await verifyExamIntegrity(examId)
+  if (result.status !== 'VALID') {
+    throw new ConflictError('Không thể tạo hoặc cập nhật ca thi: đề chưa được xác minh nguyên vẹn trên blockchain.')
   }
 }

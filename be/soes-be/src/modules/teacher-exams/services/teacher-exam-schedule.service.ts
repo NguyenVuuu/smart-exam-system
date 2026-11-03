@@ -14,7 +14,7 @@ import type { ScheduleWriteInput } from "../../exam-schedules/types/exam-schedul
 import * as repo from "../repositories/teacher-exam-schedule.repository";
 import { notifyUsers } from "../../notifications/notifications.service";
 import type { TeacherExamScheduleBody, TeacherMakeupScheduleBody } from "../validators/teacher-exam-schedule.validator";
-import { verifyExamIntegrityFast } from "./exam-blockchain.service";
+import { requireVerifiedExamAnchor, verifyExamIntegrityFast } from "./exam-blockchain.service";
 
 async function toWriteInput(
   teacherId: string,
@@ -92,6 +92,7 @@ async function context(
       "Không thể tạo ca thi: nội dung đề thi không khớp với bản ghi bảo mật. Đề thi có thể đã bị chỉnh sửa trái phép.",
     );
   }
+  await requireVerifiedExamAnchor(examId);
 
   return { exam, course };
 }
@@ -168,6 +169,7 @@ export async function createMakeup(
   })
   const course = source.scheduleCourses[0]?.courseOffering
   if (!course) throw new NotFoundError("Course offering not found")
+  await requireVerifiedExamAnchor(examId)
 
   const students = await repo.listCourseStudents(course.id, data.studentIds)
   if (students.length !== new Set(data.studentIds).size) {

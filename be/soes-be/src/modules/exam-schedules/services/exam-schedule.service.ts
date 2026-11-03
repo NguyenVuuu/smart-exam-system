@@ -4,7 +4,7 @@ import { toPagination } from '../../../utils/pagination'
 import { runSerializable } from '../../../utils/transaction'
 import { computeScheduleStatus, toExamScheduleDto } from '../mappers/exam-schedule.mapper'
 import * as repo from '../repositories/exam-schedule.repository'
-import { verifyExamIntegrityFast } from '../../teacher-exams/services/exam-blockchain.service'
+import { requireVerifiedExamAnchor, verifyExamIntegrityFast } from '../../teacher-exams/services/exam-blockchain.service'
 import { PROCTOR_TURNOVER_MINUTES } from '../repositories/exam-schedule.repository'
 import type { ScheduleWriteInput } from '../types/exam-schedule.types'
 import type { ScheduleBody, SchedulesQuery } from '../validators/exam-schedule.validator'
@@ -89,6 +89,7 @@ export async function listReadyExams() {
 
 export async function create(createdById: string, data: ScheduleBody) {
   const input = await prepareInput(data)
+  await requireVerifiedExamAnchor(input.examId)
   const row = await runSerializable(async (tx) => {
     await validateContext(tx, input)
     return repo.createSchedule(tx, input, createdById)
@@ -98,6 +99,7 @@ export async function create(createdById: string, data: ScheduleBody) {
 
 export async function update(id: string, data: ScheduleBody) {
   const input = await prepareInput(data, true)
+  await requireVerifiedExamAnchor(input.examId)
   const row = await runSerializable(async (tx) => {
     const current = await repo.findScheduleInTransaction(tx, id)
     if (!current) throw new NotFoundError('Exam schedule not found')
