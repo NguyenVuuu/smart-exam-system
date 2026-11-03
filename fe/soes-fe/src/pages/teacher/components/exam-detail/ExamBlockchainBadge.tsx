@@ -6,7 +6,7 @@
  * - Nếu chưa anchor (DRAFT): không hiển thị
  */
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, ShieldCheck, ShieldAlert, ShieldOff, Loader2 } from 'lucide-react'
 import type { Exam } from '../../types/teacher-exam.types'
 import { verifyTeacherExamIntegrity, type ExamIntegrityResult } from '../../api/teacher-exams.api'
@@ -25,27 +25,56 @@ type VerifyState =
 
 export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }: Props) {
   const [verifyState, setVerifyState] = useState<VerifyState>({ phase: 'idle' })
+  const inFlight = useRef(false)
+  const latestStatus = useRef<ExamIntegrityResult['status'] | null>(null)
+  const mounted = useRef(true)
+
+  const handleVerify = useCallback(async () => {
+    if (inFlight.current) return
+    inFlight.current = true
+    onVerifiedChange?.(false)
+    setVerifyState({ phase: 'loading' })
+    try {
+      const result = await verifyTeacherExamIntegrity(exam.id)
+      if (!mounted.current) return
+      latestStatus.current = result.status
+      setVerifyState({ phase: 'done', result })
+      onTamperedChange?.(result.status === 'TAMPERED')
+      onVerifiedChange?.(result.status === 'VALID')
+    } catch {
+      if (!mounted.current) return
+      latestStatus.current = null
+      onVerifiedChange?.(false)
+      setVerifyState({ phase: 'error', message: 'Không thể kết nối để xác minh. Hệ thống sẽ thử lại.' })
+    } finally {
+      inFlight.current = false
+    }
+  }, [exam.id, onTamperedChange, onVerifiedChange])
+
+  useEffect(() => {
+    mounted.current = true
+    if (exam.status !== 'PUBLISHED') return () => { mounted.current = false }
+
+    const firstCheck = window.setTimeout(() => { void handleVerify() }, 0)
+    const timer = window.setInterval(() => {
+      if (latestStatus.current !== 'VALID' && latestStatus.current !== 'TAMPERED') {
+        void handleVerify()
+      }
+    }, 15_000)
+    return () => {
+      mounted.current = false
+      window.clearTimeout(firstCheck)
+      window.clearInterval(timer)
+    }
+  }, [exam.status, handleVerify])
 
   // Chỉ hiển thị khi đề đã publish (có contentHash)
   if (!exam.contentHash && exam.status === 'DRAFT') return null
 
   const isAnchored = Boolean(exam.blockchainAnchoredAt)
-  const handleVerify = async () => {
-    onVerifiedChange?.(false)
-    setVerifyState({ phase: 'loading' })
-    try {
-      const result = await verifyTeacherExamIntegrity(exam.id)
-      setVerifyState({ phase: 'done', result })
-      const tampered = result.status === 'TAMPERED'
-      onTamperedChange?.(tampered)
-      onVerifiedChange?.(result.status === 'VALID')
-    } catch {
-      onVerifiedChange?.(false)
-      setVerifyState({ phase: 'error', message: 'Không thể kết nối để verify. Thử lại sau.' })
-    }
-  }
 
   const verifyResult = verifyState.phase === 'done' ? verifyState.result : null
+  const verifiedOnChain = verifyResult?.status === 'VALID'
 
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm space-y-3">
@@ -56,7 +85,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
           <span className="text-sm font-semibold text-gray-700">Toàn vẹn đề thi (Blockchain)</span>
         </div>
 
-        {isAnchored ? (
+        {isAnchored || verifiedOnChain ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Đã anchor trên Sepolia
@@ -107,7 +136,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
       )}
 
       {/* Verify button */}
-      {exam.contentHash && (
+      {exam.status === 'PUBLISHED' && (
         <div className="pt-1 border-t border-gray-100 flex items-center gap-3">
           <button
             onClick={() => void handleVerify()}
@@ -129,7 +158,7 @@ export function ExamBlockchainBadge({ exam, onTamperedChange, onVerifiedChange }
           {verifyState.phase === 'idle' && (
             <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
               <ShieldAlert size={12} />
-              Cần kiểm tra toàn vẹn trước khi tạo ca thi
+              Hệ thống đang tự xác minh đề trước khi tạo ca thi
             </p>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ExamDetailBackButton } from "./components/exam-detail/ExamDetailBackButton";
 import { ExamDetailHeader } from "./components/exam-detail/ExamDetailHeader";
@@ -186,9 +186,16 @@ function TeacherExamDetailContent({
   const [verifiedKey, setVerifiedKey] = useState<string | null>(null);
   const isTampered = tamperedKey === verificationKey;
   const hasVerified = verifiedKey === verificationKey;
+  const onTamperedChange = useCallback(
+    (tampered: boolean) => setTamperedKey(tampered ? verificationKey : null),
+    [verificationKey],
+  );
+  const onVerifiedChange = useCallback(
+    (verified: boolean) => setVerifiedKey(verified ? verificationKey : null),
+    [verificationKey],
+  );
 
-  // Nếu đề có contentHash → bắt buộc verify trước khi tạo ca thi
-  const requiresVerify = Boolean(exam.contentHash)
+  const requiresVerify = exam.status === "PUBLISHED";
 
   const resultReleaseText =
     resultReleaseMode === "IMMEDIATE"
@@ -268,8 +275,8 @@ function TeacherExamDetailContent({
                 onLockDistribution={distributionLock.requestLock}
                 onUnlockDistribution={distributionLock.requestUnlock}
                 visibilitySaving={studentVisibility.saving}
-                onTamperedChange={(tampered) => setTamperedKey(tampered ? verificationKey : null)}
-                onVerifiedChange={(verified) => setVerifiedKey(verified ? verificationKey : null)}
+                onTamperedChange={onTamperedChange}
+                onVerifiedChange={onVerifiedChange}
               />
             )}
 
