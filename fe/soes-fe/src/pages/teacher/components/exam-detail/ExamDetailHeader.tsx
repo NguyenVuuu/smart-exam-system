@@ -146,7 +146,7 @@ export function ExamDetailHeader({
       </div>
 
       {/* Blockchain integrity badge — chỉ hiện khi đề đã publish */}
-      {exam.status !== 'DRAFT' && <ExamBlockchainBadge exam={exam} onTamperedChange={onTamperedChange} onVerifiedChange={onVerifiedChange} />}
+      {exam.status !== 'DRAFT' && <ExamBlockchainBadge key={`${exam.id}:${exam.contentHash ?? ''}`} exam={exam} onTamperedChange={onTamperedChange} onVerifiedChange={onVerifiedChange} />}
     </div>
   )
 }

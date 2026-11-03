@@ -181,8 +181,11 @@ function TeacherExamDetailContent({
     useState<ExamSchedule | null>(null);
   const distributionLock = useExamDistributionLock(exam.id, onRefresh);
   const studentVisibility = useExamStudentVisibility(exam.id, onRefresh);
-  const [isTampered, setIsTampered] = useState(false);
-  const [hasVerified, setHasVerified] = useState(false);
+  const verificationKey = `${exam.id}:${exam.contentHash ?? ''}`;
+  const [tamperedKey, setTamperedKey] = useState<string | null>(null);
+  const [verifiedKey, setVerifiedKey] = useState<string | null>(null);
+  const isTampered = tamperedKey === verificationKey;
+  const hasVerified = verifiedKey === verificationKey;
 
   // Nếu đề có contentHash → bắt buộc verify trước khi tạo ca thi
   const requiresVerify = Boolean(exam.contentHash)
@@ -265,8 +268,8 @@ function TeacherExamDetailContent({
                 onLockDistribution={distributionLock.requestLock}
                 onUnlockDistribution={distributionLock.requestUnlock}
                 visibilitySaving={studentVisibility.saving}
-                onTamperedChange={setIsTampered}
-                onVerifiedChange={setHasVerified}
+                onTamperedChange={(tampered) => setTamperedKey(tampered ? verificationKey : null)}
+                onVerifiedChange={(verified) => setVerifiedKey(verified ? verificationKey : null)}
               />
             )}
 
