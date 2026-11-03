@@ -294,7 +294,7 @@ export async function verifyExamIntegrity(examId: string): Promise<ExamIntegrity
     ? `https://sepolia.etherscan.io/tx/${exam.blockchainTxHash}`
     : null
 
-  // Nếu có txHash → verify trực tiếp từ chain
+  // Metadata anchor có thể thiếu trong DB; vẫn đối chiếu trực tiếp với chain ở nhánh dưới.
   if (exam.blockchainTxHash || exam.blockchainAnchoredAt) {
     const result = await verifyExamHash(anchorKey(examId, version), currentHash, exam.blockchainTxHash ?? '')
 

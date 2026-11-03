@@ -81,8 +81,7 @@ async function context(
       "Course offering is unavailable or belongs to another subject or semester",
     );
 
-  // Kiểm tra tính toàn vẹn nhanh — so sánh local hash không gọi blockchain
-  // (blockchain verify đầy đủ chỉ dùng khi giảng viên bấm nút verify thủ công trên UI)
+  // Kiểm tra hash cục bộ trước, sau đó xác minh độc lập với bản ghi trên chain.
   if (!exam.contentHash) {
     throw new ConflictError('Đề thi chưa có hash nội dung; vui lòng thử lại sau khi hệ thống ghi nhận đề.');
   }
