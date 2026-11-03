@@ -17,6 +17,7 @@ const CONTRACT_ABI = [
   'function getHash(string examId) external view returns (string contentHash, uint256 storedAt)',
   'event HashStored(string indexed examId, string contentHash, uint256 storedAt)',
 ]
+const SEPOLIA_CHAIN_ID = 11155111n
 
 export interface BlockchainAnchorResult {
   txHash: string | null
@@ -98,6 +99,9 @@ export async function anchorExamHash(
   }
 
   try {
+    if ((await getProvider().getNetwork()).chainId !== SEPOLIA_CHAIN_ID) {
+      throw new Error('Blockchain RPC is not connected to Sepolia')
+    }
     const existing = getContract(false)
     const [storedHash, storedAtRaw] = await existing.getHash(examId) as [string, bigint]
     if (storedHash) {
@@ -151,6 +155,9 @@ export async function verifyExamHash(
   }
 
   try {
+    if ((await getProvider().getNetwork()).chainId !== SEPOLIA_CHAIN_ID) {
+      throw new Error('Blockchain RPC is not connected to Sepolia')
+    }
     const contract = getContract(false)
     const [onChainHash, storedAtRaw] = await contract.getHash(examId) as [string, bigint]
 
