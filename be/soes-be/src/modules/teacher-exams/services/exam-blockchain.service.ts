@@ -299,7 +299,7 @@ export async function verifyExamIntegrity(examId: string): Promise<ExamIntegrity
     const result = await verifyExamHash(anchorKey(examId, version), currentHash, exam.blockchainTxHash ?? '')
 
     if (result.onChainHash === null) {
-      // Không đọc được chain — dùng local hash để verify
+      // Không đọc được chain; chỉ báo trạng thái cục bộ, không coi là đã xác minh.
       return {
         examId,
         status: classifyExamIntegrity(currentHash, exam.contentHash, true, null),
@@ -330,19 +330,22 @@ export async function verifyExamIntegrity(examId: string): Promise<ExamIntegrity
     }
   }
 
-  // Có contentHash local nhưng chưa ghi được lên chain
+  const chainRecord = await verifyExamHash(anchorKey(examId, version), currentHash, '')
+  const status = classifyExamIntegrity(currentHash, exam.contentHash, false, chainRecord.onChainHash)
   return {
     examId,
-    status: classifyExamIntegrity(currentHash, exam.contentHash, false, null),
+    status,
     currentHash,
-    onChainHash: null,
+    onChainHash: chainRecord.onChainHash || null,
     contentHashMatch: localHashMatch,
     blockchainTxHash: null,
     etherscanUrl: null,
-    anchoredAt: exam.blockchainAnchoredAt,
-    message: localHashMatch
-      ? 'Hash cục bộ khớp; đề chưa được neo lên blockchain.'
-      : '⚠️ Hash nội dung KHÔNG khớp — đề thi có thể đã bị chỉnh sửa!',
+    anchoredAt: chainRecord.storedAt,
+    message: status === 'VALID'
+      ? '✅ Đề thi nguyên vẹn — hash khớp với bản ghi trên blockchain.'
+      : status === 'TAMPERED'
+        ? '⚠️ Hash nội dung KHÔNG khớp với blockchain — đề thi có thể đã bị chỉnh sửa!'
+        : 'Hash cục bộ khớp; đề chưa được xác nhận trên blockchain.',
   }
 }
 

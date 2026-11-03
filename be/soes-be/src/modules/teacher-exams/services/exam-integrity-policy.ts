@@ -7,7 +7,7 @@ export function classifyExamIntegrity(
   onChainHash: string | null,
 ): IntegrityStatus {
   if (currentHash !== localHash) return 'TAMPERED'
-  if (!anchorKnown) return 'NOT_ANCHORED'
-  if (onChainHash === null) return 'BLOCKCHAIN_UNAVAILABLE'
-  return onChainHash.length > 0 && onChainHash === currentHash ? 'VALID' : 'TAMPERED'
+  if (onChainHash === null) return anchorKnown ? 'BLOCKCHAIN_UNAVAILABLE' : 'NOT_ANCHORED'
+  if (!onChainHash) return anchorKnown ? 'TAMPERED' : 'NOT_ANCHORED'
+  return onChainHash === currentHash ? 'VALID' : 'TAMPERED'
 }
