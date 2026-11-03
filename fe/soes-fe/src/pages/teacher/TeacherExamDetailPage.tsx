@@ -264,7 +264,6 @@ function TeacherExamDetailContent({
                     `/teacher/exams/${exam.id}/edit${exam.status === "REJECTED" ? "?step=QUESTIONS" : ""}`,
                   )
                 }
-                onPublish={() => void 0}
                 onPreview={() => setIsPreviewOpen(true)}
                 onCopy={() => void handleCopyExam()}
                 onToggleStudentVisibility={() =>
