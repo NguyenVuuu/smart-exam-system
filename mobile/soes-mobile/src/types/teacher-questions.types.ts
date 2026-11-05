@@ -9,3 +9,9 @@ export interface TeacherQuestion {
   createdAt: string; archivedAt: string | null
 }
 export interface QuestionPage { items: TeacherQuestion[]; pagination: { page: number; totalPages: number; totalItems: number } }
+export interface QuestionSubject { id: string; name: string; code?: string }
+export interface ObjectiveQuestionPayload {
+  subjectId: string; title: string; content: string; explanation: string | null
+  type: Exclude<QuestionType, 'PROGRAMMING'>; difficulty: Difficulty
+  options: { content: string; isCorrect: boolean }[]; testCases: []
+}
