@@ -20,7 +20,7 @@ export function PortalLayout({ children, groups, activeRoute, portalLabel, notif
   const closeSidebar = useUIStore((state) => state.setSidebarOpen)
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
-  const drawerWidth = Math.min(240, Math.max(170, width * 0.55))
+  const drawerWidth = Math.min(270, Math.max(190, width * 0.62))
   const [slide] = useState(() => new Animated.Value(-drawerWidth))
   const [dim] = useState(() => new Animated.Value(0))
 
