@@ -4,9 +4,9 @@ import type { GeneratedQuestion } from '../../../types/teacher-ai.types'
 import type { ObjectiveQuestionPayload } from '../../../types/teacher-questions.types'
 
 interface Props { question: GeneratedQuestion; number: number; decision: 'pending' | 'accepted' | 'rejected'
-  onAccept: () => void; onReject: () => void; onChange: (question: GeneratedQuestion) => void; onInputFocus: (handle: number) => void }
+  onAccept: () => void; onReject: () => void; onChange: (question: GeneratedQuestion) => void }
 
-export function AiReviewCard({ question, number, decision, onAccept, onReject, onChange, onInputFocus }: Props) {
+export function AiReviewCard({ question, number, decision, onAccept, onReject, onChange }: Props) {
   return <View style={styles.card}>
     <View style={styles.header}><Text style={styles.heading}>Câu {number}</Text>
       <View style={styles.actions}>
@@ -20,12 +20,12 @@ export function AiReviewCard({ question, number, decision, onAccept, onReject, o
     </View>
     <Text style={styles.label}>Nội dung câu hỏi</Text>
     <TextInput value={question.content || question.title} onChangeText={(content) => onChange({ ...question, content, title: content.slice(0, 200) })}
-      onFocus={(event) => onInputFocus(event.nativeEvent.target)} multiline maxLength={10000} textAlignVertical="top" style={styles.input} />
+      multiline maxLength={10000} textAlignVertical="top" style={styles.input} />
     <View style={styles.options}><QuestionOptionsEditor type={question.type as ObjectiveQuestionPayload['type']}
-      options={question.options} onChange={(options) => onChange({ ...question, options })} onInputFocus={onInputFocus} /></View>
+      options={question.options} onChange={(options) => onChange({ ...question, options })} /></View>
     <Text style={styles.label}>Giải thích</Text>
     <TextInput value={question.explanation} onChangeText={(explanation) => onChange({ ...question, explanation })}
-      onFocus={(event) => onInputFocus(event.nativeEvent.target)} multiline maxLength={5000} textAlignVertical="top" style={styles.input} />
+      multiline maxLength={5000} textAlignVertical="top" style={styles.input} />
   </View>
 }
 

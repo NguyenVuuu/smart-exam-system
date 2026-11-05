@@ -3,9 +3,9 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import type { ObjectiveQuestionPayload } from '../../../types/teacher-questions.types'
 
 type Option = ObjectiveQuestionPayload['options'][number]
-interface Props { type: ObjectiveQuestionPayload['type']; options: Option[]; onChange: (options: Option[]) => void; onInputFocus?: (handle: number) => void }
+interface Props { type: ObjectiveQuestionPayload['type']; options: Option[]; onChange: (options: Option[]) => void }
 
-export function QuestionOptionsEditor({ type, options, onChange, onInputFocus }: Props) {
+export function QuestionOptionsEditor({ type, options, onChange }: Props) {
   const single = type !== 'MULTIPLE_CHOICE'
   return <View>
     <Text style={styles.label}>Phương án trả lời</Text>
@@ -17,7 +17,6 @@ export function QuestionOptionsEditor({ type, options, onChange, onInputFocus }:
         {option.isCorrect ? <Check size={20} color="#059669" /> : <Circle size={20} color="#64748b" />}
       </Pressable>
       <TextInput style={styles.input} value={option.content} editable={type !== 'TRUE_FALSE'} maxLength={1000}
-        onFocus={(event) => onInputFocus?.(event.nativeEvent.target)}
         placeholder={`Phương án ${index + 1}`} placeholderTextColor="#94a3b8"
         onChangeText={(content) => onChange(options.map((item, position) => position === index ? { ...item, content } : item))} />
       {type !== 'TRUE_FALSE' && options.length > 2 && <Pressable accessibilityRole="button" accessibilityLabel={`Xóa phương án ${index + 1}`}
