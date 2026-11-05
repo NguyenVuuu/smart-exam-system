@@ -4,6 +4,7 @@ import { approveQuestion, listPendingQuestionApprovals, rejectQuestion } from '.
 import { QuestionApprovalCard } from '../../components/teacher/question-approvals/QuestionApprovalCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
+import { PaginationControls } from '../../components/ui/PaginationControls'
 import type { QuestionApproval } from '../../types/teacher-question-approvals.types'
 
 export function TeacherQuestionApprovalsPage() {
@@ -19,7 +20,7 @@ export function TeacherQuestionApprovalsPage() {
   const load = useCallback(async (nextPage: number) => {
     try {
       const result = await listPendingQuestionApprovals(nextPage)
-      setItems((current) => nextPage === 1 ? result.items : [...current, ...result.items])
+      setItems(result.items)
       setPage(nextPage); setTotalPages(result.pagination.totalPages); setError(false)
     } catch { setError(true) }
     finally { setLoading(false); setRefreshing(false) }
@@ -56,9 +57,9 @@ export function TeacherQuestionApprovalsPage() {
             { text: 'Hủy', style: 'cancel' }, { text: 'Gửi', onPress: () => { void decide(item.id, 'reject') } },
           ])} />}
         ListEmptyComponent={<ScreenState kind="empty" message="Không có câu hỏi đang chờ duyệt." />}
-        ListFooterComponent={error ? <Text style={styles.error}>Không thể tải thêm câu hỏi.</Text> : undefined}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(1) }} />}
-        onEndReached={() => { if (!loading && !error && page < totalPages) { setLoading(true); void load(page + 1) } }} onEndReachedThreshold={0.3} />}
+        ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải trang này.</Text>}
+          <PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => { setLoading(true); void load(next) }} /></>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(page || 1) }} />} />}
   </View>
 }
 

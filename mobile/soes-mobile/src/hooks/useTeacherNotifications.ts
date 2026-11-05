@@ -21,7 +21,7 @@ export function useTeacherNotifications() {
     try {
       const result = await listTeacherNotifications(nextPage)
       if (id !== requestId.current) return
-      setItems((current) => nextPage === 1 ? result.items : [...current, ...result.items])
+      setItems(result.items)
       setUnreadCount(result.unreadCount)
       setPage(nextPage)
       setTotalPages(result.pagination.totalPages)
@@ -58,8 +58,7 @@ export function useTeacherNotifications() {
     finally { setBusy(false) }
   }
 
-  return { items, unreadCount, loading, refreshing, busy, error, markRead, markAllRead,
-    retry: () => void load(1), refresh: () => void load(1, true), loadMore: () => {
-      if (!loading && !error && page < totalPages) void load(page + 1)
-    } }
+  return { items, unreadCount, page, totalPages, loading, refreshing, busy, error, markRead, markAllRead,
+    retry: () => void load(page || 1), refresh: () => void load(page || 1, true),
+    goToPage: (nextPage: number) => { if (!loading && nextPage >= 1 && nextPage <= totalPages) void load(nextPage) } }
 }

@@ -4,6 +4,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { TeacherNotificationCard } from '../../components/teacher/notifications/TeacherNotificationCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
+import { PaginationControls } from '../../components/ui/PaginationControls'
 import { useTeacherNotifications } from '../../hooks/useTeacherNotifications'
 import { resolveTeacherNotificationLink } from '../../navigation/teacher-notification-links'
 import type { TeacherNotification } from '../../types/teacher-notifications.types'
@@ -27,9 +28,10 @@ export function TeacherNotificationsPage() {
       <ScreenState kind="error" onRetry={notifications.retry} /> : <FlatList data={notifications.items} keyExtractor={(item) => item.id}
         renderItem={({ item }) => <TeacherNotificationCard item={item} onPress={() => open(item)} hasTarget={Boolean(resolveTeacherNotificationLink(item.link))} />}
         contentContainerStyle={styles.list} ListEmptyComponent={<ScreenState kind="empty" message="Bạn chưa có thông báo nào." />}
-        ListFooterComponent={notifications.error ? <Text style={styles.error}>Không thể tải thêm. Kéo xuống để thử lại.</Text> : undefined}
+        ListFooterComponent={<>{notifications.error && <Text style={styles.error}>Không thể tải thông báo.</Text>}
+          <PaginationControls page={notifications.page} totalPages={notifications.totalPages} loading={notifications.loading} onPage={notifications.goToPage} /></>}
         refreshControl={<RefreshControl refreshing={notifications.refreshing} onRefresh={notifications.refresh} />}
-        onEndReached={notifications.loadMore} onEndReachedThreshold={0.3} />}
+        />}
   </View>
 }
 

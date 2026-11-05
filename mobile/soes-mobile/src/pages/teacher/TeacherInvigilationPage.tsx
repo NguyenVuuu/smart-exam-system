@@ -3,6 +3,7 @@ import { InvigilationCard } from '../../components/teacher/invigilation/Invigila
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SearchField } from '../../components/ui/SearchField'
+import { PaginationControls } from '../../components/ui/PaginationControls'
 import { useTeacherInvigilation } from '../../hooks/useTeacherInvigilation'
 import type { InvigilationStatus } from '../../types/teacher-invigilation.types'
 
@@ -25,9 +26,10 @@ export function TeacherInvigilationPage() {
       <ScreenState kind="error" onRetry={schedule.retry} /> : <FlatList data={schedule.items} keyExtractor={(item) => item.id}
         renderItem={({ item }) => <InvigilationCard assignment={item} />} contentContainerStyle={styles.list}
         ListEmptyComponent={<ScreenState kind="empty" message="Không có ca coi thi phù hợp." />}
-        ListFooterComponent={schedule.error ? <Text style={styles.error}>Không thể tải thêm ca thi. Kéo xuống để thử lại.</Text> : undefined}
+        ListFooterComponent={<>{schedule.error && <Text style={styles.error}>Không thể tải ca thi.</Text>}
+          <PaginationControls page={schedule.page} totalPages={schedule.totalPages} loading={schedule.loading} onPage={schedule.goToPage} /></>}
         refreshControl={<RefreshControl refreshing={schedule.refreshing} onRefresh={schedule.refresh} />}
-        onEndReached={schedule.loadMore} onEndReachedThreshold={0.3} />}
+        />}
   </View>
 }
 

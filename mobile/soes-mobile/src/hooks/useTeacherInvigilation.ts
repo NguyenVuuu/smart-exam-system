@@ -20,7 +20,7 @@ export function useTeacherInvigilation() {
     try {
       const result = await listInvigilation(nextPage, keyword, status)
       if (id !== requestId.current) return
-      setItems((current) => nextPage === 1 ? result.items : [...current, ...result.items])
+      setItems(result.items)
       setPage(nextPage)
       setTotalPages(result.pagination.totalPages)
       setError(false)
@@ -33,8 +33,7 @@ export function useTeacherInvigilation() {
     return () => { clearTimeout(timer); requestId.current += 1 }
   }, [load])
 
-  return { items, keyword, setKeyword, status, setStatus, loading, refreshing, error,
-    refresh: () => void load(1, true), retry: () => void load(1), loadMore: () => {
-      if (!loading && !error && page < totalPages) void load(page + 1)
-    } }
+  return { items, keyword, setKeyword, status, setStatus, page, totalPages, loading, refreshing, error,
+    refresh: () => void load(page || 1, true), retry: () => void load(page || 1),
+    goToPage: (nextPage: number) => { if (!loading && nextPage >= 1 && nextPage <= totalPages) void load(nextPage) } }
 }

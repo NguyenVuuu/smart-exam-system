@@ -5,6 +5,7 @@ import { listPendingExamApprovals } from '../../api/teacher-approvals.api'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SectionCard } from '../../components/ui/SectionCard'
+import { PaginationControls } from '../../components/ui/PaginationControls'
 import type { ExamApproval } from '../../types/teacher-approvals.types'
 import { formatDateTime } from '../../utils/date'
 
@@ -18,7 +19,7 @@ export function TeacherApprovalsPage() {
   const load = useCallback(async (nextPage: number) => {
     try {
       const result = await listPendingExamApprovals(nextPage)
-      setItems((current) => nextPage === 1 ? result.items : [...current, ...result.items])
+      setItems(result.items)
       setPage(nextPage); setTotalPages(result.pagination.totalPages); setError(false)
     } catch { setError(true) }
     finally { setLoading(false); setRefreshing(false) }
@@ -43,9 +44,9 @@ export function TeacherApprovalsPage() {
             <Text style={styles.line}>{item.questionCount} câu · {item.totalPoints} điểm</Text></SectionCard>
         </Pressable>}
         ListEmptyComponent={<ScreenState kind="empty" message="Không có đề đang chờ duyệt." />}
-        ListFooterComponent={error ? <Text style={styles.error}>Không tải được trang tiếp theo.</Text> : undefined}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(1) }} />}
-        onEndReached={() => { if (!loading && !error && page < totalPages) { setLoading(true); void load(page + 1) } }} onEndReachedThreshold={0.3} />}
+        ListFooterComponent={<>{error && <Text style={styles.error}>Không tải được trang này.</Text>}
+          <PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => { setLoading(true); void load(next) }} /></>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(page || 1) }} />} />}
   </View>
 }
 

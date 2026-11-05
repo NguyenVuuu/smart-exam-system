@@ -5,17 +5,25 @@ import { QuestionCard } from '../../components/teacher/question-bank/QuestionCar
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SearchField } from '../../components/ui/SearchField'
+import { ChoicePicker } from '../../components/ui/ChoicePicker'
+import { PaginationControls } from '../../components/ui/PaginationControls'
 import { TeacherQuestionEditorPage } from './TeacherQuestionEditorPage'
-import type { QuestionPage, TeacherQuestion } from '../../types/teacher-questions.types'
+import type { QuestionPage, QuestionType, TeacherQuestion } from '../../types/teacher-questions.types'
 
 type Scope = 'personal' | 'shared' | 'archived'
 const scopes: { key: Scope; label: string }[] = [
   { key: 'personal', label: 'Cá nhân' }, { key: 'shared', label: 'Dùng chung' }, { key: 'archived', label: 'Đã lưu trữ' },
 ]
+const questionTypes = [
+  { value: 'ALL', label: 'Tất cả loại câu hỏi' }, { value: 'SINGLE_CHOICE', label: 'Một đáp án' },
+  { value: 'MULTIPLE_CHOICE', label: 'Nhiều đáp án' }, { value: 'TRUE_FALSE', label: 'Đúng/sai' },
+  { value: 'PROGRAMMING', label: 'Lập trình' },
+]
 
 export function TeacherQuestionBankPage() {
   const [scope, setScope] = useState<Scope>('personal')
   const [keyword, setKeyword] = useState('')
+  const [type, setType] = useState<QuestionType | 'ALL'>('ALL')
   const [items, setItems] = useState<TeacherQuestion[]>([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -25,33 +33,34 @@ export function TeacherQuestionBankPage() {
   const [editing, setEditing] = useState<TeacherQuestion | 'new' | null>(null)
   const [sharingId, setSharingId] = useState<string | null>(null)
   const requestId = useRef(0)
-  const filters = useCallback((nextScope: Scope, query: string) => ({
+  const filters = useCallback((nextScope: Scope, query: string, nextType: QuestionType | 'ALL') => ({
     scope: nextScope === 'shared' ? 'SHARED' as const : 'PERSONAL' as const,
-    archived: nextScope === 'archived', keyword: query,
+    archived: nextScope === 'archived', keyword: query, type: nextType === 'ALL' ? undefined : nextType,
   }), [])
   const applyPage = useCallback((result: QuestionPage, nextPage: number) => {
-    setItems((current) => nextPage === 1 ? result.items : [...current, ...result.items])
+    setItems(result.items)
     setPage(nextPage); setTotalPages(result.pagination.totalPages); setError(false)
   }, [])
-  const load = useCallback(async (nextPage: number, nextScope: Scope, query: string) => {
+  const load = useCallback(async (nextPage: number, nextScope: Scope, query: string, nextType: QuestionType | 'ALL') => {
     const currentRequest = ++requestId.current
+    setLoading(true)
     try {
-      const result = await listQuestions(nextPage, filters(nextScope, query))
+      const result = await listQuestions(nextPage, filters(nextScope, query, nextType))
       if (currentRequest === requestId.current) applyPage(result, nextPage)
     } catch { if (currentRequest === requestId.current) setError(true) }
     finally { if (currentRequest === requestId.current) { setLoading(false); setRefreshing(false) } }
   }, [filters, applyPage])
   useEffect(() => {
     requestId.current += 1
-    const timer = setTimeout(() => { setItems([]); setLoading(true); void load(1, scope, keyword) }, 250)
+    const timer = setTimeout(() => { setItems([]); void load(1, scope, keyword, type) }, 250)
     return () => { clearTimeout(timer); requestId.current += 1 }
-  }, [scope, keyword, load])
+  }, [scope, keyword, type, load])
   function confirmShare(question: TeacherQuestion) {
     Alert.alert('Gửi câu hỏi', 'Gửi câu hỏi vào ngân hàng chung để nhóm duyệt?', [
       { text: 'Hủy', style: 'cancel' }, { text: 'Gửi duyệt', onPress: () => {
         if (sharingId) return
         setSharingId(question.id)
-        void shareQuestion(question.id).then(() => { Alert.alert('Đã gửi', 'Câu hỏi đang chờ duyệt.'); return load(1, scope, keyword) })
+        void shareQuestion(question.id).then(() => { Alert.alert('Đã gửi', 'Câu hỏi đang chờ duyệt.'); return load(page || 1, scope, keyword, type) })
           .catch(() => Alert.alert('Không thể gửi', 'Câu hỏi có thể đã được gửi hoặc chưa đạt yêu cầu.'))
           .finally(() => setSharingId(null))
       } },
@@ -59,16 +68,18 @@ export function TeacherQuestionBankPage() {
   }
 
   if (editing) return <TeacherQuestionEditorPage initial={editing === 'new' ? null : editing}
-    onCancel={() => setEditing(null)} onDone={() => { setEditing(null); setScope('personal'); void load(1, 'personal', keyword) }} />
+    onCancel={() => setEditing(null)} onDone={() => { setEditing(null); setScope('personal'); void load(1, 'personal', keyword, type) }} />
   return <View style={styles.root}>
     <View style={styles.header}><ScreenHeader title="Ngân hàng câu hỏi" description="Xem câu hỏi cá nhân và câu đã được duyệt dùng chung" />
       <Pressable accessibilityRole="button" style={styles.create} onPress={() => setEditing('new')}><Text style={styles.createText}>Tạo câu trắc nghiệm</Text></Pressable>
       <SearchField value={keyword} onChangeText={setKeyword} placeholder="Tìm câu hỏi" />
+      <ChoicePicker label="Loại câu hỏi" placeholder="Tất cả loại câu hỏi" options={questionTypes} selectedValues={[type]}
+        onToggle={(value) => setType(value as QuestionType | 'ALL')} />
       <View style={styles.tabs}>{scopes.map((entry) => <Pressable key={entry.key} accessibilityRole="button"
         onPress={() => setScope(entry.key)} style={[styles.tab, scope === entry.key && styles.active]}>
         <Text style={[styles.tabText, scope === entry.key && styles.activeText]}>{entry.label}</Text></Pressable>)}</View>
     </View>
-    {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword)} /> :
+    {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword, type)} /> :
       <FlatList data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => <QuestionCard question={item}
         onEdit={scope === 'personal' && item.type !== 'PROGRAMMING' &&
           (!item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)) ? () => setEditing(item) : undefined}
@@ -76,9 +87,9 @@ export function TeacherQuestionBankPage() {
           (!item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)) ? () => confirmShare(item) : undefined} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Chưa có câu hỏi phù hợp." />}
-        ListFooterComponent={error ? <Text style={styles.error}>Không thể tải thêm câu hỏi.</Text> : undefined}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(1, scope, keyword) }} />}
-        onEndReached={() => { if (!loading && !error && page < totalPages) { setLoading(true); void load(page + 1, scope, keyword) } }} onEndReachedThreshold={0.3} />}
+        ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải trang này.</Text>}
+          <PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => void load(next, scope, keyword, type)} /></>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(page || 1, scope, keyword, type) }} />} />}
   </View>
 }
 

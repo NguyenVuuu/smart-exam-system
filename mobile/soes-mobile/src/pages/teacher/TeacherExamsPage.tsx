@@ -5,6 +5,7 @@ import { ExamListCard } from '../../components/teacher/exams/ExamListCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SearchField } from '../../components/ui/SearchField'
+import { PaginationControls } from '../../components/ui/PaginationControls'
 import type { ExamSummary } from '../../types/teacher-exams.types'
 
 type ExamType = 'ALL' | 'QUIZ' | 'MIDTERM' | 'FINAL'
@@ -32,7 +33,7 @@ export function TeacherExamsPage() {
     try {
       const result = await listExams(nextPage, query, nextType === 'ALL' ? undefined : nextType)
       if (currentRequest !== requestId.current) return
-      setItems((previous) => nextPage === 1 ? result.items : [...previous, ...result.items])
+      setItems(result.items)
       setPage(nextPage)
       setTotalPages(result.pagination.totalPages)
       setError(false)
@@ -57,9 +58,9 @@ export function TeacherExamsPage() {
       <FlatList data={items} keyExtractor={(exam) => exam.id} renderItem={({ item }) => <ExamListCard exam={item} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Chưa có đề thi phù hợp." />}
-        ListFooterComponent={error ? <Text style={styles.error}>Không thể tải thêm đề. Kéo xuống để thử lại.</Text> : undefined}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(1, keyword, type) }} />}
-        onEndReached={() => { if (!loading && !error && page < totalPages) { setLoading(true); void load(page + 1, keyword, type) } }} onEndReachedThreshold={0.3} />}
+        ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải đề.</Text>}
+          <PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => { setLoading(true); void load(next, keyword, type) }} /></>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(page || 1, keyword, type) }} />} />}
   </View>
 }
 

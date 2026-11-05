@@ -3,6 +3,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SearchField } from '../../components/ui/SearchField'
+import { PaginationControls } from '../../components/ui/PaginationControls'
 import { CourseCard } from '../../components/teacher/courses/CourseCard'
 import { listCourses } from '../../api/teacher-courses.api'
 import type { TeacherCourse } from '../../types/teacher-courses.types'
@@ -19,7 +20,7 @@ export function TeacherCoursesScreen() {
   const load = useCallback(async (nextPage: number, query: string) => {
     try {
       const result = await listCourses(nextPage, query)
-      setCourses((current) => nextPage === 1 ? result.items : [...current, ...result.items])
+      setCourses(result.items)
       setPage(nextPage)
       setTotalPages(result.pagination.totalPages)
       setError(false)
@@ -28,7 +29,7 @@ export function TeacherCoursesScreen() {
   }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => { void load(1, keyword) }, 250)
+    const timer = setTimeout(() => { setCourses([]); setLoading(true); void load(1, keyword) }, 250)
     return () => clearTimeout(timer)
   }, [keyword, load])
 
@@ -38,9 +39,9 @@ export function TeacherCoursesScreen() {
       <FlatList data={courses} keyExtractor={(course) => course.id} renderItem={({ item }) => <CourseCard course={item} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Không tìm thấy lớp học phần." />}
-        ListFooterComponent={error ? <Text style={styles.error}>Không thể tải thêm lớp. Kéo xuống để thử lại.</Text> : undefined}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(1, keyword) }} />}
-        onEndReached={() => { if (!loading && !error && page < totalPages) { setLoading(true); void load(page + 1, keyword) } }} onEndReachedThreshold={0.3} />}
+        ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải lớp.</Text>}
+          <PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => { setLoading(true); void load(next, keyword) }} /></>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(page, keyword) }} />} />}
   </View>
 }
 

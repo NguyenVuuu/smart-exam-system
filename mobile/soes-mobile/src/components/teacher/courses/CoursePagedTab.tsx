@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text } from 'react-native'
 import { router } from 'expo-router'
 import { ScreenState } from '../../ui/ScreenState'
+import { PaginationControls } from '../../ui/PaginationControls'
 import { formatDateTime } from '../../../utils/date'
 import { listExams, listStudents } from '../../../api/teacher-courses.api'
 import type { CourseExam, CourseStudent } from '../../../types/teacher-courses.types'
@@ -19,7 +20,7 @@ export function CoursePagedTab({ courseId, kind }: Props) {
   async function load(nextPage: number) {
     try {
       const data = kind === 'students' ? await listStudents(courseId, nextPage) : await listExams(courseId, nextPage)
-      setItems((previous) => nextPage === 1 ? data.items : [...previous, ...data.items])
+      setItems(data.items)
       setPage(nextPage)
       setTotalPages(data.pagination.totalPages)
       setError(false)
@@ -40,8 +41,8 @@ export function CoursePagedTab({ courseId, kind }: Props) {
   return <FlatList data={items} keyExtractor={(item) => 'scheduleId' in item ? item.scheduleId : item.id}
     contentContainerStyle={styles.list} ListEmptyComponent={<ScreenState kind="empty" message={kind === 'students' ? 'Chưa có sinh viên.' : 'Chưa có ca thi.'} />}
     renderItem={({ item }) => kind === 'students' ? <StudentRow item={item as CourseStudent} /> : <ExamRow item={item as CourseExam} />}
-    refreshControl={<RefreshControl refreshing={false} onRefresh={() => void load(1)} />}
-    onEndReached={() => { if (!loading && !error && page < totalPages) { setLoading(true); void load(page + 1) } }} onEndReachedThreshold={0.3} />
+    ListFooterComponent={<PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => { setLoading(true); void load(next) }} />}
+    refreshControl={<RefreshControl refreshing={false} onRefresh={() => void load(page)} />} />
 }
 
 function StudentRow({ item }: { item: CourseStudent }) {

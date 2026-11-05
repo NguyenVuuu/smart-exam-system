@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { RichContent } from '../../ui/RichContent'
+import { ChoicePicker } from '../../ui/ChoicePicker'
 import { QuestionOptionsEditor } from './QuestionOptionsEditor'
 import type { Difficulty, ObjectiveQuestionPayload, QuestionSubject, TeacherQuestion } from '../../../types/teacher-questions.types'
 
@@ -41,9 +42,8 @@ export function QuestionForm({ initial, subjects, busy, onSave, onCancel }: Prop
       type, difficulty, options: cleanOptions, testCases: [] })
   }
   return <View>
-    <Text style={styles.label}>Môn học</Text>
-    <View style={styles.choices}>{subjects.map((subject) => <Chip key={subject.id} label={subject.code ? `${subject.code} · ${subject.name}` : subject.name}
-      selected={subjectId === subject.id} onPress={() => setSubjectId(subject.id)} />)}</View>
+    <ChoicePicker label="Môn học" placeholder="Chọn môn học" options={subjects.map((subject) => ({ value: subject.id, label: subject.code ? `${subject.code} · ${subject.name}` : subject.name }))}
+      selectedValues={subjectId ? [subjectId] : []} onToggle={setSubjectId} />
     <Text style={styles.label}>Loại câu hỏi</Text><View style={styles.choices}>{types.map((entry) => <Chip key={entry.key} label={entry.label}
       selected={type === entry.key} onPress={() => selectType(entry.key)} />)}</View>
     <Text style={styles.label}>Độ khó</Text><View style={styles.choices}>{difficulties.map((entry) => <Chip key={entry.key} label={entry.label}
