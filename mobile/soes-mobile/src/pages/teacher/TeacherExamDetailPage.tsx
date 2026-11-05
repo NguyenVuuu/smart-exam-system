@@ -53,7 +53,7 @@ export function TeacherExamDetailPage({ id }: { id: string }) {
   if (!exam) return <ScreenState kind="empty" />
   const sortedQuestions = [...exam.questions].sort((a, b) => a.orderIndex - b.orderIndex)
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader title={exam.title} description={`${exam.subject.code} · ${exam.semester.name}`} /></View>
+    <View style={styles.header}><ScreenHeader showBack title={exam.title} description={`${exam.subject.code} · ${exam.semester.name}`} /></View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={styles.tabScroll}>
       {tabs.map((entry) => <Pressable key={entry.key} accessibilityRole="button" onPress={() => { setTabError(false); setTab(entry.key) }}
         style={[styles.tab, tab === entry.key && styles.active]}><Text style={[styles.tabText, tab === entry.key && styles.activeText]}>{entry.label}</Text></Pressable>)}

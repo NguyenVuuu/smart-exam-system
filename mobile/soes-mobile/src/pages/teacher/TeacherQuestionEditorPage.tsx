@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Alert, ScrollView, StyleSheet } from 'react-native'
+import { Alert } from 'react-native'
 import { createQuestion, listQuestionSubjects, updateQuestion } from '../../api/teacher-questions.api'
 import { QuestionForm } from '../../components/teacher/question-bank/QuestionForm'
-import { ScreenHeader } from '../../components/ui/ScreenHeader'
+import { FullScreenFormModal } from '../../components/ui/FullScreenFormModal'
 import { ScreenState } from '../../components/ui/ScreenState'
 import type { ObjectiveQuestionPayload, QuestionSubject, TeacherQuestion } from '../../types/teacher-questions.types'
 
@@ -37,13 +37,9 @@ export function TeacherQuestionEditorPage({ initial, onDone, onCancel }: Props) 
     } catch { Alert.alert('Không thể lưu', 'Dữ liệu có thể đã thay đổi hoặc chưa đạt yêu cầu. Vui lòng kiểm tra lại.') }
     finally { setBusy(false) }
   }
-  if (loading) return <ScreenState kind="loading" />
-  if (error) return <ScreenState kind="error" onRetry={() => void reload()} />
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-    <ScreenHeader title={initial ? 'Chỉnh sửa câu hỏi' : 'Tạo câu hỏi trắc nghiệm'} description="Câu hỏi được lưu trong ngân hàng cá nhân" onBack={onCancel} />
-    <QuestionForm key={initial?.id ?? 'new'} initial={initial} subjects={subjects} busy={busy}
-      onSave={(payload) => { void save(payload) }} onCancel={onCancel} />
-  </ScrollView>
+  return <FullScreenFormModal title={initial ? 'Chỉnh sửa câu hỏi' : 'Tạo câu hỏi trắc nghiệm'} visible onClose={onCancel} closeDisabled={busy}>
+    {loading ? <ScreenState kind="loading" /> : error ? <ScreenState kind="error" onRetry={() => void reload()} /> :
+      <QuestionForm key={initial?.id ?? 'new'} initial={initial} subjects={subjects} busy={busy}
+        onSave={(payload) => { void save(payload) }} onCancel={onCancel} />}
+  </FullScreenFormModal>
 }
-
-const styles = StyleSheet.create({ root: { flex: 1 }, content: { padding: 16, paddingBottom: 32 } })

@@ -1,7 +1,7 @@
 import { ChevronDown, Check } from 'lucide-react-native'
 import { useState } from 'react'
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export interface ChoiceOption { value: string; label: string; description?: string }
 interface Props { label: string; placeholder: string; options: ChoiceOption[]; selectedValues: string[]
@@ -9,6 +9,7 @@ interface Props { label: string; placeholder: string; options: ChoiceOption[]; s
 
 export function ChoicePicker({ label, placeholder, options, selectedValues, onToggle, multiple = false, disabled = false }: Props) {
   const [open, setOpen] = useState(false)
+  const insets = useSafeAreaInsets()
   const selected = options.filter((option) => selectedValues.includes(option.value))
   const summary = selected.length ? multiple ? `${selected.length} đã chọn` : selected[0].label : placeholder
   return <>
@@ -17,10 +18,10 @@ export function ChoicePicker({ label, placeholder, options, selectedValues, onTo
       onPress={() => setOpen(true)} style={[styles.field, disabled && styles.disabled]}>
       <Text numberOfLines={1} style={styles.value}>{summary}</Text><ChevronDown size={18} color="#64748b" />
     </Pressable>
-    <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-      <SafeAreaView style={styles.overlay}>
+    <Modal visible={open} transparent presentationStyle="overFullScreen" animationType="fade" onRequestClose={() => setOpen(false)}>
+      <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} accessibilityLabel="Đóng danh sách" />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
           <Text style={styles.heading}>{label}</Text>
           <FlatList data={options} keyExtractor={(item) => item.value} style={styles.list}
             ListEmptyComponent={<Text style={styles.empty}>Không có lựa chọn phù hợp.</Text>}
@@ -34,7 +35,7 @@ export function ChoicePicker({ label, placeholder, options, selectedValues, onTo
             <Text style={styles.closeText}>{multiple ? 'Xong' : 'Đóng'}</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   </>
 }
