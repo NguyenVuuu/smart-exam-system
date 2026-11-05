@@ -12,9 +12,12 @@ export function AiReviewCard({ question, number, selected, onSelect, onChange }:
     <Pressable accessibilityRole="button" onPress={onSelect} style={[styles.select, selected && styles.selected]}>
       <Text style={styles.selectText}>{selected ? 'Đã chọn lưu' : 'Chọn lưu câu này'}</Text>
     </Pressable>
-    <Text style={styles.label}>Nội dung câu hỏi</Text>
-    <TextInput value={question.title} onChangeText={(title) => onChange({ ...question, title, content: title })}
+    <Text style={styles.label}>Tiêu đề</Text>
+    <TextInput value={question.title} onChangeText={(title) => onChange({ ...question, title })}
       multiline maxLength={200} textAlignVertical="top" style={styles.input} />
+    <Text style={styles.label}>Nội dung câu hỏi</Text>
+    <TextInput value={question.content} onChangeText={(content) => onChange({ ...question, content })}
+      multiline maxLength={10000} textAlignVertical="top" style={styles.input} />
     <View style={styles.options}><QuestionOptionsEditor type={question.type as ObjectiveQuestionPayload['type']}
       options={question.options} onChange={(options) => onChange({ ...question, options })} /></View>
     <Text style={styles.label}>Giải thích</Text>

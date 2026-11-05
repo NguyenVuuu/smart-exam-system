@@ -70,8 +70,10 @@ export function TeacherQuestionBankPage() {
     </View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword)} /> :
       <FlatList data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => <QuestionCard question={item}
-        onEdit={scope === 'personal' && item.type !== 'PROGRAMMING' ? () => setEditing(item) : undefined}
-        onShare={scope === 'personal' && !item.sharedBank && !sharingId ? () => confirmShare(item) : undefined} />}
+        onEdit={scope === 'personal' && item.type !== 'PROGRAMMING' &&
+          (!item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)) ? () => setEditing(item) : undefined}
+        onShare={scope === 'personal' && !sharingId && !item.archivedAt &&
+          (!item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)) ? () => confirmShare(item) : undefined} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Chưa có câu hỏi phù hợp." />}
         ListFooterComponent={error ? <Text style={styles.error}>Không thể tải thêm câu hỏi.</Text> : undefined}

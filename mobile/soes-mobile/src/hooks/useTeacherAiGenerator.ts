@@ -74,7 +74,14 @@ export function useTeacherAiGenerator() {
   async function save() {
     const chosen = questions.filter((question) => selected.includes(question.id))
     if (!generation || !chosen.length || busy) return
-    if (chosen.some((question) => question.title.trim().length < 3 || question.options.length < 2 || question.options.some((option) => !option.content.trim()) || !question.options.some((option) => option.isCorrect))) {
+    if (chosen.some((question) => {
+      const options = question.options.map((option) => option.content.trim().toLocaleLowerCase('vi'))
+      const correctCount = question.options.filter((option) => option.isCorrect).length
+      return question.title.trim().length < 3 || question.content.trim().length < 3 || question.options.length < 2 ||
+        options.some((option) => !option) || new Set(options).size !== options.length ||
+        (question.type === 'MULTIPLE_CHOICE' ? correctCount < 1 || correctCount === options.length : correctCount !== 1) ||
+        (question.type === 'TRUE_FALSE' && options.length !== 2)
+    })) {
       Alert.alert('Câu hỏi chưa hợp lệ', 'Kiểm tra nội dung, phương án và đáp án đúng của các câu được chọn.'); return
     }
     setBusy(true)
