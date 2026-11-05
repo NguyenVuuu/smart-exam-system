@@ -43,7 +43,7 @@ export function TeacherReviewGroupPage() {
 
   if (loading && !group) return <ScreenState kind="loading" />
   if (error && !group) return <ScreenState kind="error" onRetry={() => void load()} />
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content}
+  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}>
     <ScreenHeader title="Nhóm duyệt đề bộ môn" description="Mỗi bộ môn có một nhóm duyệt đề cố định" />
     {group ? <><SectionCard title={group.name}>

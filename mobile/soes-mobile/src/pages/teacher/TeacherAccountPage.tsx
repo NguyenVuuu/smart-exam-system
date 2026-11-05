@@ -6,7 +6,7 @@ import { useTeacherAccount } from '../../hooks/useTeacherAccount'
 
 export function TeacherAccountPage() {
   const account = useTeacherAccount()
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
     <ScreenHeader title="Tài khoản" description="Thông tin liên hệ và bảo mật tài khoản" />
     <View style={styles.section}><TeacherProfileForm user={account.user} email={account.email} phone={account.phone} busy={account.busy}
       onEmail={account.setEmail} onPhone={account.setPhone} onSave={() => { void account.saveProfile() }} /></View>

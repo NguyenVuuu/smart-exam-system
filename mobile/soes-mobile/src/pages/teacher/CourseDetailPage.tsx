@@ -45,7 +45,7 @@ export function CourseDetailScreen({ id }: { id: string }) {
       </Pressable>)}
     </ScrollView>
     {tab === 'students' || tab === 'exams' ? <CoursePagedTab key={tab} courseId={id} kind={tab} /> :
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {tab === 'overview' && <SectionCard title="Thông tin lớp"><Text style={styles.line}>Trạng thái: {course.status === 'ACTIVE' ? 'Đang mở' : 'Đã đóng'}</Text><Text style={styles.line}>Sinh viên: {course.enrollmentCount}</Text><Text style={styles.line}>Ca thi: {course.scheduleCount}</Text></SectionCard>}
         {tab === 'materials' && (course.materials.length ? course.materials.map((item) => <SectionCard key={item.id} title={item.title ?? item.fileName}><Text style={styles.line}>{item.fileName} · {formatDateTime(item.createdAt)}</Text></SectionCard>) : <ScreenState kind="empty" message="Chưa có tài liệu." />)}
         {tab === 'posts' && <CoursePostsSection courseId={id} posts={course.posts} onChanged={reload} />}

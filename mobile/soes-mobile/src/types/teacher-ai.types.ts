@@ -11,7 +11,7 @@ export interface GeneratedQuestion {
 }
 export interface AiGenerationResult { historyId: string; questions: GeneratedQuestion[] }
 export interface GenerateAiPayload {
-  subjectId: string; sourceType: 'COURSE_MATERIAL' | 'UPLOAD_FILE'; mode: 'GENERATE_FROM_MATERIAL'
-  materialIds: string[]; sourceFiles: AiSourceFile[]; prompt: string; questionCount: number
+  subjectId: string; sourceType: 'COURSE_MATERIAL' | 'UPLOAD_FILE'; mode: 'GENERATE_FROM_MATERIAL' | 'EXTRACT_EXISTING_EXAM'
+  materialIds: string[]; sourceFiles: AiSourceFile[]; prompt: string; questionCount?: number
   difficulty: 'AUTO' | Difficulty; targetQuestionType: 'MULTIPLE_CHOICE'
 }

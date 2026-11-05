@@ -47,7 +47,7 @@ export function TeacherQuestionApprovalsPage() {
   return <View style={styles.root}>
     <View style={styles.header}><ScreenHeader title="Duyệt câu hỏi" description="Câu hỏi chờ duyệt vào ngân hàng dùng chung" /></View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1)} /> :
-      <FlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.list}
+      <FlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.list} automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => <QuestionApprovalCard item={item} busy={busyId !== null}
           reason={rejectId === item.id ? reason : ''} editingReason={rejectId === item.id}
           onApprove={() => Alert.alert('Duyệt câu hỏi', 'Xác nhận đưa câu hỏi vào ngân hàng chung?', [

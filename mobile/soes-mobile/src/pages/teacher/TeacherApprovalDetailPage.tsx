@@ -64,7 +64,7 @@ export function TeacherApprovalDetailPage({ id }: { id: string }) {
   if (!approval) return <ScreenState kind="empty" />
   const questions = [...approval.snapshot.examQuestions].sort((a, b) => a.orderIndex - b.orderIndex)
   return <View style={styles.root}>
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
       <ScreenHeader title={approval.snapshot.title} description={`${approval.subject.code} · Lần gửi ${approval.reviewRound.version}`} />
       <SectionCard title="Thông tin đề cuối kỳ"><Text style={styles.line}>Thời lượng: {approval.snapshot.defaultDurationMinutes} phút</Text>
         <Text style={styles.line}>{questions.length} câu · {approval.snapshot.totalPoints} điểm</Text>

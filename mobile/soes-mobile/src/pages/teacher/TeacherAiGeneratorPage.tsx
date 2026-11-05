@@ -15,27 +15,35 @@ export function TeacherAiGeneratorPage() {
   const ai = useTeacherAiGenerator()
   if (ai.loading) return <ScreenState kind="loading" />
   if (ai.error) return <ScreenState kind="error" onRetry={() => void ai.reload()} />
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
     <ScreenHeader title="Sinh câu hỏi AI" description="Chọn nguồn tài liệu, xem và lưu câu trắc nghiệm đạt yêu cầu" />
     {!ai.generation ? <>
+      <Text style={styles.label}>Cách xử lý</Text>
+      <View style={styles.choices}>{[
+        { key: 'GENERATE_FROM_MATERIAL' as const, label: 'Sinh câu hỏi' },
+        { key: 'EXTRACT_EXISTING_EXAM' as const, label: 'Bóc tách đề có sẵn' },
+      ].map((entry) => <Pressable key={entry.key} accessibilityRole="button" onPress={() => ai.setMode(entry.key)}
+        style={[styles.chip, ai.mode === entry.key && styles.selectedChip]}><Text style={styles.chipText}>{entry.label}</Text></Pressable>)}</View>
       <AiSourceSelector subjects={ai.subjects} subjectId={ai.subjectId} onSubject={(id) => { void ai.chooseSubject(id) }}
         sourceType={ai.sourceType} onSourceType={ai.setSource} materials={ai.materials} materialIds={ai.materialIds}
-        onToggleMaterial={ai.toggleMaterial} sourceFile={ai.sourceFile} onPickFile={() => { void ai.pickFile() }} busy={ai.busy} />
-      <Text style={styles.label}>Số câu (1–10)</Text>
+        onToggleMaterial={ai.toggleMaterial} sourceFile={ai.sourceFile} pendingFileName={ai.pendingFileName}
+        onPickFile={() => { void ai.pickFile() }} busy={ai.busy} />
+      {ai.mode === 'GENERATE_FROM_MATERIAL' && <><Text style={styles.label}>Số câu (1–10)</Text>
       <TextInput value={ai.count} onChangeText={ai.setCount} keyboardType="number-pad" style={styles.input} />
       <Text style={styles.label}>Độ khó</Text>
       <View style={styles.choices}>{difficulties.map((entry) => <Pressable key={entry.key} accessibilityRole="button"
         onPress={() => ai.setDifficulty(entry.key)} style={[styles.chip, ai.difficulty === entry.key && styles.selectedChip]}>
-        <Text style={styles.chipText}>{entry.label}</Text></Pressable>)}</View>
+        <Text style={styles.chipText}>{entry.label}</Text></Pressable>)}</View></>}
       <Text style={styles.label}>Yêu cầu thêm (tùy chọn)</Text>
       <TextInput value={ai.prompt} onChangeText={ai.setPrompt} multiline maxLength={3000}
         textAlignVertical="top" placeholder="Ví dụ: Tập trung chương 2" placeholderTextColor="#94a3b8" style={[styles.input, styles.multiline]} />
       <Pressable accessibilityRole="button" disabled={ai.busy} style={styles.submit} onPress={() => { void ai.generate() }}>
-        <Text style={styles.submitText}>{ai.busy ? 'Đang xử lý...' : 'Sinh câu hỏi'}</Text></Pressable>
+        <Text style={styles.submitText}>{ai.busy ? 'Đang xử lý...' : ai.mode === 'EXTRACT_EXISTING_EXAM' ? 'Bóc tách câu hỏi' : 'Sinh câu hỏi'}</Text></Pressable>
     </> : <>
       <Text style={styles.summary}>{ai.questions.length} câu trắc nghiệm đã sinh · {ai.selected.length} câu được chọn lưu</Text>
       {ai.questions.map((question, index) => <AiReviewCard key={question.id} number={index + 1} question={question}
-        selected={ai.selected.includes(question.id)} onSelect={() => ai.toggleSelected(question.id)} onChange={ai.updateQuestion} />)}
+        decision={ai.selected.includes(question.id) ? 'accepted' : ai.rejected.includes(question.id) ? 'rejected' : 'pending'}
+        onAccept={() => ai.acceptQuestion(question.id)} onReject={() => ai.rejectQuestion(question.id)} onChange={ai.updateQuestion} />)}
       <Pressable accessibilityRole="button" disabled={ai.busy || !ai.selected.length} style={styles.submit} onPress={() => { void ai.save() }}>
         <Text style={styles.submitText}>{ai.busy ? 'Đang lưu...' : `Lưu ${ai.selected.length} câu đã chọn`}</Text></Pressable>
       <Pressable accessibilityRole="button" onPress={ai.clearResult} style={styles.back}><Text style={styles.backText}>Tạo lượt mới</Text></Pressable>
