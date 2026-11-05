@@ -42,9 +42,10 @@ export function CoursePostsSection({ courseId, posts, onChanged }: Props) {
       <Plus size={16} color="#fff" /><Text style={styles.addText}>Tạo bài viết</Text>
     </Pressable>
     {posts.length === 0 && <Text style={styles.empty}>Chưa có bài viết.</Text>}
-    {posts.map((post) => <SectionCard key={post.id} title={post.title}>
+    {posts.map((post) => <SectionCard key={post.id} title={post.title}
+      headerRight={post.isPinned ? <Pin size={17} color="#2563eb" fill="#dbeafe" accessibilityLabel="Bài viết đã ghim" /> : undefined}>
       <Text style={styles.body}>{post.content}</Text>
-      <Text style={styles.meta}>{post.isPinned ? 'Đã ghim · ' : ''}{post.status === 'PUBLISHED' ? 'Đã đăng' : 'Đã ẩn'} · {formatDateTime(post.createdAt)}</Text>
+      <Text style={styles.meta}>{post.status === 'PUBLISHED' ? 'Đã đăng' : 'Đã ẩn'} · {formatDateTime(post.createdAt)}</Text>
       {post.attachments?.map((file) => <Pressable key={file.id} accessibilityRole="button" accessibilityLabel={`Tải ${displayFileName(file.fileName)}`}
         onPress={() => { void download(post, file.id, file.fileName) }} style={styles.attachment}>
         <Paperclip size={15} color="#2563eb" /><Text numberOfLines={1} style={styles.attachmentName}>{displayFileName(file.fileName)}</Text><Download size={15} color="#2563eb" />
