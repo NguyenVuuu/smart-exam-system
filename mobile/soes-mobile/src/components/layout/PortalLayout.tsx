@@ -1,7 +1,7 @@
 import type { Href } from 'expo-router'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Animated, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { NavigationGroup } from '../../navigation/navigation.types'
 import { useUIStore } from '../../store/uiStore'
 import { PortalSidebar } from './PortalSidebar'
@@ -19,6 +19,7 @@ export function PortalLayout({ children, groups, activeRoute, portalLabel, notif
   const sidebarOpen = useUIStore((state) => state.sidebarOpen)
   const closeSidebar = useUIStore((state) => state.setSidebarOpen)
   const { width } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
   const drawerWidth = Math.min(240, Math.max(170, width * 0.55))
   const [slide] = useState(() => new Animated.Value(-drawerWidth))
   const [dim] = useState(() => new Animated.Value(0))
@@ -30,10 +31,11 @@ export function PortalLayout({ children, groups, activeRoute, portalLabel, notif
     ]).start()
   }, [sidebarOpen, drawerWidth, slide, dim])
 
-  return <SafeAreaView style={styles.safe}>
+  return <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
     <PortalTopBar notificationsHref={notificationsHref} />
     <View style={styles.content}>{children}</View>
-    <View pointerEvents={sidebarOpen ? 'auto' : 'none'} style={styles.drawerLayer}>
+    <View pointerEvents={sidebarOpen ? 'auto' : 'none'}
+      style={[styles.drawerLayer, { top: insets.top, bottom: insets.bottom }]}>
       <Animated.View style={[styles.backdrop, { opacity: dim }]}>
         <Pressable accessibilityLabel="Đóng menu" onPress={() => closeSidebar(false)} style={StyleSheet.absoluteFill} />
       </Animated.View>
