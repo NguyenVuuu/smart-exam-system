@@ -3,10 +3,10 @@ import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SectionCard } from '../../components/ui/SectionCard'
-import { formatDateTime } from '../../utils/date'
 import { getCourse } from '../../api/teacher-courses.api'
 import { CoursePagedTab } from '../../components/teacher/courses/CoursePagedTab'
 import { CoursePostsSection } from '../../components/teacher/courses/CoursePostsSection'
+import { CourseMaterialsSection } from '../../components/teacher/courses/CourseMaterialsSection'
 import type { CourseDetail } from '../../types/teacher-courses.types'
 
 type Tab = 'overview' | 'students' | 'materials' | 'posts' | 'exams'
@@ -38,7 +38,7 @@ export function CourseDetailScreen({ id }: { id: string }) {
   if (error && !course) return <ScreenState kind="error" onRetry={() => void reload()} />
   if (!course) return <ScreenState kind="empty" />
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader title={course.subject.name} description={`${course.subject.code} · ${course.code} · ${course.semester.name}`} /></View>
+    <View style={styles.header}><ScreenHeader showBack title={course.subject.name} description={`${course.subject.code} · ${course.code} · ${course.semester.name}`} /></View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={styles.tabScroll}>
       {tabs.map((entry) => <Pressable key={entry.key} onPress={() => setTab(entry.key)} style={[styles.tab, tab === entry.key && styles.tabActive]}>
         <Text style={[styles.tabText, tab === entry.key && styles.tabTextActive]}>{entry.label}</Text>
@@ -47,7 +47,7 @@ export function CourseDetailScreen({ id }: { id: string }) {
     {tab === 'students' || tab === 'exams' ? <CoursePagedTab key={tab} courseId={id} kind={tab} /> :
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {tab === 'overview' && <SectionCard title="Thông tin lớp"><Text style={styles.line}>Trạng thái: {course.status === 'ACTIVE' ? 'Đang mở' : 'Đã đóng'}</Text><Text style={styles.line}>Sinh viên: {course.enrollmentCount}</Text><Text style={styles.line}>Ca thi: {course.scheduleCount}</Text></SectionCard>}
-        {tab === 'materials' && (course.materials.length ? course.materials.map((item) => <SectionCard key={item.id} title={item.title ?? item.fileName}><Text style={styles.line}>{item.fileName} · {formatDateTime(item.createdAt)}</Text></SectionCard>) : <ScreenState kind="empty" message="Chưa có tài liệu." />)}
+        {tab === 'materials' && <CourseMaterialsSection courseId={id} materials={course.materials} onChanged={reload} />}
         {tab === 'posts' && <CoursePostsSection courseId={id} posts={course.posts} onChanged={reload} />}
       </ScrollView>}
   </View>

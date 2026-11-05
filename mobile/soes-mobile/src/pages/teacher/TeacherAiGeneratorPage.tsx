@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { AiReviewCard } from '../../components/teacher/ai/AiReviewCard'
 import { AiSourceSelector } from '../../components/teacher/ai/AiSourceSelector'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -15,7 +15,8 @@ export function TeacherAiGeneratorPage() {
   const ai = useTeacherAiGenerator()
   if (ai.loading) return <ScreenState kind="loading" />
   if (ai.error) return <ScreenState kind="error" onRetry={() => void ai.reload()} />
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+  return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
     <ScreenHeader title="Sinh câu hỏi AI" description="Chọn nguồn tài liệu, xem và lưu câu trắc nghiệm đạt yêu cầu" />
     {!ai.generation ? <>
       <Text style={styles.label}>Cách xử lý</Text>
@@ -37,26 +38,28 @@ export function TeacherAiGeneratorPage() {
       <Text style={styles.label}>Yêu cầu thêm (tùy chọn)</Text>
       <TextInput value={ai.prompt} onChangeText={ai.setPrompt} multiline maxLength={3000}
         textAlignVertical="top" placeholder="Ví dụ: Tập trung chương 2" placeholderTextColor="#94a3b8" style={[styles.input, styles.multiline]} />
-      <Pressable accessibilityRole="button" disabled={ai.busy} style={styles.submit} onPress={() => { void ai.generate() }}>
-        <Text style={styles.submitText}>{ai.busy ? 'Đang xử lý...' : ai.mode === 'EXTRACT_EXISTING_EXAM' ? 'Bóc tách câu hỏi' : 'Sinh câu hỏi'}</Text></Pressable>
     </> : <>
       <Text style={styles.summary}>{ai.questions.length} câu trắc nghiệm {ai.mode === 'EXTRACT_EXISTING_EXAM' ? 'đã bóc tách' : 'đã sinh'} · {ai.selected.length} câu được chọn lưu</Text>
       {ai.questions.map((question, index) => <AiReviewCard key={question.id} number={index + 1} question={question}
         decision={ai.selected.includes(question.id) ? 'accepted' : ai.rejected.includes(question.id) ? 'rejected' : 'pending'}
         onAccept={() => ai.acceptQuestion(question.id)} onReject={() => ai.rejectQuestion(question.id)} onChange={ai.updateQuestion} />)}
-      <Pressable accessibilityRole="button" disabled={ai.busy || !ai.selected.length} style={styles.submit} onPress={() => { void ai.save() }}>
-        <Text style={styles.submitText}>{ai.busy ? 'Đang lưu...' : `Lưu ${ai.selected.length} câu đã chọn`}</Text></Pressable>
       <Pressable accessibilityRole="button" onPress={ai.clearResult} style={styles.back}><Text style={styles.backText}>Tạo lượt mới</Text></Pressable>
     </>}
-  </ScrollView>
+  </ScrollView><View style={styles.footer}>
+    <Pressable accessibilityRole="button" disabled={ai.busy || Boolean(ai.generation && !ai.selected.length)}
+      style={[styles.submit, (ai.busy || Boolean(ai.generation && !ai.selected.length)) && styles.disabled]}
+      onPress={() => { void (ai.generation ? ai.save() : ai.generate()) }}>
+      <Text style={styles.submitText}>{ai.busy ? 'Đang xử lý...' : ai.generation ? `Lưu ${ai.selected.length} câu đã chọn` : ai.mode === 'EXTRACT_EXISTING_EXAM' ? 'Bóc tách câu hỏi' : 'Sinh câu hỏi'}</Text>
+    </Pressable>
+  </View></KeyboardAvoidingView>
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 }, content: { padding: 16, paddingBottom: 36 }, label: { color: '#334155', fontWeight: '700', marginTop: 14, marginBottom: 8 },
+  root: { flex: 1 }, scroll: { flex: 1 }, content: { padding: 16, paddingBottom: 24 }, footer: { padding: 12, paddingHorizontal: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0' }, label: { color: '#334155', fontWeight: '700', marginTop: 14, marginBottom: 8 },
   input: { minHeight: 46, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, color: '#0f172a', backgroundColor: '#fff' }, multiline: { minHeight: 80 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { minHeight: 42, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, paddingHorizontal: 10, justifyContent: 'center' },
   selectedChip: { backgroundColor: '#eff6ff', borderColor: '#2563eb' }, chipText: { color: '#334155', fontSize: 13 },
-  submit: { minHeight: 46, borderRadius: 10, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  submit: { minHeight: 46, borderRadius: 10, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }, disabled: { opacity: 0.5 },
   submitText: { color: '#fff', fontWeight: '700' }, summary: { color: '#475569', marginBottom: 12 }, back: { minHeight: 44, alignItems: 'center', justifyContent: 'center' }, backText: { color: '#2563eb', fontWeight: '700' },
 })
 

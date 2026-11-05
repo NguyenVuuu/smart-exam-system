@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Plus } from 'lucide-react-native'
 import { listQuestions, shareQuestion } from '../../api/teacher-questions.api'
 import { QuestionCard } from '../../components/teacher/question-bank/QuestionCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -70,14 +71,16 @@ export function TeacherQuestionBankPage() {
   if (editing) return <TeacherQuestionEditorPage initial={editing === 'new' ? null : editing}
     onCancel={() => setEditing(null)} onDone={() => { setEditing(null); setScope('personal'); void load(1, 'personal', keyword, type) }} />
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader title="Ngân hàng câu hỏi" description="Xem câu hỏi cá nhân và câu đã được duyệt dùng chung" />
-      <Pressable accessibilityRole="button" style={styles.create} onPress={() => setEditing('new')}><Text style={styles.createText}>Tạo câu trắc nghiệm</Text></Pressable>
+    <View style={styles.header}><ScreenHeader title="Ngân hàng câu hỏi" description="Câu hỏi cá nhân và câu hỏi dùng chung" />
+      <Pressable accessibilityRole="button" style={styles.create} onPress={() => setEditing('new')}>
+        <Plus size={16} color="#fff" /><Text style={styles.createText}>Tạo câu hỏi</Text>
+      </Pressable>
       <SearchField value={keyword} onChangeText={setKeyword} placeholder="Tìm câu hỏi" />
-      <ChoicePicker label="Loại câu hỏi" placeholder="Tất cả loại câu hỏi" options={questionTypes} selectedValues={[type]}
-        onToggle={(value) => setType(value as QuestionType | 'ALL')} />
       <View style={styles.tabs}>{scopes.map((entry) => <Pressable key={entry.key} accessibilityRole="button"
         onPress={() => setScope(entry.key)} style={[styles.tab, scope === entry.key && styles.active]}>
         <Text style={[styles.tabText, scope === entry.key && styles.activeText]}>{entry.label}</Text></Pressable>)}</View>
+      <ChoicePicker label="Loại câu hỏi" placeholder="Tất cả loại câu hỏi" options={questionTypes} selectedValues={[type]}
+        onToggle={(value) => setType(value as QuestionType | 'ALL')} />
     </View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword, type)} /> :
       <FlatList key={page} data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => <QuestionCard question={item}
@@ -95,10 +98,10 @@ export function TeacherQuestionBankPage() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 }, header: { padding: 16, paddingBottom: 0 },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  tab: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#fff' },
+  tabs: { flexDirection: 'row', gap: 6, marginTop: 12 },
+  tab: { flex: 1, minWidth: 0, minHeight: 38, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, borderRadius: 10, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#fff' },
   active: { backgroundColor: '#2563eb', borderColor: '#2563eb' }, tabText: { color: '#475569', fontWeight: '600', fontSize: 13 }, activeText: { color: '#fff' },
   list: { padding: 16, paddingBottom: 32, flexGrow: 1 }, error: { color: '#b91c1c', textAlign: 'center', padding: 12 },
-  create: { minHeight: 44, paddingHorizontal: 12, alignSelf: 'flex-start', justifyContent: 'center', borderRadius: 10, backgroundColor: '#2563eb', marginBottom: 12 },
-  createText: { color: '#fff', fontWeight: '700' },
+  create: { minHeight: 38, paddingHorizontal: 12, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, backgroundColor: '#2563eb', marginBottom: 12 },
+  createText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 })
