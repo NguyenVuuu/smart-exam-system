@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { AiMaterial, AiSourceFile } from '../../../types/teacher-ai.types'
 import type { QuestionSubject } from '../../../types/teacher-questions.types'
 import { ChoicePicker } from '../../ui/ChoicePicker'
+import { displayFileName } from '../../../utils/courseFiles'
 
 interface Props { subjects: QuestionSubject[]; subjectId: string; onSubject: (id: string) => void
   sourceType: 'COURSE_MATERIAL' | 'UPLOAD_FILE'; onSourceType: (type: 'COURSE_MATERIAL' | 'UPLOAD_FILE') => void
@@ -10,6 +11,7 @@ interface Props { subjects: QuestionSubject[]; subjectId: string; onSubject: (id
 
 export function AiSourceSelector({ subjects, subjectId, onSubject, sourceType, onSourceType,
   materials, materialIds, onToggleMaterial, sourceFile, pendingFileName, onPickFile, busy }: Props) {
+  const selectedFiles = materials.filter((item) => materialIds.includes(item.id)).map((item) => displayFileName(item.fileName))
   return <View>
     <ChoicePicker label="Môn học" placeholder="Chọn môn học" options={subjects.map((item) => ({ value: item.id, label: item.code ? `${item.code} · ${item.name}` : item.name }))}
       selectedValues={subjectId ? [subjectId] : []} onToggle={onSubject} />
@@ -20,7 +22,7 @@ export function AiSourceSelector({ subjects, subjectId, onSubject, sourceType, o
     </View>
     {sourceType === 'COURSE_MATERIAL' ? <ChoicePicker label="Tài liệu lớp" placeholder={subjectId ? 'Chọn tài liệu' : 'Chọn môn học trước'}
       options={materials.map((item) => ({ value: item.id, label: item.title || item.fileName, description: `${item.courseCode} · ${item.fileName}` }))}
-      selectedValues={materialIds} onToggle={onToggleMaterial} multiple disabled={!subjectId} /> : <View>
+      selectedValues={materialIds} selectedSummary={selectedFiles.join(', ')} onToggle={onToggleMaterial} multiple disabled={!subjectId} /> : <View>
       <Pressable accessibilityRole="button" disabled={busy} onPress={onPickFile} style={styles.pick}>
         <Text style={styles.pickText}>{sourceFile || pendingFileName ? 'Chọn tệp khác' : 'Chọn PDF, DOCX, TXT hoặc ảnh'}</Text>
       </Pressable>

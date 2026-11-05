@@ -115,10 +115,11 @@ export function useTeacherAiGenerator() {
   }
   function clearResult() { setGeneration(null); setQuestions([]); setSelected([]); setRejected([]) }
   function acceptQuestion(id: string) { setRejected((current) => current.filter((item) => item !== id)); setSelected((current) => current.includes(id) ? current : [...current, id]) }
+  function acceptAll() { setRejected([]); setSelected(questions.map((question) => question.id)) }
   function rejectQuestion(id: string) { setSelected((current) => current.filter((item) => item !== id)); setRejected((current) => current.includes(id) ? current : [...current, id]) }
   function updateQuestion(next: GeneratedQuestion) { setQuestions((current) => current.map((item) => item.id === next.id ? next : item)) }
   return { subjects, subjectId, materials, materialIds, sourceType, sourceFile, pendingFileName: pendingFile?.name ?? null,
     mode, setMode, count, difficulty, prompt, generation, questions, selected, rejected, loading, busy, error,
     reload, chooseSubject, pickFile, setSource, toggleMaterial, setCount, setDifficulty, setPrompt,
-    generate, save, clearResult, acceptQuestion, rejectQuestion, updateQuestion }
+    generate, save, clearResult, acceptQuestion, acceptAll, rejectQuestion, updateQuestion }
 }

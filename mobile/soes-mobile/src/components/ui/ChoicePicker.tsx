@@ -5,18 +5,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export interface ChoiceOption { value: string; label: string; description?: string }
 interface Props { label: string; placeholder: string; options: ChoiceOption[]; selectedValues: string[]
-  onToggle: (value: string) => void; multiple?: boolean; disabled?: boolean }
+  onToggle: (value: string) => void; multiple?: boolean; disabled?: boolean; selectedSummary?: string }
 
-export function ChoicePicker({ label, placeholder, options, selectedValues, onToggle, multiple = false, disabled = false }: Props) {
+export function ChoicePicker({ label, placeholder, options, selectedValues, onToggle, multiple = false, disabled = false, selectedSummary }: Props) {
   const [open, setOpen] = useState(false)
   const insets = useSafeAreaInsets()
   const selected = options.filter((option) => selectedValues.includes(option.value))
-  const summary = selected.length ? multiple ? `${selected.length} đã chọn` : selected[0].label : placeholder
+  const summary = selected.length ? selectedSummary || (multiple ? `${selected.length} đã chọn` : selected[0].label) : placeholder
   return <>
     <Text style={styles.label}>{label}</Text>
     <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${summary}`} disabled={disabled}
       onPress={() => setOpen(true)} style={[styles.field, disabled && styles.disabled]}>
-      <Text numberOfLines={1} style={styles.value}>{summary}</Text><ChevronDown size={18} color="#64748b" />
+      <Text numberOfLines={2} style={styles.value}>{summary}</Text><ChevronDown size={18} color="#64748b" />
     </Pressable>
     <Modal visible={open} transparent presentationStyle="overFullScreen" animationType="fade" onRequestClose={() => setOpen(false)}>
       <View style={styles.overlay}>
@@ -42,7 +42,7 @@ export function ChoicePicker({ label, placeholder, options, selectedValues, onTo
 
 const styles = StyleSheet.create({
   label: { color: '#334155', fontWeight: '700', marginTop: 14, marginBottom: 8 },
-  field: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, backgroundColor: '#fff', paddingHorizontal: 12 },
+  field: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 7 },
   disabled: { opacity: 0.45 }, value: { flex: 1, color: '#334155', fontSize: 13 },
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.4)' },
   sheet: { maxHeight: '75%', backgroundColor: '#fff', borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 16 },
