@@ -1,11 +1,12 @@
 import { isAxiosError } from 'axios'
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshControl, ScrollView, StyleSheet, Text } from 'react-native'
+import { Animated, Platform, RefreshControl, ScrollView, StyleSheet, Text } from 'react-native'
 import { getReviewGroup, listReviewGroupCandidates } from '../../api/teacher-review-group.api'
 import { ReviewGroupManager, ReviewGroupMembers } from '../../components/teacher/review-group/ReviewGroupManager'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SectionCard } from '../../components/ui/SectionCard'
+import { useKeyboardBottomOffset } from '../../hooks/useKeyboardBottomOffset'
 import { useAuthStore } from '../../store/authStore'
 import type { ReviewGroup, ReviewGroupCandidate } from '../../types/teacher-review-group.types'
 
@@ -25,6 +26,9 @@ export function TeacherReviewGroupPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(false)
+
+  const { animatedOffset, isKeyboardOpen } = useKeyboardBottomOffset({ accountForBottomInset: true })
+
   const load = useCallback(async () => {
     try {
       const [nextGroup, nextCandidates] = await fetchGroupData(isHead)
@@ -32,6 +36,7 @@ export function TeacherReviewGroupPage() {
     } catch { setError(true) }
     finally { setLoading(false); setRefreshing(false) }
   }, [isHead])
+
   useEffect(() => {
     let active = true
     fetchGroupData(isHead)
@@ -43,19 +48,41 @@ export function TeacherReviewGroupPage() {
 
   if (loading && !group) return <ScreenState kind="loading" />
   if (error && !group) return <ScreenState kind="error" onRetry={() => void load()} />
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
-    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}>
-    <ScreenHeader title="Nhóm duyệt đề bộ môn" description="Mỗi bộ môn có một nhóm duyệt đề cố định" />
-    {group ? <><SectionCard title={group.name}>
-      <Text style={styles.line}>{group.department.code} · {group.department.name}</Text>
-      <Text style={styles.line}>Trạng thái: {group.status === 'ACTIVE' ? 'Đang hoạt động' : 'Ngừng hoạt động'}</Text>
-    </SectionCard><ReviewGroupMembers group={group} onChanged={load} /></> : null}
-    {isHead ? <ReviewGroupManager key={group ? `${group.id}-${group.name}` : 'new'} group={group} candidates={candidates} onChanged={load} /> : null}
-    {!group && !isHead ? <ScreenState kind="empty" message="Bộ môn chưa có nhóm duyệt đề." /> : null}
-  </ScrollView>
+
+  return (
+    <Animated.View
+      style={[
+        styles.root,
+        Platform.OS === 'ios' && { paddingBottom: animatedOffset },
+      ]}
+    >
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={[styles.content, isKeyboardOpen && styles.contentKeyboardOpen]}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
+      >
+        <ScreenHeader title="Nhóm duyệt đề bộ môn" description="Mỗi bộ môn có một nhóm duyệt đề cố định" />
+        {group ? (
+          <>
+            <SectionCard title={group.name}>
+              <Text style={styles.line}>{group.department.code} · {group.department.name}</Text>
+              <Text style={styles.line}>Trạng thái: {group.status === 'ACTIVE' ? 'Đang hoạt động' : 'Ngừng hoạt động'}</Text>
+            </SectionCard>
+            <ReviewGroupMembers group={group} onChanged={load} />
+          </>
+        ) : null}
+        {isHead ? <ReviewGroupManager key={group ? `${group.id}-${group.name}` : 'new'} group={group} candidates={candidates} onChanged={load} /> : null}
+        {!group && !isHead ? <ScreenState kind="empty" message="Bộ môn chưa có nhóm duyệt đề." /> : null}
+      </ScrollView>
+    </Animated.View>
+  )
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 }, content: { padding: 16, paddingBottom: 32, flexGrow: 1 },
+  root: { flex: 1 },
+  content: { padding: 16, paddingBottom: 32, flexGrow: 1 },
+  contentKeyboardOpen: { paddingBottom: 220 },
   line: { color: '#475569', fontSize: 13, lineHeight: 20 },
 })
