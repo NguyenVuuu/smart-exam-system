@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useUIStore } from '../../store/uiStore'
 import type { NavigationGroup } from '../../navigation/navigation.types'
 import { PortalUserFooter } from './PortalUserFooter'
+import { SystemLogo } from '../ui/SystemLogo'
 
 interface Props { groups: NavigationGroup[]; activeRoute: string; portalLabel: string }
 
@@ -11,7 +12,7 @@ export function PortalSidebar({ groups, activeRoute, portalLabel }: Props) {
 
   return <View style={styles.root}>
     <View style={styles.brand}>
-      <View style={styles.brandMark}><Text style={styles.brandMarkText}>S</Text></View>
+      <SystemLogo />
       <Text style={styles.brandName}>SOES</Text>
       <Text style={styles.portalLabel}>{portalLabel}</Text>
     </View>
@@ -36,8 +37,6 @@ export function PortalSidebar({ groups, activeRoute, portalLabel }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fff', borderRightWidth: 1, borderRightColor: '#e2e8f0' },
   brand: { height: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', gap: 9 },
-  brandMark: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563eb' },
-  brandMarkText: { color: '#fff', fontWeight: '800', fontSize: 18 },
   brandName: { fontSize: 17, fontWeight: '800', color: '#0f172a' },
   portalLabel: { color: '#2563eb', backgroundColor: '#eff6ff', fontSize: 10, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 5, overflow: 'hidden' },
   menu: { flex: 1 }, menuContent: { paddingHorizontal: 10, paddingVertical: 12 },

@@ -3,6 +3,7 @@ import { router, type Href } from 'expo-router'
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
+import { SystemLogo } from '../ui/SystemLogo'
 
 interface Props { notificationsHref: Href }
 
@@ -13,6 +14,7 @@ export function PortalTopBar({ notificationsHref }: Props) {
 
   return <View style={styles.root}>
     <Pressable accessibilityLabel="Mở menu" onPress={toggleSidebar} style={styles.iconButton}><Menu size={21} color="#334155" /></Pressable>
+    <SystemLogo size={28} />
     <Text style={styles.title} numberOfLines={1}>SOES</Text>
     {width > 390 && <Text style={styles.name} numberOfLines={1}>{name}</Text>}
     <Pressable accessibilityLabel="Thông báo" onPress={() => router.push(notificationsHref)} style={styles.iconButton}><Bell size={21} color="#334155" /></Pressable>

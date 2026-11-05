@@ -17,6 +17,7 @@ export interface User {
   teacherCode: string | null
   adminCode: string | null
   availableRoles: UserRole[]
+  position?: 'LECTURER' | 'DEPARTMENT_HEAD'
 }
 
 export interface AvailableRole {

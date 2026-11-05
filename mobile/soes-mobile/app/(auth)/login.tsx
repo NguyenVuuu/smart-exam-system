@@ -8,9 +8,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
 } from 'react-native'
 import { useLogin } from '../../src/hooks/useLogin'
+import { SystemLogo } from '../../src/components/ui/SystemLogo'
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('')
@@ -34,9 +34,7 @@ export default function LoginScreen() {
       >
         {/* Logo & title */}
         <View className="items-center mb-10">
-          <View className="w-20 h-20 bg-blue-600 rounded-2xl items-center justify-center mb-4">
-            <Text className="text-white text-3xl font-bold">S</Text>
-          </View>
+          <View className="mb-4"><SystemLogo size={80} /></View>
           <Text className="text-2xl font-bold text-slate-800">SOES</Text>
           <Text className="text-sm text-slate-500 mt-1">
             Hệ thống thi trực tuyến thông minh
