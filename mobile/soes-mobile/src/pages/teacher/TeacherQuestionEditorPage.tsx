@@ -39,8 +39,8 @@ export function TeacherQuestionEditorPage({ initial, onDone, onCancel }: Props) 
   }
   if (loading) return <ScreenState kind="loading" />
   if (error) return <ScreenState kind="error" onRetry={() => void reload()} />
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <ScreenHeader title={initial ? 'Chỉnh sửa câu hỏi' : 'Tạo câu hỏi trắc nghiệm'} description="Câu hỏi được lưu trong ngân hàng cá nhân" />
+  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+    <ScreenHeader title={initial ? 'Chỉnh sửa câu hỏi' : 'Tạo câu hỏi trắc nghiệm'} description="Câu hỏi được lưu trong ngân hàng cá nhân" onBack={onCancel} />
     <QuestionForm key={initial?.id ?? 'new'} initial={initial} subjects={subjects} busy={busy}
       onSave={(payload) => { void save(payload) }} onCancel={onCancel} />
   </ScrollView>

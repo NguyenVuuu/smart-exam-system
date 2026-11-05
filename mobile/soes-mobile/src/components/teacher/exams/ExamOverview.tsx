@@ -5,13 +5,13 @@ import { formatDateTime } from '../../../utils/date'
 import type { ExamDetail } from '../../../types/teacher-exams.types'
 
 const types = { QUIZ: 'Quiz', MIDTERM: 'Giữa kỳ', FINAL: 'Cuối kỳ' } as const
-const approval = { NOT_REQUIRED: 'Không cần duyệt', PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Cần sửa' } as const
+const approval = { NOT_REQUIRED: '', PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Cần sửa' } as const
 
 export function ExamOverview({ exam }: { exam: ExamDetail }) {
   return <>
     <SectionCard title="Thông tin đề thi">
-      <View style={styles.badges}><StatusBadge label={types[exam.type]} /><StatusBadge label={approval[exam.approvalStatus]}
-        tone={exam.approvalStatus === 'APPROVED' ? 'success' : exam.approvalStatus === 'REJECTED' ? 'danger' : 'warning'} /></View>
+      <View style={styles.badges}><StatusBadge label={types[exam.type]} />{exam.approvalStatus !== 'NOT_REQUIRED' && <StatusBadge label={approval[exam.approvalStatus]}
+        tone={exam.approvalStatus === 'APPROVED' ? 'success' : exam.approvalStatus === 'REJECTED' ? 'danger' : 'warning'} />}</View>
       <Text style={styles.line}>Môn học: {exam.subject.code} · {exam.subject.name}</Text>
       <Text style={styles.line}>Học kỳ: {exam.semester.name}</Text>
       <Text style={styles.line}>Thời lượng: {exam.defaultDurationMinutes} phút</Text>

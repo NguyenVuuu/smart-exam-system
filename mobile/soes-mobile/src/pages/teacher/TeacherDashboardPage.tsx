@@ -19,7 +19,7 @@ export function TeacherDashboardScreen() {
 
   return <ScrollView style={styles.root} contentContainerStyle={styles.content}
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />}>
-    <ScreenHeader title={`Xin chào, ${name ?? 'Giảng viên'}`} description="Công việc giảng dạy và khảo thí của bạn" />
+    <ScreenHeader showBack={false} title={`Xin chào, ${name ?? 'Giảng viên'}`} description="Công việc giảng dạy và khảo thí của bạn" />
     <View style={styles.stats}>
       <DashboardStat label="Lớp học phần" value={courses.failed ? null : courses.data.pagination.totalItems} icon={BookOpen} />
       <DashboardStat label="Ca coi thi" value={assignments.failed ? null : assignments.data.pagination.totalItems} icon={CalendarDays} />
