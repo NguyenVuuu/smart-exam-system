@@ -30,11 +30,16 @@ export function TeacherExamDetailPage({ id }: { id: string }) {
     catch { setError(true) }
     finally { setLoading(false) }
   }, [id])
-  useEffect(() => { void reload() }, [reload])
+  useEffect(() => {
+    let active = true
+    getExam(id).then((result) => { if (active) { setExam(result); setError(false) } })
+      .catch(() => { if (active) setError(true) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [id])
   useEffect(() => {
     if (tab === 'overview' || tab === 'questions' || (tab === 'schedules' && schedules) || (tab === 'history' && history)) return
     let active = true
-    setTabError(false)
     const load = tab === 'schedules' ? getExamSchedules(id) : getReviewHistory(id)
     load.then((items) => { if (!active) {
       return
@@ -50,7 +55,7 @@ export function TeacherExamDetailPage({ id }: { id: string }) {
   return <View style={styles.root}>
     <View style={styles.header}><ScreenHeader title={exam.title} description={`${exam.subject.code} · ${exam.semester.name}`} /></View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={styles.tabScroll}>
-      {tabs.map((entry) => <Pressable key={entry.key} accessibilityRole="button" onPress={() => setTab(entry.key)}
+      {tabs.map((entry) => <Pressable key={entry.key} accessibilityRole="button" onPress={() => { setTabError(false); setTab(entry.key) }}
         style={[styles.tab, tab === entry.key && styles.active]}><Text style={[styles.tabText, tab === entry.key && styles.activeText]}>{entry.label}</Text></Pressable>)}
     </ScrollView>
     <ScrollView contentContainerStyle={styles.content}>
