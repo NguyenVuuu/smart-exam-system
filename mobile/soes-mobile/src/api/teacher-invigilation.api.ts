@@ -8,3 +8,20 @@ export async function listInvigilation(page: number, keyword: string, status: In
   })
   return data.data
 }
+
+export async function listInvigilationMonth(month: Date) {
+  const from = new Date(month.getFullYear(), month.getMonth(), 1).toISOString()
+  const to = new Date(month.getFullYear(), month.getMonth() + 1, 1).toISOString()
+  const items: InvigilationPage['items'] = []
+  let page = 1
+  let totalPages = 1
+  do {
+    const { data } = await apiClient.get<ApiResponse<InvigilationPage>>('/teacher/proctor-assignments', {
+      params: { page, pageSize: 100, from, to },
+    })
+    items.push(...data.data.items)
+    totalPages = data.data.pagination.totalPages
+    page += 1
+  } while (page <= totalPages)
+  return items
+}
