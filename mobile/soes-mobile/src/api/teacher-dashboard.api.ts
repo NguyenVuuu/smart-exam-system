@@ -1,6 +1,6 @@
-import { apiClient } from '../../../api/client'
-import type { ApiResponse } from '../../../types/auth.types'
-import type { ApprovalSummary, AssignmentSummary, CourseSummary, DashboardData, DashboardResult, Page } from './types'
+import { apiClient } from './client'
+import type { ApiResponse } from '../types/auth.types'
+import type { ApprovalSummary, AssignmentSummary, CourseSummary, DashboardData, DashboardResult, Page } from '../types/teacher-dashboard.types'
 
 async function getPage<T>(path: string, params: Record<string, string | number> = {}) {
   const { data } = await apiClient.get<ApiResponse<Page<T>>>(path, { params: { page: 1, pageSize: 3, ...params } })

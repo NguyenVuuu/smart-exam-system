@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { teacherNavigation } from '../../../navigation/teacher-navigation'
+import { teacherNavigation } from '../navigation/teacher-navigation'
 import { useReviewGroupAccess } from './useReviewGroupAccess'
 
 const reviewKeys = new Set(['approvals', 'question-approvals'])

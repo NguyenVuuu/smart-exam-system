@@ -1,8 +1,8 @@
 import { router } from 'expo-router'
 import { ArrowRight, Users } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { StatusBadge } from '../../../components/ui/StatusBadge'
-import type { TeacherCourse } from './types'
+import { StatusBadge } from '../../ui/StatusBadge'
+import type { TeacherCourse } from '../../../types/teacher-courses.types'
 
 export function CourseCard({ course }: { course: TeacherCourse }) {
   return <Pressable style={styles.card} onPress={() => router.push({ pathname: '/(app)/(teacher)/courses/[courseOfferingId]', params: { courseOfferingId: course.id } })}>

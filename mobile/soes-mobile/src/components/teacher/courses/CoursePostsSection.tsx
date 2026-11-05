@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
-import { ConfirmSheet } from '../../../components/ui/ConfirmSheet'
-import { SectionCard } from '../../../components/ui/SectionCard'
+import { ConfirmSheet } from '../../ui/ConfirmSheet'
+import { SectionCard } from '../../ui/SectionCard'
 import { formatDateTime } from '../../../utils/date'
 import { CoursePostComposer } from './CoursePostComposer'
-import { deletePost, savePost, setPostPinned, setPostStatus } from './api'
-import type { CoursePost } from './types'
+import { deletePost, savePost, setPostPinned, setPostStatus } from '../../../api/teacher-courses.api'
+import type { CoursePost } from '../../../types/teacher-courses.types'
 
 type Action = { kind: 'delete' | 'pin' | 'status'; post: CoursePost }
 interface Props { courseId: string; posts: CoursePost[]; onChanged: () => Promise<void> }

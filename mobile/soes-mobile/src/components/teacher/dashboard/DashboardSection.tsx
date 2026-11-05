@@ -2,7 +2,7 @@ import type { Href } from 'expo-router'
 import { router } from 'expo-router'
 import { ArrowRight } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { SectionCard } from '../../../components/ui/SectionCard'
+import { SectionCard } from '../../ui/SectionCard'
 
 interface Props { title: string; href: Href; failed: boolean; emptyText: string; rows: { id: string; title: string; subtitle: string; href?: Href }[] }
 

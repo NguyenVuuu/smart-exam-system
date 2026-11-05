@@ -1,7 +1,7 @@
 import { Redirect, Stack, useSegments } from 'expo-router'
 import { ActivityIndicator, View } from 'react-native'
 import { PortalLayout } from '../../../src/components/layout/PortalLayout'
-import { useTeacherNavigation } from '../../../src/features/teacher/navigation/useTeacherNavigation'
+import { useTeacherNavigation } from '../../../src/hooks/useTeacherNavigation'
 import { useAuthStore } from '../../../src/store/authStore'
 import { ROLE_HOME } from '../../../src/utils/role'
 

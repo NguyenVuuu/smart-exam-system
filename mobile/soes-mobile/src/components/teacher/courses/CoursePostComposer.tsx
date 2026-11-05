@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import type { CoursePost } from './types'
+import type { CoursePost } from '../../../types/teacher-courses.types'
 
 interface Props { post: CoursePost | null; visible: boolean; busy: boolean; onClose: () => void; onSave: (title: string, content: string) => void }
 

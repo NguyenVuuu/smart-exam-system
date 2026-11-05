@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { apiClient } from '../../../api/client'
-import type { ApiResponse } from '../../../types/auth.types'
+import { apiClient } from '../api/client'
+import type { ApiResponse } from '../types/auth.types'
 
 export interface ReviewGroupAccess { canViewGroup: boolean; canReview: boolean }
 

@@ -1,12 +1,12 @@
 import { Bell, BookOpen, ClipboardCheck, CalendarDays } from 'lucide-react-native'
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { ScreenHeader } from '../../../components/ui/ScreenHeader'
-import { ScreenState } from '../../../components/ui/ScreenState'
-import { useAuthStore } from '../../../store/authStore'
-import { formatDateTime } from '../../../utils/date'
-import { DashboardSection } from './DashboardSection'
-import { DashboardStat } from './DashboardStat'
-import { useTeacherDashboard } from './useTeacherDashboard'
+import { ScreenHeader } from '../../components/ui/ScreenHeader'
+import { ScreenState } from '../../components/ui/ScreenState'
+import { useAuthStore } from '../../store/authStore'
+import { formatDateTime } from '../../utils/date'
+import { DashboardSection } from '../../components/teacher/dashboard/DashboardSection'
+import { DashboardStat } from '../../components/teacher/dashboard/DashboardStat'
+import { useTeacherDashboard } from '../../hooks/useTeacherDashboard'
 
 export function TeacherDashboardScreen() {
   const name = useAuthStore((state) => state.user?.fullName)

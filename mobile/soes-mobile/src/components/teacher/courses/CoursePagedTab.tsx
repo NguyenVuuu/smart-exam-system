@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text } from 'react-native'
 import { router } from 'expo-router'
-import { ScreenState } from '../../../components/ui/ScreenState'
+import { ScreenState } from '../../ui/ScreenState'
 import { formatDateTime } from '../../../utils/date'
-import { listExams, listStudents } from './api'
-import type { CourseExam, CourseStudent } from './types'
+import { listExams, listStudents } from '../../../api/teacher-courses.api'
+import type { CourseExam, CourseStudent } from '../../../types/teacher-courses.types'
 
 interface Props { courseId: string; kind: 'students' | 'exams' }
 type Row = CourseStudent | CourseExam

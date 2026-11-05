@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
-import { ScreenHeader } from '../../../components/ui/ScreenHeader'
-import { ScreenState } from '../../../components/ui/ScreenState'
-import { SearchField } from '../../../components/ui/SearchField'
-import { CourseCard } from './CourseCard'
-import { listCourses } from './api'
-import type { TeacherCourse } from './types'
+import { ScreenHeader } from '../../components/ui/ScreenHeader'
+import { ScreenState } from '../../components/ui/ScreenState'
+import { SearchField } from '../../components/ui/SearchField'
+import { CourseCard } from '../../components/teacher/courses/CourseCard'
+import { listCourses } from '../../api/teacher-courses.api'
+import type { TeacherCourse } from '../../types/teacher-courses.types'
 
 export function TeacherCoursesScreen() {
   const [courses, setCourses] = useState<TeacherCourse[]>([])

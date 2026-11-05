@@ -1,3 +1,3 @@
-import { TeacherCoursesScreen } from '../../../../src/features/teacher/courses/TeacherCoursesScreen'
+import { TeacherCoursesScreen } from '../../../../src/pages/teacher/TeacherCoursesPage'
 
 export default function CoursesRoute() { return <TeacherCoursesScreen /> }

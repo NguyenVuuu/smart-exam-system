@@ -1,6 +1,6 @@
-import { apiClient } from '../../../api/client'
-import type { ApiResponse } from '../../../types/auth.types'
-import type { CourseDetail, CourseExam, CoursePost, CourseStudent, Page, TeacherCourse } from './types'
+import { apiClient } from './client'
+import type { ApiResponse } from '../types/auth.types'
+import type { CourseDetail, CourseExam, CoursePost, CourseStudent, Page, TeacherCourse } from '../types/teacher-courses.types'
 
 const root = '/teacher/course-offerings'
 

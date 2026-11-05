@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getTeacherDashboard } from './api'
-import type { DashboardData } from './types'
+import { getTeacherDashboard } from '../api/teacher-dashboard.api'
+import type { DashboardData } from '../types/teacher-dashboard.types'
 
 export function useTeacherDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
