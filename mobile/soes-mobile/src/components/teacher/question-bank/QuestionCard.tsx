@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Archive, ArchiveRestore, CloudUpload, Pencil } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { RichContent } from '../../ui/RichContent'
 import { SectionCard } from '../../ui/SectionCard'
@@ -8,7 +9,15 @@ import type { TeacherQuestion } from '../../../types/teacher-questions.types'
 const difficulties = { EASY: 'Dễ', MEDIUM: 'Trung bình', HARD: 'Khó' } as const
 const types = { SINGLE_CHOICE: 'Một đáp án', MULTIPLE_CHOICE: 'Nhiều đáp án', TRUE_FALSE: 'Đúng/sai', PROGRAMMING: 'Lập trình' } as const
 
-export function QuestionCard({ question, onEdit, onShare }: { question: TeacherQuestion; onEdit?: () => void; onShare?: () => void }) {
+interface Props {
+  question: TeacherQuestion
+  onEdit?: () => void
+  onShare?: () => void
+  onArchive?: () => void
+  onRestore?: () => void
+}
+
+export function QuestionCard({ question, onEdit, onShare, onArchive, onRestore }: Props) {
   const [expanded, setExpanded] = useState(false)
   return <SectionCard>
     <Pressable accessibilityRole="button" accessibilityLabel={`Xem câu hỏi ${question.title}`} onPress={() => setExpanded((value) => !value)}>
@@ -25,8 +34,12 @@ export function QuestionCard({ question, onEdit, onShare }: { question: TeacherQ
       </View>)}
       {question.explanation ? <View style={styles.explanation}><Text style={styles.meta}>Giải thích</Text><RichContent content={question.explanation} /></View> : null}
       {question.sharedBank?.rejectionReason ? <Text style={styles.reject}>Góp ý: {question.sharedBank.rejectionReason}</Text> : null}
-      {onEdit && <Pressable accessibilityRole="button" onPress={onEdit} style={styles.editButton}><Text style={styles.link}>Chỉnh sửa câu hỏi</Text></Pressable>}
-      {onShare && <Pressable accessibilityRole="button" onPress={onShare} style={styles.editButton}><Text style={styles.link}>Gửi duyệt ngân hàng chung</Text></Pressable>}
+    </View>}
+    {(onEdit || onShare || onArchive || onRestore) && <View style={styles.actions}>
+      {onShare && <Pressable accessibilityRole="button" accessibilityLabel="Gửi duyệt ngân hàng chung" onPress={onShare} style={styles.iconButton}><CloudUpload size={19} color="#059669" /></Pressable>}
+      {onEdit && <Pressable accessibilityRole="button" accessibilityLabel="Chỉnh sửa câu hỏi" onPress={onEdit} style={styles.iconButton}><Pencil size={19} color="#2563eb" /></Pressable>}
+      {onArchive && <Pressable accessibilityRole="button" accessibilityLabel="Lưu trữ câu hỏi" onPress={onArchive} style={styles.iconButton}><Archive size={19} color="#475569" /></Pressable>}
+      {onRestore && <Pressable accessibilityRole="button" accessibilityLabel="Khôi phục câu hỏi" onPress={onRestore} style={styles.iconButton}><ArchiveRestore size={19} color="#2563eb" /></Pressable>}
     </View>}
   </SectionCard>
 }
@@ -37,5 +50,6 @@ const styles = StyleSheet.create({
   link: { color: '#2563eb', fontSize: 13, fontWeight: '700', marginTop: 8 }, detail: { borderTopWidth: 1, borderTopColor: '#e2e8f0', marginTop: 12, paddingTop: 12 },
   option: { padding: 10, borderRadius: 9, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 6 }, correct: { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' },
   explanation: { marginTop: 12 }, reject: { color: '#be123c', marginTop: 10, fontSize: 13 },
-  editButton: { minHeight: 44, justifyContent: 'center' },
+  actions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 4, marginTop: 8 },
+  iconButton: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' },
 })

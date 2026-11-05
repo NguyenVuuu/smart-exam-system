@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { Plus } from 'lucide-react-native'
-import { listQuestions, shareQuestion } from '../../api/teacher-questions.api'
+import { archiveQuestion, listQuestions, restoreQuestion, shareQuestion } from '../../api/teacher-questions.api'
 import { QuestionCard } from '../../components/teacher/question-bank/QuestionCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
@@ -32,7 +32,7 @@ export function TeacherQuestionBankPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(false)
   const [editing, setEditing] = useState<TeacherQuestion | 'new' | null>(null)
-  const [sharingId, setSharingId] = useState<string | null>(null)
+  const [actionId, setActionId] = useState<string | null>(null)
   const requestId = useRef(0)
   const filters = useCallback((nextScope: Scope, query: string, nextType: QuestionType | 'ALL') => ({
     scope: nextScope === 'shared' ? 'SHARED' as const : 'PERSONAL' as const,
@@ -56,15 +56,27 @@ export function TeacherQuestionBankPage() {
     const timer = setTimeout(() => { setItems([]); void load(1, scope, keyword, type) }, 250)
     return () => { clearTimeout(timer); requestId.current += 1 }
   }, [scope, keyword, type, load])
+  async function runAction(question: TeacherQuestion, action: (id: string) => Promise<unknown>, success: string, failure: string) {
+    if (actionId) return
+    setActionId(question.id)
+    try {
+      await action(question.id)
+      await load(page || 1, scope, keyword, type)
+      Alert.alert(success)
+    } catch { Alert.alert(failure) }
+    finally { setActionId(null) }
+  }
   function confirmShare(question: TeacherQuestion) {
     Alert.alert('Gửi câu hỏi', 'Gửi câu hỏi vào ngân hàng chung để nhóm duyệt?', [
       { text: 'Hủy', style: 'cancel' }, { text: 'Gửi duyệt', onPress: () => {
-        if (sharingId) return
-        setSharingId(question.id)
-        void shareQuestion(question.id).then(() => { Alert.alert('Đã gửi', 'Câu hỏi đang chờ duyệt.'); return load(page || 1, scope, keyword, type) })
-          .catch(() => Alert.alert('Không thể gửi', 'Câu hỏi có thể đã được gửi hoặc chưa đạt yêu cầu.'))
-          .finally(() => setSharingId(null))
+        void runAction(question, shareQuestion, 'Câu hỏi đang chờ duyệt.', 'Không thể gửi câu hỏi. Vui lòng kiểm tra lại trạng thái.')
       } },
+    ])
+  }
+  function confirmArchive(question: TeacherQuestion) {
+    Alert.alert('Lưu trữ câu hỏi', 'Câu hỏi sẽ chuyển sang mục Đã lưu trữ.', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Lưu trữ', onPress: () => { void runAction(question, archiveQuestion, 'Đã lưu trữ câu hỏi.', 'Không thể lưu trữ câu hỏi.') } },
     ])
   }
 
@@ -83,11 +95,15 @@ export function TeacherQuestionBankPage() {
         onToggle={(value) => setType(value as QuestionType | 'ALL')} />
     </View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword, type)} /> :
-      <FlatList key={page} data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => <QuestionCard question={item}
-        onEdit={scope === 'personal' && item.type !== 'PROGRAMMING' &&
-          (!item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)) ? () => setEditing(item) : undefined}
-        onShare={scope === 'personal' && !sharingId && !item.archivedAt &&
-          (!item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)) ? () => confirmShare(item) : undefined} />}
+      <FlatList key={page} data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => {
+        const editable = !item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)
+        const available = !actionId
+        return <QuestionCard question={item}
+          onEdit={scope === 'personal' && editable && available && item.type !== 'PROGRAMMING' ? () => setEditing(item) : undefined}
+          onShare={scope === 'personal' && editable && available ? () => confirmShare(item) : undefined}
+          onArchive={scope === 'personal' && editable && available ? () => confirmArchive(item) : undefined}
+          onRestore={scope === 'archived' && available ? () => { void runAction(item, restoreQuestion, 'Đã khôi phục câu hỏi.', 'Không thể khôi phục câu hỏi.') } : undefined} />
+      }}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Chưa có câu hỏi phù hợp." />}
         ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải trang này.</Text>}
