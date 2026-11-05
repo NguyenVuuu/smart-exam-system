@@ -18,7 +18,7 @@ export function ChoicePicker({ label, placeholder, options, selectedValues, onTo
       onPress={() => setOpen(true)} style={[styles.field, disabled && styles.disabled]}>
       <Text numberOfLines={2} style={styles.value}>{summary}</Text><ChevronDown size={18} color="#64748b" />
     </Pressable>
-    <Modal visible={open} transparent presentationStyle="overFullScreen" animationType="fade" onRequestClose={() => setOpen(false)}>
+    <Modal visible={open} transparent presentationStyle="overFullScreen" animationType="slide" onRequestClose={() => setOpen(false)}>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} accessibilityLabel="Đóng danh sách" />
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>

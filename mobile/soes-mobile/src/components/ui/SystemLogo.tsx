@@ -9,13 +9,13 @@ export function SystemLogo({ size = 34 }: { size?: number }) {
   const rawUrl = branding?.logoUrl?.trim() ?? ''
   const origin = API_BASE_URL.replace(/\/api\/?$/, '')
   const logoUrl = rawUrl.startsWith('/') ? `${origin}${rawUrl}` : rawUrl
-  return <View style={[styles.mark, { width: size, height: size, borderRadius: Math.round(size * 0.24) }]}>
+  return <View style={[styles.mark, { width: size, height: size, borderRadius: Math.round(size * 0.24) }, (!logoUrl || failedUrl === logoUrl) && styles.fallbackMark]}>
     {logoUrl && failedUrl !== logoUrl ? <Image source={{ uri: logoUrl }} resizeMode="contain" onError={() => setFailedUrl(logoUrl)} style={styles.image} /> :
       <Text style={[styles.fallback, { fontSize: size * 0.52 }]}>S</Text>}
   </View>
 }
 
 const styles = StyleSheet.create({
-  mark: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563eb', overflow: 'hidden' },
+  mark: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, fallbackMark: { backgroundColor: '#2563eb' },
   image: { width: '100%', height: '100%' }, fallback: { color: '#fff', fontWeight: '800' },
 })
