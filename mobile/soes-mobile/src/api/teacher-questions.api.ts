@@ -15,3 +15,4 @@ export const createQuestion = async (payload: ObjectiveQuestionPayload) =>
   (await apiClient.post<ApiResponse<TeacherQuestion>>('/teacher/questions', payload)).data.data
 export const updateQuestion = async (id: string, payload: ObjectiveQuestionPayload) =>
   (await apiClient.put<ApiResponse<TeacherQuestion>>(`/teacher/questions/${id}`, payload)).data.data
+export const shareQuestion = (id: string) => apiClient.post(`/teacher/questions/${id}/share`)

@@ -8,7 +8,7 @@ import type { TeacherQuestion } from '../../../types/teacher-questions.types'
 const difficulties = { EASY: 'Dễ', MEDIUM: 'Trung bình', HARD: 'Khó' } as const
 const types = { SINGLE_CHOICE: 'Một đáp án', MULTIPLE_CHOICE: 'Nhiều đáp án', TRUE_FALSE: 'Đúng/sai', PROGRAMMING: 'Lập trình' } as const
 
-export function QuestionCard({ question, onEdit }: { question: TeacherQuestion; onEdit?: () => void }) {
+export function QuestionCard({ question, onEdit, onShare }: { question: TeacherQuestion; onEdit?: () => void; onShare?: () => void }) {
   const [expanded, setExpanded] = useState(false)
   return <SectionCard>
     <Pressable accessibilityRole="button" accessibilityLabel={`Xem câu hỏi ${question.title}`} onPress={() => setExpanded((value) => !value)}>
@@ -26,6 +26,7 @@ export function QuestionCard({ question, onEdit }: { question: TeacherQuestion; 
       {question.explanation ? <View style={styles.explanation}><Text style={styles.meta}>Giải thích</Text><RichContent content={question.explanation} /></View> : null}
       {question.sharedBank?.rejectionReason ? <Text style={styles.reject}>Góp ý: {question.sharedBank.rejectionReason}</Text> : null}
       {onEdit && <Pressable accessibilityRole="button" onPress={onEdit} style={styles.editButton}><Text style={styles.link}>Chỉnh sửa câu hỏi</Text></Pressable>}
+      {onShare && <Pressable accessibilityRole="button" onPress={onShare} style={styles.editButton}><Text style={styles.link}>Gửi duyệt ngân hàng chung</Text></Pressable>}
     </View>}
   </SectionCard>
 }

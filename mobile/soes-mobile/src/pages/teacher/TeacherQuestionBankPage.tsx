@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
-import { listQuestions } from '../../api/teacher-questions.api'
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { listQuestions, shareQuestion } from '../../api/teacher-questions.api'
 import { QuestionCard } from '../../components/teacher/question-bank/QuestionCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
@@ -23,6 +23,7 @@ export function TeacherQuestionBankPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(false)
   const [editing, setEditing] = useState<TeacherQuestion | 'new' | null>(null)
+  const [sharingId, setSharingId] = useState<string | null>(null)
   const requestId = useRef(0)
   const filters = useCallback((nextScope: Scope, query: string) => ({
     scope: nextScope === 'shared' ? 'SHARED' as const : 'PERSONAL' as const,
@@ -45,6 +46,17 @@ export function TeacherQuestionBankPage() {
     const timer = setTimeout(() => { setItems([]); setLoading(true); void load(1, scope, keyword) }, 250)
     return () => { clearTimeout(timer); requestId.current += 1 }
   }, [scope, keyword, load])
+  function confirmShare(question: TeacherQuestion) {
+    Alert.alert('Gửi câu hỏi', 'Gửi câu hỏi vào ngân hàng chung để nhóm duyệt?', [
+      { text: 'Hủy', style: 'cancel' }, { text: 'Gửi duyệt', onPress: () => {
+        if (sharingId) return
+        setSharingId(question.id)
+        void shareQuestion(question.id).then(() => { Alert.alert('Đã gửi', 'Câu hỏi đang chờ duyệt.'); return load(1, scope, keyword) })
+          .catch(() => Alert.alert('Không thể gửi', 'Câu hỏi có thể đã được gửi hoặc chưa đạt yêu cầu.'))
+          .finally(() => setSharingId(null))
+      } },
+    ])
+  }
 
   if (editing) return <TeacherQuestionEditorPage initial={editing === 'new' ? null : editing}
     onCancel={() => setEditing(null)} onDone={() => { setEditing(null); setScope('personal'); void load(1, 'personal', keyword) }} />
@@ -58,7 +70,8 @@ export function TeacherQuestionBankPage() {
     </View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword)} /> :
       <FlatList data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => <QuestionCard question={item}
-        onEdit={scope === 'personal' && item.type !== 'PROGRAMMING' ? () => setEditing(item) : undefined} />}
+        onEdit={scope === 'personal' && item.type !== 'PROGRAMMING' ? () => setEditing(item) : undefined}
+        onShare={scope === 'personal' && !item.sharedBank && !sharingId ? () => confirmShare(item) : undefined} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Chưa có câu hỏi phù hợp." />}
         ListFooterComponent={error ? <Text style={styles.error}>Không thể tải thêm câu hỏi.</Text> : undefined}
