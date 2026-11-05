@@ -4,7 +4,7 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: 'Quản trị viên',
   EDUCATION_OFFICER: 'Cán bộ đào tạo',
   TEACHER: 'Giảng viên',
-  DEPARTMENT_HEAD: 'Trưởng khoa',
+  DEPARTMENT_HEAD: 'Trưởng bộ môn',
   STUDENT: 'Sinh viên',
 }
 

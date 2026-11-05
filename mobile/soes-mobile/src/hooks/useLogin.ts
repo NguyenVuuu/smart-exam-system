@@ -47,7 +47,8 @@ export function useLogin() {
       const refreshToken = headers['x-refresh-token'] as string | undefined
       if (refreshToken) await setRefreshToken(refreshToken)
 
-      await finishLogin(payload.accessToken, payload.user)    } catch (err: unknown) {
+      await finishLogin(payload.accessToken, payload.user)
+    } catch (err: unknown) {
       setError(extractErrorMessage(err))
     } finally {
       setIsLoading(false)
@@ -55,7 +56,7 @@ export function useLogin() {
   }
 
   async function finishLogin(accessToken: string, user: User) {
-    setAccessToken(accessToken)  // sync state update
+    await setAccessToken(accessToken)
     setUser(user)
     setPendingRoleSelection(null)
     router.replace(ROLE_HOME[user.role] as never)
@@ -93,9 +94,9 @@ export function useSelectRole() {
       const { accessToken, user } = data.data
 
       const refreshToken = headers['x-refresh-token'] as string | undefined
-      if (refreshToken) setRefreshToken(refreshToken)
+      if (refreshToken) await setRefreshToken(refreshToken)
 
-      setAccessToken(accessToken)  // sync state update
+      await setAccessToken(accessToken)
       setUser(user)
       setPendingRoleSelection(null)
       router.replace(ROLE_HOME[user.role] as never)

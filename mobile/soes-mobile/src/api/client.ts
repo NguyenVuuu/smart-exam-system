@@ -1,36 +1,18 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios'
-import { Platform } from 'react-native'
-import * as SecureStore from 'expo-secure-store'
+import axios, {
+  AxiosError,
+  type InternalAxiosRequestConfig,
+} from 'axios'
+import { tokenStorage } from '../auth/tokenStorage'
 
-// Web fallback cho SecureStore
-const tokenStorage = {
-  async get(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') return localStorage.getItem(key)
-    return SecureStore.getItemAsync(key)
-  },
-  async set(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') { localStorage.setItem(key, value); return }
-    await SecureStore.setItemAsync(key, value)
-  },
-  async remove(key: string): Promise<void> {
-    if (Platform.OS === 'web') { localStorage.removeItem(key); return }
-    await SecureStore.deleteItemAsync(key)
-  },
-}
+const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim()
 
-// IP LAN máy tính — dùng cho Expo Go trên điện thoại thật
-// Thay đổi nếu IP máy tính thay đổi
-const LAN_IP = '192.168.1.7'
-
-export const API_BASE_URL =
-  Platform.OS === 'web'
-    ? 'http://localhost:3000/api'          // browser
-    : `http://${LAN_IP}:3000/api`          // Expo Go (Android/iOS device)
+export const API_BASE_URL = (configuredApiBaseUrl || 'http://localhost:3000/api').replace(/\/$/, '')
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
+  withCredentials: true,
 })
 
 // ── Request interceptor: đính access token ──────────────────────────────────
@@ -41,7 +23,7 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
     config.url?.includes('/auth/select-role')
 
   if (!isAuthEndpoint) {
-    const token = await tokenStorage.get('accessToken')
+    const token = await tokenStorage.getAccessToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -52,30 +34,58 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
 
 // ── Response interceptor: auto refresh khi 401 ──────────────────────────────
 let isRefreshing = false
-let pendingQueue: Array<{
+interface PendingRequest {
   resolve: (token: string) => void
-  reject: (err: unknown) => void
-}> = []
+  reject: (error: unknown) => void
+}
 
-function processPendingQueue(error: unknown, token: string | null) {
+interface RetriableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean
+}
+
+let pendingQueue: PendingRequest[] = []
+
+function rejectPendingRequests(error: unknown) {
+  pendingQueue.forEach(({ reject }) => reject(error))
+  pendingQueue = []
+}
+
+function resolvePendingRequests(token: string) {
   pendingQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error)
-    else resolve(token!)
+    try {
+      resolve(token)
+    } catch (error) {
+      reject(error)
+    }
   })
   pendingQueue = []
 }
 
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = await tokenStorage.getRefreshToken()
+  const response = await axios.post<{
+    success: boolean
+    data: { accessToken: string }
+  }>(
+    `${API_BASE_URL}/auth/refresh-token`,
+    refreshToken ? { refreshToken } : {},
+    { timeout: 10000, withCredentials: true },
+  )
+
+  return response.data.data.accessToken
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetriableRequestConfig | undefined
 
     const is401 = error.response?.status === 401
-    const alreadyRetried = originalRequest._retry
-    const isRefreshEndpoint = originalRequest.url?.includes('/auth/refresh-token')
-    const isLoginEndpoint = originalRequest.url?.includes('/auth/login')
+    const alreadyRetried = originalRequest?._retry
+    const isRefreshEndpoint = originalRequest?.url?.includes('/auth/refresh-token')
+    const isLoginEndpoint = originalRequest?.url?.includes('/auth/login')
 
-    if (!is401 || alreadyRetried || isRefreshEndpoint || isLoginEndpoint) {
+    if (!originalRequest || !is401 || alreadyRetried || isRefreshEndpoint || isLoginEndpoint) {
       return Promise.reject(error)
     }
 
@@ -95,24 +105,15 @@ apiClient.interceptors.response.use(
     isRefreshing = true
 
     try {
-      const refreshToken = await tokenStorage.get('refreshToken')
-      if (!refreshToken) throw new Error('No refresh token')
+      const newToken = await refreshAccessToken()
+      await tokenStorage.setAccessToken(newToken)
 
-      const { data } = await apiClient.post<{
-        success: boolean
-        data: { accessToken: string }
-      }>('/auth/refresh-token', { refreshToken })
-
-      const newToken = data.data.accessToken
-      await tokenStorage.set('accessToken', newToken)
-
-      processPendingQueue(null, newToken)
+      resolvePendingRequests(newToken)
       originalRequest.headers.Authorization = `Bearer ${newToken}`
       return apiClient(originalRequest)
     } catch (refreshError) {
-      processPendingQueue(refreshError, null)
-      await tokenStorage.remove('accessToken')
-      await tokenStorage.remove('refreshToken')
+      rejectPendingRequests(refreshError)
+      await tokenStorage.clear()
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false

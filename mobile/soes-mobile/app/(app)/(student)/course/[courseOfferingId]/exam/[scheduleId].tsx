@@ -5,10 +5,6 @@ import { useExamDetail } from '../../../../../../src/hooks/useCourseDetail'
 import StudentLayout from '../../../../../../src/components/student/StudentLayout'
 import type {StudentExamStatus} from '../../../../../../src/types/course-detail.types'
 
-const EXAM_TYPE_LABEL: Record<string, string> = {
-  QUIZ: 'Thường kỳ', MIDTERM: 'Giữa kỳ', FINAL: 'Cuối kỳ',
-}
-
 const STATUS_CONFIG: Record<StudentExamStatus, { label: string; bg: string; color: string; icon: string }> = {
   NOT_STARTED: { label: 'Chưa bắt đầu', bg: '#f1f5f9', color: '#64748b', icon: '🕐' },
   AVAILABLE:   { label: 'Đang diễn ra', bg: '#dcfce7', color: '#16a34a', icon: '🟢' },
@@ -79,7 +75,7 @@ export default function ExamDetailScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                       <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#fef3c7' }}>
                         <Text style={{ fontSize: 10, fontWeight: '700', color: '#92400e', textTransform: 'uppercase' }}>
-                          {EXAM_TYPE_LABEL[exam.type] ?? exam.type}
+                          Bài thi
                         </Text>
                       </View>
                     </View>

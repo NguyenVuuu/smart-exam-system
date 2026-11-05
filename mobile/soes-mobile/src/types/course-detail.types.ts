@@ -65,6 +65,27 @@ export interface PostDetail {
 export type ExamType = 'MIDTERM' | 'FINAL' | 'QUIZ'
 export type StudentExamStatus = 'NOT_STARTED' | 'AVAILABLE' | 'SUBMITTED' | 'EXPIRED'
 
+export interface ExamDetail {
+  id: string
+  title: string
+  description: string
+  startTime: string
+  endTime: string
+  durationMinutes: number
+  maxAttempts: number
+  attemptUsed: number
+  remainingAttempts: number
+  canStart: boolean
+  requiresPassword: boolean
+  enableWebcam: boolean
+  enableScreenMonitoring: boolean
+  requireFullscreen: boolean
+  status: StudentExamStatus
+  remainingSeconds?: number | null
+  canResume?: boolean
+  attemptId?: string | null
+}
+
 export type MemberRole = 'TEACHER' | 'STUDENT'
 
 export interface Member {

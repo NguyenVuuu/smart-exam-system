@@ -1,23 +1,6 @@
 import { create } from 'zustand'
-import { Platform } from 'react-native'
-import * as SecureStore from 'expo-secure-store'
 import type { User, RoleSelectionRequired } from '../types/auth.types'
-
-// Web fallback cho SecureStore
-const tokenStorage = {
-  async get(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') return localStorage.getItem(key)
-    return SecureStore.getItemAsync(key)
-  },
-  async set(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') { localStorage.setItem(key, value); return }
-    await SecureStore.setItemAsync(key, value)
-  },
-  async remove(key: string): Promise<void> {
-    if (Platform.OS === 'web') { localStorage.removeItem(key); return }
-    await SecureStore.deleteItemAsync(key)
-  },
-}
+import { tokenStorage } from '../auth/tokenStorage'
 
 interface AuthState {
   user: User | null
@@ -46,13 +29,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   async setAccessToken(token) {
-    // Update state đồng bộ ngay lập tức, lưu storage nền
     set({ isAuthenticated: true })
-    tokenStorage.set('accessToken', token) // không await — tránh block navigation
+    await tokenStorage.setAccessToken(token)
   },
 
   async setRefreshToken(token) {
-    tokenStorage.set('refreshToken', token) // không await
+    await tokenStorage.setRefreshToken(token)
   },
 
   setInitialized(initialized) {
@@ -64,8 +46,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   async logout() {
-    await tokenStorage.remove('accessToken')
-    await tokenStorage.remove('refreshToken')
+    await tokenStorage.clear()
     set({
       user: null,
       isAuthenticated: false,
