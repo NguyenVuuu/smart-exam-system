@@ -1,4 +1,4 @@
-import { Bell, BookOpen, CalendarDays, ClipboardCheck, FileQuestion, Files, House, Sparkles, UsersRound } from 'lucide-react-native'
+import { Bell, BookOpen, CalendarDays, ClipboardCheck, FileQuestion, Files, House, Sparkles, UserRound, UsersRound } from 'lucide-react-native'
 import type { NavigationGroup } from './navigation.types'
 
 export const teacherNavigation: NavigationGroup[] = [
@@ -15,5 +15,8 @@ export const teacherNavigation: NavigationGroup[] = [
     { key: 'question-approvals', label: 'Duyệt câu hỏi', href: '/(app)/(teacher)/question-approvals', icon: ClipboardCheck },
   ] },
   { title: 'Bộ môn', items: [{ key: 'review-group', label: 'Nhóm duyệt đề', href: '/(app)/(teacher)/review-group', icon: UsersRound }] },
-  { title: 'Tài khoản', items: [{ key: 'notifications', label: 'Thông báo', href: '/(app)/(teacher)/notifications', icon: Bell }] },
+  { title: 'Tài khoản', items: [
+    { key: 'notifications', label: 'Thông báo', href: '/(app)/(teacher)/notifications', icon: Bell },
+    { key: 'account', label: 'Hồ sơ', href: '/(app)/(teacher)/account', icon: UserRound },
+  ] },
 ]
