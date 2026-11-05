@@ -6,6 +6,7 @@ import { SectionCard } from '../../../components/ui/SectionCard'
 import { formatDateTime } from '../../../utils/date'
 import { getCourse } from './api'
 import { CoursePagedTab } from './CoursePagedTab'
+import { CoursePostsSection } from './CoursePostsSection'
 import type { CourseDetail } from './types'
 
 type Tab = 'overview' | 'students' | 'materials' | 'posts' | 'exams'
@@ -47,7 +48,7 @@ export function CourseDetailScreen({ id }: { id: string }) {
       <ScrollView contentContainerStyle={styles.content}>
         {tab === 'overview' && <SectionCard title="Thông tin lớp"><Text style={styles.line}>Trạng thái: {course.status === 'ACTIVE' ? 'Đang mở' : 'Đã đóng'}</Text><Text style={styles.line}>Sinh viên: {course.enrollmentCount}</Text><Text style={styles.line}>Ca thi: {course.scheduleCount}</Text></SectionCard>}
         {tab === 'materials' && (course.materials.length ? course.materials.map((item) => <SectionCard key={item.id} title={item.title ?? item.fileName}><Text style={styles.line}>{item.fileName} · {formatDateTime(item.createdAt)}</Text></SectionCard>) : <ScreenState kind="empty" message="Chưa có tài liệu." />)}
-        {tab === 'posts' && (course.posts.length ? course.posts.map((item) => <SectionCard key={item.id} title={item.title}><Text style={styles.line}>{item.content}</Text><Text style={styles.meta}>{formatDateTime(item.createdAt)}</Text></SectionCard>) : <ScreenState kind="empty" message="Chưa có bài viết." />)}
+        {tab === 'posts' && <CoursePostsSection courseId={id} posts={course.posts} onChanged={reload} />}
       </ScrollView>}
   </View>
 }
