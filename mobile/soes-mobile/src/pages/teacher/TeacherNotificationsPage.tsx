@@ -25,7 +25,7 @@ export function TeacherNotificationsPage() {
       </Pressable>
     </View>
     {notifications.loading && !notifications.items.length ? <ScreenState kind="loading" /> : notifications.error && !notifications.items.length ?
-      <ScreenState kind="error" onRetry={notifications.retry} /> : <FlatList data={notifications.items} keyExtractor={(item) => item.id}
+      <ScreenState kind="error" onRetry={notifications.retry} /> : <FlatList key={notifications.page} data={notifications.items} keyExtractor={(item) => item.id}
         renderItem={({ item }) => <TeacherNotificationCard item={item} onPress={() => open(item)} hasTarget={Boolean(resolveTeacherNotificationLink(item.link))} />}
         contentContainerStyle={styles.list} ListEmptyComponent={<ScreenState kind="empty" message="Bạn chưa có thông báo nào." />}
         ListFooterComponent={<>{notifications.error && <Text style={styles.error}>Không thể tải thông báo.</Text>}

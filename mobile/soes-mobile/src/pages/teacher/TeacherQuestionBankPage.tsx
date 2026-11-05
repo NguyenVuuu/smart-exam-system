@@ -80,7 +80,7 @@ export function TeacherQuestionBankPage() {
         <Text style={[styles.tabText, scope === entry.key && styles.activeText]}>{entry.label}</Text></Pressable>)}</View>
     </View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword, type)} /> :
-      <FlatList data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => <QuestionCard question={item}
+      <FlatList key={page} data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => <QuestionCard question={item}
         onEdit={scope === 'personal' && item.type !== 'PROGRAMMING' &&
           (!item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)) ? () => setEditing(item) : undefined}
         onShare={scope === 'personal' && !sharingId && !item.archivedAt &&

@@ -37,7 +37,7 @@ export function TeacherApprovalsPage() {
   return <View style={styles.root}>
     <View style={styles.header}><ScreenHeader title="Duyệt đề cuối kỳ" description="Các đề đang chờ thành viên nhóm thẩm định" /></View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1)} /> :
-      <FlatList data={items} keyExtractor={(exam) => exam.id} contentContainerStyle={styles.list}
+      <FlatList key={page} data={items} keyExtractor={(exam) => exam.id} contentContainerStyle={styles.list}
         renderItem={({ item }) => <Pressable accessibilityRole="button" onPress={() => router.push(`/(app)/(teacher)/approvals/${item.id}` as never)}>
           <SectionCard title={item.title}><Text style={styles.line}>{item.subject.code} · {item.subject.name}</Text>
             <Text style={styles.line}>Lần gửi {item.reviewRound.version} · {formatDateTime(item.reviewRound.submittedAt)}</Text>

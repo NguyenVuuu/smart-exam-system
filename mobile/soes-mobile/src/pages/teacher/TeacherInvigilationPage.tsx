@@ -23,7 +23,7 @@ export function TeacherInvigilationPage() {
         <Text style={[styles.filterText, schedule.status === item.key && styles.selectedText]}>{item.label}</Text></Pressable>)}</View>
     </View>
     {schedule.loading && !schedule.items.length ? <ScreenState kind="loading" /> : schedule.error && !schedule.items.length ?
-      <ScreenState kind="error" onRetry={schedule.retry} /> : <FlatList data={schedule.items} keyExtractor={(item) => item.id}
+      <ScreenState kind="error" onRetry={schedule.retry} /> : <FlatList key={schedule.page} data={schedule.items} keyExtractor={(item) => item.id}
         renderItem={({ item }) => <InvigilationCard assignment={item} />} contentContainerStyle={styles.list}
         ListEmptyComponent={<ScreenState kind="empty" message="Không có ca coi thi phù hợp." />}
         ListFooterComponent={<>{schedule.error && <Text style={styles.error}>Không thể tải ca thi.</Text>}

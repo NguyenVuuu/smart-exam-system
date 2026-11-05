@@ -38,7 +38,7 @@ export function CoursePagedTab({ courseId, kind }: Props) {
 
   if (loading && items.length === 0) return <ScreenState kind="loading" />
   if (error && items.length === 0) return <ScreenState kind="error" onRetry={() => void load(1)} />
-  return <FlatList data={items} keyExtractor={(item) => 'scheduleId' in item ? item.scheduleId : item.id}
+  return <FlatList key={page} data={items} keyExtractor={(item) => 'scheduleId' in item ? item.scheduleId : item.id}
     contentContainerStyle={styles.list} ListEmptyComponent={<ScreenState kind="empty" message={kind === 'students' ? 'Chưa có sinh viên.' : 'Chưa có ca thi.'} />}
     renderItem={({ item }) => kind === 'students' ? <StudentRow item={item as CourseStudent} /> : <ExamRow item={item as CourseExam} />}
     ListFooterComponent={<PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => { setLoading(true); void load(next) }} />}

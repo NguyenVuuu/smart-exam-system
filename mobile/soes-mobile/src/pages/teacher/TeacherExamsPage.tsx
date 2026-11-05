@@ -55,7 +55,7 @@ export function TeacherExamsPage() {
         <Text style={[styles.filterText, type === filter.type && styles.selectedText]}>{filter.label}</Text>
       </Pressable>)}</View></View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, keyword, type)} /> :
-      <FlatList data={items} keyExtractor={(exam) => exam.id} renderItem={({ item }) => <ExamListCard exam={item} />}
+      <FlatList key={page} data={items} keyExtractor={(exam) => exam.id} renderItem={({ item }) => <ExamListCard exam={item} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Chưa có đề thi phù hợp." />}
         ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải đề.</Text>}

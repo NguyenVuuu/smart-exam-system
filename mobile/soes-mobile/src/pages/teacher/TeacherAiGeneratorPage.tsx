@@ -40,7 +40,7 @@ export function TeacherAiGeneratorPage() {
       <Pressable accessibilityRole="button" disabled={ai.busy} style={styles.submit} onPress={() => { void ai.generate() }}>
         <Text style={styles.submitText}>{ai.busy ? 'Đang xử lý...' : ai.mode === 'EXTRACT_EXISTING_EXAM' ? 'Bóc tách câu hỏi' : 'Sinh câu hỏi'}</Text></Pressable>
     </> : <>
-      <Text style={styles.summary}>{ai.questions.length} câu trắc nghiệm đã sinh · {ai.selected.length} câu được chọn lưu</Text>
+      <Text style={styles.summary}>{ai.questions.length} câu trắc nghiệm {ai.mode === 'EXTRACT_EXISTING_EXAM' ? 'đã bóc tách' : 'đã sinh'} · {ai.selected.length} câu được chọn lưu</Text>
       {ai.questions.map((question, index) => <AiReviewCard key={question.id} number={index + 1} question={question}
         decision={ai.selected.includes(question.id) ? 'accepted' : ai.rejected.includes(question.id) ? 'rejected' : 'pending'}
         onAccept={() => ai.acceptQuestion(question.id)} onReject={() => ai.rejectQuestion(question.id)} onChange={ai.updateQuestion} />)}

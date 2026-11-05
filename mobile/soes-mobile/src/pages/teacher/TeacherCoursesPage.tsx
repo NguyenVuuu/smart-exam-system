@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
@@ -16,27 +16,31 @@ export function TeacherCoursesScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(false)
+  const requestId = useRef(0)
 
   const load = useCallback(async (nextPage: number, query: string) => {
+    const currentRequest = ++requestId.current
     try {
       const result = await listCourses(nextPage, query)
+      if (currentRequest !== requestId.current) return
       setCourses(result.items)
       setPage(nextPage)
       setTotalPages(result.pagination.totalPages)
       setError(false)
-    } catch { setError(true) }
-    finally { setLoading(false); setRefreshing(false) }
+    } catch { if (currentRequest === requestId.current) setError(true) }
+    finally { if (currentRequest === requestId.current) { setLoading(false); setRefreshing(false) } }
   }, [])
 
   useEffect(() => {
+    requestId.current += 1
     const timer = setTimeout(() => { setCourses([]); setLoading(true); void load(1, keyword) }, 250)
-    return () => clearTimeout(timer)
+    return () => { clearTimeout(timer); requestId.current += 1 }
   }, [keyword, load])
 
   return <View style={styles.root}>
     <View style={styles.header}><ScreenHeader title="Lớp học phần" description="Các lớp bạn đang phụ trách" /><SearchField value={keyword} onChangeText={setKeyword} placeholder="Tìm lớp hoặc môn học" /></View>
     {loading && courses.length === 0 ? <ScreenState kind="loading" /> : error && courses.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, keyword)} /> :
-      <FlatList data={courses} keyExtractor={(course) => course.id} renderItem={({ item }) => <CourseCard course={item} />}
+      <FlatList key={page} data={courses} keyExtractor={(course) => course.id} renderItem={({ item }) => <CourseCard course={item} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Không tìm thấy lớp học phần." />}
         ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải lớp.</Text>}
