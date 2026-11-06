@@ -289,9 +289,9 @@ function TeacherExamDetailContent({
                 activeTab={courseReviewTab}
                 onChange={setCourseReviewTab}
               />
-            ) : (
+            ) : !isFinalManagementView ? (
               <ExamDetailTabs activeTab={activeTab} onChange={setActiveTab} />
-            )}
+            ) : null}
 
             <ExamDetailTabContent
               isFinalManagementView={isFinalManagementView}
