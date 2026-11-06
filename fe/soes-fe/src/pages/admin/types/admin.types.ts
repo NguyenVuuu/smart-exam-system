@@ -47,6 +47,13 @@ export interface CourseOfferingAdmin {
   status: 'OPEN' | 'CLOSED'
 }
 
+export interface StudentCandidate {
+  id: string
+  code: string
+  fullName: string
+  email: string | null
+}
+
 export interface AdminUser {
   id: string
   profileId?: string

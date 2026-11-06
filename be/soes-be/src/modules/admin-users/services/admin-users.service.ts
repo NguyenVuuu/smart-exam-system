@@ -30,7 +30,7 @@ async function codeBelongsToAnotherProfile(code: string, existing?: { role: Crea
 
 export async function list(query: UsersQuery) {
   const [total, rows] = await repo.listUsers(query)
-  const items = rows.map(toAdminUserDto)
+  const items = rows.map((row) => toAdminUserDto(row, query.role))
   return { items, pagination: toPagination(query.page, query.pageSize, total) }
 }
 
@@ -112,6 +112,18 @@ export async function listEnrollments(courseOfferingId: string, query: Enrollmen
       fullName: student.user.fullName,
       email: student.user.email,
       enrolledAt,
+    })),
+    pagination: toPagination(query.page, query.pageSize, total),
+  }
+}
+
+export async function listEligibleStudents(courseOfferingId: string, query: EnrollmentQuery) {
+  const course = await repo.findEnrollmentScope(courseOfferingId)
+  if (!course) throw new NotFoundError('Course offering not found')
+  const [total, rows] = await repo.listEligibleStudents(course.subjectId, course.semesterId, query)
+  return {
+    items: rows.map(({ id, studentCode, user }) => ({
+      id, code: studentCode, fullName: user.fullName, email: user.email,
     })),
     pagination: toPagination(query.page, query.pageSize, total),
   }

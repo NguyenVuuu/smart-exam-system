@@ -3,6 +3,7 @@ import { router, type Href } from 'expo-router'
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useAuthStore } from '../../store/authStore'
 import { useUIStore } from '../../store/uiStore'
+import { useNotificationBadge } from '../../hooks/useNotificationBadge'
 import { SystemLogo } from '../ui/SystemLogo'
 
 interface Props { notificationsHref: Href }
@@ -11,13 +12,17 @@ export function PortalTopBar({ notificationsHref }: Props) {
   const toggleSidebar = useUIStore((state) => state.toggleSidebar)
   const name = useAuthStore((state) => state.user?.fullName)
   const { width } = useWindowDimensions()
+  const unreadCount = useNotificationBadge()
 
   return <View style={styles.root}>
     <Pressable accessibilityLabel="Mở menu" onPress={toggleSidebar} style={styles.iconButton}><Menu size={21} color="#334155" /></Pressable>
     <SystemLogo size={28} />
     <Text style={styles.title} numberOfLines={1}>SOES</Text>
     {(Platform.OS === 'android' || width > 390) && <Text style={[styles.name, Platform.OS === 'android' && styles.androidName]} numberOfLines={1}>{name}</Text>}
-    <Pressable accessibilityLabel="Thông báo" onPress={() => router.push(notificationsHref)} style={styles.iconButton}><Bell size={21} color="#334155" /></Pressable>
+    <Pressable accessibilityLabel={`Thông báo, ${unreadCount} chưa đọc`} onPress={() => router.push(notificationsHref)} style={styles.iconButton}>
+      <Bell size={21} color="#334155" />
+      {unreadCount > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View>}
+    </Pressable>
   </View>
 }
 
@@ -27,4 +32,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontWeight: '800', color: '#0f172a' },
   name: { marginLeft: 'auto', flexShrink: 1, color: '#475569', fontSize: 12 },
   androidName: { flex: 1, minWidth: 0, marginLeft: 0, textAlign: 'right' },
+  badge: { position: 'absolute', top: 0, right: 0, minWidth: 17, height: 17, paddingHorizontal: 3, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e11d48', borderWidth: 1, borderColor: '#fff' },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 13 },
 })

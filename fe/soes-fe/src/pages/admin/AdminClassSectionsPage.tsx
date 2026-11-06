@@ -46,18 +46,28 @@ export default function AdminClassSectionsPage() {
     () => data.subjects.filter((item) => item.departmentId === departmentId),
     [data.subjects, departmentId],
   )
-  const enrolledIds = useMemo(() => new Set(data.enrollments.map(({ id }) => id)), [data.enrollments])
-  const filteredStudents = data.students.filter((item) =>
-    !enrolledIds.has(item.id) &&
-    `${item.code} ${item.fullName} ${item.email}`.toLowerCase().includes(studentSearch.toLowerCase()),
+  const departmentTeachers = useMemo(
+    () => data.teachers.filter((item) => item.departmentId === departmentId && item.status === 'ACTIVE'),
+    [data.teachers, departmentId],
   )
+  const enrolledIds = useMemo(() => new Set(data.enrollments.map(({ id }) => id)), [data.enrollments])
+  const filteredStudents = useMemo(() => {
+    const candidates = new Map(data.students.map((student) => [student.id, student]))
+    data.enrollments.forEach((student) => { if (!candidates.has(student.id)) candidates.set(student.id, student) })
+    const keyword = studentSearch.trim().toLowerCase()
+    return [...candidates.values()].filter((student) =>
+      `${student.code} ${student.fullName} ${student.email ?? ''}`.toLowerCase().includes(keyword),
+    )
+  }, [data.students, data.enrollments, studentSearch])
 
   const resetForm = () => {
     const firstDepartment = data.departments[0]
     setEditing(null); setDepartmentId(firstDepartment?.id ?? '')
     setSubjectId(data.subjects.find(({ departmentId: id }) => id === firstDepartment?.id)?.id ?? '')
     setSemesterId(data.semesters.find(({ isCurrent }) => isCurrent)?.id ?? data.semesters[0]?.id ?? '')
-    setClassCode(''); setCapacity('60'); setTeacherId(data.teachers[0]?.id ?? ''); setClassStatus('OPEN')
+    setClassCode(''); setCapacity('60')
+    setTeacherId(data.teachers.find((item) => item.departmentId === firstDepartment?.id && item.status === 'ACTIVE')?.id ?? '')
+    setClassStatus('OPEN')
   }
   const openCreate = () => { resetForm(); setModalOpen(true) }
   const openEdit = (item: CourseOfferingAdmin) => {
@@ -68,9 +78,10 @@ export default function AdminClassSectionsPage() {
   }
   const changeDepartment = (id: string) => {
     setDepartmentId(id); setSubjectId(data.subjects.find((item) => item.departmentId === id)?.id ?? '')
+    setTeacherId(data.teachers.find((item) => item.departmentId === id && item.status === 'ACTIVE')?.id ?? '')
   }
   const save = async () => {
-    if (!classCode.trim() || !subjectId || !semesterId || !teacherId) {
+    if (!classCode.trim() || !subjectId || !semesterId || !teacherId || !departmentTeachers.some((item) => item.id === teacherId)) {
       return toast.error('Vui lòng nhập đầy đủ thông tin lớp học phần.')
     }
     try {
@@ -139,7 +150,7 @@ export default function AdminClassSectionsPage() {
         {!data.loading && !data.error && <ClassSectionsTable items={data.items}
           onOpenEnrollment={(item) => {
             setEnrollmentClass(item); setSelectedStudentIds([]); setStudentSearch('')
-            void data.loadEnrollments(item.id)
+            void data.loadEnrollmentData(item.id).catch(() => toast.error('Không thể tải danh sách sinh viên của lớp.'))
           }}
           onOpenEdit={openEdit} onToggleStatus={(item) => void toggleStatus(item)} />}
       </AdminTablePanel>
@@ -147,10 +158,10 @@ export default function AdminClassSectionsPage() {
         onDepartmentChange={changeDepartment} subjectCodeInput={subjectId} onSubjectCodeChange={setSubjectId}
         selectedDepartmentSubjects={departmentSubjects} semesterCodeInput={semesterId} onSemesterCodeChange={setSemesterId}
         classCodeInput={classCode} onClassCodeChange={setClassCode} capacityInput={capacity} onCapacityChange={setCapacity}
-        teacherIdInput={teacherId} onTeacherIdChange={setTeacherId} teacherOptions={data.teachers}
+        teacherIdInput={teacherId} onTeacherIdChange={setTeacherId} teacherOptions={departmentTeachers}
         departments={data.departments} semesters={data.semesters} classStatusInput={classStatus}
         onClassStatusChange={setClassStatus} onClose={() => setModalOpen(false)} onConfirm={() => void save()} />
-      <ClassEnrollmentModal key={enrollmentClass?.id ?? 'closed'} course={enrollmentClass} students={filteredStudents} search={studentSearch}
+      <ClassEnrollmentModal key={enrollmentClass?.id ?? 'closed'} course={enrollmentClass} students={filteredStudents} enrolledIds={enrolledIds} search={studentSearch}
         enrollments={data.enrollments} loading={data.enrollmentsLoading}
         selectedStudentIds={selectedStudentIds} onSearchChange={setStudentSearch}
         onToggleStudent={(id) => setSelectedStudentIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}

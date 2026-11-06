@@ -38,7 +38,6 @@ interface ExamEditorStepContentProps {
   setSubjectId: (value: string) => void
   subjectOptions: Array<{ value: string; label: string }>
   selectedSemesterId: string
-  setSemesterId: (value: string) => void
   semesterOptions: Array<{ value: string; label: string }>
   // StepSections props
   sections: ExamSection[]
@@ -82,7 +81,6 @@ export default function ExamEditorStepContent({
   setSubjectId,
   subjectOptions,
   selectedSemesterId,
-  setSemesterId,
   semesterOptions,
   sections,
   setSections,
@@ -124,7 +122,6 @@ export default function ExamEditorStepContent({
           setSubjectId={setSubjectId}
           subjectOptions={subjectOptions}
           semesterId={selectedSemesterId}
-          setSemesterId={setSemesterId}
           semesterOptions={semesterOptions}
           fieldErrors={fieldErrors}
           onFieldChange={onFieldChange}

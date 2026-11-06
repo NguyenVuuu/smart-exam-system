@@ -16,6 +16,7 @@ export default function FinalExamScheduleForm({
   subjects,
   courses,
   users,
+  initialExamId,
   editingSchedule,
   onClose,
   onSubmit,
@@ -26,6 +27,7 @@ export default function FinalExamScheduleForm({
   subjects: AdminSubject[]
   courses: CourseOfferingAdmin[]
   users: AdminUser[]
+  initialExamId?: string | null
   editingSchedule?: AdminExamSchedule | null
   onClose: () => void
   onSubmit: (schedule: AdminExamSchedule) => void | Promise<void>
@@ -37,6 +39,7 @@ export default function FinalExamScheduleForm({
     subjects,
     courses,
     users,
+    initialExamId,
     editingSchedule,
     onClose,
     onSubmit,

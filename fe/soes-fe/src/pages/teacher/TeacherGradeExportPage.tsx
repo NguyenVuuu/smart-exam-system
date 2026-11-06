@@ -7,6 +7,7 @@ import GradeAppealsPanel from './components/grade-export/GradeAppealsPanel'
 import GradeReportPanel from './components/grade-export/GradeReportPanel'
 import GradeReportTabs, { type GradeReportTab } from './components/grade-export/GradeReportTabs'
 import TeacherNotificationsPanel from './components/grade-export/TeacherNotificationsPanel'
+import type { TeacherNotification } from './api/teacher-notifications.api'
 import { useTeacherGradeAppeals } from './hooks/useTeacherGradeAppeals'
 import { useTeacherGradeReport } from './hooks/useTeacherGradeReport'
 import { useTeacherNotificationsStore } from './store/teacherNotificationsStore'
@@ -41,6 +42,11 @@ export default function TeacherGradeExportPage() {
     if (activeTab === 'reports') report.refresh()
     else if (activeTab === 'appeals') appeal.refresh()
     else void refreshNotifications()
+  }
+
+  const openNotification = (notification: TeacherNotification) => {
+    if (notification.link?.startsWith('/teacher/')) navigate(notification.link)
+    else if (notification.title.toLocaleLowerCase('vi').includes('phúc khảo')) changeTab('appeals')
   }
 
   return (
@@ -119,7 +125,7 @@ export default function TeacherGradeExportPage() {
               )}
 
               {activeTab === 'notifications' && (
-                <TeacherNotificationsPanel onViewAppeals={() => changeTab('appeals')} />
+                <TeacherNotificationsPanel onOpen={openNotification} />
               )}
             </div>
           </div>

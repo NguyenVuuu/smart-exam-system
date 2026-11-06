@@ -30,7 +30,7 @@ export default function AdminExamTrackingPage() {
     subjectId: subject === 'ALL' ? undefined : subject,
     semesterId: semester === 'ALL' ? undefined : semester,
     type: category === 'ALL' ? undefined : category,
-    status: status === 'DRAFT' || status === 'LOCKED' || status === 'ARCHIVED' ? status : undefined,
+    status: status === 'LOCKED' || status === 'ARCHIVED' ? status : undefined,
     approvalStatus: status === 'PENDING_APPROVAL' ? 'PENDING'
       : status === 'APPROVED' ? 'APPROVED' : status === 'REJECTED' ? 'REJECTED' : undefined,
   })
@@ -40,7 +40,7 @@ export default function AdminExamTrackingPage() {
   const reset = () => {
     setPage(1); setSearch(''); setSemester('ALL'); setDepartment('ALL'); setSubject('ALL'); setCategory('ALL'); setStatus('ALL')
   }
-  const createSchedule = (exam: AdminExam) => navigate(`/admin/exam-schedules?createExamId=${exam.id}`)
+  const createSchedule = (exam: AdminExam) => navigate(`/admin/exam-schedules?tab=schedules&createExamId=${encodeURIComponent(exam.id)}`)
 
   return <AdminLayout>
     <AdminPageHeader icon={<FileCheck size={20} />} title="Theo dõi đề thi toàn trường"

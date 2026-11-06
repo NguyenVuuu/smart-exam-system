@@ -11,7 +11,7 @@ import { openExamOption } from '../../../lib/exam-option-secret';
 import { anchorPublishedExam } from "./exam-blockchain.service";
 import { openReviewSnapshot } from "../repositories/exam-review-snapshot.repository";
 import { toPagination } from "../../../utils/pagination";
-import { notifyUsers } from "../../notifications/notifications.service";
+import { notifyExamSchedulers, notifyUsers } from "../../notifications/notifications.service";
 import {
   toTeacherExamDetailDto,
   toTeacherExamDto,
@@ -546,6 +546,7 @@ async function review(
         { link: '/teacher/department-approvals' },
       ))
     }
+    if (approved) notifications.push(notifyExamSchedulers(reviewed.title))
     await Promise.all(notifications)
   } catch (error) {
     logger.error('Could not notify final exam decision', { examId, error: String(error) })

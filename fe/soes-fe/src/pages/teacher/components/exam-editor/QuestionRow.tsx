@@ -129,10 +129,10 @@ export function QuestionRow({
 }
 
 function RevisionFeedback({ note }: { note: string }) {
-  return <div className="mt-3 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-    <MessageSquareText size={15} className="mt-0.5 shrink-0" />
+  return <div className="mt-3 flex gap-2 rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2.5 text-xs text-slate-700">
+    <MessageSquareText size={15} className="mt-0.5 shrink-0 text-blue-600" />
     <div>
-      <p className="font-semibold">Góp ý cần sửa từ nhóm duyệt</p>
+      <p className="font-semibold text-slate-900">Góp ý từ nhóm duyệt</p>
       <p className="mt-1 whitespace-pre-wrap leading-relaxed">{note}</p>
     </div>
   </div>

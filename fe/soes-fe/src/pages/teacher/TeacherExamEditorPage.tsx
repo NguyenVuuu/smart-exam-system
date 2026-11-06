@@ -80,7 +80,6 @@ export default function TeacherExamEditorPage() {
                 setSubjectId={form.setSubjectId}
                 subjectOptions={form.subjectOptions}
                 selectedSemesterId={form.selectedSemesterId}
-                setSemesterId={form.setSemesterId}
                 semesterOptions={semesterOptions}
                 sections={form.sections}
                 setSections={form.setSections}

@@ -34,14 +34,18 @@ export const scheduleBodySchema = z.object({
 }).superRefine((data, ctx) => {
   if (data.status === 'SCHEDULED' && data.startTime <= new Date()) ctx.addIssue({ code: 'custom', path: ['startTime'], message: 'Start time must be in the future' })
   if (data.endTime <= data.startTime) ctx.addIssue({ code: 'custom', path: ['endTime'], message: 'End time must be after start time' })
+  if (data.endTime.getTime() - data.startTime.getTime() < data.durationMinutes * 60_000) ctx.addIssue({ code: 'custom', path: ['durationMinutes'], message: 'Exam duration must fit inside the schedule window' })
   const courseIds = data.courses.map(({ courseOfferingId }) => courseOfferingId)
   if (new Set(courseIds).size !== courseIds.length) ctx.addIssue({ code: 'custom', path: ['courses'], message: 'Course offerings must be unique' })
   data.courses.forEach(({ teacherIds }, index) => {
     if (new Set(teacherIds).size !== teacherIds.length) ctx.addIssue({ code: 'custom', path: ['courses', index, 'teacherIds'], message: 'Proctors must be unique' })
   })
+  const allTeacherIds = data.courses.flatMap(({ teacherIds }) => teacherIds)
+  if (new Set(allTeacherIds).size !== allTeacherIds.length) ctx.addIssue({ code: 'custom', path: ['courses'], message: 'A proctor can only supervise one course offering in a schedule' })
   if (data.locationMode === 'CAMPUS' && !data.allowedIpRanges.length) ctx.addIssue({ code: 'custom', path: ['allowedIpRanges'], message: 'Campus exam requires allowed IP ranges' })
   if (data.distributionMode === 'RANDOM_SUBSET' && !data.randomQuestionCount) ctx.addIssue({ code: 'custom', path: ['randomQuestionCount'], message: 'Random question count is required' })
   if (data.resultReleaseMode === 'SCHEDULED' && !data.resultReleaseAt) ctx.addIssue({ code: 'custom', path: ['resultReleaseAt'], message: 'Result release time is required' })
+  if (data.resultReleaseMode === 'SCHEDULED' && data.resultReleaseAt && data.resultReleaseAt <= data.endTime) ctx.addIssue({ code: 'custom', path: ['resultReleaseAt'], message: 'Result release time must be after the schedule ends' })
   if (data.reviewStartAt && data.reviewEndAt && data.reviewEndAt <= data.reviewStartAt) ctx.addIssue({ code: 'custom', path: ['reviewEndAt'], message: 'Review end time must be after review start time' })
 })
 

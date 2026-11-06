@@ -29,7 +29,7 @@ import {
 import { aiQuestionGenerationRoutes } from './modules/ai-question-generation'
 import { corsConfig, proxyConfig } from './config'
 import { auditRequestContext } from './middlewares/auditRequestContext'
-import { notificationsRoutes } from './modules/notifications'
+import { allRoleNotificationsRoutes, notificationsRoutes } from './modules/notifications'
 
 const app = express()
 app.set('trust proxy', proxyConfig.trustProxy)
@@ -62,6 +62,7 @@ app.use(
 // ── Routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
 app.use('/api/teacher/notifications', notificationsRoutes)
+app.use('/api/notifications', allRoleNotificationsRoutes)
 app.use('/api/system-settings', publicSystemSettingsRouter)
 app.use('/api/student', studentDashboardRoutes)
 app.use('/api/student', studentSubjectsRoutes)

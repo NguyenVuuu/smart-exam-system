@@ -26,6 +26,7 @@ export function useFinalExamScheduleForm({
   subjects,
   courses,
   users,
+  initialExamId,
   editingSchedule,
   onClose,
   onSubmit,
@@ -36,26 +37,23 @@ export function useFinalExamScheduleForm({
   subjects: AdminSubject[]
   courses: CourseOfferingAdmin[]
   users: AdminUser[]
+  initialExamId?: string | null
   editingSchedule?: AdminExamSchedule | null
   onClose: () => void
   onSubmit: (schedule: AdminExamSchedule) => void | Promise<void>
 }) {
   const initialExam = useMemo(() => {
-    if (!editingSchedule) return null
-    return (
-      exams.find((item) => item.id === editingSchedule.examId) ??
-      exams.find((item) => editingSchedule.examTitle.includes(item.title)) ??
-      exams.find((item) => item.subjectName === editingSchedule.subjectName) ??
-      null
-    )
-  }, [editingSchedule, exams])
+    if (!editingSchedule) return exams.find((item) => item.id === initialExamId) ?? null
+    return exams.find((item) => item.id === editingSchedule.examId) ?? null
+  }, [editingSchedule, exams, initialExamId])
 
   const initialCourses = useMemo(() => {
     if (!editingSchedule) return []
-    return courses.filter((course) =>
-      editingSchedule.courseCodes.includes(course.code),
-    )
-  }, [courses, editingSchedule])
+    const assignedIds = editingSchedule.proctorAssignments?.map((item) => item.courseOfferingId) ?? []
+    return courses.filter((course) => assignedIds.length
+      ? assignedIds.includes(course.id)
+      : editingSchedule.courseCodes.includes(course.code) && course.semesterCode === initialExam?.semesterCode)
+  }, [courses, editingSchedule, initialExam?.semesterCode])
 
   const initialAssignments = useMemo(() => {
     if (!editingSchedule?.proctorAssignments) return {}

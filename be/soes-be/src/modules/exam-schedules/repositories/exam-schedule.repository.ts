@@ -72,7 +72,7 @@ export function findCreationContext(tx: Prisma.TransactionClient, examId: string
       select: { id: true, subjectId: true, semesterId: true, status: true },
     }),
     tx.teacher.findMany({
-      where: { id: { in: teacherIds }, status: 'ACTIVE' },
+      where: { id: { in: teacherIds }, status: 'ACTIVE', user: { status: 'ACTIVE' } },
       select: { id: true },
     }),
   ])
@@ -105,6 +105,39 @@ export function findScheduleConflicts(
       select: { teacher: { select: { teacherCode: true, user: { select: { fullName: true } } } } },
     }),
   ])
+}
+
+export function findStudentScheduleConflict(
+  tx: Prisma.TransactionClient,
+  courseOfferingIds: string[],
+  startTime: Date,
+  endTime: Date,
+  excludeId?: string,
+) {
+  return tx.enrollment.findFirst({
+    where: {
+      courseOfferingId: { in: courseOfferingIds },
+      student: {
+        enrollments: {
+          some: {
+            courseOffering: {
+              scheduleCourses: {
+                some: {
+                  examSchedule: {
+                    status: { not: 'CANCELLED' },
+                    startTime: { lt: endTime },
+                    endTime: { gt: startTime },
+                    ...(excludeId && { id: { not: excludeId } }),
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    select: { student: { select: { studentCode: true } } },
+  })
 }
 
 const nestedCourses = (courses: ScheduleWriteInput['courses']) => ({

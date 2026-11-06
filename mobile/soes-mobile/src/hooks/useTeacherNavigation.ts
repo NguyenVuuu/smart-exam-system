@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { teacherNavigation } from '../navigation/teacher-navigation'
 import { useReviewGroupAccess } from './useReviewGroupAccess'
 
-const reviewKeys = new Set(['approvals', 'question-approvals'])
+const reviewKeys = new Set(['approvals'])
 
 export function useTeacherNavigation(enabled: boolean) {
   const { access, loading } = useReviewGroupAccess(enabled)

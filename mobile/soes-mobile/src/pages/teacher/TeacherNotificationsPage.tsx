@@ -13,7 +13,7 @@ export function TeacherNotificationsPage() {
   const notifications = useTeacherNotifications()
   function open(item: TeacherNotification) {
     void notifications.markRead(item)
-    const target = resolveTeacherNotificationLink(item.link)
+    const target = resolveTeacherNotificationLink(item.link, item.title)
     if (target) router.push(target)
   }
   return <View style={styles.root}>
@@ -26,7 +26,7 @@ export function TeacherNotificationsPage() {
     </View>
     {notifications.loading && !notifications.items.length ? <ScreenState kind="loading" /> : notifications.error && !notifications.items.length ?
       <ScreenState kind="error" onRetry={notifications.retry} /> : <FlatList key={notifications.page} data={notifications.items} keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TeacherNotificationCard item={item} onPress={() => open(item)} hasTarget={Boolean(resolveTeacherNotificationLink(item.link))} />}
+        renderItem={({ item }) => <TeacherNotificationCard item={item} onPress={() => open(item)} hasTarget={Boolean(resolveTeacherNotificationLink(item.link, item.title))} />}
         contentContainerStyle={styles.list} ListEmptyComponent={<ScreenState kind="empty" message="Bạn chưa có thông báo nào." />}
         ListFooterComponent={<>{notifications.error && <Text style={styles.error}>Không thể tải thông báo.</Text>}
           <PaginationControls page={notifications.page} totalPages={notifications.totalPages} loading={notifications.loading} onPage={notifications.goToPage} /></>}

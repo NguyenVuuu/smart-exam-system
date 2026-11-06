@@ -4,9 +4,11 @@ import type { userSelect } from '../repositories/admin-users.repository'
 
 type UserRow = Prisma.UserGetPayload<{ select: typeof userSelect }>
 
-export function toAdminUserDto(user: UserRow): AdminUserDto {
-  const admin = user.admins[0]
-  const teacher = user.teachers[0]
+export function toAdminUserDto(user: UserRow, role?: AdminUserDto['role']): AdminUserDto {
+  const admin = role === 'TEACHER' || role === 'STUDENT'
+    ? undefined : user.admins.find((profile) => !role || profile.role === role)
+  const teacher = role === 'ADMIN' || role === 'EDUCATION_OFFICER' || role === 'STUDENT'
+    ? undefined : user.teachers[0]
   const student = user.students[0]
   if (admin) return {
     id: user.id, profileId: admin.id, code: user.username ?? '',

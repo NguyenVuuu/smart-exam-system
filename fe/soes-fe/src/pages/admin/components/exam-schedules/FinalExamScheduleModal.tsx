@@ -11,6 +11,7 @@ interface FinalExamScheduleModalProps {
   subjects: AdminSubject[]
   courses: CourseOfferingAdmin[]
   users: AdminUser[]
+  initialExamId?: string | null
   editingSchedule?: AdminExamSchedule | null
   onClose: () => void
   onSubmit: (schedule: AdminExamSchedule) => void | Promise<void>
@@ -24,6 +25,7 @@ export default function FinalExamScheduleModal({
   subjects,
   courses,
   users,
+  initialExamId,
   editingSchedule = null,
   onClose,
   onSubmit,
@@ -44,13 +46,14 @@ export default function FinalExamScheduleModal({
       }}
     >
       <FinalExamScheduleForm
-        key={editingSchedule?.id ?? 'new-schedule'}
+        key={editingSchedule?.id ?? initialExamId ?? 'new-schedule'}
         exams={exams}
         schedules={schedules}
         departments={departments}
         subjects={subjects}
         courses={courses}
         users={users}
+        initialExamId={initialExamId}
         editingSchedule={editingSchedule}
         onClose={onClose}
         onSubmit={onSubmit}
