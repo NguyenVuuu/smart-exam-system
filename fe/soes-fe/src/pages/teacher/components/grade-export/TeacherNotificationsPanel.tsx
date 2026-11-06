@@ -3,7 +3,7 @@ import type { TeacherNotification } from '../../api/teacher-notifications.api'
 import { useTeacherNotificationsStore } from '../../store/teacherNotificationsStore'
 import { formatTeacherNotificationTime } from '../../utils/teacher-notification.utils'
 
-export default function TeacherNotificationsPanel({ onViewAppeals }: { onViewAppeals: () => void }) {
+export default function TeacherNotificationsPanel({ onOpen }: { onOpen: (notification: TeacherNotification) => void }) {
   const notifications = useTeacherNotificationsStore((state) => state.items)
   const totalCount = useTeacherNotificationsStore((state) => state.totalCount)
   const unreadCount = useTeacherNotificationsStore((state) => state.unreadCount)
@@ -15,7 +15,7 @@ export default function TeacherNotificationsPanel({ onViewAppeals }: { onViewApp
 
   const openNotification = (notification: TeacherNotification) => {
     void markRead(notification.id)
-    onViewAppeals()
+    onOpen(notification)
   }
 
   return (
