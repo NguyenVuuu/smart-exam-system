@@ -25,8 +25,8 @@ export function TeacherReviewPage() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 }, header: { padding: 16, paddingBottom: 4 },
-  tabs: { flexDirection: 'row', padding: 4, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', gap: 4 },
-  tab: { flex: 1, minHeight: 42, justifyContent: 'center', alignItems: 'center', borderRadius: 11 },
+  tabs: { alignSelf: 'flex-start', flexDirection: 'row', padding: 3, borderRadius: 11, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', gap: 3 },
+  tab: { minHeight: 34, minWidth: 74, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
   selected: { backgroundColor: '#2563eb' }, label: { color: '#475569', fontWeight: '700' },
   selectedLabel: { color: '#fff' },
 })

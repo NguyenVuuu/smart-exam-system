@@ -9,11 +9,13 @@ export const teacherNavigation: NavigationGroup[] = [
   ] },
   { title: 'Đề và câu hỏi', items: [
     { key: 'exams', label: 'Đề thi', href: '/(app)/(teacher)/exams', icon: Files },
-    { key: 'approvals', label: 'Duyệt chuyên môn', href: '/(app)/(teacher)/approvals', icon: ClipboardCheck },
     { key: 'question-bank', label: 'Ngân hàng câu hỏi', href: '/(app)/(teacher)/question-bank', icon: FileQuestion },
     { key: 'ai-generator', label: 'Sinh câu hỏi AI', href: '/(app)/(teacher)/ai-generator', icon: Sparkles },
   ] },
-  { title: 'Bộ môn', items: [{ key: 'review-group', label: 'Nhóm duyệt đề', href: '/(app)/(teacher)/review-group', icon: UsersRound }] },
+  { title: 'Bộ môn', items: [
+    { key: 'review-group', label: 'Nhóm duyệt đề', href: '/(app)/(teacher)/review-group', icon: UsersRound },
+    { key: 'approvals', label: 'Duyệt chuyên môn', href: '/(app)/(teacher)/approvals', icon: ClipboardCheck },
+  ] },
   { title: 'Kết quả', items: [{ key: 'appeals', label: 'Phúc khảo điểm', href: '/(app)/(teacher)/appeals', icon: GraduationCap }] },
   { title: 'Tài khoản', items: [
     { key: 'notifications', label: 'Thông báo', href: '/(app)/(teacher)/notifications', icon: Bell },

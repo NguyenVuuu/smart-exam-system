@@ -17,16 +17,16 @@ const filters: { key: InvigilationStatus | 'ALL'; label: string }[] = [
 
 export function TeacherInvigilationPage() {
   const schedule = useTeacherInvigilation()
-  const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [view, setView] = useState<'list' | 'calendar'>('calendar')
   return <View style={styles.root}>
     <View style={styles.header}>
       <ScreenHeader title="Lịch coi thi" description="Ca thi bạn tạo hoặc được phân công coi thi" />
       <View style={styles.switcher}>
-        <Pressable accessibilityRole="button" accessibilityState={{ selected: view === 'list' }} onPress={() => setView('list')} style={[styles.switchButton, view === 'list' && styles.switchActive]}>
-          <List size={16} color={view === 'list' ? '#fff' : '#475569'} /><Text style={[styles.switchText, view === 'list' && styles.switchTextActive]}>Danh sách</Text>
-        </Pressable>
         <Pressable accessibilityRole="button" accessibilityState={{ selected: view === 'calendar' }} onPress={() => setView('calendar')} style={[styles.switchButton, view === 'calendar' && styles.switchActive]}>
           <CalendarDays size={16} color={view === 'calendar' ? '#fff' : '#475569'} /><Text style={[styles.switchText, view === 'calendar' && styles.switchTextActive]}>Lịch tháng</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityState={{ selected: view === 'list' }} onPress={() => setView('list')} style={[styles.switchButton, view === 'list' && styles.switchActive]}>
+          <List size={16} color={view === 'list' ? '#fff' : '#475569'} /><Text style={[styles.switchText, view === 'list' && styles.switchTextActive]}>Danh sách</Text>
         </Pressable>
       </View>
       {view === 'list' && <>
