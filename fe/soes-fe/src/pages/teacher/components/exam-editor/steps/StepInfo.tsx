@@ -18,7 +18,6 @@ export function StepInfo(props: {
   setSubjectId: (value: string) => void
   subjectOptions: Array<{ value: string; label: string }>
   semesterId: string
-  setSemesterId: (value: string) => void
   semesterOptions: Array<{ value: string; label: string }>
   fieldErrors?: ApiFieldErrors
   onFieldChange?: (field: string) => void
@@ -55,12 +54,9 @@ export function StepInfo(props: {
         </div>
 
         <Field label="Học kỳ" error={props.fieldErrors?.semesterId}>
-          <AppSelect
-            value={props.semesterId}
-            onChange={(value) => { props.onFieldChange?.('semesterId'); props.setSemesterId(value) }}
-            buttonClassName="bg-white"
-            options={props.semesterOptions}
-          />
+          <div className="flex h-10 items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5 text-sm text-slate-700">
+            {props.semesterOptions.find((item) => item.value === props.semesterId)?.label ?? 'Chưa có học kỳ hiện tại'}
+          </div>
         </Field>
 
         <Field label="Tên đề thi" error={props.fieldErrors?.title}>

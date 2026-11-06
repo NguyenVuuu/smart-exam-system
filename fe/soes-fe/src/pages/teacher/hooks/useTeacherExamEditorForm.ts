@@ -142,7 +142,7 @@ export function useTeacherExamEditorForm({
     )
   }, [isCopy, openQuestions, sourceExam])
 
-  const selectedSemesterId = semesterId || currentSemesterId || ''
+  const selectedSemesterId = isCopy ? currentSemesterId || '' : semesterId || currentSemesterId || ''
   const semesterCourses = courses.filter((course) => course.semesterId === selectedSemesterId)
   const selectedSubjectId = semesterCourses.some((course) => course.subjectId === subjectId)
     ? subjectId
@@ -304,8 +304,8 @@ export function useTeacherExamEditorForm({
       return false
     }
     if (!selectedSemesterId) {
-      setFieldErrors({ semesterId: 'Vui lòng chọn học kỳ của đề thi.' })
-      toast.error('Vui lòng chọn học kỳ của đề thi.')
+      setFieldErrors({ semesterId: 'Chưa có học kỳ hiện tại để tạo đề thi.' })
+      toast.error('Chưa có học kỳ hiện tại để tạo đề thi.')
       setActiveStep('INFO')
       return false
     }

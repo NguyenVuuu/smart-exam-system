@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 10, padding: 12, paddingHorizontal: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   button: { flex: 1, minHeight: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   revision: { backgroundColor: '#fff1f2', borderWidth: 1, borderColor: '#fecdd3' },
-  approve: { backgroundColor: '#059669' },
+  approve: { backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#a7f3d0' },
   revisionText: { color: '#be123c', fontWeight: '700' },
-  approveText: { color: '#fff', fontWeight: '700' },
+  approveText: { color: '#047857', fontWeight: '700' },
 })

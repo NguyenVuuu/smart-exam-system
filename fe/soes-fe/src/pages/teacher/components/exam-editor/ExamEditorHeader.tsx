@@ -37,11 +37,7 @@ export const ExamEditorHeader: React.FC<ExamEditorHeaderProps> = ({
         <button
           type="button"
           onClick={onPublishExam}
-          className={`px-5 py-2 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 ${
-            examCategory === 'FINAL'
-              ? 'bg-amber-600 hover:bg-amber-700'
-              : 'bg-blue-600 hover:bg-blue-700'
-          }`}
+          className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-blue-700"
         >
           <CheckCircle2 size={15} />
           {examCategory === 'FINAL'
