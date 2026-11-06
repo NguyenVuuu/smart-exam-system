@@ -37,11 +37,11 @@ export function TeacherAppealsPage() {
 
   return <View style={styles.root}>
     <FlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.list}
-      ListHeaderComponent={<>
+      ListHeaderComponent={<View style={styles.header}>
         <ScreenHeader title="Phúc khảo điểm" description="Xem yêu cầu, đối chiếu bài làm và lưu kết luận" />
         <ChoicePicker label="Trạng thái" placeholder="Tất cả trạng thái" options={statuses}
           selectedValues={[status]} onToggle={(value) => setStatus(value as AppealStatus | 'ALL')} />
-      </>}
+      </View>}
       renderItem={({ item }) => <AppealCard appeal={item} />}
       ListEmptyComponent={loading ? <ScreenState kind="loading" /> : error ? <ScreenState kind="error" onRetry={() => void load(1, status)} />
         : <ScreenState kind="empty" message="Không có yêu cầu phúc khảo phù hợp." />}
@@ -54,5 +54,6 @@ export function TeacherAppealsPage() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 }, list: { flexGrow: 1, padding: 16, paddingBottom: 36 },
+  header: { marginBottom: 14 },
   error: { color: '#b91c1c', textAlign: 'center', padding: 12 },
 })
