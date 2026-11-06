@@ -1,7 +1,7 @@
 import { Trash2, UserPlus, Users, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
-import type { AdminUser, CourseEnrollmentAdmin, CourseOfferingAdmin } from '../../types/admin.types'
+import type { CourseEnrollmentAdmin, CourseOfferingAdmin, StudentCandidate } from '../../types/admin.types'
 import AdminButton from '../AdminButton'
 import { AdminInput } from '../AdminFormFields'
 
@@ -12,7 +12,7 @@ export default function ClassEnrollmentModal({
   onSearchChange, onToggleStudent, onRemoveStudent, onClose, onConfirm,
 }: {
   course: CourseOfferingAdmin | null
-  students: AdminUser[]
+  students: StudentCandidate[]
   enrollments: CourseEnrollmentAdmin[]
   loading: boolean
   search: string
@@ -106,7 +106,7 @@ function RosterList({ students, loading, onRemoveStudent }: { students: CourseEn
   )
 }
 
-function CandidateList({ students, selectedStudentIds, onToggleStudent }: { students: AdminUser[]; selectedStudentIds: string[]; onToggleStudent: (studentId: string) => void }) {
+function CandidateList({ students, selectedStudentIds, onToggleStudent }: { students: StudentCandidate[]; selectedStudentIds: string[]; onToggleStudent: (studentId: string) => void }) {
   if (students.length === 0) return <EmptyState text="Không có sinh viên có thể thêm." />
   return (
     <div className="overflow-hidden rounded-xl border border-gray-100">

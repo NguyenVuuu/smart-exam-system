@@ -14,7 +14,10 @@ async function validate(data: CourseOfferingBody, currentId?: string) {
   if (!semester) throw new NotFoundError('Semester not found')
   if (!subject) throw new NotFoundError('Subject not found')
   if (!teacher) throw new NotFoundError('Teacher not found')
-  if (data.status === 'ACTIVE' && (semester.status !== 'ACTIVE' || subject.status !== 'ACTIVE' || teacher.status !== 'ACTIVE')) {
+  if (teacher.status !== 'ACTIVE' || teacher.user.status !== 'ACTIVE') {
+    throw new ValidationError('Course offering requires an active teacher account')
+  }
+  if (data.status === 'ACTIVE' && (semester.status !== 'ACTIVE' || subject.status !== 'ACTIVE')) {
     throw new ValidationError('Active course offering requires the current semester, active subject, and active teacher')
   }
   if (teacher.departmentId !== subject.departmentId) throw new ValidationError('Teacher and subject must belong to the same department')

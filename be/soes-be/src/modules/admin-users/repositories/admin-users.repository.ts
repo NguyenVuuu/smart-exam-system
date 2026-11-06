@@ -26,6 +26,7 @@ export function listUsers(query: UsersQuery) {
 
   const where: Prisma.UserWhereInput = {
     ...profileFilter,
+    ...(query.status === 'ACTIVE' && { status: 'ACTIVE' }),
     ...(query.keyword && { OR: [
       { fullName: { contains: query.keyword, mode: 'insensitive' } },
       { email: { contains: query.keyword, mode: 'insensitive' } },
@@ -169,7 +170,7 @@ export async function enrollmentContext(
   if (!course) return { course: null, validStudents: 0, existing: 0, conflicting: null }
 
   const [validStudents, existing, conflicting] = await Promise.all([
-    tx.student.count({ where: { id: { in: studentIds }, status: 'ACTIVE' } }),
+    tx.student.count({ where: { id: { in: studentIds }, status: 'ACTIVE', user: { status: 'ACTIVE' } } }),
     tx.enrollment.count({ where: { courseOfferingId, studentId: { in: studentIds } } }),
     tx.enrollment.findFirst({
       where: {
@@ -185,6 +186,28 @@ export async function enrollmentContext(
     }),
   ])
   return { course, validStudents, existing, conflicting }
+}
+
+export const findEnrollmentScope = (courseOfferingId: string) => prisma.courseOffering.findUnique({
+  where: { id: courseOfferingId }, select: { subjectId: true, semesterId: true },
+})
+
+export function listEligibleStudents(subjectId: string, semesterId: string, query: EnrollmentQuery) {
+  const where: Prisma.StudentWhereInput = {
+    status: 'ACTIVE', user: { status: 'ACTIVE' },
+    enrollments: { none: { subjectId, semesterId } },
+    ...(query.keyword && { OR: [
+      { studentCode: { contains: query.keyword, mode: 'insensitive' } },
+      { user: { fullName: { contains: query.keyword, mode: 'insensitive' } } },
+      { user: { email: { contains: query.keyword, mode: 'insensitive' } } },
+    ] }),
+  }
+  return Promise.all([
+    prisma.student.count({ where }),
+    prisma.student.findMany({ where, select: {
+      id: true, studentCode: true, user: { select: { fullName: true, email: true } },
+    }, skip: (query.page - 1) * query.pageSize, take: query.pageSize, orderBy: { studentCode: 'asc' } }),
+  ])
 }
 
 export const createEnrollments = (

@@ -4,7 +4,7 @@ import * as api from '../api/admin-management.api'
 import { toAcademicYear } from '../mappers/admin-academic.mapper'
 import { toAdminUser, toCourseEnrollment, toCourseOffering, toDepartment, toSubject } from '../mappers/admin-management.mapper'
 import type { CourseOfferingPayload } from '../types/admin-api.types'
-import type { AcademicYear, AdminSubject, AdminUser, CourseEnrollmentAdmin, CourseOfferingAdmin, Department } from '../types/admin.types'
+import type { AcademicYear, AdminSubject, AdminUser, CourseEnrollmentAdmin, CourseOfferingAdmin, Department, StudentCandidate } from '../types/admin.types'
 
 interface ClassSectionFilters {
   keyword: string
@@ -20,7 +20,7 @@ export function useAdminClassSections(filters: ClassSectionFilters) {
   const [subjects, setSubjects] = useState<AdminSubject[]>([])
   const [semesters, setSemesters] = useState<AcademicYear[]>([])
   const [teachers, setTeachers] = useState<AdminUser[]>([])
-  const [students, setStudents] = useState<AdminUser[]>([])
+  const [students, setStudents] = useState<StudentCandidate[]>([])
   const [enrollments, setEnrollments] = useState<CourseEnrollmentAdmin[]>([])
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -29,14 +29,13 @@ export function useAdminClassSections(filters: ClassSectionFilters) {
   const loadReferences = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const [departmentPage, subjectPage, semesterPage, teacherPage, studentPage] = await Promise.all([
-        api.getDepartments(), api.getSubjects(), getSemesters(), api.getUserReferences('TEACHER'), api.getUserReferences('STUDENT'),
+      const [departmentPage, subjectPage, semesterPage, teacherPage] = await Promise.all([
+        api.getDepartments(), api.getSubjects(), getSemesters(), api.getUserReferences('TEACHER'),
       ])
-      const users = [...teacherPage.items, ...studentPage.items].map(toAdminUser)
+      const users = teacherPage.items.map(toAdminUser)
       setDepartments(departmentPage.items.map(toDepartment))
       setSubjects(subjectPage.items.map(toSubject)); setSemesters(semesterPage.items.map(toAcademicYear))
       setTeachers(users.filter(({ role }) => role === 'TEACHER'))
-      setStudents(users.filter(({ role }) => role === 'STUDENT'))
     } catch { setError('Không thể tải danh sách lớp học phần.') }
     finally { setLoading(false) }
   }, [])
@@ -67,11 +66,14 @@ export function useAdminClassSections(filters: ClassSectionFilters) {
     void loadCourses()
   }, [loadCourses])
 
-  const loadEnrollments = async (courseId: string) => {
+  const loadEnrollmentData = async (courseId: string) => {
     setEnrollmentsLoading(true)
     try {
-      const page = await api.getCourseEnrollments(courseId)
-      setEnrollments(page.items.map(toCourseEnrollment))
+      const [enrollmentPage, candidatePage] = await Promise.all([
+        api.getCourseEnrollments(courseId), api.getEligibleStudents(courseId),
+      ])
+      setEnrollments(enrollmentPage.items.map(toCourseEnrollment))
+      setStudents(candidatePage.items)
     } finally { setEnrollmentsLoading(false) }
   }
   const save = async (id: string | null, payload: CourseOfferingPayload) => {
@@ -79,15 +81,15 @@ export function useAdminClassSections(filters: ClassSectionFilters) {
   }
   const enroll = async (courseId: string, studentIds: string[]) => {
     await api.enrollStudents(courseId, studentIds)
-    await Promise.all([loadCourses(), loadEnrollments(courseId)])
+    await Promise.all([loadCourses(), loadEnrollmentData(courseId)])
   }
   const withdraw = async (courseId: string, studentId: string) => {
     await api.withdrawStudent(courseId, studentId)
-    await Promise.all([loadCourses(), loadEnrollments(courseId)])
+    await Promise.all([loadCourses(), loadEnrollmentData(courseId)])
   }
   const retry = async () => { await Promise.all([loadReferences(), loadCourses()]) }
   return {
     items, departments, subjects, semesters, teachers, students, enrollments,
-    loading, enrollmentsLoading, error, retry, save, enroll, withdraw, loadEnrollments,
+    loading, enrollmentsLoading, error, retry, save, enroll, withdraw, loadEnrollmentData,
   }
 }

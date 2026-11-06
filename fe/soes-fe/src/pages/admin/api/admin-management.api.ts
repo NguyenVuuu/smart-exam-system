@@ -1,6 +1,6 @@
 import { apiClient } from '../../../api/axios'
 import type {
-  ApiPage, ApiResponse, CourseEnrollmentApiDto, CourseOfferingApiDto, CourseOfferingPayload,
+  ApiPage, ApiResponse, CourseEnrollmentApiDto, CourseOfferingApiDto, CourseOfferingPayload, EligibleStudentApiDto,
   DepartmentApiDto, DepartmentPayload, SubjectApiDto, SubjectPayload,
   UpdateUserPayload, UserApiDto, UserPayload,
 } from '../types/admin-api.types'
@@ -65,5 +65,7 @@ export const enrollStudents = (courseOfferingId: string, studentIds: string[]) =
   .post(`/admin/course-offerings/${courseOfferingId}/enrollments`, { studentIds })
 export const getCourseEnrollments = (courseOfferingId: string) =>
   getAllPages<CourseEnrollmentApiDto>(`/admin/course-offerings/${courseOfferingId}/enrollments`)
+export const getEligibleStudents = (courseOfferingId: string) =>
+  getAllPages<EligibleStudentApiDto>(`/admin/course-offerings/${courseOfferingId}/eligible-students`)
 export const withdrawStudent = (courseOfferingId: string, studentId: string) => apiClient
   .delete(`/admin/course-offerings/${courseOfferingId}/enrollments/${studentId}`)

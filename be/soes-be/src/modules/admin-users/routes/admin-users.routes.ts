@@ -15,5 +15,6 @@ router.patch('/users/:role/:profileId/status', requireBackoffice('USERS_MANAGE')
 router.post('/users/:role/:profileId/reset-password', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.resetPassword))
 router.post('/course-offerings/:courseOfferingId/enrollments', requireBackoffice('ACADEMIC_MANAGE'), asyncHandler(controller.enroll))
 router.get('/course-offerings/:courseOfferingId/enrollments', requireBackoffice('ACADEMIC_VIEW'), asyncHandler(controller.listEnrollments))
+router.get('/course-offerings/:courseOfferingId/eligible-students', requireBackoffice('ACADEMIC_VIEW'), asyncHandler(controller.listEligibleStudents))
 router.delete('/course-offerings/:courseOfferingId/enrollments/:studentId', requireBackoffice('ACADEMIC_MANAGE'), asyncHandler(controller.withdraw))
 export default router

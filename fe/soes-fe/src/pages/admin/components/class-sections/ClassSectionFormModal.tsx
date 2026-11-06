@@ -103,11 +103,12 @@ export default function ClassSectionFormModal({
         <AdminField label="Giảng viên phụ trách">
           <AdminSelect
             value={teacherIdInput}
+            disabled={!teacherOptions.length}
             onChange={onTeacherIdChange}
-            options={teacherOptions.map((teacher) => ({
+            options={teacherOptions.length ? teacherOptions.map((teacher) => ({
               value: teacher.id,
               label: `${teacher.fullName} - ${teacher.code}`,
-            }))}
+            })) : [{ value: '', label: 'Bộ môn chưa có giảng viên đang hoạt động' }]}
           />
         </AdminField>
         <AdminField label="Trạng thái">

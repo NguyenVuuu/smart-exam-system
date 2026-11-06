@@ -60,6 +60,13 @@ export interface CourseEnrollmentApiDto {
   enrolledAt: string
 }
 
+export interface EligibleStudentApiDto {
+  id: string
+  code: string
+  fullName: string
+  email: string | null
+}
+
 export interface UserApiDto {
   id: string; profileId: string; code: string; fullName: string; role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT'
   email: string | null; phoneNumber: string | null; status: string; position: string | null

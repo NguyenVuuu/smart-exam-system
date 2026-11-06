@@ -34,7 +34,7 @@ export const findCourseOfferingByCode = (code: string) => prisma.courseOffering.
 export const findCourseOfferingContext = (data: CourseOfferingBody) => Promise.all([
   prisma.semester.findUnique({ where: { id: data.semesterId } }),
   prisma.subject.findUnique({ where: { id: data.subjectId } }),
-  prisma.teacher.findUnique({ where: { id: data.teacherId } }),
+  prisma.teacher.findUnique({ where: { id: data.teacherId }, include: { user: { select: { status: true } } } }),
   findCourseOfferingByCode(data.code),
 ])
 export const createCourseOffering = (data: CourseOfferingBody) => prisma.courseOffering.create({ data, include: courseOfferingInclude })

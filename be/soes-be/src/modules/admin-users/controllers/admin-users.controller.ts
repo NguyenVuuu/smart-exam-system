@@ -59,6 +59,10 @@ export const listEnrollments = async (req: Request, res: Response) => {
   const { courseOfferingId } = enrollmentParams.parse(req.params)
   send(res, await service.listEnrollments(courseOfferingId, enrollmentQuerySchema.parse(req.query)))
 }
+export const listEligibleStudents = async (req: Request, res: Response) => {
+  const { courseOfferingId } = enrollmentParams.parse(req.params)
+  send(res, await service.listEligibleStudents(courseOfferingId, enrollmentQuerySchema.parse(req.query)))
+}
 export const withdraw = async (req: Request, res: Response) => {
   const { courseOfferingId, studentId } = enrollmentParams.parse(req.params)
   send(res, await service.withdraw(courseOfferingId, studentId!))
