@@ -64,7 +64,6 @@ export default function ExamTrackingToolbar(props: Props) {
             onChange={(value) => props.onStatusChange(value as Props['status'])}
             options={[
               { value: 'ALL', label: 'Tất cả trạng thái' },
-              { value: 'DRAFT', label: 'Bản nháp' },
               { value: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
               { value: 'APPROVED', label: 'Đã duyệt / công bố' },
               { value: 'REJECTED', label: 'Bị từ chối' },

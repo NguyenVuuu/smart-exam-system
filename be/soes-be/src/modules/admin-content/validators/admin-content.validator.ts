@@ -13,7 +13,7 @@ export const questionBankQuerySchema = contentQuerySchema.extend({
 export const examTrackingQuerySchema = contentQuerySchema.extend({
   semesterId: id.optional(),
   type: z.enum(['QUIZ', 'MIDTERM', 'FINAL']).optional(),
-  status: z.enum(['DRAFT', 'READY', 'LOCKED', 'ARCHIVED']).optional(),
+  status: z.enum(['READY', 'LOCKED', 'ARCHIVED']).optional(),
   approvalStatus: z.enum(['NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED']).optional(),
 })
 export const removalSchema = z.object({ reason: z.string().trim().min(5).max(1000) })

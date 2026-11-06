@@ -61,11 +61,12 @@ export function findBankItem(id: string) {
   return prisma.questionBankItem.findUnique({ where: { id }, include: bankInclude })
 }
 
-export const findExamDetail = (id: string) => prisma.exam.findUnique({ where: { id }, include: examDetailInclude })
+export const findExamDetail = (id: string) => prisma.exam.findFirst({ where: { id, status: { not: 'DRAFT' } }, include: examDetailInclude })
 
 export function listExams(query: ExamTrackingQuery) {
   const where: Prisma.ExamWhereInput = {
-    ...(query.type && { type: query.type }), ...(query.status && { status: query.status }),
+    status: query.status ?? { not: 'DRAFT' },
+    ...(query.type && { type: query.type }),
     ...(query.approvalStatus && { approvalStatus: query.approvalStatus }),
     ...(query.subjectId && { subjectId: query.subjectId }),
     ...(query.semesterId && { semesterId: query.semesterId }),
