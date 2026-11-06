@@ -1,4 +1,4 @@
-import { Bell, BookOpen, CalendarDays, ClipboardCheck, FileQuestion, Files, House, Sparkles, UserRound, UsersRound } from 'lucide-react-native'
+import { Bell, BookOpen, CalendarDays, ClipboardCheck, FileQuestion, Files, GraduationCap, House, Sparkles, UserRound, UsersRound } from 'lucide-react-native'
 import type { NavigationGroup } from './navigation.types'
 
 export const teacherNavigation: NavigationGroup[] = [
@@ -14,6 +14,7 @@ export const teacherNavigation: NavigationGroup[] = [
     { key: 'ai-generator', label: 'Sinh câu hỏi AI', href: '/(app)/(teacher)/ai-generator', icon: Sparkles },
   ] },
   { title: 'Bộ môn', items: [{ key: 'review-group', label: 'Nhóm duyệt đề', href: '/(app)/(teacher)/review-group', icon: UsersRound }] },
+  { title: 'Kết quả', items: [{ key: 'appeals', label: 'Phúc khảo điểm', href: '/(app)/(teacher)/appeals', icon: GraduationCap }] },
   { title: 'Tài khoản', items: [
     { key: 'notifications', label: 'Thông báo', href: '/(app)/(teacher)/notifications', icon: Bell },
     { key: 'account', label: 'Hồ sơ', href: '/(app)/(teacher)/account', icon: UserRound },
