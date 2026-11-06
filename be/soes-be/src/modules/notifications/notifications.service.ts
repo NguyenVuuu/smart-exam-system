@@ -1,6 +1,8 @@
 import { NotFoundError } from '../../errors/AppError'
+import prisma from '../../lib/prisma'
 import { toPagination } from '../../utils/pagination'
 import { emitUserEvent } from '../proctoring/proctoring-realtime.events'
+import { resolveBackofficePermissions } from '../auth/permissions/backoffice-permissions'
 import * as repository from './notifications.repository'
 import type { NotificationsQuery } from './notifications.validator'
 
@@ -30,4 +32,20 @@ export async function notifyUsers(userIds: string[], title: string, content: str
     emitUserEvent(userId, 'notification:created', notification)
   })
   return { count: notifications.length }
+}
+
+export async function notifyExamSchedulers(examTitle: string) {
+  const [accounts, rolePermissions] = await Promise.all([
+    prisma.admin.findMany({
+      where: { status: 'ACTIVE', user: { status: 'ACTIVE' } },
+      select: { role: true, userId: true, permissionOverrides: { select: { permission: true, allowed: true } } },
+    }),
+    prisma.backofficeRolePermission.findMany({ select: { role: true, permission: true } }),
+  ])
+  const userIds = accounts.filter((account) => resolveBackofficePermissions(
+    rolePermissions.filter(({ role }) => role === account.role), account.permissionOverrides,
+  ).includes('SCHEDULES_VIEW')).map(({ userId }) => userId)
+  return notifyUsers(userIds, 'Đề cuối kỳ đã sẵn sàng', `Đề "${examTitle}" đã được duyệt và có thể lập lịch thi.`, {
+    link: '/admin/exam-schedules',
+  })
 }

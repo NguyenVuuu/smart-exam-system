@@ -11,6 +11,7 @@ export default function TeacherNotificationsMenu({
   onRetry,
   onSelect,
   onViewAll,
+  heading = 'Thông báo giảng dạy',
 }: {
   notifications: TeacherNotification[]
   unreadCount: number
@@ -19,13 +20,14 @@ export default function TeacherNotificationsMenu({
   onMarkAllRead: () => void
   onRetry: () => void
   onSelect: (notification: TeacherNotification) => void
-  onViewAll: () => void
+  onViewAll?: () => void
+  heading?: string
 }) {
   return (
     <div className="absolute right-0 top-11 z-30 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div>
-          <p className="text-sm font-semibold text-slate-950">Thông báo giảng dạy</p>
+          <p className="text-sm font-semibold text-slate-950">{heading}</p>
           <p className="mt-0.5 text-xs text-slate-500">{unreadCount} thông báo chưa đọc</p>
         </div>
         <button
@@ -73,7 +75,7 @@ export default function TeacherNotificationsMenu({
           </button>
         ))}
       </div>
-      {!loading && !error && notifications.length > 0 && (
+      {!loading && !error && notifications.length > 0 && onViewAll && (
         <button
           type="button"
           onClick={onViewAll}

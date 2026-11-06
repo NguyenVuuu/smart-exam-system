@@ -4,6 +4,7 @@ import Module from 'node:module'
 
 test('final exam workflow notifies the review group and the author at the correct links', async (context) => {
   const sent: Array<{ users: string[]; title: string; link: string | null | undefined }> = []
+  const schedulerNotifications: string[] = []
   const repositoryId = require.resolve('../repositories/teacher-exams.repository')
   const lifecycleId = require.resolve('../repositories/teacher-exam-lifecycle.repository')
   const mapperId = require.resolve('../mappers/teacher-exam.mapper')
@@ -42,6 +43,7 @@ test('final exam workflow notifies the review group and the author at the correc
     notifyUsers: async (users: string[], title: string, _content: string, options: { link?: string | null }) => {
       sent.push({ users, title, link: options.link })
     },
+    notifyExamSchedulers: async (examTitle: string) => { schedulerNotifications.push(examTitle) },
   })
   delete require.cache[serviceId]
   context.after(() => {
@@ -66,4 +68,5 @@ test('final exam workflow notifies the review group and the author at the correc
   assert.match(sent[0].title, /cần duyệt/)
   assert.match(sent[1].title, /đã được duyệt/)
   assert.match(sent[3].title, /cần chỉnh sửa/)
+  assert.deepEqual(schedulerNotifications, ['Final exam'])
 })
