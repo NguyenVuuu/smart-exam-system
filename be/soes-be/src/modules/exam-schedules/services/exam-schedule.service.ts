@@ -51,6 +51,10 @@ async function validateContext(
     throw new ValidationError('Only approved and ready final exams can be centrally scheduled')
   }
   if (!exam.examQuestions.length) throw new ValidationError('Exam has no questions')
+  if (input.distributionMode === 'RANDOM_SUBSET' &&
+    (input.randomQuestionCount ?? 0) > exam.examQuestions.length) {
+    throw new ValidationError('Random question count cannot exceed the number of exam questions')
+  }
   if (!exam.contentHash) throw new ConflictError('Đề thi chưa có hash nội dung; vui lòng thử lại sau khi hệ thống ghi nhận đề.')
   if (!await verifyExamIntegrityFast(exam.id, exam.contentHash)) {
     throw new ConflictError('Không thể lập lịch thi: nội dung đề không khớp hash đã ghi nhận.')
@@ -68,6 +72,10 @@ async function validateContext(
     throw new ConflictError(
       `Proctor ${proctorConflict.teacher.user.fullName} already has an overlapping assignment or less than ${PROCTOR_TURNOVER_MINUTES} minutes between schedules`,
     )
+  }
+  const studentConflict = await repo.findStudentScheduleConflict(tx, courseIds, input.startTime, input.endTime, excludeId)
+  if (studentConflict) {
+    throw new ConflictError(`Student ${studentConflict.student.studentCode} already has an overlapping scheduled exam`)
   }
 }
 

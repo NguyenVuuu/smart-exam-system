@@ -55,6 +55,7 @@ export function useAdminExamSchedules(params: ScheduleListParams) {
         ? current.schedules.map((item) => item.id === mapped.id ? mapped : item)
         : [mapped, ...current.schedules],
     }))
+    setVersion((value) => value + 1)
   }, [state.schedules])
 
   const cancel = useCallback(async (id: string, reason: string) => {
@@ -62,6 +63,7 @@ export function useAdminExamSchedules(params: ScheduleListParams) {
     setState((current) => ({
       ...current, schedules: current.schedules.map((item) => item.id === id ? mapped : item),
     }))
+    setVersion((value) => value + 1)
   }, [])
 
   const retry = () => {
