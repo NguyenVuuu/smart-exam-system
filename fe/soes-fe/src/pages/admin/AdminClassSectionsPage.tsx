@@ -51,10 +51,14 @@ export default function AdminClassSectionsPage() {
     [data.teachers, departmentId],
   )
   const enrolledIds = useMemo(() => new Set(data.enrollments.map(({ id }) => id)), [data.enrollments])
-  const filteredStudents = data.students.filter((item) =>
-    !enrolledIds.has(item.id) &&
-    `${item.code} ${item.fullName} ${item.email}`.toLowerCase().includes(studentSearch.toLowerCase()),
-  )
+  const filteredStudents = useMemo(() => {
+    const candidates = new Map(data.students.map((student) => [student.id, student]))
+    data.enrollments.forEach((student) => { if (!candidates.has(student.id)) candidates.set(student.id, student) })
+    const keyword = studentSearch.trim().toLowerCase()
+    return [...candidates.values()].filter((student) =>
+      `${student.code} ${student.fullName} ${student.email ?? ''}`.toLowerCase().includes(keyword),
+    )
+  }, [data.students, data.enrollments, studentSearch])
 
   const resetForm = () => {
     const firstDepartment = data.departments[0]
@@ -157,7 +161,7 @@ export default function AdminClassSectionsPage() {
         teacherIdInput={teacherId} onTeacherIdChange={setTeacherId} teacherOptions={departmentTeachers}
         departments={data.departments} semesters={data.semesters} classStatusInput={classStatus}
         onClassStatusChange={setClassStatus} onClose={() => setModalOpen(false)} onConfirm={() => void save()} />
-      <ClassEnrollmentModal key={enrollmentClass?.id ?? 'closed'} course={enrollmentClass} students={filteredStudents} search={studentSearch}
+      <ClassEnrollmentModal key={enrollmentClass?.id ?? 'closed'} course={enrollmentClass} students={filteredStudents} enrolledIds={enrolledIds} search={studentSearch}
         enrollments={data.enrollments} loading={data.enrollmentsLoading}
         selectedStudentIds={selectedStudentIds} onSearchChange={setStudentSearch}
         onToggleStudent={(id) => setSelectedStudentIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}

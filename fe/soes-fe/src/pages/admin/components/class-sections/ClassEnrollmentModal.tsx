@@ -8,11 +8,12 @@ import { AdminInput } from '../AdminFormFields'
 type EnrollmentTab = 'ROSTER' | 'ADD'
 
 export default function ClassEnrollmentModal({
-  course, students, enrollments, loading, search, selectedStudentIds,
+  course, students, enrolledIds, enrollments, loading, search, selectedStudentIds,
   onSearchChange, onToggleStudent, onRemoveStudent, onClose, onConfirm,
 }: {
   course: CourseOfferingAdmin | null
   students: StudentCandidate[]
+  enrolledIds: ReadonlySet<string>
   enrollments: CourseEnrollmentAdmin[]
   loading: boolean
   search: string
@@ -57,7 +58,7 @@ export default function ClassEnrollmentModal({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {activeTab === 'ROSTER' || !canManage
             ? <RosterList students={visibleEnrollments} loading={loading} onRemoveStudent={canManage ? onRemoveStudent : undefined} />
-            : <CandidateList students={students} selectedStudentIds={selectedStudentIds} onToggleStudent={onToggleStudent} />}
+            : <CandidateList students={students} enrolledIds={enrolledIds} selectedStudentIds={selectedStudentIds} onToggleStudent={onToggleStudent} />}
         </div>
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
@@ -106,20 +107,23 @@ function RosterList({ students, loading, onRemoveStudent }: { students: CourseEn
   )
 }
 
-function CandidateList({ students, selectedStudentIds, onToggleStudent }: { students: StudentCandidate[]; selectedStudentIds: string[]; onToggleStudent: (studentId: string) => void }) {
+function CandidateList({ students, enrolledIds, selectedStudentIds, onToggleStudent }: { students: StudentCandidate[]; enrolledIds: ReadonlySet<string>; selectedStudentIds: string[]; onToggleStudent: (studentId: string) => void }) {
   if (students.length === 0) return <EmptyState text="Không có sinh viên có thể thêm." />
   return (
     <div className="overflow-hidden rounded-xl border border-gray-100">
       {students.map((student) => (
-        <label key={student.id} className="flex cursor-pointer items-center justify-between gap-4 border-b border-gray-100 px-4 py-3 last:border-b-0 hover:bg-gray-50">
+        <label key={student.id} className={`flex items-center justify-between gap-4 border-b border-gray-100 px-4 py-3 last:border-b-0 ${enrolledIds.has(student.id) ? 'bg-gray-50' : 'cursor-pointer hover:bg-gray-50'}`}>
           <div className="flex min-w-0 items-center gap-3">
-            <input type="checkbox" checked={selectedStudentIds.includes(student.id)} onChange={() => onToggleStudent(student.id)} className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+            <input type="checkbox" disabled={enrolledIds.has(student.id)} checked={enrolledIds.has(student.id) || selectedStudentIds.includes(student.id)} onChange={() => onToggleStudent(student.id)} className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed" />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-800">{student.fullName}</p>
               <p className="truncate text-xs text-slate-400">{student.email}</p>
             </div>
           </div>
-          <span className="shrink-0 text-sm text-slate-500">{student.code}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            {enrolledIds.has(student.id) && <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">Đã trong lớp</span>}
+            <span className="text-sm text-slate-500">{student.code}</span>
+          </div>
         </label>
       ))}
     </div>
