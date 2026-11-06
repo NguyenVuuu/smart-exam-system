@@ -17,6 +17,7 @@ import type { Exam } from './types/teacher-exam.types'
 import { examStatusLabel, examStatusTone } from './constants/examStatus'
 import { useTeacherCourses } from './hooks/useTeacherCourses'
 import { getApiErrorMessage } from '../../api/errors'
+import { examCategoryLabel } from './constants/teacher-approval.constants'
 
 export default function TeacherExamsPage() {
   const navigate = useNavigate()
@@ -101,6 +102,15 @@ export default function TeacherExamsPage() {
             {e.subjectName} · {e.semesterName}
           </p>
         </div>
+      ),
+    },
+    {
+      header: 'Loại bài thi',
+      width: '120px',
+      render: (e) => (
+        <AppBadge tone="gray" shape="rounded" className="whitespace-nowrap text-xs">
+          {e.category ? examCategoryLabel[e.category] : 'Chưa xác định'}
+        </AppBadge>
       ),
     },
     {
