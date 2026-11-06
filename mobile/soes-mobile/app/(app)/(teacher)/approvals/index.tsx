@@ -1,3 +1,3 @@
-import { TeacherApprovalsPage } from '../../../../src/pages/teacher/TeacherApprovalsPage'
+import { TeacherReviewPage } from '../../../../src/pages/teacher/TeacherReviewPage'
 
-export default TeacherApprovalsPage
+export default TeacherReviewPage

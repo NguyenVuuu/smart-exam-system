@@ -1,3 +1,5 @@
-import { TeacherQuestionApprovalsPage } from '../../../../src/pages/teacher/TeacherQuestionApprovalsPage'
+import { Redirect } from 'expo-router'
 
-export default TeacherQuestionApprovalsPage
+export default function QuestionApprovalsRedirect() {
+  return <Redirect href="/(app)/(teacher)/approvals?tab=questions" />
+}

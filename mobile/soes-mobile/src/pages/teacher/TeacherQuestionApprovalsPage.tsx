@@ -8,7 +8,7 @@ import { ScreenState } from '../../components/ui/ScreenState'
 import { useKeyboardBottomOffset } from '../../hooks/useKeyboardBottomOffset'
 import type { QuestionApproval } from '../../types/teacher-question-approvals.types'
 
-export function TeacherQuestionApprovalsPage() {
+export function TeacherQuestionApprovalsPage({ showHeader = true }: { showHeader?: boolean }) {
   const [items, setItems] = useState<QuestionApproval[]>([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -78,9 +78,9 @@ export function TeacherQuestionApprovalsPage() {
         Platform.OS === 'ios' && { paddingBottom: animatedOffset },
       ]}
     >
-      <View style={styles.header}>
+      {showHeader && <View style={styles.header}>
         <ScreenHeader title="Duyệt câu hỏi" description="Câu hỏi chờ duyệt vào ngân hàng dùng chung" />
-      </View>
+      </View>}
       {loading && items.length === 0 ? (
         <ScreenState kind="loading" />
       ) : error && items.length === 0 ? (

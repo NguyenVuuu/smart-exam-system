@@ -9,10 +9,9 @@ export const teacherNavigation: NavigationGroup[] = [
   ] },
   { title: 'Đề và câu hỏi', items: [
     { key: 'exams', label: 'Đề thi', href: '/(app)/(teacher)/exams', icon: Files },
-    { key: 'approvals', label: 'Duyệt đề', href: '/(app)/(teacher)/approvals', icon: ClipboardCheck },
+    { key: 'approvals', label: 'Duyệt chuyên môn', href: '/(app)/(teacher)/approvals', icon: ClipboardCheck },
     { key: 'question-bank', label: 'Ngân hàng câu hỏi', href: '/(app)/(teacher)/question-bank', icon: FileQuestion },
     { key: 'ai-generator', label: 'Sinh câu hỏi AI', href: '/(app)/(teacher)/ai-generator', icon: Sparkles },
-    { key: 'question-approvals', label: 'Duyệt câu hỏi', href: '/(app)/(teacher)/question-approvals', icon: ClipboardCheck },
   ] },
   { title: 'Bộ môn', items: [{ key: 'review-group', label: 'Nhóm duyệt đề', href: '/(app)/(teacher)/review-group', icon: UsersRound }] },
   { title: 'Tài khoản', items: [

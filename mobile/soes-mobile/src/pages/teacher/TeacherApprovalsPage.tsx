@@ -9,7 +9,7 @@ import { PaginationControls } from '../../components/ui/PaginationControls'
 import type { ExamApproval } from '../../types/teacher-approvals.types'
 import { formatDateTime } from '../../utils/date'
 
-export function TeacherApprovalsPage() {
+export function TeacherApprovalsPage({ showHeader = true }: { showHeader?: boolean }) {
   const [items, setItems] = useState<ExamApproval[]>([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -35,7 +35,7 @@ export function TeacherApprovalsPage() {
   }, [])
 
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader title="Duyệt đề cuối kỳ" description="Các đề đang chờ thành viên nhóm thẩm định" /></View>
+    {showHeader && <View style={styles.header}><ScreenHeader title="Duyệt đề cuối kỳ" description="Các đề đang chờ thành viên nhóm thẩm định" /></View>}
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1)} /> :
       <FlatList key={page} data={items} keyExtractor={(exam) => exam.id} contentContainerStyle={styles.list}
         renderItem={({ item }) => <Pressable accessibilityRole="button" onPress={() => router.push(`/(app)/(teacher)/approvals/${item.id}` as never)}>
