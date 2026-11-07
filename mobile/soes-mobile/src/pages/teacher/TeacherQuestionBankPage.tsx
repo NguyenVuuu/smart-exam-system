@@ -83,7 +83,7 @@ export function TeacherQuestionBankPage() {
   if (editing) return <TeacherQuestionEditorPage initial={editing === 'new' ? null : editing}
     onCancel={() => setEditing(null)} onDone={() => { setEditing(null); setScope('personal'); void load(1, 'personal', keyword, type) }} />
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader title="Ngân hàng câu hỏi" description="Câu hỏi cá nhân và câu hỏi dùng chung" />
+    <View style={styles.header}><ScreenHeader showBack title="Ngân hàng câu hỏi" description="Câu hỏi cá nhân và câu hỏi dùng chung" />
       <Pressable accessibilityRole="button" style={styles.create} onPress={() => setEditing('new')}>
         <Plus size={16} color="#fff" /><Text style={styles.createText}>Tạo câu hỏi</Text>
       </Pressable>

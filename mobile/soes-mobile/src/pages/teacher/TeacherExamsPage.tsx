@@ -48,7 +48,7 @@ export function TeacherExamsPage() {
   }, [keyword, type, load])
 
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader title="Đề thi" description="Xem nội dung và tình trạng đề thi" />
+    <View style={styles.header}><ScreenHeader showBack title="Đề thi" description="Xem nội dung và tình trạng đề thi" />
       <SearchField value={keyword} onChangeText={setKeyword} placeholder="Tìm tên đề hoặc môn học" />
       <View style={styles.filters}>{filters.map((filter) => <Pressable key={filter.type} accessibilityRole="button"
         onPress={() => setType(filter.type)} style={[styles.filter, type === filter.type && styles.selected]}>

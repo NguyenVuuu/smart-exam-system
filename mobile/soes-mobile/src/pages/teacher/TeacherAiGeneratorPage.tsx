@@ -42,7 +42,7 @@ export function TeacherAiGeneratorPage() {
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={false}
       >
-        <ScreenHeader title="Sinh câu hỏi AI" description="Chọn nguồn tài liệu, xem và lưu câu trắc nghiệm đạt yêu cầu" />
+        <ScreenHeader showBack title="Sinh câu hỏi AI" description="Chọn nguồn tài liệu, xem và lưu câu trắc nghiệm đạt yêu cầu" />
         {!ai.generation ? (
           <>
             <Text style={styles.label}>Cách xử lý</Text>

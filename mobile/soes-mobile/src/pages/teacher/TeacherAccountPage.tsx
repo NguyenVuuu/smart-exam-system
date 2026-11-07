@@ -22,7 +22,7 @@ export function TeacherAccountPage() {
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={false}
       >
-        <ScreenHeader title="Tài khoản" description="Thông tin liên hệ và bảo mật tài khoản" />
+        <ScreenHeader showBack title="Tài khoản" description="Thông tin liên hệ và bảo mật tài khoản" />
         <View style={styles.section}>
           <TeacherProfileForm
             user={account.user}
