@@ -18,7 +18,7 @@ export function TeacherNotificationsPage() {
   }
   return <View style={styles.root}>
     <View style={styles.header}>
-      <ScreenHeader title="Thông báo" description={`${notifications.unreadCount} thông báo chưa đọc`} />
+      <ScreenHeader showBack title="Thông báo" description={`${notifications.unreadCount} thông báo chưa đọc`} />
       <Pressable accessibilityRole="button" disabled={notifications.busy || !notifications.unreadCount}
         onPress={() => { void notifications.markAllRead() }} style={styles.action}>
         <CheckCheck size={17} color="#2563eb" /><Text style={styles.actionText}>Đánh dấu tất cả đã đọc</Text>

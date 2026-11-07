@@ -38,7 +38,7 @@ export function TeacherCoursesScreen() {
   }, [keyword, load])
 
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader title="Lớp học phần" description="Các lớp bạn đang phụ trách" /><SearchField value={keyword} onChangeText={setKeyword} placeholder="Tìm lớp hoặc môn học" /></View>
+    <View style={styles.header}><ScreenHeader showBack title="Lớp học phần" description="Các lớp bạn đang phụ trách" /><SearchField value={keyword} onChangeText={setKeyword} placeholder="Tìm lớp hoặc môn học" /></View>
     {loading && courses.length === 0 ? <ScreenState kind="loading" /> : error && courses.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, keyword)} /> :
       <FlatList key={page} data={courses} keyExtractor={(course) => course.id} renderItem={({ item }) => <CourseCard course={item} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"

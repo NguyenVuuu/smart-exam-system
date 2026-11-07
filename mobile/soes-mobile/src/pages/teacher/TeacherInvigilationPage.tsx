@@ -20,7 +20,7 @@ export function TeacherInvigilationPage() {
   const [view, setView] = useState<'list' | 'calendar'>('calendar')
   return <View style={styles.root}>
     <View style={styles.header}>
-      <ScreenHeader title="Lịch coi thi" description="Ca thi bạn tạo hoặc được phân công coi thi" />
+      <ScreenHeader showBack title="Lịch coi thi" description="Ca thi bạn tạo hoặc được phân công coi thi" />
       <View style={styles.switcher}>
         <Pressable accessibilityRole="button" accessibilityState={{ selected: view === 'calendar' }} onPress={() => setView('calendar')} style={[styles.switchButton, view === 'calendar' && styles.switchActive]}>
           <CalendarDays size={16} color={view === 'calendar' ? '#fff' : '#475569'} /><Text style={[styles.switchText, view === 'calendar' && styles.switchTextActive]}>Lịch tháng</Text>
