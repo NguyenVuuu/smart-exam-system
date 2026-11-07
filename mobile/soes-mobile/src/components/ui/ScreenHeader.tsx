@@ -8,16 +8,19 @@ export function ScreenHeader({ title, description, showBack = false, onBack }: P
   return <View style={styles.root}>
     {showBack && <Pressable accessibilityRole="button" accessibilityLabel="Quay lại" style={styles.back}
       onPress={onBack ?? (() => router.canGoBack() ? router.back() : router.replace('/(app)/(teacher)' as never))}>
-      <ArrowLeft size={20} color="#2563eb" />
+      <ArrowLeft size={22} color="#2563eb" />
     </Pressable>}
-    <Text style={styles.title}>{title}</Text>
-    {description && <Text style={styles.description}>{description}</Text>}
+    <View style={styles.content}>
+      <Text style={styles.title}>{title}</Text>
+      {description && <Text style={styles.description}>{description}</Text>}
+    </View>
   </View>
 }
 
 const styles = StyleSheet.create({
-  root: { marginBottom: 18 },
-  back: { width: 44, height: 44, alignSelf: 'flex-start', alignItems: 'center', justifyContent: 'center', marginLeft: -10, marginBottom: 4 },
+  root: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
+  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginLeft: -10, marginRight: 2, marginTop: -6 },
+  content: { flex: 1, minWidth: 0 },
   title: { color: '#0f172a', fontSize: 22, fontWeight: '800' },
   description: { color: '#64748b', fontSize: 13, lineHeight: 19, marginTop: 4 },
 })
