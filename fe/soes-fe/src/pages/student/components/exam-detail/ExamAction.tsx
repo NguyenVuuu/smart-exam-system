@@ -23,6 +23,7 @@ export default function ExamAction({ data }: ExamActionProps) {
   const [isCheckingFace, setIsCheckingFace] = useState(false)
   const [isFaceDialogOpen, setIsFaceDialogOpen] = useState(false)
   const [isWebcamDialogOpen, setIsWebcamDialogOpen] = useState(false)
+  const [faceGrantId, setFaceGrantId] = useState<string | undefined>()
   const [password, setPassword] = useState('')
   const webcam = useExamWebcam(data.enableWebcam)
   const screenShare = useExamScreenShare(data.enableScreenMonitoring)
@@ -98,6 +99,16 @@ export default function ExamAction({ data }: ExamActionProps) {
       const message = error instanceof AxiosError
         ? error.response?.data?.message
         : null
+      if (faceVerificationId && typeof message === 'string' && message.includes('Face verification has expired or was already used')) {
+        webcam.stop()
+        screenShare.stop()
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+        setIsWebcamDialogOpen(false)
+        setFaceGrantId(undefined)
+        setIsFaceDialogOpen(true)
+        toast.error('Phiên xác minh đã hết hạn. Vui lòng quét lại khuôn mặt.')
+        return
+      }
       toast.error(message || 'Không thể bắt đầu bài thi')
     } finally {
       setIsStarting(false)
@@ -110,10 +121,9 @@ export default function ExamAction({ data }: ExamActionProps) {
     try {
       const profile = await studentFaceApi.profile()
       if (profile.enabled) {
-        setIsWebcamDialogOpen(false)
         setIsFaceDialogOpen(true)
       } else {
-        await startOrResumeExam()
+        continueAfterFaceVerification()
       }
     } catch {
       toast.error('Không thể kiểm tra yêu cầu xác minh khuôn mặt. Vui lòng thử lại.')
@@ -122,7 +132,16 @@ export default function ExamAction({ data }: ExamActionProps) {
     }
   }
 
-  const useManualApproval = async () => {
+  const continueAfterFaceVerification = (grantId?: string) => {
+    setFaceGrantId(grantId)
+    if (data.enableWebcam || data.enableScreenMonitoring || data.requireFullscreen || (!canResume && data.requiresPassword)) {
+      setIsWebcamDialogOpen(true)
+    } else {
+      void startOrResumeExam(grantId)
+    }
+  }
+
+  const checkManualApproval = async () => {
     try {
       const grant = await studentFaceApi.manualApproval(scheduleId ?? data.id)
       if (!grant?.id) {
@@ -130,17 +149,17 @@ export default function ExamAction({ data }: ExamActionProps) {
         return
       }
       setIsFaceDialogOpen(false)
-      await startOrResumeExam(grant.id)
+      continueAfterFaceVerification(grant.id)
     } catch {
       toast.error('Không thể kiểm tra xác nhận của giảng viên coi thi.')
     }
   }
 
   const handleStartExam = () => {
-    if (data.enableWebcam || data.enableScreenMonitoring || data.requireFullscreen || (!canResume && data.requiresPassword)) {
-      setIsWebcamDialogOpen(true)
-      return
-    }
+    webcam.stop()
+    screenShare.stop()
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+    setFaceGrantId(undefined)
     void proceedToFaceVerification()
   }
 
@@ -152,6 +171,7 @@ export default function ExamAction({ data }: ExamActionProps) {
       void document.exitFullscreen().catch(() => undefined)
     }
     setPassword('')
+    setFaceGrantId(undefined)
     setIsWebcamDialogOpen(false)
   }
 
@@ -200,6 +220,7 @@ export default function ExamAction({ data }: ExamActionProps) {
         screenStatus={screenShare.status}
         screenErrorMessage={screenShare.errorMessage}
         isStartingExam={isStarting}
+        faceVerified={Boolean(faceGrantId)}
         requiresWebcam={data.enableWebcam}
         requiresScreenShare={data.enableScreenMonitoring}
         requiresFullscreen={data.requireFullscreen}
@@ -210,7 +231,7 @@ export default function ExamAction({ data }: ExamActionProps) {
         onEnableScreenShare={handleEnableScreenShare}
         onEnableFullscreen={handleEnableFullscreen}
         onClose={handleCloseWebcamDialog}
-        onContinue={() => void proceedToFaceVerification()}
+        onContinue={() => void startOrResumeExam(faceGrantId)}
       />
       {isFaceDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4" role="dialog" aria-modal="true">
@@ -225,10 +246,10 @@ export default function ExamAction({ data }: ExamActionProps) {
                   return
                 }
                 setIsFaceDialogOpen(false)
-                void startOrResumeExam(grantId)
+                continueAfterFaceVerification(grantId)
               }}
             />
-            <button type="button" onClick={() => void useManualApproval()} className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-blue-700">
+            <button type="button" onClick={() => void checkManualApproval()} className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-blue-700">
               Kiểm tra xác nhận của giảng viên coi thi
             </button>
           </div>

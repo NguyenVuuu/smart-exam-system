@@ -23,7 +23,7 @@ function describeFailedVerification(result: FailedFaceCompletion, purpose: 'ENRO
   if (result.failureCode === 'FACE_MISMATCH') return 'Khuôn mặt không khớp hồ sơ đã đăng ký. Vui lòng thử lại.'
   if (result.failureCode === 'LIVENESS_LOW_CONFIDENCE') {
     const guidance = [...new Set(result.feedbackCodes ?? [])].flatMap((code) => feedbackGuidance[code] ? [feedbackGuidance[code]] : []).join(' ')
-    return `Phiên quét chưa đạt kiểm tra người thật. ${guidance || 'Hãy quét lại ở nơi đủ sáng, nhìn thẳng camera và không che mặt.'}`
+    return `Lần quét này chưa đủ tin cậy để xác minh. ${guidance || 'Hãy quét lại ở nơi sáng đều, nhìn thẳng camera và không che mặt.'}`
   }
   if (result.failureCode === 'LIVENESS_REFERENCE_IMAGE_MISSING') return 'AWS chưa nhận được ảnh tham chiếu đủ chất lượng. Vui lòng quét lại.'
   if (result.failureCode === 'LIVENESS_NOT_COMPLETED') return 'Phiên quét chưa hoàn tất. Vui lòng làm theo hướng dẫn trên camera và thử lại.'
@@ -58,6 +58,7 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
   const [awaitingResult, setAwaitingResult] = useState(false)
+  const [resultPending, setResultPending] = useState(false)
   const [failures, setFailures] = useState(0)
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null)
   const [requiresManualReview, setRequiresManualReview] = useState(false)
@@ -83,10 +84,12 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
   const abandonSession = () => {
     if (session) void studentFaceApi.cancel(session.id).catch(() => undefined)
     setSession(null)
+    setResultPending(false)
   }
 
   const start = async () => {
     setError('')
+    setResultPending(false)
     setWorking(true)
     try {
       setSession(await studentFaceApi.start(purpose, scheduleId))
@@ -101,6 +104,7 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
     if (!session) return
     setWorking(true)
     setAwaitingResult(true)
+    setResultPending(false)
     try {
       let result = await studentFaceApi.complete(session.id)
       for (let retry = 0; result.status === 'PROCESSING' && retry < 12; retry++) {
@@ -118,8 +122,8 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
         setError(describeFailedVerification(result, purpose))
         setSession(null)
       } else {
-        setError('Hệ thống chưa nhận được kết quả. Vui lòng thử lại sau.')
-        abandonSession()
+        setError('Kết quả đang được xử lý. Bạn có thể kiểm tra lại mà không cần quét lại khuôn mặt.')
+        setResultPending(true)
       }
     } catch {
       setError('Không thể hoàn tất xác minh. Vui lòng thử lại.')
@@ -163,6 +167,11 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
         {awaitingResult ? (
           <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-600">
             Đang chờ kết quả xác minh từ AWS...
+          </div>
+        ) : session && resultPending ? (
+          <div className="rounded-2xl bg-blue-50 p-5">
+            <p className="text-sm leading-6 text-slate-700">Đã gửi phiên quét. Hãy kiểm tra kết quả trước khi tạo phiên mới.</p>
+            <button type="button" onClick={() => void complete()} disabled={working} className="mt-4 min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Kiểm tra kết quả</button>
           </div>
         ) : session && identityPoolId ? (
           <div>

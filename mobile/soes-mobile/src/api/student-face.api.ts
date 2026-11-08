@@ -12,7 +12,9 @@ export interface FaceEnrollmentSession {
   region: string
 }
 
-export type FaceEnrollmentResult = { status: 'PROCESSING' | 'PASSED' | 'FAILED' }
+export type FaceEnrollmentResult =
+  | { status: 'PROCESSING' | 'PASSED' }
+  | { status: 'FAILED'; failureCode?: string; feedbackCodes?: string[] }
 
 export async function getStudentFaceProfile(): Promise<StudentFaceProfile> {
   const response = await apiClient.get<{ data: StudentFaceProfile }>('/student/face/profile')

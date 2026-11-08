@@ -1,19 +1,35 @@
 import { useContext, useState } from 'react'
-import { Fingerprint, RefreshCw } from 'lucide-react-native'
+import { ArrowLeft, Fingerprint, LogOut, RefreshCw } from 'lucide-react-native'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cancelFaceEnrollmentSession, completeFaceEnrollmentSession, createFaceEnrollmentSession, type FaceEnrollmentSession } from '../../../src/api/student-face.api'
 import { FaceLivenessCamera } from '../../../src/components/student/face/FaceLivenessCamera'
 import { StudentFaceEnrollmentContext } from '../../../src/hooks/useStudentFaceEnrollment'
+import { useLogout } from '../../../src/hooks/useLogout'
 
 type LivenessComponent = typeof import('@blacktomang/expo-aws-liveness').ExpoAwsLiveness
 type Phase = 'intro' | 'creating' | 'scanning' | 'checking' | 'waiting'
 
 const identityPoolId = process.env.EXPO_PUBLIC_AWS_FACE_IDENTITY_POOL_ID?.trim()
 const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+const feedbackGuidance: Record<string, string> = {
+  FACE_NOT_VISIBLE: 'Giữ mặt trong khung quét đến khi hoàn tất.',
+  FACE_OBSTRUCTION_DETECTED: 'Bỏ khẩu trang hoặc vật che mặt.',
+  LOW_VIDEO_QUALITY_DETECTED: 'Lau camera và giữ điện thoại ổn định.',
+  FACE_NOT_ALIGNED: 'Đặt mặt vào giữa khung.',
+  LOW_LIGHTING_DETECTED: 'Chuyển đến nơi có ánh sáng đều hơn.',
+  HIGH_LIGHTING_DETECTED: 'Tránh ánh sáng chiếu thẳng vào mặt.',
+}
+
+function describeFailure(failureCode?: string, feedbackCodes: string[] = []) {
+  if (failureCode === 'LIVENESS_REFERENCE_IMAGE_MISSING') return 'Camera chưa chụp được khuôn mặt rõ. Vui lòng thử lại.'
+  const guidance = [...new Set(feedbackCodes)].map((code) => feedbackGuidance[code]).filter(Boolean).join(' ')
+  return `Lần quét này chưa đủ tin cậy để xác minh. ${guidance || 'Đặt mặt vừa khung, ở nơi sáng đều rồi thử lại.'}`
+}
 
 export default function StudentFaceEnrollmentPage() {
   const enrollment = useContext(StudentFaceEnrollmentContext)
+  const { handleLogout, isLoading: isLoggingOut } = useLogout()
   const [phase, setPhase] = useState<Phase>('intro')
   const [session, setSession] = useState<FaceEnrollmentSession | null>(null)
   const [detector, setDetector] = useState<LivenessComponent | null>(null)
@@ -52,7 +68,7 @@ export default function StudentFaceEnrollmentPage() {
         if (result.status === 'FAILED') {
           setSession(null)
           setPhase('intro')
-          setError('Chưa xác minh được khuôn mặt. Vui lòng thử lại ở nơi đủ sáng.')
+          setError(describeFailure(result.failureCode, result.feedbackCodes))
           return
         }
         await pause(1500)
@@ -65,8 +81,32 @@ export default function StudentFaceEnrollmentPage() {
     }
   }
 
+  const goBack = () => {
+    if (phase === 'scanning' && session) {
+      void cancelFaceEnrollmentSession(session.id).catch(() => undefined)
+      setSession(null)
+      setPhase('intro')
+      setError('')
+      return
+    }
+    void handleLogout()
+  }
+
+  const signOut = () => {
+    if (phase === 'scanning' && session) void cancelFaceEnrollmentSession(session.id).catch(() => undefined)
+    void handleLogout()
+  }
+
   if (phase === 'scanning' && session && detector && identityPoolId) {
     return <SafeAreaView style={styles.safe}>
+      <View style={styles.scanNav}>
+        <Pressable style={styles.back} onPress={goBack} accessibilityRole="button" accessibilityLabel="Quay lại đăng ký khuôn mặt">
+          <ArrowLeft size={19} color="#334155" /><Text style={styles.backText}>Quay lại</Text>
+        </Pressable>
+        <Pressable style={styles.back} onPress={signOut} disabled={isLoggingOut} accessibilityRole="button">
+          <LogOut size={18} color="#475569" /><Text style={styles.backText}>Đăng xuất</Text>
+        </Pressable>
+      </View>
       <FaceLivenessCamera
         component={detector}
         session={session}
@@ -86,6 +126,9 @@ export default function StudentFaceEnrollmentPage() {
   const busy = phase === 'creating' || phase === 'checking'
   return <SafeAreaView style={styles.safe}>
     <ScrollView contentContainerStyle={styles.content}>
+      <Pressable style={styles.back} onPress={goBack} disabled={busy || isLoggingOut} accessibilityRole="button">
+        <ArrowLeft size={19} color="#334155" /><Text style={styles.backText}>Quay lại đăng nhập</Text>
+      </Pressable>
       <View style={styles.icon}><Fingerprint size={30} color="#2563eb" /></View>
       <Text style={styles.title}>Đăng ký khuôn mặt</Text>
       <Text style={styles.description}>
@@ -101,6 +144,9 @@ export default function StudentFaceEnrollmentPage() {
       </Pressable> : null}
       <Pressable style={styles.secondary} onPress={() => void enrollment?.refresh()} accessibilityRole="button">
         <RefreshCw size={18} color="#2563eb" /><Text style={styles.secondaryText}>Kiểm tra trạng thái đăng ký</Text>
+      </Pressable>
+      <Pressable style={styles.logout} onPress={signOut} disabled={busy || isLoggingOut} accessibilityRole="button">
+        <LogOut size={18} color="#475569" /><Text style={styles.logoutText}>Đăng xuất</Text>
       </Pressable>
     </ScrollView>
   </SafeAreaView>
@@ -118,4 +164,9 @@ const styles = StyleSheet.create({
   primaryText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   secondary: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   secondaryText: { fontSize: 14, fontWeight: '700', color: '#2563eb' },
+  back: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
+  scanNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
+  backText: { color: '#334155', fontSize: 14, fontWeight: '700' },
+  logout: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12 },
+  logoutText: { fontSize: 14, fontWeight: '700', color: '#475569' },
 })

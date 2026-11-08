@@ -1,13 +1,23 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ScanFace, ShieldCheck, SunMedium } from 'lucide-react'
+import { ArrowLeft, LogOut, ScanFace, ShieldCheck, SunMedium } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useLogout } from '../../auth/hooks/useLogout'
 import FaceVerification from './components/face/FaceVerification'
 
 export default function StudentFaceEnrollmentPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { logout } = useLogout()
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+      <nav aria-label="Điều hướng đăng ký khuôn mặt" className="mb-7 flex flex-wrap items-center justify-between gap-3">
+        <button type="button" onClick={() => void logout()} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-600">
+          <ArrowLeft size={18} aria-hidden="true" /> Quay lại đăng nhập
+        </button>
+        <button type="button" onClick={() => void logout()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600">
+          <LogOut size={18} aria-hidden="true" /> Đăng xuất
+        </button>
+      </nav>
       <header className="mb-8 max-w-3xl">
         <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-700">
           <ShieldCheck size={16} aria-hidden="true" /> Xác minh sinh viên

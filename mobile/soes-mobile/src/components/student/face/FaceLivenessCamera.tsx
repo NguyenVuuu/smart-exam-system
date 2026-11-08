@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ExpoAwsLivenessHandle } from '@blacktomang/expo-aws-liveness'
 import { Camera } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
@@ -16,20 +16,27 @@ interface Props {
 
 export function FaceLivenessCamera({ component: Detector, session, identityPoolId, onFinished, onError }: Props) {
   const ref = useRef<ExpoAwsLivenessHandle>(null)
+  const active = useRef(true)
   const [busy, setBusy] = useState(false)
   const [completed, setCompleted] = useState(false)
+
+  useEffect(() => {
+    active.current = true
+    return () => { active.current = false }
+  }, [])
 
   const start = async () => {
     if (busy || completed || !ref.current) return
     setBusy(true)
     try {
       await ref.current.start()
+      if (!active.current) return
       setCompleted(true)
       onFinished()
     } catch {
-      onError()
+      if (active.current) onError()
     } finally {
-      setBusy(false)
+      if (active.current) setBusy(false)
     }
   }
 

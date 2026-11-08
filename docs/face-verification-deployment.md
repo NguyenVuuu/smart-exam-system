@@ -4,6 +4,8 @@
 
 Sinh viên đăng ký khuôn mặt một lần sau khi đăng nhập lần đầu trên web hoặc mobile. Chỉ web có chức năng làm bài và yêu cầu xác minh lại trước mỗi lần vào hoặc vào lại bài thi. Mobile không có màn hình làm bài. SOES không lưu ảnh hoặc video khuôn mặt; AWS Rekognition Collection lưu đặc trưng khuôn mặt để so khớp.
 
+Trên web, sinh viên xác minh khuôn mặt trước. Chỉ sau khi xác minh đạt, ứng dụng mới yêu cầu webcam giám sát, chia sẻ màn hình, toàn màn hình và mật khẩu ca thi (nếu ca thi bật các yêu cầu này). Tránh mở webcam giám sát cùng lúc với camera Face Liveness. Grant vào thi có hiệu lực 5 phút theo cấu hình mặc định; nếu hết hạn trong lúc chuẩn bị thiết bị, ứng dụng đóng các luồng thiết bị và yêu cầu xác minh lại. Đồng hồ thời gian làm bài bắt đầu khi backend tạo lượt thi, không bắt đầu lúc quét mặt.
+
 ## Chuẩn bị AWS
 
 1. Chọn một AWS Region hỗ trợ Face Liveness cho cả backend, web và mobile. Tạo Rekognition Collection trước khi bật tính năng.

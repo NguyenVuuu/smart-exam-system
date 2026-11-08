@@ -29,6 +29,7 @@ interface WebcamCheckDialogProps {
   screenStatus?: ExamScreenShareStatus
   screenErrorMessage?: string | null
   isStartingExam: boolean
+  faceVerified?: boolean
   requiresWebcam: boolean
   requiresScreenShare?: boolean
   requiresFullscreen?: boolean
@@ -51,6 +52,7 @@ export default function WebcamCheckDialog({
   screenStatus = 'IDLE',
   screenErrorMessage = null,
   isStartingExam,
+  faceVerified = false,
   requiresWebcam,
   requiresScreenShare = false,
   requiresFullscreen = false,
@@ -171,7 +173,7 @@ export default function WebcamCheckDialog({
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Kiểm tra trước khi thi</p>
             <h2 id="webcam-check-title" className="mt-1 text-xl font-bold text-slate-900">Xác nhận thiết bị sẵn sàng</h2>
-            <p className="mt-1 text-sm text-slate-500">Hoàn tất các kiểm tra bắt buộc để tránh lỗi ngay lúc làm bài.</p>
+            <p className="mt-1 text-sm text-slate-500">{faceVerified ? 'Đã xác minh khuôn mặt. Hoàn tất thiết bị sớm để phiên xác minh còn hiệu lực.' : 'Hoàn tất các kiểm tra bắt buộc để tránh lỗi ngay lúc làm bài.'}</p>
           </div>
           <button type="button" onClick={onClose} disabled={isStartingExam} className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50" aria-label="Đóng">
             <X size={20} />
