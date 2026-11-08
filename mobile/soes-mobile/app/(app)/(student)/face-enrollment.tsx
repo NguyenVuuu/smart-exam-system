@@ -72,7 +72,11 @@ export default function StudentFaceEnrollmentPage() {
         session={session}
         identityPoolId={identityPoolId}
         onFinished={() => void checkResult(session.id)}
-        onError={() => setError('Camera chưa hoàn tất phiên quét. Vui lòng thử lại.')}
+        onError={() => {
+          setSession(null)
+          setPhase('intro')
+          setError('Camera chưa hoàn tất phiên quét. Vui lòng thử lại.')
+        }}
       />
       {error ? <Text style={styles.cameraError}>{error}</Text> : null}
     </SafeAreaView>
