@@ -18,7 +18,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.btphat11321.soesmobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +32,13 @@
           "cameraPermission": "SOES cần dùng camera để đăng ký khuôn mặt sinh viên."
         }
       ],
-      "./plugins/withFaceLivenessIosRegistration"
-    ]
+      "./plugins/withFaceLivenessIosRegistration",
+      "./plugins/withLiteRtNamespaceWorkaround"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d7afd2a6-a720-4b13-bfe4-c0b3aadf6633"
+      }
+    }
   }
 }
