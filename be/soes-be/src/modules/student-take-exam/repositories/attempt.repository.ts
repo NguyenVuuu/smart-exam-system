@@ -132,7 +132,7 @@ export async function consumeResumeFaceGrant(faceVerificationId: string | undefi
   await prisma.$transaction((tx) => consumeFaceGrant(tx, faceVerificationId, scheduleId, studentId, attemptId, actorUserId))
 }
 
-export async function assertRecentFaceGrant(scheduleId: string, studentId: string, attemptId: string, faceVerificationId?: string) {
+export async function consumeFaceContentGrant(scheduleId: string, studentId: string, attemptId: string, faceVerificationId?: string) {
   if (!faceVerificationConfig.enabled) return
   if (!faceVerificationId) throw new ForbiddenError('Face verification is required before viewing the exam')
   const grant = await prisma.faceVerificationSession.findFirst({
@@ -141,6 +141,12 @@ export async function assertRecentFaceGrant(scheduleId: string, studentId: strin
     orderBy: { consumedAt: 'desc' },
   })
   if (grant?.id !== faceVerificationId) throw new ForbiddenError('Face verification is required before viewing the exam')
+  const claimed = await prisma.faceVerificationSession.updateMany({
+    where: { id: faceVerificationId, studentId, examScheduleId: scheduleId, attemptId,
+      status: 'CONSUMED', contentAccessedAt: null, grantExpiresAt: { gt: new Date() } },
+    data: { contentAccessedAt: new Date() },
+  })
+  if (!claimed.count) throw new ForbiddenError('Face verification was already used to open the exam')
 }
 
 async function closeExamSession(transaction: Prisma.TransactionClient, attemptId: string) {

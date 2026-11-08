@@ -546,7 +546,7 @@ export async function getExamContent(
   studentId: string,
   faceVerificationId?: string,
 ): Promise<ExamContentResult> {
-  await repo.assertRecentFaceGrant(scheduleId, studentId, attemptId, faceVerificationId)
+  await repo.consumeFaceContentGrant(scheduleId, studentId, attemptId, faceVerificationId)
   // ── 1. Load attempt + questions + saved answers (ownership in repo) ───────
   const result = await repo.findAttemptWithContent(
     attemptId,

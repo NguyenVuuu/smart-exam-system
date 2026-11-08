@@ -27,9 +27,11 @@ export function useGetExamAttempt(scheduleId: string, attemptId: string, enabled
     queryFn: () => takeExamApi.getExamAttempt(scheduleId, attemptId, faceVerificationId),
     enabled: enabled && !!scheduleId && !!attemptId,
     refetchOnWindowFocus: false,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: 'always',
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    staleTime: Infinity,
+    gcTime: 60_000,
+    retry: false,
   })
 }
 

@@ -55,7 +55,8 @@ export async function getExamContent(req: Request, res: Response, next: NextFunc
     const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
     const studentId             = req.user!.profileId
 
-    const result = await takeExamService.getExamContent(scheduleId, attemptId, studentId, req.get('X-Exam-Face-Grant'))
+    const faceVerificationId = z.string().uuid().optional().parse(req.get('X-Exam-Face-Grant'))
+    const result = await takeExamService.getExamContent(scheduleId, attemptId, studentId, faceVerificationId)
 
     res.status(200).json({
       success: true,
