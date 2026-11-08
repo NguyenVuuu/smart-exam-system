@@ -30,6 +30,8 @@ export const studentFaceApi = {
     (await apiClient.post<ApiResponse<FaceSession>>('/student/face/sessions', { purpose, scheduleId })).data.data,
   complete: async (id: string) =>
     (await apiClient.post<ApiResponse<FaceCompletion>>('/student/face/sessions/' + id + '/complete')).data.data,
+  cancel: async (id: string) =>
+    apiClient.post('/student/face/sessions/' + id + '/cancel'),
   manualApproval: async (scheduleId: string) =>
     (await apiClient.get<ApiResponse<{ id: string } | null>>('/student/face/schedules/' + scheduleId + '/manual-approval')).data.data,
 }

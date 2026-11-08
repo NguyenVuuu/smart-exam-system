@@ -19,7 +19,7 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
   const [failures, setFailures] = useState(0)
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null)
   const [requiresManualReview, setRequiresManualReview] = useState(false)
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(0)
 
   useEffect(() => {
     if (purpose !== 'EXAM_ENTRY') return
@@ -31,11 +31,17 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
   }, [purpose])
 
   useEffect(() => {
+    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0)
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(timer)
+    return () => { window.clearTimeout(initialTimer); window.clearInterval(timer) }
   }, [])
 
   const remainingCooldown = cooldownUntil ? Math.max(0, Math.ceil((new Date(cooldownUntil).getTime() - now) / 1000)) : 0
+
+  const abandonSession = () => {
+    if (session) void studentFaceApi.cancel(session.id).catch(() => undefined)
+    setSession(null)
+  }
 
   const start = async () => {
     setError('')
@@ -73,10 +79,10 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
       } else {
         setError('Hệ thống chưa nhận được kết quả. Vui lòng thử lại sau.')
       }
-      setSession(null)
+      abandonSession()
     } catch {
       setError('Không thể hoàn tất xác minh. Vui lòng thử lại.')
-      setSession(null)
+      abandonSession()
     } finally {
       setWorking(false)
       setAwaitingResult(false)
@@ -89,7 +95,7 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
         <h2 className="text-base font-semibold text-slate-900">
           {purpose === 'ENROLLMENT' ? 'Đăng ký khuôn mặt' : 'Xác minh khuôn mặt trước khi vào thi'}
         </h2>
-        {onClose && <button type="button" onClick={onClose} className="text-sm text-slate-600">Đóng</button>}
+        {onClose && <button type="button" onClick={() => { abandonSession(); onClose() }} className="text-sm text-slate-600">Đóng</button>}
       </div>
       <p className="text-sm text-slate-600">Cho phép sử dụng camera và làm theo hướng dẫn trên màn hình.</p>
       {!identityPoolId && <p role="alert" className="text-sm text-red-700">Chưa cấu hình AWS Cognito Identity Pool cho ứng dụng web.</p>}
@@ -110,8 +116,8 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
               sessionId={session.providerSessionId}
               region={session.region}
               onAnalysisComplete={complete}
-              onError={() => { setError('Camera hoặc kết nối xác minh gặp lỗi. Vui lòng thử lại.'); setSession(null) }}
-              onUserCancel={() => setSession(null)}
+              onError={() => { setError('Camera hoặc kết nối xác minh gặp lỗi. Vui lòng thử lại.'); abandonSession() }}
+              onUserCancel={abandonSession}
             />
           </Suspense>
         </div>

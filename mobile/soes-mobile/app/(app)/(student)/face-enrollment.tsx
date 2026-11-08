@@ -2,7 +2,7 @@ import { useContext, useState } from 'react'
 import { Fingerprint, RefreshCw } from 'lucide-react-native'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { completeFaceEnrollmentSession, createFaceEnrollmentSession, type FaceEnrollmentSession } from '../../../src/api/student-face.api'
+import { cancelFaceEnrollmentSession, completeFaceEnrollmentSession, createFaceEnrollmentSession, type FaceEnrollmentSession } from '../../../src/api/student-face.api'
 import { FaceLivenessCamera } from '../../../src/components/student/face/FaceLivenessCamera'
 import { StudentFaceEnrollmentContext } from '../../../src/hooks/useStudentFaceEnrollment'
 
@@ -73,6 +73,7 @@ export default function StudentFaceEnrollmentPage() {
         identityPoolId={identityPoolId}
         onFinished={() => void checkResult(session.id)}
         onError={() => {
+          void cancelFaceEnrollmentSession(session.id).catch(() => undefined)
           setSession(null)
           setPhase('intro')
           setError('Camera chưa hoàn tất phiên quét. Vui lòng thử lại.')

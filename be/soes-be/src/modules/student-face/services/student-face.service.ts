@@ -171,6 +171,19 @@ export async function completeSession(studentId: string, id: string, actorUserId
   }
 }
 
+export async function cancelSession(studentId: string, id: string, actorUserId: string) {
+  if (!faceVerificationConfig.enabled) throw new ConflictError('Face verification is not enabled')
+  const session = await repository.findFaceSession(studentId, id)
+  if (!session) throw new NotFoundError('Face verification session not found')
+  await prisma.$transaction(async (tx) => {
+    const cancelled = await repository.cancelFaceSession(tx, studentId, id)
+    if (!cancelled.count) throw new ConflictError('Face verification session can no longer be cancelled')
+    await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_SESSION_CANCELLED',
+      entityType: 'FaceVerificationSession', entityId: id, metadata: { purpose: session.purpose } })
+  })
+  return { cancelled: true }
+}
+
 export async function approveManualEntry(teacherId: string, actorUserId: string, scheduleId: string, studentId: string, reason: string) {
   if (!faceVerificationConfig.enabled) throw new ConflictError('Face verification is not enabled')
   const enrollment = await findEnrollment(scheduleId, studentId)

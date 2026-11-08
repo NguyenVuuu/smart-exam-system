@@ -36,6 +36,13 @@ export async function complete(req: Request, res: Response, next: NextFunction) 
   } catch (error) { next(error) }
 }
 
+export async function cancel(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = idSchema.parse(req.params)
+    res.json({ success: true, data: await service.cancelSession(req.user!.profileId, id, req.user!.id) })
+  } catch (error) { next(error) }
+}
+
 export async function approveManual(req: Request, res: Response, next: NextFunction) {
   try {
     const { scheduleId, studentId } = manualParamsSchema.parse(req.params)

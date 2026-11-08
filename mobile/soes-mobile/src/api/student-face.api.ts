@@ -28,3 +28,7 @@ export async function completeFaceEnrollmentSession(id: string): Promise<FaceEnr
   const response = await apiClient.post<{ data: FaceEnrollmentResult }>(`/student/face/sessions/${id}/complete`)
   return response.data.data
 }
+
+export async function cancelFaceEnrollmentSession(id: string): Promise<void> {
+  await apiClient.post(`/student/face/sessions/${id}/cancel`)
+}

@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { ForbiddenError } from '../../../errors/AppError'
+import type { Prisma } from '@prisma/client'
 
 export function findFaceProfile(studentId: string) {
   return prisma.studentFaceProfile.findUnique({ where: { studentId } })
@@ -43,6 +44,13 @@ export function findFaceSession(studentId: string, id: string) {
 
 export function transitionFaceSession(id: string, from: 'CREATED' | 'PROCESSING', to: 'CREATED' | 'PROCESSING' | 'EXPIRED') {
   return prisma.faceVerificationSession.updateMany({ where: { id, status: from }, data: { status: to } })
+}
+
+export function cancelFaceSession(tx: Prisma.TransactionClient, studentId: string, id: string) {
+  return tx.faceVerificationSession.updateMany({
+    where: { id, studentId, status: 'CREATED' },
+    data: { status: 'FAILED', failureCode: 'CLIENT_CANCELLED', completedAt: new Date() },
+  })
 }
 
 export function findAssignedProctor(teacherId: string, scheduleId: string, courseOfferingId: string) {
