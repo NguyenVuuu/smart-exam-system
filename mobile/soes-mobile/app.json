@@ -33,7 +33,8 @@
         }
       ],
       "./plugins/withFaceLivenessIosRegistration",
-      "./plugins/withLiteRtNamespaceWorkaround"
+      "./plugins/withLiteRtNamespaceWorkaround",
+      "./plugins/withFaceLivenessVietnamese"
     ],
     "extra": {
       "eas": {
