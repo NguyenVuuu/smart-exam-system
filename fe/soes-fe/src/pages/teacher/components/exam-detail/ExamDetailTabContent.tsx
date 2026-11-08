@@ -8,6 +8,7 @@ import { ExamOverviewTab } from './ExamOverviewTab'
 import { ExamProctoringTab } from './ExamProctoringTab'
 import ExamSessionsTab from './ExamSessionsTab'
 import { ExamSubmissionsTab } from './ExamSubmissionsTab'
+import { ExamSubmissionsReadOnlyTab } from './ExamSubmissionsReadOnlyTab'
 import type {
   Exam,
   ExamSchedule,
@@ -139,66 +140,90 @@ export default function ExamDetailTabContent({
       )
     case 'submissions':
     default:
+      // ── Mode management (trang đề thi): chỉ đọc, không cho chốt điểm ──
+      if (!isCourseSubmissionView) {
+        return (
+          <>
+            {selectedSessionClosed && selectedSession && (
+              <div className="mb-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={onOpenMakeupModal}
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 px-4 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                >
+                  Tạo ca dự phòng
+                </button>
+              </div>
+            )}
+            <ExamSubmissionsReadOnlyTab
+              submissions={submissionData.items}
+              sessions={visibleSessions}
+              selectedSessionId={selectedSessionId}
+              selectedSession={selectedSession}
+              onSessionChange={onSelectSession}
+              onViewSubmission={onViewSubmission}
+              onViewViolations={onViewViolations}
+              loading={submissionData.loading}
+              pagination={submissionData.pagination}
+              onPageChange={submissionData.setPage}
+              canReview={selectedSessionClosed}
+              showSessionSelector
+              unavailableTitle={reviewUnavailableTitle}
+              unavailableDescription={reviewUnavailableDescription}
+              examId={exam.id}
+            />
+          </>
+        )
+      }
+
+      // ── Mode course-submissions (trang lớp học phần): đầy đủ chức năng chốt điểm ──
       return (
-        <>
-          {selectedSessionClosed && !isCourseSubmissionView && selectedSession && (
-            <div className="mb-4 flex justify-end">
-              <button
-                type="button"
-                onClick={onOpenMakeupModal}
-                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 px-4 text-sm font-semibold text-blue-700 hover:bg-blue-100"
-              >
-                Tạo ca dự phòng
-              </button>
-            </div>
-          )}
-          <ExamSubmissionsTab
-            submissions={submissionData.items}
-            sessions={visibleSessions}
-            selectedSessionId={selectedSessionId}
-            onSessionChange={onSelectSession}
-            resultReleaseText={resultReleaseText}
-            resultReleaseMode={resultReleaseMode}
-            resultReleaseAt={resultReleaseAt}
-            isResultsPublished={isResultsPublished}
-            onResultReleaseModeChange={onChangeResultReleaseMode}
-            onResultReleaseAtChange={(at) =>
-              void submissionData.release({
-                mode: resultReleaseMode,
-                releaseAt: at,
-                published: isResultsPublished,
-              })
+        <ExamSubmissionsTab
+          submissions={submissionData.items}
+          sessions={visibleSessions}
+          selectedSessionId={selectedSessionId}
+          onSessionChange={onSelectSession}
+          resultReleaseText={resultReleaseText}
+          resultReleaseMode={resultReleaseMode}
+          resultReleaseAt={resultReleaseAt}
+          isResultsPublished={isResultsPublished}
+          onResultReleaseModeChange={onChangeResultReleaseMode}
+          onResultReleaseAtChange={(at) =>
+            void submissionData.release({
+              mode: resultReleaseMode,
+              releaseAt: at,
+              published: isResultsPublished,
+            })
+          }
+          onResultsPublishedChange={(pub) =>
+            void submissionData.release({
+              mode: resultReleaseMode,
+              releaseAt: resultReleaseAt,
+              published: pub,
+            })
+          }
+          onViewSubmission={onViewSubmission}
+          onViewViolations={onViewViolations}
+          violationsByStudentId={violationData.items.reduce<Record<string, Array<{ id: string; evidenceImageUrl: string }>>>((acc, v) => {
+            if (v.evidenceImageUrl) {
+              acc[v.studentId] = [...(acc[v.studentId] ?? []), { id: v.id, evidenceImageUrl: v.evidenceImageUrl }]
             }
-            onResultsPublishedChange={(pub) =>
-              void submissionData.release({
-                mode: resultReleaseMode,
-                releaseAt: resultReleaseAt,
-                published: pub,
-              })
-            }
-            onViewSubmission={onViewSubmission}
-            onViewViolations={onViewViolations}
-            violationsByStudentId={violationData.items.reduce<Record<string, Array<{ id: string; evidenceImageUrl: string }>>>((acc, v) => {
-              if (v.evidenceImageUrl) {
-                acc[v.studentId] = [...(acc[v.studentId] ?? []), { id: v.id, evidenceImageUrl: v.evidenceImageUrl }]
-              }
-              return acc
-            }, {})}
-            onFinalizeOne={async (submission, score, reason, adjustmentType, evidenceUrls, violationIds) => {
-              await submissionData.finalizeOne(submission.attemptId, score, reason, adjustmentType, evidenceUrls, violationIds)
-            }}
-            onPrepareFinalize={submissionData.prepareFinalize}
-            onFinalizeAll={submissionData.finalizeMany}
-            pendingFinalizeCount={submissionData.pendingFinalizeCount}
-            loading={submissionData.loading}
-            pagination={submissionData.pagination}
-            onPageChange={submissionData.setPage}
-            canReview={selectedSessionClosed}
-            showSessionSelector={!isCourseSubmissionView}
-            unavailableTitle={reviewUnavailableTitle}
-            unavailableDescription={reviewUnavailableDescription}
-          />
-        </>
+            return acc
+          }, {})}
+          onFinalizeOne={async (submission, score, reason, adjustmentType, evidenceUrls, violationIds) => {
+            await submissionData.finalizeOne(submission.attemptId, score, reason, adjustmentType, evidenceUrls, violationIds)
+          }}
+          onPrepareFinalize={submissionData.prepareFinalize}
+          onFinalizeAll={submissionData.finalizeMany}
+          pendingFinalizeCount={submissionData.pendingFinalizeCount}
+          loading={submissionData.loading}
+          pagination={submissionData.pagination}
+          onPageChange={submissionData.setPage}
+          canReview={selectedSessionClosed}
+          showSessionSelector={false}
+          unavailableTitle={reviewUnavailableTitle}
+          unavailableDescription={reviewUnavailableDescription}
+        />
       )
   }
 }
