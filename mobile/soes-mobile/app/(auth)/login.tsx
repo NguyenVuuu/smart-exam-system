@@ -1,4 +1,4 @@
-import { useRef, useState, type ElementRef } from 'react'
+import { useState } from 'react'
 import {
   View,
   Text,
@@ -6,19 +6,16 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
 } from 'react-native'
 import { useLogin } from '../../src/hooks/useLogin'
 import { SystemLogo } from '../../src/components/ui/SystemLogo'
-import { scrollToFocusedInput } from '../../src/utils/keyboardScroll'
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const scrollRef = useRef<ElementRef<typeof ScrollView>>(null)
-  const usernameRef = useRef<ElementRef<typeof TextInput>>(null)
-  const passwordRef = useRef<ElementRef<typeof TextInput>>(null)
   const { login, isLoading, error, clearError } = useLogin()
 
   async function handleLogin() {
@@ -28,14 +25,12 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior="padding"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-white"
     >
       <ScrollView
-        ref={scrollRef}
         contentContainerClassName="flex-grow justify-center px-6 py-12"
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
       >
         {/* Logo & title */}
         <View className="items-center mb-10">
@@ -64,7 +59,6 @@ export default function LoginScreen() {
               Mã tài khoản
             </Text>
             <TextInput
-              ref={usernameRef}
               className="border border-slate-200 rounded-xl px-4 py-3.5 text-slate-800 bg-slate-50 text-base"
               placeholder="Nhập mã tài khoản (vd: US000005)"
               placeholderTextColor="#94a3b8"
@@ -74,8 +68,6 @@ export default function LoginScreen() {
               autoCorrect={false}
               keyboardType="default"
               returnKeyType="next"
-              onFocus={() => scrollToFocusedInput(scrollRef.current, usernameRef, 24)}
-              onSubmitEditing={() => passwordRef.current?.focus()}
             />
           </View>
 
@@ -86,7 +78,6 @@ export default function LoginScreen() {
             </Text>
             <View className="flex-row items-center border border-slate-200 rounded-xl bg-slate-50">
               <TextInput
-                ref={passwordRef}
                 className="flex-1 px-4 py-3.5 text-slate-800 text-base"
                 placeholder="Nhập mật khẩu"
                 placeholderTextColor="#94a3b8"
@@ -94,7 +85,6 @@ export default function LoginScreen() {
                 onChangeText={(v) => { setPassword(v); clearError() }}
                 secureTextEntry={!showPassword}
                 returnKeyType="done"
-                onFocus={() => scrollToFocusedInput(scrollRef.current, passwordRef, 24)}
                 onSubmitEditing={handleLogin}
               />
               <TouchableOpacity
