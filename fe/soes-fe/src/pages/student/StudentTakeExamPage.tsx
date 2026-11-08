@@ -22,7 +22,7 @@ import type {
   QuestionAnswer,
   TakeExamAnswers,
 } from './types/take-exam.types'
-import { takeExamApi, type ExamSessionScreenShareStatus, type ExamSessionWebcamStatus, type RunCodeResponse } from './api/student-take-exam.api'
+import { clearActiveFaceEntry, setActiveFaceEntry, takeExamApi, type ExamSessionScreenShareStatus, type ExamSessionWebcamStatus, type RunCodeResponse } from './api/student-take-exam.api'
 import type { RecordViolationPayload } from './api/student-take-exam.api'
 import { hasAnswer } from './components/take-exam/take-exam.utils'
 import { useDebounce } from 'use-debounce'
@@ -74,6 +74,12 @@ export default function StudentTakeExamPage() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
 
   const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId, faceVerificationId)
+
+  useEffect(() => {
+    if (!session || !scheduleId || !attemptId || !faceVerificationId) return
+    setActiveFaceEntry(scheduleId, attemptId, faceVerificationId)
+    return () => clearActiveFaceEntry(faceVerificationId)
+  }, [session, scheduleId, attemptId, faceVerificationId])
 
   useEffect(() => {
     if (!faceVerificationId) return

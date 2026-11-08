@@ -209,6 +209,25 @@ export interface AttemptStatus {
 
 const BASE_URL = '/student/exam-schedules'
 
+let activeFaceEntry: { scheduleId: string; attemptId: string; grantId: string } | null = null
+
+export function setActiveFaceEntry(scheduleId: string, attemptId: string, grantId: string) {
+  activeFaceEntry = { scheduleId, attemptId, grantId }
+}
+
+export function clearActiveFaceEntry(grantId: string) {
+  if (activeFaceEntry?.grantId === grantId) activeFaceEntry = null
+}
+
+axios.interceptors.request.use((config) => {
+  if (!activeFaceEntry) return config
+  const attemptPath = `${BASE_URL}/${activeFaceEntry.scheduleId}/attempts/${activeFaceEntry.attemptId}`
+  if (config.url === attemptPath || config.url?.startsWith(`${attemptPath}/`)) {
+    config.headers.set('X-Exam-Face-Grant', activeFaceEntry.grantId)
+  }
+  return config
+})
+
 interface ApiExamIntegritySettings {
   enableTabLock?: boolean
   enableWebcam?: boolean

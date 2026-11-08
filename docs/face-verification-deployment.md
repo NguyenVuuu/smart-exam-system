@@ -9,7 +9,7 @@ Sinh viên đăng ký khuôn mặt một lần sau khi đăng nhập lần đầ
 1. Chọn một AWS Region hỗ trợ Face Liveness cho cả backend, web và mobile. Tạo Rekognition Collection trước khi bật tính năng.
 2. Cấp cho vai trò chạy backend các action `rekognition:CreateFaceLivenessSession`, `rekognition:GetFaceLivenessSessionResults`, `rekognition:IndexFaces`, `rekognition:SearchFacesByImage`, `rekognition:DeleteFaces`. Giới hạn quyền trên collection và môi trường tương ứng theo khả năng của từng action.
 3. Tạo Cognito Identity Pool cho web và mobile trong cùng Region. Vai trò client chỉ được gọi `rekognition:StartFaceLivenessSession`. Backend giữ quyền tạo phiên và đọc kết quả; client không nhận AWS access key dài hạn.
-4. Đánh giá chính sách lưu giữ, thu hồi và xóa khuôn mặt trong Rekognition Collection trước khi dùng dữ liệu thật. Khi thu hồi hồ sơ, cần xóa face tương ứng khỏi collection; phiên bản hiện tại chưa có luồng thu hồi tự phục vụ.
+4. Đánh giá chính sách lưu giữ, thu hồi và xóa khuôn mặt trong Rekognition Collection trước khi dùng dữ liệu thật. SOES lưu `providerFaceId` để xác định đúng face khi thu hồi; cần xóa face tương ứng khỏi collection. Phiên bản hiện tại chưa có luồng thu hồi tự phục vụ.
 
 Tham khảo [Face Liveness API](https://docs.aws.amazon.com/rekognition/latest/dg/face-liveness-programming-api.html) và [quản lý collection](https://docs.aws.amazon.com/rekognition/latest/dg/managing-face-collections.html).
 
@@ -28,7 +28,9 @@ Tham khảo [Face Liveness API](https://docs.aws.amazon.com/rekognition/latest/d
 2. Build backend và web, typecheck và build mobile. Xác nhận camera và Cognito chạy trên thiết bị iOS/Android thật bằng development build.
 3. Dùng tài khoản sinh viên mới: đăng nhập, đăng ký một lần, sau đó vào web thi và xác minh trước khi bắt đầu. Thử thoát trang rồi vào lại, sai 3 lần, đợi 2 phút, sai thêm 3 lần, và duyệt thủ công bằng tài khoản giám thị được phân công.
 4. Kiểm tra audit log, quyền của các vai trò và không có ảnh/video, credential, token trong log. Theo dõi chi phí Rekognition và đặt giới hạn sử dụng phù hợp.
+5. Kiểm thử đồng thời hai phiên đăng ký với provider mock và PostgreSQL cục bộ: đặt `FACE_INTEGRATION_TEST=1`, rồi chạy `node -r ts-node/register -e "require('./src/modules/student-face/services/student-face.postgres.test.ts')"` trong `be/soes-be`. Test tạo và xóa fixture riêng.
 
 Grant vào thi được tiêu thụ khi tạo hoặc vào lại lượt thi; quyền tải nội dung bài chỉ dùng một lần. Nếu đóng hoặc tải lại màn hình, sinh viên quay lại trang chi tiết và xác minh mới. Khi màn hình vẫn mở, mất mạng ngắn không kích hoạt tải lại nội dung bài.
+Các API lưu bài, nộp bài, nhịp kết nối, giám sát và chạy mã chỉ nhận grant của lượt vào bài mới nhất sau khi nội dung đã được mở.
 
 Chưa thể xác nhận kiểm thử camera và IAM chỉ bằng build cục bộ; cần môi trường AWS và thiết bị thật.

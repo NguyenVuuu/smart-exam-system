@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it, mock } from 'node:test'
 import prisma from '../../../lib/prisma'
-import { consumeFaceContentGrant, consumeResumeFaceGrant } from './attempt.repository'
+import { assertOpenFaceEntry, consumeFaceContentGrant, consumeResumeFaceGrant } from './attempt.repository'
 
 const originalEnabled = process.env.FACE_VERIFICATION_ENABLED
 
@@ -129,6 +129,30 @@ describe('one-time exam entry grant', () => {
         consumeFaceContentGrant('schedule-1', 'student-1', 'attempt-1', 'grant-other'),
         /required before viewing/,
       )
+    } finally {
+      Object.defineProperty(prisma, 'faceVerificationSession', originalDelegate)
+    }
+  })
+
+  it('accepts active exam requests only after the latest entry opened content', async () => {
+    process.env.FACE_VERIFICATION_ENABLED = 'true'
+    let latest = { id: 'grant-1', contentAccessedAt: null as Date | null }
+    const originalDelegate = Object.getOwnPropertyDescriptor(prisma, 'faceVerificationSession')!
+    Object.defineProperty(prisma, 'faceVerificationSession', { configurable: true, value: {
+      findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+        assert.equal(where.studentId, 'student-1')
+        assert.equal(where.examScheduleId, 'schedule-1')
+        assert.equal(where.attemptId, 'attempt-1')
+        return latest
+      },
+    } })
+    try {
+      await assert.rejects(assertOpenFaceEntry('schedule-1', 'student-1', 'attempt-1'), /required/)
+      await assert.rejects(assertOpenFaceEntry('schedule-1', 'student-1', 'attempt-1', 'grant-1'), /required/)
+      latest = { id: 'grant-1', contentAccessedAt: new Date() }
+      await assertOpenFaceEntry('schedule-1', 'student-1', 'attempt-1', 'grant-1')
+      latest = { id: 'grant-2', contentAccessedAt: null }
+      await assert.rejects(assertOpenFaceEntry('schedule-1', 'student-1', 'attempt-1', 'grant-1'), /required/)
     } finally {
       Object.defineProperty(prisma, 'faceVerificationSession', originalDelegate)
     }

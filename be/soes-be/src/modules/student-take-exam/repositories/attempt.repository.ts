@@ -149,6 +149,19 @@ export async function consumeFaceContentGrant(scheduleId: string, studentId: str
   if (!claimed.count) throw new ForbiddenError('Face verification was already used to open the exam')
 }
 
+export async function assertOpenFaceEntry(scheduleId: string, studentId: string, attemptId: string, faceVerificationId?: string) {
+  if (!faceVerificationConfig.enabled) return
+  if (!faceVerificationId) throw new ForbiddenError('Face verification is required for this exam session')
+  const latest = await prisma.faceVerificationSession.findFirst({
+    where: { studentId, examScheduleId: scheduleId, attemptId, status: 'CONSUMED' },
+    select: { id: true, contentAccessedAt: true },
+    orderBy: { consumedAt: 'desc' },
+  })
+  if (latest?.id !== faceVerificationId || !latest.contentAccessedAt) {
+    throw new ForbiddenError('Face verification is required for this exam session')
+  }
+}
+
 async function closeExamSession(transaction: Prisma.TransactionClient, attemptId: string) {
   await transaction.examSession.updateMany({
     where: { attemptId },
