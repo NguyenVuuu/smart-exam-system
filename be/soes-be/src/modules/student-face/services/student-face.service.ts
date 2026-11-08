@@ -59,7 +59,7 @@ export async function createSession(studentId: string, purpose: 'ENROLLMENT' | '
   const recent = await repository.countRecentSessions(studentId, new Date(Date.now() - 15 * 60 * 1000))
   if (recent >= 12) throw new ForbiddenError('Too many face verification sessions. Please try again later')
 
-  const providerSessionId = await provider.createLivenessSession()
+  const providerSessionId = await provider.createLivenessSession(purpose)
   const session = await repository.createFaceSession(studentId, purpose, providerSessionId,
     new Date(Date.now() + faceVerificationConfig.sessionTtlSeconds * 1000), scheduleId)
   return { id: session.id, providerSessionId, expiresAt: session.expiresAt, region: faceVerificationConfig.region }

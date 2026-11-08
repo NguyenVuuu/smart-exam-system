@@ -10,9 +10,12 @@ import { faceVerificationConfig } from '../../../config'
 
 const client = new RekognitionClient({ region: faceVerificationConfig.region })
 
-export async function createLivenessSession() {
+export async function createLivenessSession(purpose: 'ENROLLMENT' | 'EXAM_ENTRY') {
   if (faceVerificationConfig.provider === 'mock') return `mock-${crypto.randomUUID()}`
-  const result = await client.send(new CreateFaceLivenessSessionCommand({}))
+  const challenge = purpose === 'ENROLLMENT' ? faceVerificationConfig.enrollmentChallenge : faceVerificationConfig.examChallenge
+  const result = await client.send(new CreateFaceLivenessSessionCommand({
+    Settings: { AuditImagesLimit: 0, ChallengePreferences: [{ Type: challenge }] },
+  }))
   if (!result.SessionId) throw new Error('Face liveness session was not created')
   return result.SessionId
 }

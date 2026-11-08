@@ -132,7 +132,13 @@ function boundedInteger(value: string | undefined, fallback: number, min: number
 
 function boundedPercentage(value: string | undefined, fallback: number): number {
   const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100 ? parsed : fallback
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= 100 ? parsed : fallback
+}
+
+type FaceChallenge = 'FaceMovementChallenge' | 'FaceMovementAndLightChallenge'
+
+function faceChallenge(value: string | undefined, fallback: FaceChallenge): FaceChallenge {
+  return value === 'FaceMovementChallenge' || value === 'FaceMovementAndLightChallenge' ? value : fallback
 }
 
 export const faceVerificationConfig = {
@@ -153,11 +159,19 @@ export const faceVerificationConfig = {
   },
 
   get livenessThreshold(): number {
-    return boundedPercentage(process.env.FACE_LIVENESS_THRESHOLD, 80)
+    return boundedPercentage(process.env.FACE_LIVENESS_THRESHOLD, 60)
   },
 
   get enrollmentLivenessThreshold(): number {
-    return boundedPercentage(process.env.FACE_ENROLLMENT_LIVENESS_THRESHOLD, 60)
+    return boundedPercentage(process.env.FACE_ENROLLMENT_LIVENESS_THRESHOLD, 50)
+  },
+
+  get enrollmentChallenge(): FaceChallenge {
+    return faceChallenge(process.env.FACE_ENROLLMENT_CHALLENGE, 'FaceMovementChallenge')
+  },
+
+  get examChallenge(): FaceChallenge {
+    return faceChallenge(process.env.FACE_EXAM_CHALLENGE, 'FaceMovementAndLightChallenge')
   },
 
   get similarityThreshold(): number {
