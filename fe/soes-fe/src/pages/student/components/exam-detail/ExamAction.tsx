@@ -234,8 +234,8 @@ export default function ExamAction({ data }: ExamActionProps) {
         onContinue={() => void startOrResumeExam(faceGrantId)}
       />
       {isFaceDialogOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto overscroll-contain bg-slate-900/60 p-3 sm:p-4" role="dialog" aria-modal="true" aria-label="Xác minh khuôn mặt trước khi vào thi">
-          <div className="my-auto w-full max-w-2xl shrink-0 space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4" role="dialog" aria-modal="true" aria-label="Xác minh khuôn mặt trước khi vào thi">
+          <div className="w-full max-w-2xl space-y-3">
             <FaceVerification
               purpose="EXAM_ENTRY"
               scheduleId={scheduleId ?? data.id}
