@@ -2,6 +2,8 @@ import prisma from '../../../lib/prisma'
 import { randomInt } from 'crypto'
 import type { Prisma, ScreenShareStatus, WebcamStatus } from '@prisma/client'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
+import { faceVerificationConfig } from '../../../config'
+import { ForbiddenError } from '../../../errors/AppError'
 
 export async function countAttemptsForSchedule(scheduleId: string, studentId: string) {
   return prisma.examAttempt.count({ where: { examScheduleId: scheduleId, studentId } })
@@ -100,6 +102,45 @@ export interface CreateAttemptInput {
   actorUserId: string
   webcamStatus: WebcamStatus
   screenShareStatus: ScreenShareStatus
+  faceVerificationId?: string
+}
+
+async function consumeFaceGrant(tx: Prisma.TransactionClient, faceVerificationId: string | undefined, scheduleId: string, studentId: string, attemptId: string, actorUserId: string) {
+  if (!faceVerificationConfig.enabled) return
+  if (!faceVerificationId) throw new ForbiddenError('Face verification is required before entering the exam')
+  const claimed = await tx.faceVerificationSession.updateMany({
+    where: { id: faceVerificationId, studentId, examScheduleId: scheduleId, purpose: 'EXAM_ENTRY',
+      status: { in: ['PASSED', 'MANUAL_APPROVED'] }, grantExpiresAt: { gt: new Date() } },
+    data: { status: 'CONSUMED', consumedAt: new Date(), attemptId },
+  })
+  if (!claimed.count) throw new ForbiddenError('Face verification has expired or was already used')
+  const grant = await tx.faceVerificationSession.findUniqueOrThrow({
+    where: { id: faceVerificationId }, select: { method: true },
+  })
+  if (grant.method === 'MANUAL_OVERRIDE') {
+    await tx.studentFaceProfile.update({
+      where: { studentId },
+      data: { failedAttemptsSinceSuccess: 0, cooldownUntil: null, requiresManualReview: false },
+    })
+  }
+  await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_ENTRY_CONSUMED', entityType: 'ExamAttempt', entityId: attemptId,
+    metadata: { faceVerificationId, scheduleId, studentId } })
+}
+
+export async function consumeResumeFaceGrant(faceVerificationId: string | undefined, scheduleId: string, studentId: string, attemptId: string, actorUserId: string) {
+  if (!faceVerificationConfig.enabled) return
+  await prisma.$transaction((tx) => consumeFaceGrant(tx, faceVerificationId, scheduleId, studentId, attemptId, actorUserId))
+}
+
+export async function assertRecentFaceGrant(scheduleId: string, studentId: string, attemptId: string, faceVerificationId?: string) {
+  if (!faceVerificationConfig.enabled) return
+  if (!faceVerificationId) throw new ForbiddenError('Face verification is required before viewing the exam')
+  const grant = await prisma.faceVerificationSession.findFirst({
+    where: { studentId, examScheduleId: scheduleId, attemptId, status: 'CONSUMED' },
+    select: { id: true },
+    orderBy: { consumedAt: 'desc' },
+  })
+  if (grant?.id !== faceVerificationId) throw new ForbiddenError('Face verification is required before viewing the exam')
 }
 
 async function closeExamSession(transaction: Prisma.TransactionClient, attemptId: string) {
@@ -148,6 +189,7 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
       },
       select: { id: true, startedAt: true, deadlineAt: true },
     })
+    await consumeFaceGrant(transaction, input.faceVerificationId, input.scheduleId, input.studentId, attempt.id, input.actorUserId)
     const locked = await transaction.exam.updateMany({
       where: { id: input.examId, status: 'READY' },
       data: { status: 'LOCKED' },

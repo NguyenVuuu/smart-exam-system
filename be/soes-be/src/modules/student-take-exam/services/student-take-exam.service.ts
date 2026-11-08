@@ -402,6 +402,7 @@ export async function startExam(
   webcamStatus?: WebcamStatus,
   screenShareConfirmed = false,
   screenShareStatus?: ScreenShareStatus,
+  faceVerificationId?: string,
 ): Promise<StartExamResult> {
   // ── 1. Exam must exist ────────────────────────────────────────────────────
   const schedule = await repo.findScheduleById(scheduleId);
@@ -444,6 +445,7 @@ export async function startExam(
   // Allow student to resume if active attempt is valid (e.g. granted extra time beyond schedule.endTime)
   const activeAttempt = await repo.findActiveAttempt(scheduleId, studentId);
   if (activeAttempt && activeAttempt.deadlineAt > now) {
+    await repo.consumeResumeFaceGrant(faceVerificationId, scheduleId, studentId, activeAttempt.id, actorUserId)
     return {
       attemptId: activeAttempt.id,
       startedAt: activeAttempt.startedAt,
@@ -512,6 +514,7 @@ export async function startExam(
       actorUserId,
       webcamStatus: initialWebcamStatus,
       screenShareStatus: initialScreenShareStatus,
+      faceVerificationId,
     });
   } catch (err) {
     if (err instanceof Error && err.name === "DUPLICATE_ATTEMPT") {
@@ -541,7 +544,9 @@ export async function getExamContent(
   scheduleId: string,
   attemptId: string,
   studentId: string,
+  faceVerificationId?: string,
 ): Promise<ExamContentResult> {
+  await repo.assertRecentFaceGrant(scheduleId, studentId, attemptId, faceVerificationId)
   // ── 1. Load attempt + questions + saved answers (ownership in repo) ───────
   const result = await repo.findAttemptWithContent(
     attemptId,
