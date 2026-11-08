@@ -30,7 +30,8 @@
         {
           "cameraPermission": "SOES cần dùng camera để đăng ký khuôn mặt sinh viên."
         }
-      ]
+      ],
+      "./plugins/withFaceLivenessIosRegistration"
     ]
   }
 }

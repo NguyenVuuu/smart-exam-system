@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ExpoAwsLivenessHandle } from '@blacktomang/expo-aws-liveness'
+import type { ExpoAwsLivenessHandle, LivenessFailure } from '@blacktomang/expo-aws-liveness'
 import { ArrowLeft, LogOut } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { FaceEnrollmentSession } from '../../../api/student-face.api'
@@ -11,7 +11,7 @@ interface Props {
   session: FaceEnrollmentSession
   identityPoolId: string
   onFinished: () => void
-  onError: () => void
+  onError: (error: LivenessFailure) => void
   onBack: () => void
   onLogout: () => void
   isLoggingOut: boolean
@@ -36,8 +36,8 @@ export function FaceLivenessCamera({ component: Detector, session, identityPoolI
       if (!active.current) return
       setCompleted(true)
       onFinished()
-    } catch {
-      if (active.current) onError()
+    } catch (error) {
+      if (active.current) onError(error as LivenessFailure)
     } finally {
       if (active.current) setBusy(false)
     }

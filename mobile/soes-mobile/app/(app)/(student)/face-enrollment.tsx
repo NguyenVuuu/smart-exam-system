@@ -6,6 +6,7 @@ import { cancelFaceEnrollmentSession, completeFaceEnrollmentSession, createFaceE
 import { FaceLivenessCamera } from '../../../src/components/student/face/FaceLivenessCamera'
 import { StudentFaceEnrollmentContext } from '../../../src/hooks/useStudentFaceEnrollment'
 import { useLogout } from '../../../src/hooks/useLogout'
+import type { LivenessFailure } from '@blacktomang/expo-aws-liveness'
 
 type LivenessComponent = typeof import('@blacktomang/expo-aws-liveness').ExpoAwsLiveness
 type Phase = 'intro' | 'creating' | 'scanning' | 'checking' | 'waiting'
@@ -25,6 +26,29 @@ function describeFailure(failureCode?: string, feedbackCodes: string[] = []) {
   if (failureCode === 'LIVENESS_REFERENCE_IMAGE_MISSING') return 'Camera chưa chụp được khuôn mặt rõ. Vui lòng thử lại.'
   const guidance = [...new Set(feedbackCodes)].map((code) => feedbackGuidance[code]).filter(Boolean).join(' ')
   return `Lần quét này chưa đủ tin cậy để xác minh. ${guidance || 'Đặt mặt vừa khung, ở nơi sáng đều rồi thử lại.'}`
+}
+
+function describeCameraError(error: LivenessFailure): string {
+  switch (error.code) {
+    case 'CAMERA_PERMISSION_DENIED': return 'Ứng dụng chưa được cấp quyền camera. Hãy bật quyền Camera cho SOES trong Cài đặt điện thoại rồi thử lại.'
+    case 'CAMERA_NOT_AVAILABLE': return 'Thiết bị không tìm thấy camera khả dụng. Hãy đóng ứng dụng khác đang dùng camera rồi thử lại.'
+    case 'ACCESS_DENIED': return 'AWS từ chối quyền xác minh. Cần kiểm tra quyền StartFaceLivenessSession của Cognito Identity Pool.'
+    case 'NOT_REGISTERED': return 'Bản iOS này chưa tích hợp camera xác minh. Hãy cài bản Development Build mới nhất.'
+    case 'NO_PRESENTER': return 'Không thể mở màn hình camera. Hãy đóng và mở lại ứng dụng.'
+    case 'SESSION_NOT_FOUND':
+    case 'SESSION_TIMED_OUT': return 'Phiên quét đã hết hạn. Hãy bắt đầu đăng ký lại.'
+    case 'CONNECTION_CLOSED':
+    case 'SERVICE_UNAVAILABLE': return 'Kết nối tới dịch vụ xác minh bị gián đoạn. Hãy kiểm tra mạng rồi thử lại.'
+    case 'THROTTLED':
+    case 'SERVICE_QUOTA_EXCEEDED': return 'Dịch vụ xác minh đang giới hạn số lượt quét. Vui lòng thử lại sau.'
+    case 'INVALID_REGION':
+    case 'INVALID_PARAMS':
+    case 'AMPLIFY_CONFIG_CONFLICT': return 'Cấu hình camera xác minh chưa khớp. Hãy cập nhật ứng dụng và kiểm tra cấu hình AWS.'
+    case 'VALIDATION_FAILED':
+    case 'INVALID_SIGNATURE': return 'AWS không chấp nhận phiên xác minh. Hãy bắt đầu lại; nếu còn lỗi, cần kiểm tra cấu hình Cognito.'
+    case 'USER_CANCELLED': return ''
+    default: return `Không thể hoàn tất phiên quét (${error.code || 'UNKNOWN'}). Hãy thử lại; nếu còn lỗi, báo mã này cho bộ phận hỗ trợ.`
+  }
 }
 
 export default function StudentFaceEnrollmentPage() {
@@ -104,11 +128,12 @@ export default function StudentFaceEnrollmentPage() {
         onLogout={signOut}
         isLoggingOut={isLoggingOut}
         onFinished={() => void checkResult(session.id)}
-        onError={() => {
+        onError={(failure) => {
           void cancelFaceEnrollmentSession(session.id).catch(() => undefined)
           setSession(null)
           setPhase('intro')
-          setError('Camera chưa hoàn tất phiên quét. Vui lòng thử lại.')
+          console.warn('Face Liveness mobile failed', { code: failure?.code, nativeErrorCode: failure?.nativeErrorCode })
+          setError(describeCameraError(failure ?? { code: 'UNKNOWN', message: '' }))
         }}
       />
       {error ? <Text style={styles.cameraError}>{error}</Text> : null}
