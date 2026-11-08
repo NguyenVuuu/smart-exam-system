@@ -45,7 +45,7 @@ export function FaceLivenessCamera({ component: Detector, session, identityPoolI
 
   return <View style={styles.root}>
     <View style={styles.heading}>
-      <Pressable style={styles.headerAction} onPress={onBack} accessibilityRole="button" accessibilityLabel="Quay lại đăng ký khuôn mặt">
+      <Pressable style={[styles.headerAction, styles.backAction]} onPress={onBack} accessibilityRole="button" accessibilityLabel="Quay lại đăng ký khuôn mặt">
         <ArrowLeft size={22} color="#2563eb" />
       </Pressable>
       <Text style={styles.title}>Kiểm tra người thật</Text>
@@ -67,6 +67,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, gap: 14, padding: 20, backgroundColor: '#f8fafc' },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  backAction: { marginLeft: -11 },
   title: { flex: 1, fontSize: 20, fontWeight: '800', color: '#0f172a' },
   hint: { color: '#475569', fontSize: 14, lineHeight: 21 },
   camera: { flex: 1, minHeight: 260, borderRadius: 16, overflow: 'hidden', backgroundColor: '#e2e8f0' },
