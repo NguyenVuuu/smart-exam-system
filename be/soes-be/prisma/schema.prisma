@@ -732,6 +732,7 @@ model StudentFaceProfile {
   id                         String               @id @default(uuid())
   studentId                  String               @unique
   providerUserId             String               @unique
+  providerFaceId             String?              @unique
   collectionId              String
   status                     FaceEnrollmentStatus @default(PENDING)
   failedAttemptsSinceSuccess Int                  @default(0)

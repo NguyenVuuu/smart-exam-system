@@ -27,7 +27,7 @@ export async function getLivenessResult(sessionId: string) {
 }
 
 export async function indexStudentFace(studentId: string, image: Uint8Array) {
-  if (faceVerificationConfig.provider === 'mock') return `mock-face-${studentId}`
+  if (faceVerificationConfig.provider === 'mock') return `mock-face-${crypto.randomUUID()}`
   const result = await client.send(new IndexFacesCommand({
     CollectionId: faceVerificationConfig.collectionId,
     ExternalImageId: studentId,

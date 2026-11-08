@@ -126,16 +126,24 @@ export async function completeSession(studentId: string, id: string, actorUserId
       const faceId = await provider.indexStudentFace(studentId, result.image)
       try {
         await prisma.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT "id" FROM "Student" WHERE "id" = ${studentId} FOR UPDATE`
+          const current = await tx.studentFaceProfile.findUnique({ where: { studentId }, select: { status: true } })
+          if (current?.status === 'ACTIVE') throw new ConflictError('Face is already enrolled')
+          if (session.expiresAt <= new Date()) throw new ConflictError('Face verification session expired')
           await tx.studentFaceProfile.upsert({
             where: { studentId },
-            create: { studentId, providerUserId: studentId, collectionId: faceVerificationConfig.collectionId, status: 'ACTIVE', enrolledAt: new Date() },
-            update: { providerUserId: studentId, collectionId: faceVerificationConfig.collectionId, status: 'ACTIVE', enrolledAt: new Date(), revokedAt: null },
+            create: { studentId, providerUserId: studentId, providerFaceId: faceId, collectionId: faceVerificationConfig.collectionId, status: 'ACTIVE', enrolledAt: new Date() },
+            update: { providerUserId: studentId, providerFaceId: faceId, collectionId: faceVerificationConfig.collectionId, status: 'ACTIVE', enrolledAt: new Date(), revokedAt: null },
           })
           await tx.faceVerificationSession.update({ where: { id }, data: { status: 'PASSED', livenessConfidence: new Prisma.Decimal(result.confidence), completedAt: new Date() } })
           await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_ENROLLED', entityType: 'StudentFaceProfile', entityId: studentId })
         })
       } catch (error) {
-        await provider.deleteStudentFace(faceId).catch(() => undefined)
+        try {
+          await provider.deleteStudentFace(faceId)
+        } catch (cleanupError) {
+          throw new Error('Face index cleanup failed after enrollment transaction', { cause: cleanupError })
+        }
         throw error
       }
       return { status: 'PASSED' as const }
