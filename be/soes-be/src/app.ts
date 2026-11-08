@@ -8,6 +8,7 @@ import { studentDashboardRoutes } from './modules/student-dashboard'
 import { studentSubjectsRoutes } from './modules/student-subjects'
 import { studentCourseDetailRoutes } from './modules/student-course-detail'
 import { studentTakeExamRoutes } from './modules/student-take-exam'
+import { studentFaceRoutes, teacherFaceRoutes } from './modules/student-face'
 import { studentPortalRoutes } from './modules/student-portal'
 import { adminAcademicRoutes } from './modules/admin-academic'
 import { adminUsersRoutes } from './modules/admin-users'
@@ -68,6 +69,8 @@ app.use('/api/student', studentDashboardRoutes)
 app.use('/api/student', studentSubjectsRoutes)
 app.use('/api/student/course-offerings', studentCourseDetailRoutes)
 app.use('/api/student', studentTakeExamRoutes)
+app.use('/api/student', studentFaceRoutes)
+app.use('/api/teacher', teacherFaceRoutes)
 app.use('/api/student', gradeAppealsRoutes)
 app.use('/api/student', studentPortalRoutes)
 app.use('/api/admin', adminAcademicRoutes)
