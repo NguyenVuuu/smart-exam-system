@@ -30,14 +30,14 @@ Tham khảo [Face Liveness API](https://docs.aws.amazon.com/rekognition/latest/d
 
 ## Biến môi trường
 
-- Backend: `FACE_VERIFICATION_ENABLED=true`, `FACE_VERIFICATION_PROVIDER=aws`, `AWS_FACE_REGION`, `AWS_FACE_COLLECTION_ID`; dùng AWS credential chain của server. Các ngưỡng mặc định: liveness 90, similarity 90, phiên 180 giây, quyền vào thi 300 giây, khóa 120 giây sau 3 lần sai, chuyển giám thị sau 6 lần sai.
+- Backend: `FACE_VERIFICATION_ENABLED=true`, `FACE_VERIFICATION_PROVIDER=aws`, `AWS_FACE_REGION`, `AWS_FACE_COLLECTION_ID`; dùng AWS credential chain của server. Các ngưỡng mặc định: liveness đăng ký lần đầu 80 (`FACE_ENROLLMENT_LIVENESS_THRESHOLD`), liveness vào thi 90 (`FACE_LIVENESS_THRESHOLD`), similarity 90, phiên 180 giây, quyền vào thi 300 giây, khóa 120 giây sau 3 lần sai, chuyển giám thị sau 6 lần sai.
 - Web: `VITE_AWS_FACE_REGION` và `VITE_AWS_FACE_IDENTITY_POOL_ID` của cùng Region.
 - Mobile: `EXPO_PUBLIC_AWS_FACE_IDENTITY_POOL_ID` của cùng Region; tạo development/production build mới vì camera liveness là native module. Expo Go không đủ.
 - Không đặt AWS secret trong biến `VITE_*` hoặc `EXPO_PUBLIC_*`. Không commit file `.env`.
 
 `FACE_VERIFICATION_PROVIDER=mock` chỉ để thử luồng trên môi trường phát triển. Mock luôn cho kết quả thành công, không gọi AWS; server từ chối khởi động nếu dùng mock với `NODE_ENV=production`.
 
-AWS có thể trả `SUCCEEDED` nhưng điểm liveness vẫn dưới ngưỡng chấp nhận của SOES. Khi đó API trả mã `LIVENESS_LOW_CONFIDENCE` và các mã Feedback để hướng dẫn quét lại; ứng dụng không hiển thị điểm số. Giữ ngưỡng 90 mặc định cho tới khi có kiểm thử thực tế đủ đại diện để quyết định thay đổi. [AWS khuyến nghị](https://docs.aws.amazon.com/rekognition/latest/dg/recommendations-liveness.html) ánh sáng đều, tăng độ sáng màn hình trên web và dùng Feedback để hướng dẫn thử lại.
+AWS có thể trả `SUCCEEDED` nhưng điểm liveness vẫn dưới ngưỡng chấp nhận của SOES. Khi đó API trả mã `LIVENESS_LOW_CONFIDENCE` và các mã Feedback để hướng dẫn quét lại; ứng dụng không hiển thị điểm số. Ngưỡng đăng ký 80 giảm việc từ chối người dùng thật khi đăng ký; ngưỡng vào thi vẫn là 90. Chỉ thay đổi tiếp sau khi kiểm thử thực tế đủ đại diện. [AWS khuyến nghị](https://docs.aws.amazon.com/rekognition/latest/dg/recommendations-liveness.html) ánh sáng đều, tăng độ sáng màn hình trên web và dùng Feedback để hướng dẫn thử lại.
 
 ## Áp dụng và kiểm tra
 

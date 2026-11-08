@@ -6,6 +6,7 @@ import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { findEnrollment, findScheduleById, findActiveAttempt } from '../../student-take-exam/repositories/student-take-exam.repository'
 import * as repository from '../repositories/student-face.repository'
 import * as provider from './face-provider'
+import { assessLiveness } from './face-liveness.policy'
 import { nextFaceRetryState } from './face-retry.policy'
 
 export async function getProfile(studentId: string) {
@@ -115,18 +116,16 @@ export async function completeSession(studentId: string, id: string, actorUserId
       await repository.transitionFaceSession(id, 'PROCESSING', 'CREATED')
       return { status: 'PROCESSING' as const }
     }
-    if (result.status !== 'SUCCEEDED' || result.confidence < faceVerificationConfig.livenessThreshold || !result.image) {
-      const livenessFailure = result.status !== 'SUCCEEDED' ? 'LIVENESS_NOT_COMPLETED'
-        : result.confidence < faceVerificationConfig.livenessThreshold ? 'LIVENESS_LOW_CONFIDENCE'
-        : 'LIVENESS_REFERENCE_IMAGE_MISSING'
-      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, livenessFailure)
-      return { status: 'FAILED' as const, failureCode: livenessFailure, feedbackCodes: result.feedbackCodes, ...profile }
+    const assessment = assessLiveness(session.purpose, result, faceVerificationConfig)
+    if (!assessment.accepted) {
+      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, assessment.failureCode)
+      return { status: 'FAILED' as const, failureCode: assessment.failureCode, feedbackCodes: result.feedbackCodes, ...profile }
     }
 
     if (session.purpose === 'ENROLLMENT') {
       const existing = await repository.findFaceProfile(studentId)
       if (existing?.status === 'ACTIVE') throw new ConflictError('Face is already enrolled')
-      const faceId = await provider.indexStudentFace(studentId, result.image)
+      const faceId = await provider.indexStudentFace(studentId, assessment.image)
       try {
         await prisma.$transaction(async (tx) => {
           await tx.$queryRaw`SELECT "id" FROM "Student" WHERE "id" = ${studentId} FOR UPDATE`
@@ -152,7 +151,7 @@ export async function completeSession(studentId: string, id: string, actorUserId
       return { status: 'PASSED' as const }
     }
 
-    const similarity = await provider.matchStudentFace(studentId, result.image)
+    const similarity = await provider.matchStudentFace(studentId, assessment.image)
     if (similarity < faceVerificationConfig.similarityThreshold) {
       const profile = await recordFailure(id, studentId, actorUserId, session.purpose, 'FACE_MISMATCH')
       return { status: 'FAILED' as const, failureCode: 'FACE_MISMATCH', ...profile }

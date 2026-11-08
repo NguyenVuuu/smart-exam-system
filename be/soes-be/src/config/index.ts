@@ -156,6 +156,10 @@ export const faceVerificationConfig = {
     return boundedPercentage(process.env.FACE_LIVENESS_THRESHOLD, 90)
   },
 
+  get enrollmentLivenessThreshold(): number {
+    return boundedPercentage(process.env.FACE_ENROLLMENT_LIVENESS_THRESHOLD, 80)
+  },
+
   get similarityThreshold(): number {
     return boundedPercentage(process.env.FACE_SIMILARITY_THRESHOLD, 90)
   },
