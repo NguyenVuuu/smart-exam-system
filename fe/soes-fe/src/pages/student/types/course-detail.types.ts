@@ -57,7 +57,6 @@ export interface PostAttachment {
   fileName: string
   fileType: string
   fileSize: string
-  downloadUrl: string
 }
 
 export interface PostDetail {

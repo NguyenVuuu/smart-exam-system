@@ -44,5 +44,4 @@ export interface AttachmentDto {
   fileName: string
   fileType: string
   fileSize: string
-  downloadUrl: string
 }

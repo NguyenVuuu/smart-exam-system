@@ -209,7 +209,6 @@ export class StudentCourseDetailRepository {
       fileName: attachment.fileName,
       fileType: this.getFileType(attachment.contentType),
       fileSize: this.formatFileSize(attachment.fileSize),
-      downloadUrl: this.generateDownloadUrl(attachment.objectName),
     }))
 
     const edited = post.updatedAt > post.createdAt
@@ -253,6 +252,28 @@ export class StudentCourseDetailRepository {
         contentType: true,
         storagePath: true,
         createdAt: true,
+      },
+    })
+  }
+
+  async findPostAttachment(
+    courseOfferingId: string,
+    postId: string,
+    attachmentId: string,
+    studentId: string,
+  ) {
+    await this.findCourseHeader(courseOfferingId, studentId)
+    return prisma.postAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        postId,
+        post: { courseOfferingId, status: PostStatus.PUBLISHED },
+      },
+      select: {
+        id: true,
+        fileName: true,
+        contentType: true,
+        storagePath: true,
       },
     })
   }
@@ -524,10 +545,6 @@ export class StudentCourseDetailRepository {
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
   }
-
-  private generateDownloadUrl(objectName: string): string {
-    return `/files/${objectName}`
-  }
 }
 
 // ==================
@@ -571,7 +588,6 @@ export interface PostDetailRow {
     fileName: string
     fileType: string
     fileSize: string
-    downloadUrl: string
   }[]
 }
 
