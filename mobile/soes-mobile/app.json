@@ -24,7 +24,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "@blacktomang/expo-aws-liveness",
+        {
+          "cameraPermission": "SOES cần dùng camera để đăng ký khuôn mặt sinh viên."
+        }
+      ]
     ]
   }
 }
