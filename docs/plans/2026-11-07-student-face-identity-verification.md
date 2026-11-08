@@ -1,17 +1,17 @@
 # Student Face Identity Verification Implementation Plan
 
-**Goal:** Require every student to enroll a face once and pass AWS Face Liveness plus identity matching before a new exam attempt is created on web or mobile.
+**Goal:** Require every student to enroll a face once, then verify identity before a web exam attempt is started or resumed.
 
-**Architecture:** The backend owns enrollment, verification state, retry policy, Rekognition calls, and the one-time exam-entry grant. The web renders AWS Amplify Face Liveness. Expo mobile opens that web flow through an authenticated browser session and returns through a deep link. No raw face image or liveness video is stored by SOES.
+**Architecture:** The backend owns enrollment, verification state, retry policy, Rekognition calls, and the one-time web exam-entry grant. The web renders AWS Amplify Face Liveness. Expo mobile enrolls the face once after student login with a native liveness detector and does not offer exam taking. No raw face image or liveness video is stored by SOES.
 
-**Technology:** Express, Prisma/PostgreSQL, AWS Rekognition Face Liveness and face collections, React/Vite, AWS Amplify UI Liveness, Expo WebBrowser and Expo Linking.
+**Technology:** Express, Prisma/PostgreSQL, AWS Rekognition Face Liveness and face collections, React/Vite, AWS Amplify UI Liveness, Expo native liveness detector.
 
 ## Business rules
 
 - Only the `STUDENT` role enrolls and verifies a face.
 - A student is prompted to enroll immediately after first successful student-role login.
 - Enrollment may be completed on any supported device.
-- Every new attempt for every exam category requires a fresh successful verification.
+- Every new web attempt for every exam category requires a fresh successful verification.
 - Re-entering an existing in-progress attempt requires and consumes a fresh verification. A transient connection loss while the exam screen remains open does not.
 - A verification grant is bound to one student and one schedule, expires after five minutes, and is consumed atomically when the attempt is created.
 - Three failed checks trigger a two-minute cooldown. After three additional failures, a proctor must approve a manual override with a reason.
@@ -42,7 +42,7 @@ Commit: `feat(face): add biometric verification persistence`
 - Add a `student-face-verification` module with routes, validators, controllers, services, repositories, and providers.
 - Implement Rekognition collection/user enrollment and liveness result evaluation.
 - Enforce ownership, expiry, confidence thresholds, retry cooldown, manual-review state, and audit logging.
-- Add status, create-session, complete-session, and mobile handoff endpoints.
+- Add status, create-session, and complete-session endpoints.
 - Add request throttling for session creation and completion.
 - Build the backend.
 
@@ -69,15 +69,14 @@ Commit: `feat(exams): gate new attempts with face verification`
 
 Commit: `feat(web): add student face enrollment and exam verification`
 
-## Task 5: Expo mobile handoff
+## Task 5: Expo mobile first-login enrollment
 
-- Add secure browser handoff to the hosted web verification flow.
-- Add deep-link callback validation and one-time state correlation.
+- Add native Face Liveness camera for enrollment on iOS and Android development builds.
 - Redirect first-login students to enrollment.
-- Gate mobile exam start and refresh status after returning from the browser.
+- Refresh enrollment status after verification. Mobile has no exam-taking flow.
 - Verify iOS and Android layouts and run mobile lint/type checks.
 
-Commit: `feat(mobile): add face verification browser handoff`
+Commit: `feat(mobile): enroll student face with native liveness`
 
 ## Task 6: Verification and handoff
 
