@@ -30,6 +30,7 @@ model User {
   detectedViolations         Violation[]         @relation("ViolationDetector")
   reviewedViolations         Violation[]         @relation("ViolationReviewer")
   capturedViolationEvidences ViolationEvidence[] @relation("EvidenceCapturer")
+  approvedFaceVerifications FaceVerificationSession[] @relation("FaceVerificationApprover")
 }
 
 model Student {
@@ -41,6 +42,8 @@ model Student {
   examAttempts        ExamAttempt[]         @relation("StudentExamAttempts")
   targetExamSchedules ExamScheduleStudent[]
   gradeAppeals        GradeAppeal[]         @relation("StudentGradeAppeals")
+  faceProfile         StudentFaceProfile?
+  faceVerifications   FaceVerificationSession[]
   user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -591,6 +594,7 @@ model ExamSchedule {
   scheduleCourses        ExamScheduleCourse[]
   targetStudents         ExamScheduleStudent[]
   attempts               ExamAttempt[]
+  faceVerifications      FaceVerificationSession[]
 
   @@index([examId])
   @@index([makeupOfScheduleId])
@@ -707,6 +711,7 @@ model ExamAttempt {
   invalidatedBy          User?                   @relation("AttemptInvalidator", fields: [invalidatedById], references: [id])
   violationsViewedBy     User?                   @relation("AttemptViolationViewer", fields: [violationsViewedById], references: [id])
   student                Student                 @relation("StudentExamAttempts", fields: [studentId], references: [id])
+  faceVerifications      FaceVerificationSession[]
   attemptQuestions       ExamAttemptQuestion[]
   examSession            ExamSession?
   studentAnswers         StudentAnswer[]
@@ -721,6 +726,57 @@ model ExamAttempt {
   @@index([courseOfferingId])
   @@index([invalidatedById])
   @@index([violationsViewedById])
+}
+
+model StudentFaceProfile {
+  id                         String               @id @default(uuid())
+  studentId                  String               @unique
+  providerUserId             String               @unique
+  collectionId              String
+  status                     FaceEnrollmentStatus @default(PENDING)
+  failedAttemptsSinceSuccess Int                  @default(0)
+  cooldownUntil              DateTime?
+  requiresManualReview       Boolean              @default(false)
+  enrolledAt                 DateTime?
+  revokedAt                  DateTime?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+  student                    Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([cooldownUntil])
+}
+
+model FaceVerificationSession {
+  id                 String                     @id @default(uuid())
+  studentId          String
+  examScheduleId     String?
+  attemptId          String?
+  providerSessionId  String?                    @unique
+  purpose            FaceVerificationPurpose
+  method             FaceVerificationMethod     @default(AWS_REKOGNITION)
+  status             FaceVerificationStatus     @default(CREATED)
+  livenessConfidence Decimal?                   @db.Decimal(5, 2)
+  similarity         Decimal?                   @db.Decimal(5, 2)
+  failureCode        String?
+  grantExpiresAt     DateTime?
+  consumedAt         DateTime?
+  expiresAt          DateTime
+  completedAt        DateTime?
+  approvedById       String?
+  manualReason       String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  student            Student                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  examSchedule       ExamSchedule?              @relation(fields: [examScheduleId], references: [id], onDelete: Cascade)
+  attempt            ExamAttempt?               @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  approvedBy         User?                      @relation("FaceVerificationApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@index([studentId, purpose, createdAt])
+  @@index([examScheduleId, status])
+  @@index([attemptId, createdAt])
+  @@index([status, expiresAt])
+  @@index([approvedById])
 }
 
 model GradeAppeal {
@@ -1298,4 +1354,30 @@ enum ScoreAdjustmentType {
 enum ViolationEvidenceType {
   WEBCAM_IMAGE
   SCREEN_IMAGE
+}
+
+enum FaceEnrollmentStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum FaceVerificationPurpose {
+  ENROLLMENT
+  EXAM_ENTRY
+}
+
+enum FaceVerificationMethod {
+  AWS_REKOGNITION
+  MANUAL_OVERRIDE
+}
+
+enum FaceVerificationStatus {
+  CREATED
+  PROCESSING
+  PASSED
+  FAILED
+  EXPIRED
+  CONSUMED
+  MANUAL_APPROVED
 }

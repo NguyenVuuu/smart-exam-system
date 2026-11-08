@@ -12,7 +12,7 @@
 - A student is prompted to enroll immediately after first successful student-role login.
 - Enrollment may be completed on any supported device.
 - Every new attempt for every exam category requires a fresh successful verification.
-- Resuming an existing in-progress attempt does not consume another verification.
+- Re-entering an existing in-progress attempt requires and consumes a fresh verification. A transient connection loss while the exam screen remains open does not.
 - A verification grant is bound to one student and one schedule, expires after five minutes, and is consumed atomically when the attempt is created.
 - Three failed checks trigger a two-minute cooldown. After three additional failures, a proctor must approve a manual override with a reason.
 - Enrollment, failures, successes, cooldowns, grant consumption, and overrides are audited.
@@ -52,7 +52,7 @@ Commit: `feat(face): add secure student face verification api`
 
 - Require a successful unconsumed schedule-bound verification for every new attempt.
 - Consume the verification in the same transaction that creates the attempt.
-- Keep active-attempt resume behavior unchanged.
+- Require a fresh verification when an active attempt is re-entered and attach the new verification record to that attempt.
 - Add proctor-authorized manual override with mandatory reason and audit trail.
 - Build the backend.
 

@@ -7,12 +7,14 @@ import { logger } from './lib/logger'
 import { assertExamEncryptionConfigured } from './lib/encryption'
 import { initializeSystemSettings } from './modules/admin-system-settings/services/admin-system-settings.service'
 import { initProctoringRealtime } from './modules/proctoring/proctoring-realtime.gateway'
+import { assertFaceVerificationConfigured } from './config'
 
 const PORT = process.env.PORT ?? 3000
 const httpServer = createServer(app)
 
 async function startServer(): Promise<void> {
   assertExamEncryptionConfigured()
+  assertFaceVerificationConfigured()
   await initializeSystemSettings()
   void initProctoringRealtime(httpServer)
 
