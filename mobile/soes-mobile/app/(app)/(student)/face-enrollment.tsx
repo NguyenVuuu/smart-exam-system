@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react'
-import { ArrowLeft, Fingerprint, LogOut, RefreshCw } from 'lucide-react-native'
+import { Fingerprint, LogOut, RefreshCw } from 'lucide-react-native'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cancelFaceEnrollmentSession, completeFaceEnrollmentSession, createFaceEnrollmentSession, type FaceEnrollmentSession } from '../../../src/api/student-face.api'
@@ -82,14 +82,11 @@ export default function StudentFaceEnrollmentPage() {
   }
 
   const goBack = () => {
-    if (phase === 'scanning' && session) {
-      void cancelFaceEnrollmentSession(session.id).catch(() => undefined)
-      setSession(null)
-      setPhase('intro')
-      setError('')
-      return
-    }
-    void handleLogout()
+    if (!session) return
+    void cancelFaceEnrollmentSession(session.id).catch(() => undefined)
+    setSession(null)
+    setPhase('intro')
+    setError('')
   }
 
   const signOut = () => {
@@ -99,18 +96,13 @@ export default function StudentFaceEnrollmentPage() {
 
   if (phase === 'scanning' && session && detector && identityPoolId) {
     return <SafeAreaView style={styles.safe}>
-      <View style={styles.scanNav}>
-        <Pressable style={styles.back} onPress={goBack} accessibilityRole="button" accessibilityLabel="Quay lại đăng ký khuôn mặt">
-          <ArrowLeft size={19} color="#334155" /><Text style={styles.backText}>Quay lại</Text>
-        </Pressable>
-        <Pressable style={styles.back} onPress={signOut} disabled={isLoggingOut} accessibilityRole="button">
-          <LogOut size={18} color="#475569" /><Text style={styles.backText}>Đăng xuất</Text>
-        </Pressable>
-      </View>
       <FaceLivenessCamera
         component={detector}
         session={session}
         identityPoolId={identityPoolId}
+        onBack={goBack}
+        onLogout={signOut}
+        isLoggingOut={isLoggingOut}
         onFinished={() => void checkResult(session.id)}
         onError={() => {
           void cancelFaceEnrollmentSession(session.id).catch(() => undefined)
@@ -126,9 +118,6 @@ export default function StudentFaceEnrollmentPage() {
   const busy = phase === 'creating' || phase === 'checking'
   return <SafeAreaView style={styles.safe}>
     <ScrollView contentContainerStyle={styles.content}>
-      <Pressable style={styles.back} onPress={goBack} disabled={busy || isLoggingOut} accessibilityRole="button">
-        <ArrowLeft size={19} color="#334155" /><Text style={styles.backText}>Quay lại đăng nhập</Text>
-      </Pressable>
       <View style={styles.icon}><Fingerprint size={30} color="#2563eb" /></View>
       <Text style={styles.title}>Đăng ký khuôn mặt</Text>
       <Text style={styles.description}>
@@ -164,9 +153,6 @@ const styles = StyleSheet.create({
   primaryText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   secondary: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   secondaryText: { fontSize: 14, fontWeight: '700', color: '#2563eb' },
-  back: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
-  scanNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
-  backText: { color: '#334155', fontSize: 14, fontWeight: '700' },
   logout: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12 },
   logoutText: { fontSize: 14, fontWeight: '700', color: '#475569' },
 })
