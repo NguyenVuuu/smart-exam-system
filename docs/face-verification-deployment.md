@@ -37,6 +37,8 @@ Tham khảo [Face Liveness API](https://docs.aws.amazon.com/rekognition/latest/d
 
 `FACE_VERIFICATION_PROVIDER=mock` chỉ để thử luồng trên môi trường phát triển. Mock luôn cho kết quả thành công, không gọi AWS; server từ chối khởi động nếu dùng mock với `NODE_ENV=production`.
 
+AWS có thể trả `SUCCEEDED` nhưng điểm liveness vẫn dưới ngưỡng chấp nhận của SOES. Khi đó API trả mã `LIVENESS_LOW_CONFIDENCE` và các mã Feedback để hướng dẫn quét lại; ứng dụng không hiển thị điểm số. Giữ ngưỡng 90 mặc định cho tới khi có kiểm thử thực tế đủ đại diện để quyết định thay đổi. [AWS khuyến nghị](https://docs.aws.amazon.com/rekognition/latest/dg/recommendations-liveness.html) ánh sáng đều, tăng độ sáng màn hình trên web và dùng Feedback để hướng dẫn thử lại.
+
 ## Áp dụng và kiểm tra
 
 1. Chạy `npx prisma migrate deploy` rồi `npx prisma generate` trong `be/soes-be` trước khi bật cờ.

@@ -21,7 +21,7 @@ export interface FaceSession {
 
 export type FaceCompletion =
   | { status: 'PROCESSING' }
-  | { status: 'FAILED'; requiresManualReview: boolean; cooldownUntil: string | null; failedAttemptsSinceSuccess: number }
+  | { status: 'FAILED'; requiresManualReview: boolean; cooldownUntil: string | null; failedAttemptsSinceSuccess: number; failureCode?: string; feedbackCodes?: string[] }
   | { status: 'PASSED'; id?: string; scheduleId?: string }
 
 export const studentFaceApi = {

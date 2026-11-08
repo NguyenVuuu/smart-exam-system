@@ -1,10 +1,33 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { FaceLivenessDetectorProps } from '@aws-amplify/ui-react-liveness'
-import { studentFaceApi, type FaceSession } from '../../api/student-face.api'
+import { studentFaceApi, type FaceCompletion, type FaceSession } from '../../api/student-face.api'
 
 const identityPoolId = import.meta.env.VITE_AWS_FACE_IDENTITY_POOL_ID as string | undefined
 const FaceLivenessPanel = lazy(() => import('./FaceLivenessPanel'))
 type LivenessError = Parameters<NonNullable<FaceLivenessDetectorProps['onError']>>[0]
+type FailedFaceCompletion = Extract<FaceCompletion, { status: 'FAILED' }>
+
+const feedbackGuidance: Record<string, string> = {
+  FACE_NOT_VISIBLE: 'Giữ khuôn mặt trong khung hình suốt quá trình quét.',
+  FACE_OBSTRUCTION_DETECTED: 'Bỏ vật che mặt như khẩu trang hoặc kính râm.',
+  LOW_VIDEO_QUALITY_DETECTED: 'Lau camera và giữ thiết bị ổn định.',
+  FACE_NOT_ALIGNED: 'Nhìn thẳng vào camera và đặt mặt giữa khung hình.',
+  EYES_CLOSED_DETECTED: 'Giữ mắt mở khi làm theo hướng dẫn.',
+  LOW_LIGHTING_DETECTED: 'Chuyển tới nơi sáng đều hơn.',
+  HIGH_LIGHTING_DETECTED: 'Tránh ánh sáng quá gắt hoặc chiếu thẳng vào mặt.',
+}
+
+function describeFailedVerification(result: FailedFaceCompletion, purpose: 'ENROLLMENT' | 'EXAM_ENTRY') {
+  if (result.requiresManualReview) return 'Xác minh nhiều lần chưa thành công. Vui lòng liên hệ giảng viên coi thi.'
+  if (result.failureCode === 'FACE_MISMATCH') return 'Khuôn mặt không khớp hồ sơ đã đăng ký. Vui lòng thử lại.'
+  if (result.failureCode === 'LIVENESS_LOW_CONFIDENCE') {
+    const guidance = [...new Set(result.feedbackCodes ?? [])].flatMap((code) => feedbackGuidance[code] ? [feedbackGuidance[code]] : []).join(' ')
+    return `Phiên quét chưa đạt kiểm tra người thật. ${guidance || 'Hãy quét lại ở nơi đủ sáng, nhìn thẳng camera và không che mặt.'}`
+  }
+  if (result.failureCode === 'LIVENESS_REFERENCE_IMAGE_MISSING') return 'AWS chưa nhận được ảnh tham chiếu đủ chất lượng. Vui lòng quét lại.'
+  if (result.failureCode === 'LIVENESS_NOT_COMPLETED') return 'Phiên quét chưa hoàn tất. Vui lòng làm theo hướng dẫn trên camera và thử lại.'
+  return purpose === 'ENROLLMENT' ? 'Chưa đăng ký được khuôn mặt. Vui lòng thử lại.' : 'Xác minh khuôn mặt chưa thành công. Vui lòng thử lại.'
+}
 
 function describeLivenessError({ state, error }: LivenessError) {
   if (error?.name === 'AccessDeniedException') return 'AWS từ chối truyền video xác minh. Hãy kiểm tra quyền StartFaceLivenessSession của vai trò Cognito dùng trên web.'
@@ -91,13 +114,12 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
         setFailures(result.failedAttemptsSinceSuccess)
         setCooldownUntil(result.cooldownUntil)
         setRequiresManualReview(result.requiresManualReview)
-        setError(result.requiresManualReview
-          ? 'Xác minh nhiều lần chưa thành công. Vui lòng liên hệ giảng viên coi thi.'
-          : 'Khuôn mặt chưa khớp hoặc chưa đạt kiểm tra. Vui lòng thử lại.')
+        setError(describeFailedVerification(result, purpose))
+        setSession(null)
       } else {
         setError('Hệ thống chưa nhận được kết quả. Vui lòng thử lại sau.')
+        abandonSession()
       }
-      abandonSession()
     } catch {
       setError('Không thể hoàn tất xác minh. Vui lòng thử lại.')
       abandonSession()

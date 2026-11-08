@@ -20,10 +20,15 @@ export async function createLivenessSession() {
 export async function getLivenessResult(sessionId: string) {
   if (faceVerificationConfig.provider === 'mock') {
     if (!sessionId.startsWith('mock-')) throw new Error('Invalid mock face session')
-    return { status: 'SUCCEEDED' as const, confidence: 100, image: new Uint8Array([1]) }
+    return { status: 'SUCCEEDED' as const, confidence: 100, image: new Uint8Array([1]), feedbackCodes: [] as string[] }
   }
   const result = await client.send(new GetFaceLivenessSessionResultsCommand({ SessionId: sessionId }))
-  return { status: result.Status, confidence: result.Confidence ?? 0, image: result.ReferenceImage?.Bytes }
+  return {
+    status: result.Status,
+    confidence: result.Confidence ?? 0,
+    image: result.ReferenceImage?.Bytes,
+    feedbackCodes: result.Feedback?.flatMap((item) => item.Code ? [item.Code] : []) ?? [],
+  }
 }
 
 export async function indexStudentFace(studentId: string, image: Uint8Array) {

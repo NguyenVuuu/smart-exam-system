@@ -116,8 +116,11 @@ export async function completeSession(studentId: string, id: string, actorUserId
       return { status: 'PROCESSING' as const }
     }
     if (result.status !== 'SUCCEEDED' || result.confidence < faceVerificationConfig.livenessThreshold || !result.image) {
-      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, 'LIVENESS_FAILED')
-      return { status: 'FAILED' as const, ...profile }
+      const livenessFailure = result.status !== 'SUCCEEDED' ? 'LIVENESS_NOT_COMPLETED'
+        : result.confidence < faceVerificationConfig.livenessThreshold ? 'LIVENESS_LOW_CONFIDENCE'
+        : 'LIVENESS_REFERENCE_IMAGE_MISSING'
+      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, livenessFailure)
+      return { status: 'FAILED' as const, failureCode: livenessFailure, feedbackCodes: result.feedbackCodes, ...profile }
     }
 
     if (session.purpose === 'ENROLLMENT') {
@@ -152,7 +155,7 @@ export async function completeSession(studentId: string, id: string, actorUserId
     const similarity = await provider.matchStudentFace(studentId, result.image)
     if (similarity < faceVerificationConfig.similarityThreshold) {
       const profile = await recordFailure(id, studentId, actorUserId, session.purpose, 'FACE_MISMATCH')
-      return { status: 'FAILED' as const, ...profile }
+      return { status: 'FAILED' as const, failureCode: 'FACE_MISMATCH', ...profile }
     }
     await prisma.$transaction(async (tx) => {
       const [profile] = await tx.$queryRaw<{ status: string; cooldownUntil: Date | null; requiresManualReview: boolean }[]>`
