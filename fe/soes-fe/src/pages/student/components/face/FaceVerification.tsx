@@ -1,8 +1,26 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
+import type { FaceLivenessDetectorProps } from '@aws-amplify/ui-react-liveness'
 import { studentFaceApi, type FaceSession } from '../../api/student-face.api'
 
 const identityPoolId = import.meta.env.VITE_AWS_FACE_IDENTITY_POOL_ID as string | undefined
 const FaceLivenessPanel = lazy(() => import('./FaceLivenessPanel'))
+type LivenessError = Parameters<NonNullable<FaceLivenessDetectorProps['onError']>>[0]
+
+function describeLivenessError({ state, error }: LivenessError) {
+  if (error?.name === 'AccessDeniedException') return 'AWS từ chối truyền video xác minh. Hãy kiểm tra quyền StartFaceLivenessSession của vai trò Cognito dùng trên web.'
+  if (error?.name === 'UnrecognizedClientException') return 'AWS không chấp nhận credential tạm thời. Hãy kiểm tra cấu hình Cognito Identity Pool và giờ hệ thống.'
+  if (error?.name === 'SessionNotFoundException' || error?.name === 'ValidationException') {
+    return 'Phiên xác minh không hợp lệ hoặc đã hết hạn. Vui lòng tạo phiên mới.'
+  }
+  if (state === 'CAMERA_ACCESS_ERROR' || state === 'DEFAULT_CAMERA_NOT_FOUND_ERROR') {
+    return 'Không thể truy cập camera. Hãy kiểm tra quyền camera của trình duyệt rồi thử lại.'
+  }
+  if (state === 'CAMERA_FRAMERATE_ERROR') return 'Camera không đạt tốc độ hình ảnh cần thiết. Hãy đóng ứng dụng khác đang dùng camera rồi thử lại.'
+  if (state === 'CONNECTION_TIMEOUT' || state === 'SERVER_ERROR') {
+    return 'Không kết nối được tới AWS Rekognition. Hãy kiểm tra mạng và quyền StartFaceLivenessSession rồi thử lại.'
+  }
+  return `Quét khuôn mặt thất bại (${state}). Vui lòng thử lại.`
+}
 
 interface Props {
   purpose: 'ENROLLMENT' | 'EXAM_ENTRY'
@@ -112,11 +130,19 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
           <Suspense fallback={<p className="text-sm text-slate-600">Đang mở camera...</p>}>
             <FaceLivenessPanel
               key={session.id}
-              identityPoolId={identityPoolId}
               sessionId={session.providerSessionId}
               region={session.region}
               onAnalysisComplete={complete}
-              onError={() => { setError('Camera hoặc kết nối xác minh gặp lỗi. Vui lòng thử lại.'); abandonSession() }}
+              onError={(failure) => {
+                const metadata = failure.error as Error & { $metadata?: { httpStatusCode?: number } }
+                console.warn('Face Liveness failed', {
+                  state: failure.state,
+                  errorName: failure.error?.name,
+                  httpStatusCode: metadata.$metadata?.httpStatusCode,
+                })
+                setError(describeLivenessError(failure))
+                abandonSession()
+              }}
               onUserCancel={abandonSession}
             />
           </Suspense>

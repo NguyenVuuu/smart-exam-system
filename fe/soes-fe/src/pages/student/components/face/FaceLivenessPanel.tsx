@@ -1,25 +1,18 @@
-import { useEffect, useState } from 'react'
 import { Amplify } from 'aws-amplify'
-import { FaceLivenessDetector } from '@aws-amplify/ui-react-liveness'
+import { FaceLivenessDetector, type FaceLivenessDetectorProps } from '@aws-amplify/ui-react-liveness'
 import '@aws-amplify/ui-react/styles.css'
 
+const identityPoolId = import.meta.env.VITE_AWS_FACE_IDENTITY_POOL_ID as string | undefined
+if (identityPoolId) Amplify.configure({ Auth: { Cognito: { identityPoolId, allowGuestAccess: true } } })
+
 interface Props {
-  identityPoolId: string
   sessionId: string
   region: string
   onAnalysisComplete: () => Promise<void>
-  onError: () => void
+  onError: NonNullable<FaceLivenessDetectorProps['onError']>
   onUserCancel: () => void
 }
 
-export default function FaceLivenessPanel({ identityPoolId, ...props }: Props) {
-  const [configuredPoolId, setConfiguredPoolId] = useState<string | null>(null)
-
-  useEffect(() => {
-    Amplify.configure({ Auth: { Cognito: { identityPoolId, allowGuestAccess: true } } })
-    setConfiguredPoolId(identityPoolId)
-  }, [identityPoolId])
-
-  if (configuredPoolId !== identityPoolId) return null
+export default function FaceLivenessPanel(props: Props) {
   return <FaceLivenessDetector {...props} />
 }

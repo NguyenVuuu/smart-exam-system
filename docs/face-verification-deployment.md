@@ -11,6 +11,21 @@ Sinh viên đăng ký khuôn mặt một lần sau khi đăng nhập lần đầ
 3. Tạo Cognito Identity Pool cho web và mobile trong cùng Region. Vai trò client chỉ được gọi `rekognition:StartFaceLivenessSession`. Backend giữ quyền tạo phiên và đọc kết quả; client không nhận AWS access key dài hạn.
 4. Đánh giá chính sách lưu giữ, thu hồi và xóa khuôn mặt trong Rekognition Collection trước khi dùng dữ liệu thật. SOES lưu `providerFaceId` để xác định đúng face khi thu hồi; cần xóa face tương ứng khỏi collection. Phiên bản hiện tại chưa có luồng thu hồi tự phục vụ.
 
+Với cấu hình `allowGuestAccess: true` của web, gắn inline policy sau vào **unauthenticated role** mà Cognito Identity Pool đang cấp. Kiểm tra đúng role bằng danh tính tạm thời của pool. AWS [hướng dẫn `StartFaceLivenessSession` cho vai trò này](https://ui.docs.amplify.aws/react/connected-components/liveness).
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": "rekognition:StartFaceLivenessSession",
+    "Resource": "*"
+  }]
+}
+```
+
+Nếu web báo `AccessDeniedException` sau khi cấp quyền, kiểm tra explicit deny, permissions boundary, SCP và việc backend tạo phiên trong cùng tài khoản/Region với vai trò client. Phiên lỗi chỉ dùng một lần; tạo phiên mới để thử lại.
+
 Tham khảo [Face Liveness API](https://docs.aws.amazon.com/rekognition/latest/dg/face-liveness-programming-api.html) và [quản lý collection](https://docs.aws.amazon.com/rekognition/latest/dg/managing-face-collections.html).
 
 ## Biến môi trường
