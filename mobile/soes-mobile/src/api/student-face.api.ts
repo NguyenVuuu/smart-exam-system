@@ -22,7 +22,7 @@ export async function getStudentFaceProfile(): Promise<StudentFaceProfile> {
 }
 
 export async function createFaceEnrollmentSession(): Promise<FaceEnrollmentSession> {
-  const response = await apiClient.post<{ data: FaceEnrollmentSession }>('/student/face/sessions', { purpose: 'ENROLLMENT' })
+  const response = await apiClient.post<{ data: FaceEnrollmentSession }>('/student/face/sessions', { purpose: 'ENROLLMENT', retainImageConsent: true })
   return response.data.data
 }
 

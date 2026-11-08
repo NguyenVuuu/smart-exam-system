@@ -181,6 +181,8 @@ export interface PendingFaceManualReview {
   studentCode: string
   studentName: string
   failedAttempts: number
+  enrollmentImageAvailable: boolean
+  latestFailedImageAt: string | null
 }
 
 export const getPendingFaceManualReviews = (scheduleId: string) =>
@@ -189,6 +191,10 @@ export const getPendingFaceManualReviews = (scheduleId: string) =>
 
 export const approveFaceManualEntry = (scheduleId: string, studentId: string, reason: string) =>
   apiClient.post(`/teacher/exam-schedules/${scheduleId}/students/${studentId}/face/manual-approval`, { reason })
+
+export const getFaceReviewImage = (scheduleId: string, studentId: string, kind: 'enrollment' | 'latest-failed') =>
+  apiClient.get<Blob>(`/teacher/exam-schedules/${scheduleId}/students/${studentId}/face/review-image/${kind}`, { responseType: 'blob' })
+    .then(({ data }) => data)
 
 export const getTeacherLiveProctoringViolations = (
   scheduleId: string,

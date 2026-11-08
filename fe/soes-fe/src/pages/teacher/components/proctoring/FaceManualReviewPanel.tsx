@@ -1,10 +1,30 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { approveFaceManualEntry, getPendingFaceManualReviews, type PendingFaceManualReview } from '../../api/teacher-exams.api'
+import { approveFaceManualEntry, getFaceReviewImage, getPendingFaceManualReviews, type PendingFaceManualReview } from '../../api/teacher-exams.api'
 
 interface Props {
   scheduleId: string
   refreshVersion: number
+}
+
+function ReviewImage({ scheduleId, studentId, kind, label }: { scheduleId: string; studentId: string; kind: 'enrollment' | 'latest-failed'; label: string }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [error, setError] = useState(false)
+  useEffect(() => {
+    let active = true
+    let objectUrl: string | null = null
+    void getFaceReviewImage(scheduleId, studentId, kind).then((blob) => {
+      if (!active) return
+      objectUrl = URL.createObjectURL(blob)
+      setUrl(objectUrl)
+    }).catch(() => { if (active) setError(true) })
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [scheduleId, studentId, kind])
+  return <figure className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <figcaption className="mb-2 text-sm font-semibold text-slate-800">{label}</figcaption>
+    {url ? <img src={url} alt={label} className="h-64 w-full rounded-lg bg-slate-200 object-contain" />
+      : <div className="flex h-64 items-center justify-center rounded-lg bg-slate-100 p-4 text-center text-sm text-slate-500">{error ? 'Không tải được ảnh.' : 'Đang tải ảnh...'}</div>}
+  </figure>
 }
 
 export default function FaceManualReviewPanel({ scheduleId, refreshVersion }: Props) {
@@ -56,6 +76,14 @@ export default function FaceManualReviewPanel({ scheduleId, refreshVersion }: Pr
           </button>
         </div>
         {selectedId === item.studentId && <div className="mt-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {item.enrollmentImageAvailable ? <ReviewImage scheduleId={scheduleId} studentId={item.studentId} kind="enrollment" label="Ảnh đăng ký khuôn mặt" />
+              : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Chưa có ảnh đăng ký (hồ sơ được tạo trước khi bật lưu ảnh).</p>}
+            {item.latestFailedImageAt ? <ReviewImage scheduleId={scheduleId} studentId={item.studentId} kind="latest-failed" label="Ảnh quét thất bại gần nhất" />
+              : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Phiên quét cuối không có ảnh tham chiếu đủ chất lượng.</p>}
+          </div>
+          {item.latestFailedImageAt && <p className="text-xs text-slate-500">Quét lúc {new Date(item.latestFailedImageAt).toLocaleString('vi-VN')}</p>}
+          <p className="text-sm text-amber-800">Đối chiếu ảnh và kiểm tra trực tiếp danh tính trước khi xác nhận. Ảnh không tự quyết định quyền vào thi.</p>
           <label htmlFor="face-manual-reason" className="block text-sm font-medium text-slate-700">Lý do xác nhận (ít nhất 10 ký tự)</label>
           <textarea id="face-manual-reason" value={reason} maxLength={500} rows={3}
             onChange={(event) => setReason(event.target.value)}

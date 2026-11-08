@@ -8,6 +8,7 @@ import * as repository from '../repositories/student-face.repository'
 import * as provider from './face-provider'
 import { assessLiveness } from './face-liveness.policy'
 import { nextFaceRetryState } from './face-retry.policy'
+import { decryptFaceImage, encryptFaceImage, enrollmentImageContext, failedImageContext, imageMimeType } from './face-image.crypto'
 
 export async function getProfile(studentId: string) {
   const profile = await repository.findFaceProfile(studentId)
@@ -17,6 +18,7 @@ export async function getProfile(studentId: string) {
     failedAttemptsSinceSuccess: profile?.failedAttemptsSinceSuccess ?? 0,
     cooldownUntil: profile?.cooldownUntil ?? null,
     requiresManualReview: profile?.requiresManualReview ?? false,
+    imageRetentionConsented: !!profile?.imageConsentAt,
   }
 }
 
@@ -28,20 +30,29 @@ export async function getManualApproval(studentId: string, scheduleId: string) {
 export async function getPendingManualReviews(teacherId: string, scheduleId: string) {
   if (!faceVerificationConfig.enabled) return []
   const profiles = await repository.findPendingManualReviews(teacherId, scheduleId)
-  return profiles.map(({ studentId, failedAttemptsSinceSuccess, student }) => ({
+  const captures = await prisma.faceReviewCapture.findMany({
+    where: { examScheduleId: scheduleId, studentId: { in: profiles.map(({ studentId }) => studentId) }, expiresAt: { gt: new Date() } },
+    select: { studentId: true, capturedAt: true },
+  })
+  const capturesByStudent = new Map(captures.map((capture) => [capture.studentId, capture.capturedAt]))
+  return profiles.map(({ studentId, failedAttemptsSinceSuccess, student, referenceImageCapturedAt }) => ({
     studentId, studentCode: student.studentCode, studentName: student.user.fullName,
     failedAttempts: failedAttemptsSinceSuccess,
+    enrollmentImageAvailable: !!referenceImageCapturedAt,
+    latestFailedImageAt: capturesByStudent.get(studentId) ?? null,
   }))
 }
 
-export async function createSession(studentId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', scheduleId?: string) {
+export async function createSession(studentId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', scheduleId?: string, retainImageConsent = false) {
   if (!faceVerificationConfig.enabled) throw new ConflictError('Face verification is not enabled')
   const profile = await repository.findFaceProfile(studentId)
   if (purpose === 'ENROLLMENT') {
     if (profile?.status === 'ACTIVE') throw new ConflictError('Face is already enrolled')
+    if (!retainImageConsent) throw new ForbiddenError('Consent to retain the enrollment image is required')
   } else {
     if (!scheduleId) throw new ConflictError('Exam schedule is required')
     if (profile?.status !== 'ACTIVE') throw new ForbiddenError('Register your face before entering an exam')
+    if (!profile.imageConsentAt && !retainImageConsent) throw new ForbiddenError('Consent to retain the latest failed exam scan is required')
     if (profile.requiresManualReview) throw new ForbiddenError('Proctor approval is required')
     if (profile.cooldownUntil && profile.cooldownUntil > new Date()) throw new ForbiddenError('Face verification is temporarily paused')
     const [schedule, enrollment] = await Promise.all([
@@ -61,11 +72,14 @@ export async function createSession(studentId: string, purpose: 'ENROLLMENT' | '
 
   const providerSessionId = await provider.createLivenessSession(purpose)
   const session = await repository.createFaceSession(studentId, purpose, providerSessionId,
-    new Date(Date.now() + faceVerificationConfig.sessionTtlSeconds * 1000), scheduleId)
+    new Date(Date.now() + faceVerificationConfig.sessionTtlSeconds * 1000), scheduleId, retainImageConsent ? new Date() : null)
   return { id: session.id, providerSessionId, expiresAt: session.expiresAt, region: faceVerificationConfig.region }
 }
 
-async function recordFailure(id: string, studentId: string, actorUserId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', code: string) {
+async function recordFailure(id: string, studentId: string, actorUserId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', code: string, scheduleId?: string | null, image?: Uint8Array, imageConsentAt?: Date | null) {
+  const mimeType = image ? imageMimeType(image) : null
+  const ciphertext = purpose === 'EXAM_ENTRY' && scheduleId && mimeType && image
+    ? encryptFaceImage(image, failedImageContext(studentId, scheduleId)) : null
   await prisma.$transaction(async (tx) => {
     await tx.faceVerificationSession.update({ where: { id }, data: { status: 'FAILED', failureCode: code, completedAt: new Date() } })
     let retryState: ReturnType<typeof nextFaceRetryState> | null = null
@@ -78,8 +92,16 @@ async function recordFailure(id: string, studentId: string, actorUserId: string,
       retryState = nextFaceRetryState(profile.failedAttemptsSinceSuccess, new Date(), faceVerificationConfig)
       await tx.studentFaceProfile.update({
         where: { studentId },
-        data: retryState,
+        data: { ...retryState, ...(imageConsentAt ? { imageConsentAt } : {}) },
       })
+      if (scheduleId) {
+        await tx.faceReviewCapture.deleteMany({ where: { studentId, examScheduleId: scheduleId } })
+        if (ciphertext && mimeType) await tx.faceReviewCapture.create({ data: {
+          studentId, examScheduleId: scheduleId, sourceSessionId: id, imageCiphertext: ciphertext,
+          imageMimeType: mimeType, capturedAt: new Date(),
+          expiresAt: new Date(Date.now() + faceVerificationConfig.reviewImageRetentionDays * 86400_000),
+        } })
+      }
     }
     await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_VERIFICATION_FAILED', entityType: 'FaceVerificationSession', entityId: id,
       metadata: { purpose, code, failedAttempts: retryState?.failedAttemptsSinceSuccess,
@@ -104,6 +126,7 @@ export async function completeSession(studentId: string, id: string, actorUserId
     if (session.purpose === 'EXAM_ENTRY') {
       const profile = await repository.findFaceProfile(studentId)
       if (!profile) throw new NotFoundError('Face profile not found')
+      if (!profile.imageConsentAt && !session.imageConsentAt) throw new ForbiddenError('Consent to retain the latest failed exam scan is required')
       if (profile.requiresManualReview) throw new ForbiddenError('Proctor approval is required')
       if (profile.cooldownUntil && profile.cooldownUntil > new Date()) throw new ForbiddenError('Face verification is temporarily paused')
     }
@@ -118,13 +141,16 @@ export async function completeSession(studentId: string, id: string, actorUserId
     }
     const assessment = assessLiveness(session.purpose, result, faceVerificationConfig)
     if (!assessment.accepted) {
-      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, assessment.failureCode)
+      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, assessment.failureCode, session.examScheduleId, result.reviewImage, session.imageConsentAt)
       return { status: 'FAILED' as const, failureCode: assessment.failureCode, feedbackCodes: result.feedbackCodes, ...profile }
     }
 
     if (session.purpose === 'ENROLLMENT') {
+      if (!session.imageConsentAt) throw new ForbiddenError('Consent to retain the enrollment image is required')
       const existing = await repository.findFaceProfile(studentId)
       if (existing?.status === 'ACTIVE') throw new ConflictError('Face is already enrolled')
+      const mimeType = imageMimeType(assessment.image)
+      const ciphertext = faceVerificationConfig.provider === 'mock' ? null : encryptFaceImage(assessment.image, enrollmentImageContext(studentId))
       const faceId = await provider.indexStudentFace(studentId, assessment.image)
       try {
         await prisma.$transaction(async (tx) => {
@@ -134,8 +160,8 @@ export async function completeSession(studentId: string, id: string, actorUserId
           if (session.expiresAt <= new Date()) throw new ConflictError('Face verification session expired')
           await tx.studentFaceProfile.upsert({
             where: { studentId },
-            create: { studentId, providerUserId: studentId, providerFaceId: faceId, collectionId: faceVerificationConfig.collectionId, status: 'ACTIVE', enrolledAt: new Date() },
-            update: { providerUserId: studentId, providerFaceId: faceId, collectionId: faceVerificationConfig.collectionId, status: 'ACTIVE', enrolledAt: new Date(), revokedAt: null },
+            create: { studentId, providerUserId: studentId, providerFaceId: faceId, collectionId: faceVerificationConfig.collectionId, status: 'ACTIVE', enrolledAt: new Date(), imageConsentAt: session.imageConsentAt, referenceImageCiphertext: ciphertext, referenceImageMimeType: mimeType, referenceImageCapturedAt: ciphertext ? new Date() : null },
+            update: { providerUserId: studentId, providerFaceId: faceId, collectionId: faceVerificationConfig.collectionId, status: 'ACTIVE', enrolledAt: new Date(), revokedAt: null, imageConsentAt: session.imageConsentAt, referenceImageCiphertext: ciphertext, referenceImageMimeType: mimeType, referenceImageCapturedAt: ciphertext ? new Date() : null },
           })
           await tx.faceVerificationSession.update({ where: { id }, data: { status: 'PASSED', livenessConfidence: new Prisma.Decimal(result.confidence), completedAt: new Date() } })
           await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_ENROLLED', entityType: 'StudentFaceProfile', entityId: studentId })
@@ -153,7 +179,7 @@ export async function completeSession(studentId: string, id: string, actorUserId
 
     const similarity = await provider.matchStudentFace(studentId, assessment.image)
     if (similarity < faceVerificationConfig.similarityThreshold) {
-      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, 'FACE_MISMATCH')
+      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, 'FACE_MISMATCH', session.examScheduleId, assessment.image, session.imageConsentAt)
       return { status: 'FAILED' as const, failureCode: 'FACE_MISMATCH', ...profile }
     }
     await prisma.$transaction(async (tx) => {
@@ -171,7 +197,8 @@ export async function completeSession(studentId: string, id: string, actorUserId
           completedAt: new Date(), grantExpiresAt: new Date(Date.now() + faceVerificationConfig.grantTtlSeconds * 1000),
         },
       })
-      await tx.studentFaceProfile.update({ where: { studentId }, data: { failedAttemptsSinceSuccess: 0, cooldownUntil: null, requiresManualReview: false } })
+      await tx.studentFaceProfile.update({ where: { studentId }, data: { failedAttemptsSinceSuccess: 0, cooldownUntil: null, requiresManualReview: false, ...(session.imageConsentAt ? { imageConsentAt: session.imageConsentAt } : {}) } })
+      await tx.faceReviewCapture.deleteMany({ where: { studentId, examScheduleId: session.examScheduleId! } })
       await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_VERIFICATION_PASSED', entityType: 'FaceVerificationSession', entityId: id, metadata: { scheduleId: session.examScheduleId } })
     })
     return { status: 'PASSED' as const, id, scheduleId: session.examScheduleId }
@@ -200,6 +227,8 @@ export async function approveManualEntry(teacherId: string, actorUserId: string,
   if (!enrollment) throw new NotFoundError('Student is not assigned to this exam')
   const assignment = await repository.findAssignedProctor(teacherId, scheduleId, enrollment.courseOfferingId)
   if (!assignment) throw new ForbiddenError('Only an assigned proctor may approve face verification')
+  const failedInSchedule = await prisma.faceVerificationSession.count({ where: { studentId, examScheduleId: scheduleId, purpose: 'EXAM_ENTRY', status: 'FAILED' } })
+  if (!failedInSchedule) throw new ConflictError('No failed face verification in this exam')
   const schedule = await findScheduleById(scheduleId)
   const activeAttempt = await findActiveAttempt(scheduleId, studentId)
   const now = new Date()
@@ -236,4 +265,35 @@ export async function approveManualEntry(teacherId: string, actorUserId: string,
     })
     return grant
   })
+}
+
+export async function getManualReviewImage(teacherId: string, actorUserId: string, scheduleId: string, studentId: string, kind: 'enrollment' | 'latest-failed') {
+  if (!faceVerificationConfig.enabled) throw new ConflictError('Face verification is not enabled')
+  const enrollment = await findEnrollment(scheduleId, studentId)
+  if (!enrollment) throw new NotFoundError('Student is not assigned to this exam')
+  const assignment = await repository.findAssignedProctor(teacherId, scheduleId, enrollment.courseOfferingId)
+  if (!assignment) throw new ForbiddenError('Only an assigned proctor may view face review images')
+  const failedInSchedule = await prisma.faceVerificationSession.count({ where: { studentId, examScheduleId: scheduleId, purpose: 'EXAM_ENTRY', status: 'FAILED' } })
+  if (!failedInSchedule) throw new ForbiddenError('No pending face review in this exam')
+  const activeApproval = await prisma.faceVerificationSession.count({ where: {
+    studentId, examScheduleId: scheduleId, method: 'MANUAL_OVERRIDE', status: 'MANUAL_APPROVED', grantExpiresAt: { gt: new Date() },
+  } })
+  if (activeApproval) throw new ForbiddenError('Face review has already been approved')
+  const profile = await prisma.studentFaceProfile.findUnique({
+    where: { studentId }, select: { status: true, requiresManualReview: true,
+      ...(kind === 'enrollment' ? { referenceImageCiphertext: true, referenceImageMimeType: true } : {}),
+    },
+  })
+  if (profile?.status !== 'ACTIVE' || !profile.requiresManualReview) throw new ForbiddenError('No pending face review')
+  const capture = kind === 'latest-failed' ? await prisma.faceReviewCapture.findUnique({
+    where: { studentId_examScheduleId: { studentId, examScheduleId: scheduleId } },
+    select: { imageCiphertext: true, imageMimeType: true, expiresAt: true },
+  }) : null
+  const encrypted = kind === 'enrollment' ? ('referenceImageCiphertext' in profile ? profile.referenceImageCiphertext : null) : capture?.expiresAt && capture.expiresAt > new Date() ? capture.imageCiphertext : null
+  const mimeType = kind === 'enrollment' ? ('referenceImageMimeType' in profile ? profile.referenceImageMimeType : null) : capture?.imageMimeType
+  if (!encrypted || !mimeType || !['image/jpeg', 'image/png'].includes(mimeType)) throw new NotFoundError('Face review image is unavailable')
+  const bytes = decryptFaceImage(encrypted, kind === 'enrollment' ? enrollmentImageContext(studentId) : failedImageContext(studentId, scheduleId))
+  await writeAuditLog(prisma, { userId: actorUserId, action: 'FACE_REVIEW_IMAGE_VIEWED', entityType: 'StudentFaceProfile', entityId: studentId,
+    metadata: { scheduleId, kind } })
+  return { bytes, mimeType }
 }

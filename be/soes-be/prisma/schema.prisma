@@ -44,6 +44,7 @@ model Student {
   gradeAppeals        GradeAppeal[]         @relation("StudentGradeAppeals")
   faceProfile         StudentFaceProfile?
   faceVerifications   FaceVerificationSession[]
+  faceReviewCaptures  FaceReviewCapture[]
   user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -595,6 +596,7 @@ model ExamSchedule {
   targetStudents         ExamScheduleStudent[]
   attempts               ExamAttempt[]
   faceVerifications      FaceVerificationSession[]
+  faceReviewCaptures     FaceReviewCapture[]
 
   @@index([examId])
   @@index([makeupOfScheduleId])
@@ -740,6 +742,10 @@ model StudentFaceProfile {
   requiresManualReview       Boolean              @default(false)
   enrolledAt                 DateTime?
   revokedAt                  DateTime?
+  referenceImageCiphertext   Bytes?               @db.ByteA
+  referenceImageMimeType     String?
+  referenceImageCapturedAt   DateTime?
+  imageConsentAt             DateTime?
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
   student                    Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -760,6 +766,7 @@ model FaceVerificationSession {
   livenessConfidence Decimal?                   @db.Decimal(5, 2)
   similarity         Decimal?                   @db.Decimal(5, 2)
   failureCode        String?
+  imageConsentAt     DateTime?
   grantExpiresAt     DateTime?
   consumedAt         DateTime?
   contentAccessedAt  DateTime?
@@ -779,6 +786,22 @@ model FaceVerificationSession {
   @@index([attemptId, createdAt])
   @@index([status, expiresAt])
   @@index([approvedById])
+}
+
+model FaceReviewCapture {
+  id                    String       @id @default(uuid())
+  studentId             String
+  examScheduleId        String
+  sourceSessionId       String
+  imageCiphertext       Bytes        @db.ByteA
+  imageMimeType         String
+  capturedAt            DateTime     @default(now())
+  expiresAt             DateTime
+  student               Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  examSchedule          ExamSchedule @relation(fields: [examScheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, examScheduleId])
+  @@index([expiresAt])
 }
 
 model GradeAppeal {

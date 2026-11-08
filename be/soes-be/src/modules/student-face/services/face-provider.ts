@@ -14,7 +14,7 @@ export async function createLivenessSession(purpose: 'ENROLLMENT' | 'EXAM_ENTRY'
   if (faceVerificationConfig.provider === 'mock') return `mock-${crypto.randomUUID()}`
   const challenge = purpose === 'ENROLLMENT' ? faceVerificationConfig.enrollmentChallenge : faceVerificationConfig.examChallenge
   const result = await client.send(new CreateFaceLivenessSessionCommand({
-    Settings: { AuditImagesLimit: 0, ChallengePreferences: [{ Type: challenge }] },
+    Settings: { AuditImagesLimit: 1, ChallengePreferences: [{ Type: challenge }] },
   }))
   if (!result.SessionId) throw new Error('Face liveness session was not created')
   return result.SessionId
@@ -23,13 +23,14 @@ export async function createLivenessSession(purpose: 'ENROLLMENT' | 'EXAM_ENTRY'
 export async function getLivenessResult(sessionId: string) {
   if (faceVerificationConfig.provider === 'mock') {
     if (!sessionId.startsWith('mock-')) throw new Error('Invalid mock face session')
-    return { status: 'SUCCEEDED' as const, confidence: 100, image: new Uint8Array([1]), feedbackCodes: [] as string[] }
+    return { status: 'SUCCEEDED' as const, confidence: 100, image: new Uint8Array([1]), reviewImage: new Uint8Array([1]), feedbackCodes: [] as string[] }
   }
   const result = await client.send(new GetFaceLivenessSessionResultsCommand({ SessionId: sessionId }))
   return {
     status: result.Status,
     confidence: result.Confidence ?? 0,
     image: result.ReferenceImage?.Bytes,
+    reviewImage: result.AuditImages?.[0]?.Bytes ?? result.ReferenceImage?.Bytes,
     feedbackCodes: result.Feedback?.flatMap((item) => item.Code ? [item.Code] : []) ?? [],
   }
 }

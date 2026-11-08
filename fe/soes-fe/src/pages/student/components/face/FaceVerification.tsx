@@ -62,6 +62,8 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
   const [failures, setFailures] = useState(0)
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null)
   const [requiresManualReview, setRequiresManualReview] = useState(false)
+  const [imageRetentionConsented, setImageRetentionConsented] = useState(false)
+  const [consentChecked, setConsentChecked] = useState(false)
   const [now, setNow] = useState(0)
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
       setFailures(profile.failedAttemptsSinceSuccess)
       setCooldownUntil(profile.cooldownUntil)
       setRequiresManualReview(profile.requiresManualReview)
+      setImageRetentionConsented(profile.imageRetentionConsented)
     }).catch(() => undefined)
   }, [purpose])
 
@@ -92,7 +95,7 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
     setResultPending(false)
     setWorking(true)
     try {
-      setSession(await studentFaceApi.start(purpose, scheduleId))
+      setSession(await studentFaceApi.start(purpose, scheduleId, consentChecked))
     } catch {
       setError('Không thể mở phiên xác minh. Hãy kiểm tra kết nối hoặc thử lại sau.')
     } finally {
@@ -201,7 +204,11 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
         ) : (
           <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 sm:p-6">
             <p className="text-sm leading-6 text-slate-700">Cho phép dùng camera, nhìn thẳng vào màn hình và làm theo hướng dẫn trong khung quét.</p>
-            <button type="button" disabled={!identityPoolId || working || remainingCooldown > 0 || requiresManualReview} onClick={() => void start()}
+            {(purpose === 'ENROLLMENT' || !imageRetentionConsented) && <label className="mt-4 flex items-start gap-3 rounded-xl border border-blue-200 bg-white p-4 text-sm leading-6 text-slate-700">
+              <input type="checkbox" checked={consentChecked} onChange={(event) => setConsentChecked(event.target.checked)} className="mt-1 h-4 w-4 accent-blue-600" />
+              <span>Tôi đồng ý lưu ảnh khuôn mặt khi đăng ký trong hồ sơ và ảnh quét thất bại gần nhất của mỗi ca thi trong tối đa 7 ngày. Chỉ giám thị được phân công mới xem ảnh khi cần xác minh thủ công.</span>
+            </label>}
+            <button type="button" disabled={!identityPoolId || working || remainingCooldown > 0 || requiresManualReview || ((purpose === 'ENROLLMENT' || !imageRetentionConsented) && !consentChecked)} onClick={() => void start()}
               className="mt-5 min-h-12 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
               {working ? 'Đang chuẩn bị camera...' : 'Bắt đầu quét khuôn mặt'}
             </button>

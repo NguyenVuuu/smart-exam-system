@@ -3,7 +3,10 @@ import { ForbiddenError } from '../../../errors/AppError'
 import type { Prisma } from '@prisma/client'
 
 export function findFaceProfile(studentId: string) {
-  return prisma.studentFaceProfile.findUnique({ where: { studentId } })
+  return prisma.studentFaceProfile.findUnique({ where: { studentId }, select: {
+    studentId: true, status: true, providerFaceId: true, failedAttemptsSinceSuccess: true,
+    cooldownUntil: true, requiresManualReview: true, imageConsentAt: true,
+  } })
 }
 
 export function findManualApproval(studentId: string, scheduleId: string) {
@@ -32,9 +35,9 @@ export function countRecentSessions(studentId: string, since: Date) {
   })
 }
 
-export function createFaceSession(studentId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', providerSessionId: string, expiresAt: Date, scheduleId?: string) {
+export function createFaceSession(studentId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', providerSessionId: string, expiresAt: Date, scheduleId?: string, imageConsentAt?: Date | null) {
   return prisma.faceVerificationSession.create({
-    data: { studentId, purpose, examScheduleId: scheduleId, providerSessionId, expiresAt },
+    data: { studentId, purpose, examScheduleId: scheduleId, providerSessionId, expiresAt, imageConsentAt },
   })
 }
 
@@ -81,14 +84,15 @@ export async function findPendingManualReviews(teacherId: string, scheduleId: st
       studentId: targetIds.length ? { in: targetIds } : undefined,
       student: {
         enrollments: { some: { courseOfferingId: { in: assignments.map(({ examScheduleCourse }) => examScheduleCourse.courseOfferingId) } } },
-        faceVerifications: { none: {
+        faceVerifications: { some: { examScheduleId: scheduleId, purpose: 'EXAM_ENTRY', status: 'FAILED' } },
+        AND: { faceVerifications: { none: {
           examScheduleId: scheduleId, method: 'MANUAL_OVERRIDE', status: 'MANUAL_APPROVED',
           grantExpiresAt: { gt: new Date() },
-        } },
+        } } },
       },
     },
     select: {
-      studentId: true, failedAttemptsSinceSuccess: true,
+      studentId: true, failedAttemptsSinceSuccess: true, referenceImageCapturedAt: true,
       student: { select: { studentCode: true, user: { select: { fullName: true } } } },
     },
     orderBy: { updatedAt: 'asc' },

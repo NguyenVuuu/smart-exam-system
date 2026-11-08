@@ -46,7 +46,7 @@ export default function StudentFaceEnrollmentPage() {
           </ol>
           <div className="mt-6 flex gap-2 rounded-xl bg-blue-50 p-3 text-xs leading-5 text-blue-900">
             <ScanFace size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-            SOES không lưu ảnh hoặc video từ phiên quét.
+            Ảnh đăng ký được mã hóa để giám thị đối chiếu khi cần. SOES không lưu video quét.
           </div>
         </aside>
       </div>

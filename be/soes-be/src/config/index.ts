@@ -163,7 +163,7 @@ export const faceVerificationConfig = {
   },
 
   get enrollmentLivenessThreshold(): number {
-    return boundedPercentage(process.env.FACE_ENROLLMENT_LIVENESS_THRESHOLD, 50)
+    return boundedPercentage(process.env.FACE_ENROLLMENT_LIVENESS_THRESHOLD, 60)
   },
 
   get enrollmentChallenge(): FaceChallenge {
@@ -196,6 +196,10 @@ export const faceVerificationConfig = {
 
   get maxFailuresBeforeManualReview(): number {
     return boundedInteger(process.env.FACE_MAX_FAILURES_BEFORE_MANUAL_REVIEW, 6, 2, 10)
+  },
+
+  get reviewImageRetentionDays(): number {
+    return boundedInteger(process.env.FACE_REVIEW_IMAGE_RETENTION_DAYS, 7, 1, 30)
   },
 } as const
 

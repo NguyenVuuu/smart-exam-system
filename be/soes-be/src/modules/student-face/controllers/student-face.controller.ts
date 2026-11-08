@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import * as service from '../services/student-face.service'
-import { idSchema, manualBodySchema, manualParamsSchema, scheduleParamsSchema, startSchema } from '../validators/student-face.validator'
+import { idSchema, manualBodySchema, manualParamsSchema, reviewImageParamsSchema, scheduleParamsSchema, startSchema } from '../validators/student-face.validator'
 
 export async function getManualApproval(req: Request, res: Response, next: NextFunction) {
   try {
@@ -24,8 +24,8 @@ export async function profile(req: Request, res: Response, next: NextFunction) {
 
 export async function start(req: Request, res: Response, next: NextFunction) {
   try {
-    const { purpose, scheduleId } = startSchema.parse(req.body)
-    res.status(201).json({ success: true, data: await service.createSession(req.user!.profileId, purpose, scheduleId) })
+    const { purpose, scheduleId, retainImageConsent } = startSchema.parse(req.body)
+    res.status(201).json({ success: true, data: await service.createSession(req.user!.profileId, purpose, scheduleId, retainImageConsent) })
   } catch (error) { next(error) }
 }
 
@@ -49,5 +49,16 @@ export async function approveManual(req: Request, res: Response, next: NextFunct
     const { reason } = manualBodySchema.parse(req.body)
     const grant = await service.approveManualEntry(req.user!.profileId, req.user!.id, scheduleId, studentId, reason)
     res.status(201).json({ success: true, data: grant })
+  } catch (error) { next(error) }
+}
+
+export async function reviewImage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { scheduleId, studentId, kind } = reviewImageParamsSchema.parse(req.params)
+    const image = await service.getManualReviewImage(req.user!.profileId, req.user!.id, scheduleId, studentId, kind)
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.type(image.mimeType).send(image.bytes)
   } catch (error) { next(error) }
 }
