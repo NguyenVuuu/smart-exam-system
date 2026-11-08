@@ -29,6 +29,9 @@ function describeFailure(failureCode?: string, feedbackCodes: string[] = []) {
 }
 
 function describeCameraError(error: LivenessFailure): string {
+  if (error.message?.includes('The camera failed to open within the allowed time limit.')) {
+    return 'Camera không hiển thị kịp. Hãy đóng ứng dụng khác đang dùng camera rồi thử lại; nếu vẫn lỗi, cập nhật bản ứng dụng mới.'
+  }
   switch (error.code) {
     case 'CAMERA_PERMISSION_DENIED': return 'Ứng dụng chưa được cấp quyền camera. Hãy bật quyền Camera cho SOES trong Cài đặt điện thoại rồi thử lại.'
     case 'CAMERA_NOT_AVAILABLE': return 'Thiết bị không tìm thấy camera khả dụng. Hãy đóng ứng dụng khác đang dùng camera rồi thử lại.'
@@ -132,7 +135,16 @@ export default function StudentFaceEnrollmentPage() {
           void cancelFaceEnrollmentSession(session.id).catch(() => undefined)
           setSession(null)
           setPhase('intro')
-          console.warn('Face Liveness mobile failed', { code: failure?.code, nativeErrorCode: failure?.nativeErrorCode })
+          console.warn('Face Liveness mobile failed', {
+            code: failure?.code,
+            nativeErrorCode: failure?.nativeErrorCode,
+            message: failure?.message
+              ?.replace(/(?:AKIA|ASIA)[A-Z0-9]{16}/g, '[key]')
+              .replace(/https?:\/\/\S+/g, '[url]')
+              .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, '[id]')
+              .slice(0, 250),
+            sessionSecondsRemaining: Math.round((new Date(session.expiresAt).getTime() - Date.now()) / 1000),
+          })
           setError(describeCameraError(failure ?? { code: 'UNKNOWN', message: '' }))
         }}
       />

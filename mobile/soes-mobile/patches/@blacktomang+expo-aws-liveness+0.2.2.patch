@@ -1,0 +1,15 @@
+diff --git a/node_modules/@blacktomang/expo-aws-liveness/android/src/main/java/expo/modules/awsliveness/ExpoAwsLivenessView.kt b/node_modules/@blacktomang/expo-aws-liveness/android/src/main/java/expo/modules/awsliveness/ExpoAwsLivenessView.kt
+index a008786..65d1950 100644
+--- a/node_modules/@blacktomang/expo-aws-liveness/android/src/main/java/expo/modules/awsliveness/ExpoAwsLivenessView.kt
++++ b/node_modules/@blacktomang/expo-aws-liveness/android/src/main/java/expo/modules/awsliveness/ExpoAwsLivenessView.kt
+@@ -26,6 +26,10 @@ private const val TAG = "ExpoAwsLiveness"
+ class ExpoAwsLivenessView(context: Context, appContext: AppContext) :
+   ExpoView(context, appContext) {
+ 
++  // Expo SDK 58 does not lay out children again after ComposeView.setContent()
++  // unless the native ExpoView opts in to Android's layout pass.
++  override val shouldUseAndroidLayout: Boolean = true
++
+   val onComplete by EventDispatcher()
+   val onError by EventDispatcher()
+ 
