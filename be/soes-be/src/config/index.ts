@@ -159,11 +159,11 @@ export const faceVerificationConfig = {
   },
 
   get livenessThreshold(): number {
-    return boundedPercentage(process.env.FACE_LIVENESS_THRESHOLD, 60)
+    return boundedPercentage(process.env.FACE_LIVENESS_THRESHOLD, 70)
   },
 
   get enrollmentLivenessThreshold(): number {
-    return boundedPercentage(process.env.FACE_ENROLLMENT_LIVENESS_THRESHOLD, 60)
+    return boundedPercentage(process.env.FACE_ENROLLMENT_LIVENESS_THRESHOLD, 70)
   },
 
   get enrollmentChallenge(): FaceChallenge {
