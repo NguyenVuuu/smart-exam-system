@@ -10,6 +10,7 @@ router.get('/:courseOfferingId/timeline', authenticate, requireStudent(), contro
 router.get('/:courseOfferingId/materials', authenticate, requireStudent(), controller.getMaterials)
 router.get('/:courseOfferingId/materials/:materialId', authenticate, requireStudent(), controller.downloadMaterial)
 router.get('/:courseOfferingId/posts/:postId', authenticate, requireStudent(), controller.getPostDetail)
+router.get('/:courseOfferingId/posts/:postId/attachments/:attachmentId', authenticate, requireStudent(), controller.downloadPostAttachment)
 router.get('/:courseOfferingId/exam-schedules/:scheduleId', authenticate, requireStudent(), controller.getExamDetail)
 router.get('/:courseOfferingId/members', authenticate, requireStudent(), controller.getMembers)
 router.get('/:courseOfferingId/scores', authenticate, requireStudent(), controller.getScores)

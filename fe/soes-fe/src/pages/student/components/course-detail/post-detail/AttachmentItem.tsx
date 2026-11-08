@@ -1,4 +1,7 @@
-import { File, FileText, FileCode } from 'lucide-react'
+import { Download, File, FileText, FileCode } from 'lucide-react'
+import { useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { downloadPostAttachment } from '../../../api/student-course-detail.api'
 import type { PostAttachment } from '../../../types/course-detail.types'
 
 interface AttachmentItemProps {
@@ -15,13 +18,40 @@ function getFileIcon(fileType: string) {
 }
 
 export default function AttachmentItem({ attachment }: AttachmentItemProps) {
+  const { courseOfferingId, postId } = useParams<{
+    courseOfferingId: string
+    postId: string
+  }>()
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    if (!courseOfferingId || !postId || downloading) return
+    setDownloading(true)
+    try {
+      await downloadPostAttachment(courseOfferingId, postId, attachment.id, attachment.fileName)
+    } catch {
+      // lỗi tải file — có thể toast nếu muốn
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-gray-100 transition-colors">
+    <button
+      type="button"
+      onClick={() => void handleDownload()}
+      disabled={downloading}
+      className="flex w-full items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-left transition-colors hover:border-blue-200 hover:bg-blue-50 disabled:cursor-wait disabled:opacity-60"
+    >
       {getFileIcon(attachment.fileType)}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{attachment.fileName}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{attachment.fileSize}</p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-gray-800">{attachment.fileName}</p>
+        <p className="mt-0.5 text-xs text-gray-400">{attachment.fileSize}</p>
       </div>
-    </div>
+      <Download
+        size={15}
+        className={`shrink-0 transition-colors ${downloading ? 'text-gray-300' : 'text-blue-400'}`}
+      />
+    </button>
   )
 }

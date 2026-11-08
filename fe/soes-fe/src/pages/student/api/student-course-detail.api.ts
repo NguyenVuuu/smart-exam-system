@@ -95,3 +95,21 @@ export async function downloadMaterial(courseOfferingId: string, materialId: str
   )
   return data
 }
+
+export async function downloadPostAttachment(
+  courseOfferingId: string,
+  postId: string,
+  attachmentId: string,
+  fileName: string,
+): Promise<void> {
+  const { data } = await apiClient.get<Blob>(
+    `/student/course-offerings/${courseOfferingId}/posts/${postId}/attachments/${attachmentId}`,
+    { responseType: 'blob' },
+  )
+  const url = URL.createObjectURL(data)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
