@@ -34,10 +34,9 @@ export default function StudentFaceEnrollmentPage() {
   const [session, setSession] = useState<FaceEnrollmentSession | null>(null)
   const [detector, setDetector] = useState<LivenessComponent | null>(null)
   const [error, setError] = useState('')
-  const [consentChecked, setConsentChecked] = useState(false)
 
   const begin = async () => {
-    if (phase !== 'intro' || !consentChecked) return
+    if (phase !== 'intro') return
     if (!identityPoolId || identityPoolId.includes('YOUR_')) {
       setError('Ứng dụng chưa cấu hình Cognito Identity Pool để mở camera xác minh.')
       return
@@ -126,11 +125,7 @@ export default function StudentFaceEnrollmentPage() {
       </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {busy ? <ActivityIndicator color="#2563eb" size="large" /> : null}
-      {phase === 'intro' ? <Pressable style={styles.consent} onPress={() => setConsentChecked((value) => !value)} accessibilityRole="checkbox" accessibilityState={{ checked: consentChecked }}>
-        <Text style={styles.consentBox}>{consentChecked ? '☑' : '☐'}</Text>
-        <Text style={styles.consentText}>Tôi đồng ý lưu ảnh khuôn mặt khi đăng ký để giám thị đối chiếu khi cần. Ảnh được mã hóa; ảnh quét thất bại khi vào thi trên web chỉ giữ tối đa 7 ngày. Không lưu video.</Text>
-      </Pressable> : null}
-      {phase === 'intro' ? <Pressable style={[styles.primary, !consentChecked && styles.disabled]} disabled={!consentChecked} onPress={() => void begin()} accessibilityRole="button">
+      {phase === 'intro' ? <Pressable style={styles.primary} onPress={() => void begin()} accessibilityRole="button">
         <Text style={styles.primaryText}>Bắt đầu đăng ký</Text>
       </Pressable> : null}
       {phase === 'waiting' && session ? <Pressable style={styles.primary} onPress={() => void checkResult(session.id)} accessibilityRole="button">
@@ -152,10 +147,6 @@ const styles = StyleSheet.create({
   icon: { width: 60, height: 60, borderRadius: 18, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 24, fontWeight: '800', color: '#0f172a' },
   description: { fontSize: 15, lineHeight: 23, color: '#475569' },
-  consent: { flexDirection: 'row', gap: 10, padding: 14, borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 12, backgroundColor: '#fff' },
-  consentBox: { fontSize: 21, color: '#2563eb' },
-  consentText: { flex: 1, fontSize: 13, lineHeight: 20, color: '#334155' },
-  disabled: { opacity: 0.5 },
   error: { color: '#b91c1c', fontSize: 14, lineHeight: 20 },
   cameraError: { color: '#b91c1c', paddingHorizontal: 20, paddingBottom: 12 },
   primary: { minHeight: 52, borderRadius: 12, backgroundColor: '#2563eb', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },

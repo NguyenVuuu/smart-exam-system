@@ -28,7 +28,7 @@ describe('face enrollment transaction (PostgreSQL)', () => {
     const studentId = user.students[0].id
     try {
       const [first, second] = await Promise.all([
-        createSession(studentId, 'ENROLLMENT', undefined, true), createSession(studentId, 'ENROLLMENT', undefined, true),
+        createSession(studentId, 'ENROLLMENT'), createSession(studentId, 'ENROLLMENT'),
       ])
       const results = await Promise.allSettled([
         completeSession(studentId, first.id, user.id),

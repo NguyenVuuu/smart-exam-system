@@ -10,7 +10,6 @@ export interface FaceProfile {
   failedAttemptsSinceSuccess: number
   cooldownUntil: string | null
   requiresManualReview: boolean
-  imageRetentionConsented: boolean
 }
 
 export interface FaceSession {
@@ -27,8 +26,8 @@ export type FaceCompletion =
 
 export const studentFaceApi = {
   profile: async () => (await apiClient.get<ApiResponse<FaceProfile>>('/student/face/profile')).data.data,
-  start: async (purpose: 'ENROLLMENT' | 'EXAM_ENTRY', scheduleId?: string, retainImageConsent = false) =>
-    (await apiClient.post<ApiResponse<FaceSession>>('/student/face/sessions', { purpose, scheduleId, retainImageConsent })).data.data,
+  start: async (purpose: 'ENROLLMENT' | 'EXAM_ENTRY', scheduleId?: string) =>
+    (await apiClient.post<ApiResponse<FaceSession>>('/student/face/sessions', { purpose, scheduleId })).data.data,
   complete: async (id: string) =>
     (await apiClient.post<ApiResponse<FaceCompletion>>('/student/face/sessions/' + id + '/complete')).data.data,
   cancel: async (id: string) =>

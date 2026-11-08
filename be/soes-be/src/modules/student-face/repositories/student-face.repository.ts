@@ -5,7 +5,7 @@ import type { Prisma } from '@prisma/client'
 export function findFaceProfile(studentId: string) {
   return prisma.studentFaceProfile.findUnique({ where: { studentId }, select: {
     studentId: true, status: true, providerFaceId: true, failedAttemptsSinceSuccess: true,
-    cooldownUntil: true, requiresManualReview: true, imageConsentAt: true,
+    cooldownUntil: true, requiresManualReview: true,
   } })
 }
 
@@ -35,9 +35,9 @@ export function countRecentSessions(studentId: string, since: Date) {
   })
 }
 
-export function createFaceSession(studentId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', providerSessionId: string, expiresAt: Date, scheduleId?: string, imageConsentAt?: Date | null) {
+export function createFaceSession(studentId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', providerSessionId: string, expiresAt: Date, scheduleId?: string) {
   return prisma.faceVerificationSession.create({
-    data: { studentId, purpose, examScheduleId: scheduleId, providerSessionId, expiresAt, imageConsentAt },
+    data: { studentId, purpose, examScheduleId: scheduleId, providerSessionId, expiresAt },
   })
 }
 

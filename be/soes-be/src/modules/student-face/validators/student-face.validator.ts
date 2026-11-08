@@ -3,7 +3,6 @@ import { z } from 'zod'
 export const startSchema = z.object({
   purpose: z.enum(['ENROLLMENT', 'EXAM_ENTRY']),
   scheduleId: z.string().uuid().optional(),
-  retainImageConsent: z.boolean().optional(),
 }).refine((value) => value.purpose !== 'EXAM_ENTRY' || !!value.scheduleId, { message: 'scheduleId is required' })
 
 export const idSchema = z.object({ id: z.string().uuid() })

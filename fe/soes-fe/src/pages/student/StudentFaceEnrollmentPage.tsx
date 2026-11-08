@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, LogOut, ScanFace, ShieldCheck, SunMedium } from 'lucide-react'
+import { ArrowLeft, LogOut, ShieldCheck, SunMedium } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useLogout } from '../../auth/hooks/useLogout'
 import FaceVerification from './components/face/FaceVerification'
@@ -44,10 +44,6 @@ export default function StudentFaceEnrollmentPage() {
             <li><strong className="text-slate-800">2. Mặt không bị che.</strong> Bỏ khẩu trang, kính râm và giữ camera ngang tầm mắt.</li>
             <li><strong className="text-slate-800">3. Theo khung bầu dục.</strong> Di chuyển gần hoặc xa đến khi mặt nằm vừa khung, rồi giữ yên.</li>
           </ol>
-          <div className="mt-6 flex gap-2 rounded-xl bg-blue-50 p-3 text-xs leading-5 text-blue-900">
-            <ScanFace size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-            Ảnh đăng ký được mã hóa để giám thị đối chiếu khi cần. SOES không lưu video quét.
-          </div>
         </aside>
       </div>
     </main>

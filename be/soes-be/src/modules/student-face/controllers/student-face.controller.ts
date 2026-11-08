@@ -24,8 +24,8 @@ export async function profile(req: Request, res: Response, next: NextFunction) {
 
 export async function start(req: Request, res: Response, next: NextFunction) {
   try {
-    const { purpose, scheduleId, retainImageConsent } = startSchema.parse(req.body)
-    res.status(201).json({ success: true, data: await service.createSession(req.user!.profileId, purpose, scheduleId, retainImageConsent) })
+    const { purpose, scheduleId } = startSchema.parse(req.body)
+    res.status(201).json({ success: true, data: await service.createSession(req.user!.profileId, purpose, scheduleId) })
   } catch (error) { next(error) }
 }
 
