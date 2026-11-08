@@ -12,4 +12,5 @@ studentFaceRoutes.post('/face/sessions/:id/complete', controller.complete)
 
 export const teacherFaceRoutes = Router()
 teacherFaceRoutes.use(authenticate, requireTeacher())
+teacherFaceRoutes.get('/exam-schedules/:scheduleId/face/manual-reviews', controller.pendingManualReviews)
 teacherFaceRoutes.post('/exam-schedules/:scheduleId/students/:studentId/face/manual-approval', controller.approveManual)

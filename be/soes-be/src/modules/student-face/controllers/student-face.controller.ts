@@ -9,6 +9,13 @@ export async function getManualApproval(req: Request, res: Response, next: NextF
   } catch (error) { next(error) }
 }
 
+export async function pendingManualReviews(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { scheduleId } = scheduleParamsSchema.parse(req.params)
+    res.json({ success: true, data: await service.getPendingManualReviews(req.user!.profileId, scheduleId) })
+  } catch (error) { next(error) }
+}
+
 export async function profile(req: Request, res: Response, next: NextFunction) {
   try {
     res.json({ success: true, data: await service.getProfile(req.user!.profileId) })

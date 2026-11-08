@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma'
+import { ForbiddenError } from '../../../errors/AppError'
 
 export function findFaceProfile(studentId: string) {
   return prisma.studentFaceProfile.findUnique({ where: { studentId } })
@@ -24,6 +25,12 @@ export function countPendingSessions(studentId: string, purpose: 'ENROLLMENT' | 
   })
 }
 
+export function countRecentSessions(studentId: string, since: Date) {
+  return prisma.faceVerificationSession.count({
+    where: { studentId, createdAt: { gte: since }, method: 'AWS_REKOGNITION' },
+  })
+}
+
 export function createFaceSession(studentId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', providerSessionId: string, expiresAt: Date, scheduleId?: string) {
   return prisma.faceVerificationSession.create({
     data: { studentId, purpose, examScheduleId: scheduleId, providerSessionId, expiresAt },
@@ -45,5 +52,37 @@ export function findAssignedProctor(teacherId: string, scheduleId: string, cours
       examScheduleCourse: { examScheduleId: scheduleId, courseOfferingId },
     },
     select: { id: true },
+  })
+}
+
+export async function findPendingManualReviews(teacherId: string, scheduleId: string) {
+  const assignments = await prisma.examScheduleProctor.findMany({
+    where: { teacherId, examScheduleCourse: { examScheduleId: scheduleId } },
+    select: { examScheduleCourse: { select: { courseOfferingId: true } } },
+  })
+  if (!assignments.length) throw new ForbiddenError('Only an assigned proctor may view face verification requests')
+
+  const schedule = await prisma.examSchedule.findUnique({
+    where: { id: scheduleId },
+    select: { targetStudents: { select: { studentId: true } } },
+  })
+  const targetIds = schedule?.targetStudents.map(({ studentId }) => studentId) ?? []
+  return prisma.studentFaceProfile.findMany({
+    where: {
+      status: 'ACTIVE', requiresManualReview: true,
+      studentId: targetIds.length ? { in: targetIds } : undefined,
+      student: {
+        enrollments: { some: { courseOfferingId: { in: assignments.map(({ examScheduleCourse }) => examScheduleCourse.courseOfferingId) } } },
+        faceVerifications: { none: {
+          examScheduleId: scheduleId, method: 'MANUAL_OVERRIDE', status: 'MANUAL_APPROVED',
+          grantExpiresAt: { gt: new Date() },
+        } },
+      },
+    },
+    select: {
+      studentId: true, failedAttemptsSinceSuccess: true,
+      student: { select: { studentCode: true, user: { select: { fullName: true } } } },
+    },
+    orderBy: { updatedAt: 'asc' },
   })
 }

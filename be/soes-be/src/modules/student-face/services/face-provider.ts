@@ -19,13 +19,15 @@ export async function createLivenessSession() {
 
 export async function getLivenessResult(sessionId: string) {
   if (faceVerificationConfig.provider === 'mock') {
-    throw new Error('Mock face verification cannot establish a real identity')
+    if (!sessionId.startsWith('mock-')) throw new Error('Invalid mock face session')
+    return { status: 'SUCCEEDED' as const, confidence: 100, image: new Uint8Array([1]) }
   }
   const result = await client.send(new GetFaceLivenessSessionResultsCommand({ SessionId: sessionId }))
   return { status: result.Status, confidence: result.Confidence ?? 0, image: result.ReferenceImage?.Bytes }
 }
 
 export async function indexStudentFace(studentId: string, image: Uint8Array) {
+  if (faceVerificationConfig.provider === 'mock') return `mock-face-${studentId}`
   const result = await client.send(new IndexFacesCommand({
     CollectionId: faceVerificationConfig.collectionId,
     ExternalImageId: studentId,
@@ -39,6 +41,7 @@ export async function indexStudentFace(studentId: string, image: Uint8Array) {
 }
 
 export async function matchStudentFace(studentId: string, image: Uint8Array) {
+  if (faceVerificationConfig.provider === 'mock') return 100
   const result = await client.send(new SearchFacesByImageCommand({
     CollectionId: faceVerificationConfig.collectionId,
     Image: { Bytes: image },
@@ -49,6 +52,7 @@ export async function matchStudentFace(studentId: string, image: Uint8Array) {
 }
 
 export async function deleteStudentFace(faceId: string) {
+  if (faceVerificationConfig.provider === 'mock') return
   await client.send(new DeleteFacesCommand({
     CollectionId: faceVerificationConfig.collectionId,
     FaceIds: [faceId],

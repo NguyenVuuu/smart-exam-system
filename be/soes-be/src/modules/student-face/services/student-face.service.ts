@@ -6,6 +6,7 @@ import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { findEnrollment, findScheduleById, findActiveAttempt } from '../../student-take-exam/repositories/student-take-exam.repository'
 import * as repository from '../repositories/student-face.repository'
 import * as provider from './face-provider'
+import { nextFaceRetryState } from './face-retry.policy'
 
 export async function getProfile(studentId: string) {
   const profile = await repository.findFaceProfile(studentId)
@@ -21,6 +22,15 @@ export async function getProfile(studentId: string) {
 export async function getManualApproval(studentId: string, scheduleId: string) {
   const grant = await repository.findManualApproval(studentId, scheduleId)
   return grant
+}
+
+export async function getPendingManualReviews(teacherId: string, scheduleId: string) {
+  if (!faceVerificationConfig.enabled) return []
+  const profiles = await repository.findPendingManualReviews(teacherId, scheduleId)
+  return profiles.map(({ studentId, failedAttemptsSinceSuccess, student }) => ({
+    studentId, studentCode: student.studentCode, studentName: student.user.fullName,
+    failedAttempts: failedAttemptsSinceSuccess,
+  }))
 }
 
 export async function createSession(studentId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', scheduleId?: string) {
@@ -45,6 +55,8 @@ export async function createSession(studentId: string, purpose: 'ENROLLMENT' | '
 
   const pending = await repository.countPendingSessions(studentId, purpose, scheduleId)
   if (pending >= 2) throw new ConflictError('Complete the current face verification first')
+  const recent = await repository.countRecentSessions(studentId, new Date(Date.now() - 15 * 60 * 1000))
+  if (recent >= 12) throw new ForbiddenError('Too many face verification sessions. Please try again later')
 
   const providerSessionId = await provider.createLivenessSession()
   const session = await repository.createFaceSession(studentId, purpose, providerSessionId,
@@ -55,24 +67,22 @@ export async function createSession(studentId: string, purpose: 'ENROLLMENT' | '
 async function recordFailure(id: string, studentId: string, actorUserId: string, purpose: 'ENROLLMENT' | 'EXAM_ENTRY', code: string) {
   await prisma.$transaction(async (tx) => {
     await tx.faceVerificationSession.update({ where: { id }, data: { status: 'FAILED', failureCode: code, completedAt: new Date() } })
+    let retryState: ReturnType<typeof nextFaceRetryState> | null = null
     if (purpose === 'EXAM_ENTRY') {
       const [profile] = await tx.$queryRaw<{ failedAttemptsSinceSuccess: number }[]>`
         SELECT "failedAttemptsSinceSuccess" FROM "StudentFaceProfile"
         WHERE "studentId" = ${studentId} FOR UPDATE
       `
       if (!profile) throw new NotFoundError('Face profile not found')
-      const failures = profile.failedAttemptsSinceSuccess + 1
+      retryState = nextFaceRetryState(profile.failedAttemptsSinceSuccess, new Date(), faceVerificationConfig)
       await tx.studentFaceProfile.update({
         where: { studentId },
-        data: {
-          failedAttemptsSinceSuccess: failures,
-          cooldownUntil: failures % faceVerificationConfig.failuresPerCycle === 0
-            ? new Date(Date.now() + faceVerificationConfig.cooldownSeconds * 1000) : null,
-          requiresManualReview: failures >= faceVerificationConfig.maxFailuresBeforeManualReview,
-        },
+        data: retryState,
       })
     }
-    await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_VERIFICATION_FAILED', entityType: 'FaceVerificationSession', entityId: id, metadata: { purpose, code } })
+    await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_VERIFICATION_FAILED', entityType: 'FaceVerificationSession', entityId: id,
+      metadata: { purpose, code, failedAttempts: retryState?.failedAttemptsSinceSuccess,
+        requiresManualReview: retryState?.requiresManualReview, cooldownUntil: retryState?.cooldownUntil?.toISOString() } })
   })
   return getProfile(studentId)
 }
@@ -181,6 +191,12 @@ export async function approveManualEntry(teacherId: string, actorUserId: string,
     if (profile?.status !== 'ACTIVE' || !profile.requiresManualReview) {
       throw new ConflictError('Manual approval is only available after repeated face verification failures')
     }
+    const existing = await tx.faceVerificationSession.findFirst({
+      where: { studentId, examScheduleId: scheduleId, method: 'MANUAL_OVERRIDE',
+        status: 'MANUAL_APPROVED', grantExpiresAt: { gt: now } },
+      select: { id: true },
+    })
+    if (existing) throw new ConflictError('An active manual approval already exists')
     const grant = await tx.faceVerificationSession.create({
       data: {
         studentId, examScheduleId: scheduleId, purpose: 'EXAM_ENTRY', method: 'MANUAL_OVERRIDE',
