@@ -9,7 +9,7 @@ import { takeExamApi } from '../../api/student-take-exam.api'
 
 export const takeExamQueryKeys = {
   all: ['student-take-exam'] as const,
-  attempt: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId] as const,
+  attempt: (scheduleId: string, attemptId: string, faceVerificationId?: string) => [...takeExamQueryKeys.all, scheduleId, attemptId, faceVerificationId] as const,
   status: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId, 'status'] as const,
   result: (scheduleId: string, attemptId: string) => [...takeExamQueryKeys.all, scheduleId, attemptId, 'result'] as const,
 }
@@ -21,13 +21,15 @@ export function useStartExamMutation() {
   })
 }
 
-export function useGetExamAttempt(scheduleId: string, attemptId: string, enabled: boolean = true) {
+export function useGetExamAttempt(scheduleId: string, attemptId: string, enabled: boolean = true, faceVerificationId?: string) {
   return useQuery({
-    queryKey: takeExamQueryKeys.attempt(scheduleId, attemptId),
-    queryFn: () => takeExamApi.getExamAttempt(scheduleId, attemptId),
+    queryKey: takeExamQueryKeys.attempt(scheduleId, attemptId, faceVerificationId),
+    queryFn: () => takeExamApi.getExamAttempt(scheduleId, attemptId, faceVerificationId),
     enabled: enabled && !!scheduleId && !!attemptId,
     refetchOnWindowFocus: false,
-    staleTime: Infinity, // The attempt data should rarely change from the backend unless refetched
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
   })
 }
 

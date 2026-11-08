@@ -58,6 +58,7 @@ export default function StudentTakeExamPage() {
   const location = useLocation()
 
   const attemptId = location.state?.attemptId
+  const faceVerificationId = location.state?.faceVerificationId as string | undefined
 
   const resultPath = `/student/course-offerings/${courseOfferingId}/exam-schedules/${scheduleId}/result`
 
@@ -72,7 +73,7 @@ export default function StudentTakeExamPage() {
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
 
-  const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId)
+  const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId, faceVerificationId)
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
   const { mutate: sendHeartbeat } = useSendHeartbeatMutation()
   const { mutateAsync: recordViolation } = useRecordViolationMutation()

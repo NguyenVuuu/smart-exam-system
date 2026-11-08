@@ -12,6 +12,7 @@ export async function getProfile(studentId: string) {
   return {
     enabled: faceVerificationConfig.enabled,
     enrolled: profile?.status === 'ACTIVE',
+    failedAttemptsSinceSuccess: profile?.failedAttemptsSinceSuccess ?? 0,
     cooldownUntil: profile?.cooldownUntil ?? null,
     requiresManualReview: profile?.requiresManualReview ?? false,
   }

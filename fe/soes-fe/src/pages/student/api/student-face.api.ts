@@ -1,0 +1,35 @@
+import { apiClient } from '../../../api/axios'
+
+interface ApiResponse<T> {
+  data: T
+}
+
+export interface FaceProfile {
+  enabled: boolean
+  enrolled: boolean
+  failedAttemptsSinceSuccess: number
+  cooldownUntil: string | null
+  requiresManualReview: boolean
+}
+
+export interface FaceSession {
+  id: string
+  providerSessionId: string
+  region: string
+  expiresAt: string
+}
+
+export type FaceCompletion =
+  | { status: 'PROCESSING' }
+  | { status: 'FAILED'; requiresManualReview: boolean; cooldownUntil: string | null; failedAttemptsSinceSuccess: number }
+  | { status: 'PASSED'; id?: string; scheduleId?: string }
+
+export const studentFaceApi = {
+  profile: async () => (await apiClient.get<ApiResponse<FaceProfile>>('/student/face/profile')).data.data,
+  start: async (purpose: 'ENROLLMENT' | 'EXAM_ENTRY', scheduleId?: string) =>
+    (await apiClient.post<ApiResponse<FaceSession>>('/student/face/sessions', { purpose, scheduleId })).data.data,
+  complete: async (id: string) =>
+    (await apiClient.post<ApiResponse<FaceCompletion>>('/student/face/sessions/' + id + '/complete')).data.data,
+  manualApproval: async (scheduleId: string) =>
+    (await apiClient.get<ApiResponse<{ id: string } | null>>('/student/face/schedules/' + scheduleId + '/manual-approval')).data.data,
+}
