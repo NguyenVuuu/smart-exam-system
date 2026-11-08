@@ -178,7 +178,7 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
         ) : session && identityPoolId ? (
           <div>
             <p className="mb-4 text-sm leading-6 text-slate-600">Đưa toàn bộ khuôn mặt vào khung bầu dục, di chuyển theo hướng dẫn và giữ yên khi được yêu cầu.</p>
-            <div className={`soes-face-detector overflow-hidden rounded-2xl border border-slate-200 bg-white ${purpose === 'EXAM_ENTRY' ? 'soes-face-detector--exam' : ''}`}>
+            <div className="soes-face-detector overflow-hidden rounded-2xl border border-slate-200 bg-white">
               <Suspense fallback={<p role="status" className="p-8 text-center text-sm text-slate-600">Đang mở camera...</p>}>
                 <FaceLivenessPanel
                   key={session.id}

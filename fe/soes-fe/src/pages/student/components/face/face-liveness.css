@@ -3,10 +3,6 @@
   background: #fff;
 }
 
-.soes-face-detector--exam {
-  height: clamp(360px, 54dvh, 540px);
-}
-
 .soes-face-detector .amplify-liveness-camera-module,
 .soes-face-detector .amplify-liveness-video-anchor {
   border: 0;
