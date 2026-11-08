@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { ScanFace, ShieldCheck, SunMedium } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import FaceVerification from './components/face/FaceVerification'
 
@@ -6,13 +7,39 @@ export default function StudentFaceEnrollmentPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   return (
-    <main className="mx-auto max-w-2xl space-y-5 p-5">
-      <h1 className="text-xl font-bold text-slate-900">Xác minh danh tính sinh viên</h1>
-      <p className="text-sm text-slate-600">Đăng ký khuôn mặt một lần để xác minh trước khi tham gia các ca thi.</p>
-      <FaceVerification purpose="ENROLLMENT" onPassed={() => {
-        void queryClient.invalidateQueries({ queryKey: ['student-face-profile'] })
-        navigate('/student', { replace: true })
-      }} />
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+      <header className="mb-8 max-w-3xl">
+        <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-700">
+          <ShieldCheck size={16} aria-hidden="true" /> Xác minh sinh viên
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Đăng ký khuôn mặt</h1>
+        <p className="mt-3 text-base leading-7 text-slate-600">
+          Hoàn thành một lần để bảo vệ tài khoản và xác minh danh tính trước khi vào bài thi trên web.
+        </p>
+      </header>
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <FaceVerification purpose="ENROLLMENT" onPassed={() => {
+          void queryClient.invalidateQueries({ queryKey: ['student-face-profile'] })
+          navigate('/student', { replace: true })
+        }} />
+
+        <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Hướng dẫn quét khuôn mặt">
+          <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <SunMedium size={23} aria-hidden="true" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900">Để quét dễ thành công</h2>
+          <ol className="mt-4 space-y-4 text-sm leading-6 text-slate-600">
+            <li><strong className="text-slate-800">1. Ánh sáng đều.</strong> Tránh ngồi ngược sáng hoặc để đèn chiếu thẳng vào mặt.</li>
+            <li><strong className="text-slate-800">2. Mặt không bị che.</strong> Bỏ khẩu trang, kính râm và giữ camera ngang tầm mắt.</li>
+            <li><strong className="text-slate-800">3. Theo khung bầu dục.</strong> Di chuyển gần hoặc xa đến khi mặt nằm vừa khung, rồi giữ yên.</li>
+          </ol>
+          <div className="mt-6 flex gap-2 rounded-xl bg-blue-50 p-3 text-xs leading-5 text-blue-900">
+            <ScanFace size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+            SOES không lưu ảnh hoặc video từ phiên quét.
+          </div>
+        </aside>
+      </div>
     </main>
   )
 }

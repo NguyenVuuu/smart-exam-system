@@ -1,0 +1,40 @@
+.soes-face-detector .liveness-detector {
+  color: #0f172a;
+  background: #fff;
+}
+
+.soes-face-detector .amplify-liveness-camera-module,
+.soes-face-detector .amplify-liveness-video-anchor {
+  border: 0;
+  background: #0f172a;
+}
+
+.soes-face-detector .amplify-liveness-start-screen-warning {
+  border: 1px solid #fcd34d;
+  border-radius: 14px;
+  background: #fffbeb;
+  color: #78350f;
+  padding: 14px 16px;
+}
+
+.soes-face-detector .amplify-liveness-hint__text {
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.soes-face-detector .amplify-button--primary {
+  min-height: 48px;
+  border-radius: 12px;
+  background: #2563eb;
+  font-weight: 700;
+}
+
+.soes-face-detector .amplify-button--primary:hover {
+  background: #1d4ed8;
+}
+
+.soes-face-detector .amplify-button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}

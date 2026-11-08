@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { FaceLivenessDetectorProps } from '@aws-amplify/ui-react-liveness'
+import { ScanFace } from 'lucide-react'
 import { studentFaceApi, type FaceCompletion, type FaceSession } from '../../api/student-face.api'
 
 const identityPoolId = import.meta.env.VITE_AWS_FACE_IDENTITY_POOL_ID as string | undefined
@@ -130,51 +131,74 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-slate-900">
-          {purpose === 'ENROLLMENT' ? 'Đăng ký khuôn mặt' : 'Xác minh khuôn mặt trước khi vào thi'}
-        </h2>
-        {onClose && <button type="button" onClick={() => { abandonSession(); onClose() }} className="text-sm text-slate-600">Đóng</button>}
-      </div>
-      <p className="text-sm text-slate-600">Cho phép sử dụng camera và làm theo hướng dẫn trên màn hình.</p>
-      {!identityPoolId && <p role="alert" className="text-sm text-red-700">Chưa cấu hình AWS Cognito Identity Pool cho ứng dụng web.</p>}
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {purpose === 'EXAM_ENTRY' && failures > 0 && !requiresManualReview && (
-        <p className="text-sm text-slate-600">Còn {Math.max(0, 6 - failures)} lần thử trước khi cần giảng viên coi thi xác nhận.</p>
-      )}
-      {remainingCooldown > 0 && <p className="text-sm text-amber-700">Tạm khóa xác minh. Vui lòng chờ {remainingCooldown} giây.</p>}
-      {requiresManualReview && <p className="text-sm text-amber-700">Cần giảng viên coi thi xác minh thủ công.</p>}
-      {awaitingResult ? (
-        <p role="status" className="text-sm text-slate-600">Đang chờ kết quả xác minh từ AWS...</p>
-      ) : session && identityPoolId ? (
-        <div className="mx-auto max-w-xl">
-          <Suspense fallback={<p className="text-sm text-slate-600">Đang mở camera...</p>}>
-            <FaceLivenessPanel
-              key={session.id}
-              sessionId={session.providerSessionId}
-              region={session.region}
-              onAnalysisComplete={complete}
-              onError={(failure) => {
-                const metadata = failure.error as Error & { $metadata?: { httpStatusCode?: number } }
-                console.warn('Face Liveness failed', {
-                  state: failure.state,
-                  errorName: failure.error?.name,
-                  httpStatusCode: metadata.$metadata?.httpStatusCode,
-                })
-                setError(describeLivenessError(failure))
-                abandonSession()
-              }}
-              onUserCancel={abandonSession}
-            />
-          </Suspense>
+    <section lang="vi" className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_50px_-32px_rgba(15,23,42,0.35)]">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-5 sm:px-7">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+            <ScanFace size={23} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Bước xác minh</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-950 sm:text-xl">
+              {purpose === 'ENROLLMENT' ? 'Đăng ký khuôn mặt' : 'Xác minh trước khi vào thi'}
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              {purpose === 'ENROLLMENT' ? 'Đặt mặt vào khung bầu dục để tạo hồ sơ lần đầu.' : 'Quét lại khuôn mặt để xác nhận đúng người dự thi.'}
+            </p>
+          </div>
         </div>
-      ) : (
-        <button type="button" disabled={!identityPoolId || working || remainingCooldown > 0 || requiresManualReview} onClick={() => void start()}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-          {working ? 'Đang xử lý...' : 'Bắt đầu quét khuôn mặt'}
-        </button>
-      )}
-    </div>
+        {onClose && <button type="button" onClick={() => { abandonSession(); onClose() }}
+          className="min-h-11 shrink-0 rounded-lg px-3 text-sm font-semibold text-slate-600 hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Đóng</button>}
+      </div>
+
+      <div className="space-y-5 p-5 sm:p-7">
+        {!identityPoolId && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">Chưa cấu hình AWS Cognito Identity Pool cho ứng dụng web.</p>}
+        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">{error}</p>}
+        {purpose === 'EXAM_ENTRY' && failures > 0 && !requiresManualReview && (
+          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">Còn {Math.max(0, 6 - failures)} lần thử trước khi cần giảng viên coi thi xác nhận.</p>
+        )}
+        {remainingCooldown > 0 && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Tạm khóa xác minh. Vui lòng chờ {remainingCooldown} giây.</p>}
+        {requiresManualReview && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Cần giảng viên coi thi xác minh thủ công.</p>}
+
+        {awaitingResult ? (
+          <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-600">
+            Đang chờ kết quả xác minh từ AWS...
+          </div>
+        ) : session && identityPoolId ? (
+          <div>
+            <p className="mb-4 text-sm leading-6 text-slate-600">Đưa toàn bộ khuôn mặt vào khung bầu dục, di chuyển theo hướng dẫn và giữ yên khi được yêu cầu.</p>
+            <div className="soes-face-detector overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <Suspense fallback={<p role="status" className="p-8 text-center text-sm text-slate-600">Đang mở camera...</p>}>
+                <FaceLivenessPanel
+                  key={session.id}
+                  sessionId={session.providerSessionId}
+                  region={session.region}
+                  onAnalysisComplete={complete}
+                  onError={(failure) => {
+                    const metadata = failure.error as Error & { $metadata?: { httpStatusCode?: number } }
+                    console.warn('Face Liveness failed', {
+                      state: failure.state,
+                      errorName: failure.error?.name,
+                      httpStatusCode: metadata.$metadata?.httpStatusCode,
+                    })
+                    setError(describeLivenessError(failure))
+                    abandonSession()
+                  }}
+                  onUserCancel={abandonSession}
+                />
+              </Suspense>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 sm:p-6">
+            <p className="text-sm leading-6 text-slate-700">Cho phép dùng camera, nhìn thẳng vào màn hình và làm theo hướng dẫn trong khung quét.</p>
+            <button type="button" disabled={!identityPoolId || working || remainingCooldown > 0 || requiresManualReview} onClick={() => void start()}
+              className="mt-5 min-h-12 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
+              {working ? 'Đang chuẩn bị camera...' : 'Bắt đầu quét khuôn mặt'}
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }

@@ -30,14 +30,14 @@ Tham khảo [Face Liveness API](https://docs.aws.amazon.com/rekognition/latest/d
 
 ## Biến môi trường
 
-- Backend: `FACE_VERIFICATION_ENABLED=true`, `FACE_VERIFICATION_PROVIDER=aws`, `AWS_FACE_REGION`, `AWS_FACE_COLLECTION_ID`; dùng AWS credential chain của server. Các ngưỡng mặc định: liveness đăng ký lần đầu 80 (`FACE_ENROLLMENT_LIVENESS_THRESHOLD`), liveness vào thi 90 (`FACE_LIVENESS_THRESHOLD`), similarity 90, phiên 180 giây, quyền vào thi 300 giây, khóa 120 giây sau 3 lần sai, chuyển giám thị sau 6 lần sai.
+- Backend: `FACE_VERIFICATION_ENABLED=true`, `FACE_VERIFICATION_PROVIDER=aws`, `AWS_FACE_REGION`, `AWS_FACE_COLLECTION_ID`; dùng AWS credential chain của server. Các ngưỡng mặc định: liveness đăng ký lần đầu 60 (`FACE_ENROLLMENT_LIVENESS_THRESHOLD`), liveness vào thi 80 (`FACE_LIVENESS_THRESHOLD`), độ tương đồng khuôn mặt vào thi 80 (`FACE_SIMILARITY_THRESHOLD`), phiên 180 giây, quyền vào thi 300 giây, khóa 120 giây sau 3 lần sai, chuyển giám thị sau 6 lần sai. Đặt mặt vừa khung bầu dục là bước hướng dẫn chụp; AWS vẫn phải hoàn thành kiểm tra người thật và cung cấp ảnh tham chiếu. Ngưỡng 80 là điểm tương đồng do Rekognition trả về, không phải bảo đảm xác suất nhận dạng đúng 80%.
 - Web: `VITE_AWS_FACE_REGION` và `VITE_AWS_FACE_IDENTITY_POOL_ID` của cùng Region.
 - Mobile: `EXPO_PUBLIC_AWS_FACE_IDENTITY_POOL_ID` của cùng Region; tạo development/production build mới vì camera liveness là native module. Expo Go không đủ.
 - Không đặt AWS secret trong biến `VITE_*` hoặc `EXPO_PUBLIC_*`. Không commit file `.env`.
 
 `FACE_VERIFICATION_PROVIDER=mock` chỉ để thử luồng trên môi trường phát triển. Mock luôn cho kết quả thành công, không gọi AWS; server từ chối khởi động nếu dùng mock với `NODE_ENV=production`.
 
-AWS có thể trả `SUCCEEDED` nhưng điểm liveness vẫn dưới ngưỡng chấp nhận của SOES. Khi đó API trả mã `LIVENESS_LOW_CONFIDENCE` và các mã Feedback để hướng dẫn quét lại; ứng dụng không hiển thị điểm số. Ngưỡng đăng ký 80 giảm việc từ chối người dùng thật khi đăng ký; ngưỡng vào thi vẫn là 90. Chỉ thay đổi tiếp sau khi kiểm thử thực tế đủ đại diện. [AWS khuyến nghị](https://docs.aws.amazon.com/rekognition/latest/dg/recommendations-liveness.html) ánh sáng đều, tăng độ sáng màn hình trên web và dùng Feedback để hướng dẫn thử lại.
+AWS có thể trả `SUCCEEDED` nhưng điểm liveness vẫn dưới ngưỡng chấp nhận của SOES. Khi đó API trả mã `LIVENESS_LOW_CONFIDENCE` và các mã Feedback để hướng dẫn quét lại; ứng dụng không hiển thị điểm số. Ngưỡng đăng ký 60 giảm việc từ chối người dùng thật khi đăng ký; ngưỡng vào thi là 80. Đánh giá lại các ngưỡng sau khi kiểm thử thực tế đủ đại diện. [AWS khuyến nghị](https://docs.aws.amazon.com/rekognition/latest/dg/recommendations-liveness.html) ánh sáng đều, tăng độ sáng màn hình trên web và dùng Feedback để hướng dẫn thử lại.
 
 ## Áp dụng và kiểm tra
 
