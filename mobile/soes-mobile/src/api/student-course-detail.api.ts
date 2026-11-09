@@ -1,4 +1,9 @@
+import { File, Directory, Paths } from 'expo-file-system'
+import * as Sharing from 'expo-sharing'
+import { Platform } from 'react-native'
 import { apiClient } from './client'
+import { tokenStorage } from '../auth/tokenStorage'
+import { displayFileName } from '../utils/courseFiles'
 import type {
   CourseHeader,
   MaterialsResponse,
@@ -70,4 +75,34 @@ export async function getMaterials(courseOfferingId: string): Promise<MaterialsR
     `/student/course-offerings/${courseOfferingId}/materials`,
   )
   return data.data
+}
+
+export async function downloadStudentMaterial(
+  courseOfferingId: string,
+  materialId: string,
+  fileName: string,
+): Promise<void> {
+  const name = displayFileName(fileName)
+  const path = `/student/course-offerings/${courseOfferingId}/materials/${materialId}`
+
+  if (Platform.OS === 'web') {
+    const { data } = await apiClient.get<Blob>(path, { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const link = document.createElement('a')
+    link.href = url; link.download = name; link.click(); URL.revokeObjectURL(url)
+    return
+  }
+
+  const token = await tokenStorage.getAccessToken()
+  if (!token) throw new Error('Missing access token')
+
+  const folder = new Directory(Paths.cache, 'soes-downloads')
+  folder.create({ idempotent: true })
+
+  const file = await File.downloadFileAsync(
+    `${apiClient.defaults.baseURL}${path}`,
+    new File(folder, name),
+    { headers: { Authorization: `Bearer ${token}` }, idempotent: true },
+  )
+  await Sharing.shareAsync(file.uri)
 }

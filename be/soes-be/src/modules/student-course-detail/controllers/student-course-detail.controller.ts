@@ -126,6 +126,34 @@ export async function downloadMaterial(
   }
 }
 
+export async function downloadPostAttachment(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const studentId = req.user!.profileId;
+    const courseOfferingId = req.params.courseOfferingId as string;
+    const postId = req.params.postId as string;
+    const attachmentId = req.params.attachmentId as string;
+    const file = await studentCourseDetailService.downloadPostAttachment(
+      studentId,
+      courseOfferingId,
+      postId,
+      attachmentId,
+    );
+
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+    );
+    res.send(file.buffer);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getExamDetail(
   req: Request,
   res: Response,

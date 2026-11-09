@@ -109,6 +109,20 @@ export class StudentCourseDetailService {
     }
   }
 
+  async downloadPostAttachment(
+    studentId: string,
+    courseOfferingId: string,
+    postId: string,
+    attachmentId: string,
+  ) {
+    const attachment = await repo.findPostAttachment(courseOfferingId, postId, attachmentId, studentId)
+    if (!attachment) throw new NotFoundError('Attachment not found')
+    return {
+      ...attachment,
+      buffer: await downloadBufferFromBucket(supabaseBuckets.courseMaterials, attachment.storagePath),
+    }
+  }
+
   // ────────────────────────────────────────────────────────────
   // Exam Detail
   // ────────────────────────────────────────────────────────────

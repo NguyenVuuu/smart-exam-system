@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import {
-  View, Text, TouchableOpacity, ScrollView, Linking, ActivityIndicator,
+  View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert,
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useRequireAuth } from '../../../../src/hooks/useRequireAuth'
 import {
   useCourseHeader, useTimeline, useMembers, useScores, useMaterials,
 } from '../../../../src/hooks/useCourseDetail'
+import { downloadStudentMaterial } from '../../../../src/api/student-course-detail.api'
 import StudentLayout from '../../../../src/components/student/StudentLayout'
 import type { TimelineItem, Member, ScoreItem, CourseMaterial } from '../../../../src/types/course-detail.types'
 
@@ -127,41 +128,123 @@ function MaterialsTab({ courseOfferingId }: { courseOfferingId: string }) {
     </View>
   )
   if (items.length === 0) return (
-    <View style={{ alignItems:'center',paddingTop:40 }}>
-      <Text style={{ fontSize:28,marginBottom:8 }}>📄</Text>
-      <Text style={{ color:'#94a3b8',fontSize:13 }}>Lớp học phần chưa có tài liệu.</Text>
+    <View style={{ alignItems:'center',paddingTop:48,paddingBottom:24 }}>
+      <View style={{ width:72,height:72,borderRadius:24,backgroundColor:'#f1f5f9',alignItems:'center',justifyContent:'center',marginBottom:14 }}>
+        <Text style={{ fontSize:32 }}>📂</Text>
+      </View>
+      <Text style={{ fontSize:15,fontWeight:'700',color:'#475569',marginBottom:4 }}>Chưa có tài liệu</Text>
+      <Text style={{ fontSize:13,color:'#94a3b8',textAlign:'center',lineHeight:18 }}>
+        Giảng viên chưa tải lên tài liệu cho lớp học phần này.
+      </Text>
     </View>
   )
   return (
-    <View style={{ backgroundColor:'#fff',borderRadius:14,borderWidth:1,borderColor:'#f1f5f9',overflow:'hidden' }}>
-      <View style={{ flexDirection:'row',alignItems:'center',justifyContent:'space-between',padding:14,borderBottomWidth:1,borderBottomColor:'#f1f5f9' }}>
-        <Text style={{ fontSize:13,fontWeight:'700',color:'#0f172a' }}>Tài liệu học tập</Text>
-        <TouchableOpacity onPress={reload}>
-          <Text style={{ fontSize:12,color:'#2563eb',fontWeight:'600' }}>↻ Làm mới</Text>
+    <View>
+      <View style={{ flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12 }}>
+        <Text style={{ fontSize:13,color:'#64748b' }}>{items.length} tài liệu</Text>
+        <TouchableOpacity onPress={reload} style={{ flexDirection:'row',alignItems:'center',gap:4,paddingHorizontal:10,paddingVertical:5,backgroundColor:'#f1f5f9',borderRadius:8 }}>
+          <Text style={{ fontSize:12,color:'#475569',fontWeight:'600' }}>↻ Làm mới</Text>
         </TouchableOpacity>
       </View>
-      {items.map((m, i) => <MaterialRow key={m.id} material={m} isLast={i === items.length - 1} />)}
+      <View style={{ gap:8 }}>
+        {items.map(m => <MaterialRow key={m.id} material={m} courseOfferingId={courseOfferingId} />)}
+      </View>
     </View>
   )
 }
 
-function MaterialRow({ material, isLast }: { material: CourseMaterial; isLast: boolean }) {
+function getFileIcon(fileType: string): string {
+  const t = fileType.toLowerCase()
+  if (t.includes('pdf')) return '📕'
+  if (t.includes('word') || t.includes('doc')) return '📘'
+  if (t.includes('excel') || t.includes('xls') || t.includes('sheet')) return '📗'
+  if (t.includes('powerpoint') || t.includes('ppt') || t.includes('presentation')) return '📙'
+  if (t.includes('image') || t.includes('png') || t.includes('jpg') || t.includes('jpeg')) return '🖼️'
+  if (t.includes('zip') || t.includes('rar') || t.includes('7z')) return '🗜️'
+  if (t.includes('video') || t.includes('mp4')) return '🎬'
+  if (t.includes('audio') || t.includes('mp3')) return '🎵'
+  return '📄'
+}
+
+function getFileIconBg(fileType: string): string {
+  const t = fileType.toLowerCase()
+  if (t.includes('pdf')) return '#fef2f2'
+  if (t.includes('word') || t.includes('doc')) return '#eff6ff'
+  if (t.includes('excel') || t.includes('xls')) return '#f0fdf4'
+  if (t.includes('powerpoint') || t.includes('ppt')) return '#fff7ed'
+  if (t.includes('image')) return '#fdf4ff'
+  return '#f8fafc'
+}
+
+function MaterialRow({ material, courseOfferingId }: { material: CourseMaterial; courseOfferingId: string }) {
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    if (downloading) return
+    setDownloading(true)
+    try {
+      await downloadStudentMaterial(courseOfferingId, material.id, material.fileName)
+    } catch {
+      Alert.alert('Lỗi', 'Không thể tải tài liệu. Vui lòng thử lại.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const icon = getFileIcon(material.fileType)
+  const iconBg = getFileIconBg(material.fileType)
+
   return (
-    <View style={{ flexDirection:'row',alignItems:'center',gap:12,padding:14,borderBottomWidth:isLast?0:1,borderBottomColor:'#f8fafc' }}>
-      <View style={{ width:40,height:40,borderRadius:10,backgroundColor:'#eff6ff',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-        <Text style={{ fontSize:18 }}>📄</Text>
+    <View style={{
+      backgroundColor: '#fff', borderRadius: 14, padding: 14,
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      borderWidth: 1, borderColor: '#f1f5f9',
+      shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    }}>
+      {/* Icon */}
+      <View style={{ width: 46, height: 46, borderRadius: 12, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Text style={{ fontSize: 22 }}>{icon}</Text>
       </View>
-      <View style={{ flex:1,minWidth:0 }}>
-        <Text style={{ fontSize:13,fontWeight:'600',color:'#0f172a' }} numberOfLines={1}>{material.title || material.fileName}</Text>
-        <Text style={{ fontSize:11,color:'#94a3b8',marginTop:2 }}>
-          {material.fileType} · {material.fileSize} · {fmtDate(material.uploadedAt)}
+
+      {/* Info */}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#0f172a', marginBottom: 3 }} numberOfLines={2}>
+          {material.title || material.fileName}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#f1f5f9', borderRadius: 5 }}>
+            <Text style={{ fontSize: 10, fontWeight: '600', color: '#64748b', textTransform: 'uppercase' }}>
+              {material.fileType}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 11, color: '#94a3b8' }}>{material.fileSize}</Text>
+        </View>
+        <Text style={{ fontSize: 11, color: '#cbd5e1', marginTop: 3 }}>
+          {fmtDate(material.uploadedAt)}
         </Text>
       </View>
+
+      {/* Download button */}
       <TouchableOpacity
-        onPress={() => Linking.openURL(material.fileName)}
-        style={{ paddingHorizontal:12,paddingVertical:7,backgroundColor:'#eff6ff',borderRadius:8 }}
+        onPress={handleDownload}
+        disabled={downloading}
+        style={{
+          flexDirection: 'row', alignItems: 'center', gap: 5,
+          paddingHorizontal: 14, paddingVertical: 9,
+          backgroundColor: downloading ? '#e0e7ff' : '#eff6ff',
+          borderRadius: 10, borderWidth: 1,
+          borderColor: downloading ? '#c7d2fe' : '#bfdbfe',
+          flexShrink: 0,
+        }}
+        activeOpacity={0.7}
       >
-        <Text style={{ fontSize:11,fontWeight:'700',color:'#2563eb' }}>↓ Tải</Text>
+        {downloading
+          ? <ActivityIndicator size="small" color="#4f46e5" />
+          : <Text style={{ fontSize: 14 }}>⬇️</Text>
+        }
+        <Text style={{ fontSize: 12, fontWeight: '700', color: downloading ? '#4f46e5' : '#2563eb' }}>
+          {downloading ? 'Đang tải...' : 'Tải về'}
+        </Text>
       </TouchableOpacity>
     </View>
   )
