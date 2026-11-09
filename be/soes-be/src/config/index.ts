@@ -124,3 +124,98 @@ export const minioConfig = {
     return process.env.MINIO_REQUIRE_EVIDENCE_STORAGE === 'true' || appConfig.nodeEnv === 'production'
   },
 } as const
+
+function boundedInteger(value: string | undefined, fallback: number, min: number, max: number): number {
+  const parsed = Number.parseInt(value ?? '', 10)
+  return Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback
+}
+
+function boundedPercentage(value: string | undefined, fallback: number): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= 100 ? parsed : fallback
+}
+
+type FaceChallenge = 'FaceMovementChallenge' | 'FaceMovementAndLightChallenge'
+
+function faceChallenge(value: string | undefined, fallback: FaceChallenge): FaceChallenge {
+  return value === 'FaceMovementChallenge' || value === 'FaceMovementAndLightChallenge' ? value : fallback
+}
+
+export const faceVerificationConfig = {
+  get enabled(): boolean {
+    return process.env.FACE_VERIFICATION_ENABLED === 'true'
+  },
+
+  get provider(): 'aws' | 'mock' {
+    return process.env.FACE_VERIFICATION_PROVIDER === 'mock' ? 'mock' : 'aws'
+  },
+
+  get region(): string {
+    return process.env.AWS_FACE_REGION?.trim() ?? ''
+  },
+
+  get collectionId(): string {
+    return process.env.AWS_FACE_COLLECTION_ID?.trim() ?? ''
+  },
+
+  get livenessThreshold(): number {
+    return boundedPercentage(process.env.FACE_LIVENESS_THRESHOLD, 70)
+  },
+
+  get enrollmentLivenessThreshold(): number {
+    return boundedPercentage(process.env.FACE_ENROLLMENT_LIVENESS_THRESHOLD, 70)
+  },
+
+  get enrollmentChallenge(): FaceChallenge {
+    return faceChallenge(process.env.FACE_ENROLLMENT_CHALLENGE, 'FaceMovementAndLightChallenge')
+  },
+
+  get examChallenge(): FaceChallenge {
+    return faceChallenge(process.env.FACE_EXAM_CHALLENGE, 'FaceMovementAndLightChallenge')
+  },
+
+  get similarityThreshold(): number {
+    return boundedPercentage(process.env.FACE_SIMILARITY_THRESHOLD, 80)
+  },
+
+  get sessionTtlSeconds(): number {
+    return boundedInteger(process.env.FACE_SESSION_TTL_SECONDS, 180, 60, 300)
+  },
+
+  get grantTtlSeconds(): number {
+    return boundedInteger(process.env.FACE_GRANT_TTL_SECONDS, 300, 60, 600)
+  },
+
+  get cooldownSeconds(): number {
+    return boundedInteger(process.env.FACE_COOLDOWN_SECONDS, 120, 30, 900)
+  },
+
+  get failuresPerCycle(): number {
+    return boundedInteger(process.env.FACE_FAILURES_PER_CYCLE, 3, 1, 5)
+  },
+
+  get maxFailuresBeforeManualReview(): number {
+    return boundedInteger(process.env.FACE_MAX_FAILURES_BEFORE_MANUAL_REVIEW, 6, 2, 10)
+  },
+
+  get reviewImageRetentionDays(): number {
+    return boundedInteger(process.env.FACE_REVIEW_IMAGE_RETENTION_DAYS, 7, 1, 30)
+  },
+} as const
+
+export function assertFaceVerificationConfigured(): void {
+  if (!faceVerificationConfig.enabled) return
+
+  if (faceVerificationConfig.provider === 'mock') {
+    if (appConfig.nodeEnv === 'production') {
+      throw new Error('FACE_VERIFICATION_PROVIDER=mock is forbidden in production')
+    }
+    return
+  }
+
+  if (!faceVerificationConfig.region || !faceVerificationConfig.collectionId) {
+    throw new Error(
+      'Face verification is enabled but AWS_FACE_REGION or AWS_FACE_COLLECTION_ID is missing',
+    )
+  }
+}

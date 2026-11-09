@@ -15,7 +15,7 @@ const liveCandidateQuerySchema = z.object({ from: z.coerce.number().int().min(0)
 export async function startExam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { scheduleId } = examParamsSchema.parse(req.params)
-    const { password, webcamConfirmed, webcamStatus, screenShareConfirmed, screenShareStatus } = startExamBodySchema.parse(req.body ?? {})
+    const { password, webcamConfirmed, webcamStatus, screenShareConfirmed, screenShareStatus, faceVerificationId } = startExamBodySchema.parse(req.body ?? {})
     const studentId    = req.user!.profileId
 
     const requestContext = clientRequestContext(req)
@@ -35,6 +35,7 @@ export async function startExam(req: Request, res: Response, next: NextFunction)
       webcamStatus,
       screenShareConfirmed,
       screenShareStatus,
+      faceVerificationId,
     )
 
     res.status(200).json({
@@ -54,7 +55,8 @@ export async function getExamContent(req: Request, res: Response, next: NextFunc
     const { scheduleId, attemptId } = examAttemptParamsSchema.parse(req.params)
     const studentId             = req.user!.profileId
 
-    const result = await takeExamService.getExamContent(scheduleId, attemptId, studentId)
+    const faceVerificationId = z.string().uuid().optional().parse(req.get('X-Exam-Face-Grant'))
+    const result = await takeExamService.getExamContent(scheduleId, attemptId, studentId, faceVerificationId)
 
     res.status(200).json({
       success: true,

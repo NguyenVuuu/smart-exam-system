@@ -176,6 +176,26 @@ export const getTeacherLiveProctoringSessions = (scheduleId: string) =>
     `/teacher/proctoring/schedules/${scheduleId}/sessions`,
   ).then(({ data }) => data.data)
 
+export interface PendingFaceManualReview {
+  studentId: string
+  studentCode: string
+  studentName: string
+  failedAttempts: number
+  enrollmentImageAvailable: boolean
+  latestFailedImageAt: string | null
+}
+
+export const getPendingFaceManualReviews = (scheduleId: string) =>
+  apiClient.get<ApiResponse<PendingFaceManualReview[]>>(`/teacher/exam-schedules/${scheduleId}/face/manual-reviews`)
+    .then(({ data }) => data.data)
+
+export const approveFaceManualEntry = (scheduleId: string, studentId: string, reason: string) =>
+  apiClient.post(`/teacher/exam-schedules/${scheduleId}/students/${studentId}/face/manual-approval`, { reason })
+
+export const getFaceReviewImage = (scheduleId: string, studentId: string, kind: 'enrollment' | 'latest-failed') =>
+  apiClient.get<Blob>(`/teacher/exam-schedules/${scheduleId}/students/${studentId}/face/review-image/${kind}`, { responseType: 'blob' })
+    .then(({ data }) => data)
+
 export const getTeacherLiveProctoringViolations = (
   scheduleId: string,
   params: {

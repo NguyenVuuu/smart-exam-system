@@ -29,6 +29,7 @@ export function useTakeExam({
   const [flaggedQuestionIds, setFlaggedQuestionIds] = useState<string[]>([])
   const [phase, setPhase] = useState<TakeExamPhase>('IN_PROGRESS')
   const [saveState, setSaveState] = useState<DraftSaveState>('IDLE')
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
 
   const expirationHandledRef = useRef(false)
   const phaseRef = useRef(phase)
@@ -94,6 +95,7 @@ export function useTakeExam({
         await saveAnswersApi({ scheduleId, attemptId, data: formattedAnswers })
       }
       setSaveState('SAVED')
+      setLastSavedAt(new Date().toISOString())
     } catch (error) {
       console.error('Failed to save answers', error)
       setSaveState('IDLE')
@@ -141,10 +143,7 @@ export function useTakeExam({
   }, [autoSubmitExpiredAttempt])
 
   useEffect(() => {
-    if (!session?.deadlineAt) {
-      setSecondsRemaining(0)
-      return
-    }
+    if (!session?.deadlineAt) return
 
     const endAt = new Date(session.deadlineAt).getTime()
     if (isNaN(endAt)) return
@@ -159,10 +158,13 @@ export function useTakeExam({
     }
 
     expirationHandledRef.current = false
-    syncRemainingTime()
+    const initialTimerId = window.setTimeout(syncRemainingTime, 0)
     const intervalId = window.setInterval(syncRemainingTime, 1000)
 
-    return () => window.clearInterval(intervalId)
+    return () => {
+      window.clearTimeout(initialTimerId)
+      window.clearInterval(intervalId)
+    }
   }, [session?.deadlineAt])
 
   const currentQuestion = session?.questions[currentQuestionIndex] ?? null
@@ -170,10 +172,11 @@ export function useTakeExam({
   return {
     currentQuestion,
     currentQuestionIndex,
-    secondsRemaining,
+    secondsRemaining: session?.deadlineAt ? secondsRemaining : 0,
     flaggedQuestionIds,
     phase,
     saveState,
+    lastSavedAt,
     nextQuestion,
     previousQuestion,
     goToQuestion,

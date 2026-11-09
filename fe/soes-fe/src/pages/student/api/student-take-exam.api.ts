@@ -12,6 +12,7 @@ interface BaseResponse<T> {
 }
 
 export interface StartExamRequest {
+  faceVerificationId?: string
   password?: string
   webcamConfirmed?: boolean
   webcamStatus?: ExamSessionWebcamStatus
@@ -208,6 +209,25 @@ export interface AttemptStatus {
 
 const BASE_URL = '/student/exam-schedules'
 
+let activeFaceEntry: { scheduleId: string; attemptId: string; grantId: string } | null = null
+
+export function setActiveFaceEntry(scheduleId: string, attemptId: string, grantId: string) {
+  activeFaceEntry = { scheduleId, attemptId, grantId }
+}
+
+export function clearActiveFaceEntry(grantId: string) {
+  if (activeFaceEntry?.grantId === grantId) activeFaceEntry = null
+}
+
+axios.interceptors.request.use((config) => {
+  if (!activeFaceEntry) return config
+  const attemptPath = `${BASE_URL}/${activeFaceEntry.scheduleId}/attempts/${activeFaceEntry.attemptId}`
+  if (config.url === attemptPath || config.url?.startsWith(`${attemptPath}/`)) {
+    config.headers.set('X-Exam-Face-Grant', activeFaceEntry.grantId)
+  }
+  return config
+})
+
 interface ApiExamIntegritySettings {
   enableTabLock?: boolean
   enableWebcam?: boolean
@@ -263,7 +283,7 @@ export const takeExamApi = {
     return response.data.data
   },
 
-  getExamAttempt: async (scheduleId: string, attemptId: string): Promise<TakeExamSession> => {
+  getExamAttempt: async (scheduleId: string, attemptId: string, faceVerificationId?: string): Promise<TakeExamSession> => {
     const response = await axios.get<BaseResponse<{
       attemptId: string
       title: string
@@ -272,7 +292,9 @@ export const takeExamApi = {
       deadlineAt: string
       integritySettings?: ApiExamIntegritySettings
       questions: ApiTakeExamQuestion[]
-    }>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}`)
+    }>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}`, {
+      headers: faceVerificationId ? { 'X-Exam-Face-Grant': faceVerificationId } : undefined,
+    })
     const data = response.data.data
     return {
       ...data,
