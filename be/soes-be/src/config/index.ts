@@ -167,7 +167,7 @@ export const faceVerificationConfig = {
   },
 
   get enrollmentChallenge(): FaceChallenge {
-    return faceChallenge(process.env.FACE_ENROLLMENT_CHALLENGE, 'FaceMovementChallenge')
+    return faceChallenge(process.env.FACE_ENROLLMENT_CHALLENGE, 'FaceMovementAndLightChallenge')
   },
 
   get examChallenge(): FaceChallenge {
