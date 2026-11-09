@@ -21,6 +21,8 @@ const feedbackGuidance: Record<string, string> = {
 function describeFailedVerification(result: FailedFaceCompletion, purpose: 'ENROLLMENT' | 'EXAM_ENTRY') {
   if (result.requiresManualReview) return 'Xác minh nhiều lần chưa thành công. Vui lòng liên hệ giảng viên coi thi.'
   if (result.failureCode === 'FACE_MISMATCH') return 'Khuôn mặt không khớp hồ sơ đã đăng ký. Vui lòng thử lại.'
+  if (result.failureCode === 'FACE_OBSTRUCTED') return 'Khuôn mặt bị che. Bỏ tay, khẩu trang hoặc vật che mặt rồi quét lại.'
+  if (result.failureCode === 'FACE_NOT_CLEAR') return 'Camera chưa thấy rõ một khuôn mặt. Đưa trọn khuôn mặt vào khung rồi quét lại.'
   if (result.failureCode === 'LIVENESS_LOW_CONFIDENCE') {
     const guidance = [...new Set(result.feedbackCodes ?? [])].flatMap((code) => feedbackGuidance[code] ? [feedbackGuidance[code]] : []).join(' ')
     return `Lần quét này chưa đủ tin cậy để xác minh. ${guidance || 'Hãy quét lại ở nơi sáng đều, nhìn thẳng camera và không che mặt.'}`

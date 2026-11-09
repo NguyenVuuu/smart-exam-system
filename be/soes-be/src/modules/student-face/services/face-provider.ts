@@ -1,6 +1,7 @@
 import {
   CreateFaceLivenessSessionCommand,
   DeleteFacesCommand,
+  DetectFacesCommand,
   GetFaceLivenessSessionResultsCommand,
   IndexFacesCommand,
   RekognitionClient,
@@ -14,7 +15,7 @@ export async function createLivenessSession(purpose: 'ENROLLMENT' | 'EXAM_ENTRY'
   if (faceVerificationConfig.provider === 'mock') return `mock-${crypto.randomUUID()}`
   const challenge = purpose === 'ENROLLMENT' ? faceVerificationConfig.enrollmentChallenge : faceVerificationConfig.examChallenge
   const result = await client.send(new CreateFaceLivenessSessionCommand({
-    Settings: { AuditImagesLimit: 1, ChallengePreferences: [{ Type: challenge }] },
+    Settings: { AuditImagesLimit: purpose === 'ENROLLMENT' ? 4 : 1, ChallengePreferences: [{ Type: challenge }] },
   }))
   if (!result.SessionId) throw new Error('Face liveness session was not created')
   return result.SessionId
@@ -23,7 +24,7 @@ export async function createLivenessSession(purpose: 'ENROLLMENT' | 'EXAM_ENTRY'
 export async function getLivenessResult(sessionId: string) {
   if (faceVerificationConfig.provider === 'mock') {
     if (!sessionId.startsWith('mock-')) throw new Error('Invalid mock face session')
-    return { status: 'SUCCEEDED' as const, confidence: 100, image: new Uint8Array([1]), reviewImage: new Uint8Array([1]), feedbackCodes: [] as string[] }
+    return { status: 'SUCCEEDED' as const, confidence: 100, image: new Uint8Array([1]), reviewImage: new Uint8Array([1]), auditImages: [] as Uint8Array[], feedbackCodes: [] as string[] }
   }
   const result = await client.send(new GetFaceLivenessSessionResultsCommand({ SessionId: sessionId }))
   return {
@@ -31,8 +32,23 @@ export async function getLivenessResult(sessionId: string) {
     confidence: result.Confidence ?? 0,
     image: result.ReferenceImage?.Bytes,
     reviewImage: result.AuditImages?.[0]?.Bytes ?? result.ReferenceImage?.Bytes,
+    auditImages: result.AuditImages?.flatMap((item) => item.Bytes ? [item.Bytes] : []) ?? [],
     feedbackCodes: result.Feedback?.flatMap((item) => item.Code ? [item.Code] : []) ?? [],
   }
+}
+
+export async function inspectFaceVisibility(reference: Uint8Array, auditImages: Uint8Array[]) {
+  if (faceVerificationConfig.provider === 'mock') return {
+    reference: [{ FaceOccluded: { Value: false, Confidence: 100 } }], audit: [],
+  }
+  const detect = async (image: Uint8Array) => {
+    const result = await client.send(new DetectFacesCommand({ Image: { Bytes: image }, Attributes: ['FACE_OCCLUDED'] }))
+    return result.FaceDetails ?? []
+  }
+  const referenceFaces = await detect(reference)
+  const auditFaces = []
+  for (const image of auditImages) auditFaces.push(await detect(image))
+  return { reference: referenceFaces, audit: auditFaces }
 }
 
 export async function indexStudentFace(studentId: string, image: Uint8Array) {

@@ -6,7 +6,7 @@ import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { findEnrollment, findScheduleById, findActiveAttempt } from '../../student-take-exam/repositories/student-take-exam.repository'
 import * as repository from '../repositories/student-face.repository'
 import * as provider from './face-provider'
-import { assessLiveness } from './face-liveness.policy'
+import { assessFaceVisibility, assessLiveness } from './face-liveness.policy'
 import { nextFaceRetryState } from './face-retry.policy'
 import { decryptFaceImage, encryptFaceImage, enrollmentImageContext, failedImageContext, imageMimeType } from './face-image.crypto'
 
@@ -139,6 +139,14 @@ export async function completeSession(studentId: string, id: string, actorUserId
     if (!assessment.accepted) {
       const profile = await recordFailure(id, studentId, actorUserId, session.purpose, assessment.failureCode, session.examScheduleId, result.reviewImage)
       return { status: 'FAILED' as const, failureCode: assessment.failureCode, feedbackCodes: result.feedbackCodes, ...profile }
+    }
+
+    const visibility = assessFaceVisibility(await provider.inspectFaceVisibility(assessment.image, result.auditImages))
+    if (!visibility.accepted) {
+      const auditIndex = 'auditImageIndex' in visibility ? visibility.auditImageIndex : undefined
+      const reviewImage = auditIndex === undefined ? assessment.image : result.auditImages[auditIndex]
+      const profile = await recordFailure(id, studentId, actorUserId, session.purpose, visibility.failureCode, session.examScheduleId, reviewImage)
+      return { status: 'FAILED' as const, failureCode: visibility.failureCode, ...profile }
     }
 
     if (session.purpose === 'ENROLLMENT') {

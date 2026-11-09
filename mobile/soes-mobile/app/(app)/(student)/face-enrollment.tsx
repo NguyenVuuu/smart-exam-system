@@ -24,6 +24,8 @@ const feedbackGuidance: Record<string, string> = {
 
 function describeFailure(failureCode?: string, feedbackCodes: string[] = []) {
   if (failureCode === 'LIVENESS_REFERENCE_IMAGE_MISSING') return 'Camera chưa chụp được khuôn mặt rõ. Vui lòng thử lại.'
+  if (failureCode === 'FACE_OBSTRUCTED') return 'Khuôn mặt bị che. Bỏ tay, khẩu trang hoặc vật che mặt rồi quét lại.'
+  if (failureCode === 'FACE_NOT_CLEAR') return 'Camera chưa thấy rõ một khuôn mặt. Đưa trọn khuôn mặt vào khung rồi quét lại.'
   const guidance = [...new Set(feedbackCodes)].map((code) => feedbackGuidance[code]).filter(Boolean).join(' ')
   return `Lần quét này chưa đủ tin cậy để xác minh. ${guidance || 'Đặt mặt vừa khung, ở nơi sáng đều rồi thử lại.'}`
 }
