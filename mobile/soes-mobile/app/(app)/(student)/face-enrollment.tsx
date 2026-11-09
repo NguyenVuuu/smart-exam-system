@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react'
-import { Fingerprint, LogOut, RefreshCw } from 'lucide-react-native'
+import { LogOut, RefreshCw, ScanFace } from 'lucide-react-native'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cancelFaceEnrollmentSession, completeFaceEnrollmentSession, createFaceEnrollmentSession, type FaceEnrollmentSession } from '../../../src/api/student-face.api'
@@ -155,7 +155,7 @@ export default function StudentFaceEnrollmentPage() {
   const busy = phase === 'creating' || phase === 'checking'
   return <SafeAreaView style={styles.safe}>
     <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.icon}><Fingerprint size={30} color="#2563eb" /></View>
+      <View style={styles.icon}><ScanFace size={30} color="#2563eb" /></View>
       <Text style={styles.title}>Đăng ký khuôn mặt</Text>
       <Text style={styles.description}>
         Đăng ký một lần bằng camera trên điện thoại. Sau khi xác minh thành công, bạn có thể sử dụng ứng dụng; lúc vào thi trên web sẽ xác minh lại khuôn mặt.
@@ -168,9 +168,6 @@ export default function StudentFaceEnrollmentPage() {
       {phase === 'waiting' && session ? <Pressable style={styles.primary} onPress={() => void checkResult(session.id)} accessibilityRole="button">
         <RefreshCw size={18} color="#fff" /><Text style={styles.primaryText}>Kiểm tra kết quả</Text>
       </Pressable> : null}
-      <Pressable style={styles.secondary} onPress={() => void enrollment?.refresh()} accessibilityRole="button">
-        <RefreshCw size={18} color="#2563eb" /><Text style={styles.secondaryText}>Kiểm tra trạng thái đăng ký</Text>
-      </Pressable>
       <Pressable style={styles.logout} onPress={signOut} disabled={busy || isLoggingOut} accessibilityRole="button">
         <LogOut size={18} color="#475569" /><Text style={styles.logoutText}>Đăng xuất</Text>
       </Pressable>
@@ -188,8 +185,6 @@ const styles = StyleSheet.create({
   cameraError: { color: '#b91c1c', paddingHorizontal: 20, paddingBottom: 12 },
   primary: { minHeight: 52, borderRadius: 12, backgroundColor: '#2563eb', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   primaryText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  secondary: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  secondaryText: { fontSize: 14, fontWeight: '700', color: '#2563eb' },
   logout: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12 },
   logoutText: { fontSize: 14, fontWeight: '700', color: '#475569' },
 })
