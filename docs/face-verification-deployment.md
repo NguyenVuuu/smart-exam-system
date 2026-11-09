@@ -55,6 +55,8 @@ Sau khi liveness đạt, backend dùng `DetectFaces` với thuộc tính `FACE_O
 5. Kiểm thử đồng thời hai phiên đăng ký với provider mock và PostgreSQL cục bộ: đặt `FACE_INTEGRATION_TEST=1`, rồi chạy `node -r ts-node/register -e "require('./src/modules/student-face/services/student-face.postgres.test.ts')"` trong `be/soes-be`. Test tạo và xóa fixture riêng.
 
 Grant vào thi được tiêu thụ khi tạo hoặc vào lại lượt thi; quyền tải nội dung bài chỉ dùng một lần. Nếu đóng hoặc tải lại màn hình, sinh viên quay lại trang chi tiết và xác minh mới. Khi màn hình vẫn mở, mất mạng ngắn không kích hoạt tải lại nội dung bài.
+
+Chính sách 3 lần sai, khóa 2 phút, thêm 3 lần rồi chờ giám thị được tính riêng cho từng sinh viên trong từng ca thi và từng lượt làm bài. Sau khi nộp hoặc hết thời gian của lượt cũ, lượt làm bài mới có bộ đếm từ 0; ca thi khác cũng bắt đầu từ 0. Vào lại một lượt đang làm vẫn dùng bộ đếm của lượt đó. Grant hoặc phiên quét tạo trước khi lượt cũ kết thúc không được dùng cho lượt mới. Những cột đếm lỗi cũ trên `StudentFaceProfile` không còn quyết định việc khóa xác minh.
 Các API lưu bài, nộp bài, nhịp kết nối, giám sát và chạy mã chỉ nhận grant của lượt vào bài mới nhất sau khi nội dung đã được mở.
 
 Chưa thể xác nhận kiểm thử camera và IAM chỉ bằng build cục bộ; cần môi trường AWS và thiết bị thật.

@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
+import { z } from 'zod'
 import * as service from '../services/student-face.service'
 import { idSchema, manualBodySchema, manualParamsSchema, reviewImageParamsSchema, scheduleParamsSchema, startSchema } from '../validators/student-face.validator'
 
@@ -18,7 +19,8 @@ export async function pendingManualReviews(req: Request, res: Response, next: Ne
 
 export async function profile(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ success: true, data: await service.getProfile(req.user!.profileId) })
+    const scheduleId = z.string().uuid().optional().parse(req.query.scheduleId)
+    res.json({ success: true, data: await service.getProfile(req.user!.profileId, scheduleId) })
   } catch (error) { next(error) }
 }
 

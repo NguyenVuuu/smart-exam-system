@@ -68,12 +68,18 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
 
   useEffect(() => {
     if (purpose !== 'EXAM_ENTRY') return
-    void studentFaceApi.profile().then((profile) => {
+    let active = true
+    setFailures(0)
+    setCooldownUntil(null)
+    setRequiresManualReview(false)
+    void studentFaceApi.profile(scheduleId).then((profile) => {
+      if (!active) return
       setFailures(profile.failedAttemptsSinceSuccess)
       setCooldownUntil(profile.cooldownUntil)
       setRequiresManualReview(profile.requiresManualReview)
     }).catch(() => undefined)
-  }, [purpose])
+    return () => { active = false }
+  }, [purpose, scheduleId])
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => setNow(Date.now()), 0)

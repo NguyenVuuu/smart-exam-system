@@ -16,6 +16,7 @@ describe('one-time exam entry grant', () => {
     process.env.FACE_VERIFICATION_ENABLED = 'true'
     let consumed = false
     const transaction = {
+      examAttempt: { findFirst: async () => null },
       faceVerificationSession: {
         updateMany: async ({ where }: { where: Record<string, unknown> }) => {
           assert.equal(where.id, 'grant-1')
@@ -58,6 +59,7 @@ describe('one-time exam entry grant', () => {
     process.env.FACE_VERIFICATION_ENABLED = 'true'
     let expiresAt = new Date(Date.now() + 60_000)
     const transaction = {
+      examAttempt: { findFirst: async () => null },
       faceVerificationSession: {
         updateMany: async ({ where }: { where: Record<string, unknown> }) => ({
           count: where.studentId === 'owner' && where.examScheduleId === 'schedule-1'
@@ -83,6 +85,7 @@ describe('one-time exam entry grant', () => {
     process.env.FACE_VERIFICATION_ENABLED = 'true'
     let consumed = false
     const transaction = {
+      examAttempt: { findFirst: async () => null },
       faceVerificationSession: {
         updateMany: async () => {
           if (consumed) return { count: 0 }
@@ -100,6 +103,25 @@ describe('one-time exam entry grant', () => {
     ])
     assert.equal(outcomes.filter(({ status }) => status === 'fulfilled').length, 1)
     assert.equal(outcomes.filter(({ status }) => status === 'rejected').length, 1)
+  })
+
+  it('does not accept a grant created for a previous exam attempt', async () => {
+    process.env.FACE_VERIFICATION_ENABLED = 'true'
+    const submittedAt = new Date('2026-11-09T10:00:00.000Z')
+    const transaction = {
+      examAttempt: { findFirst: async () => ({ submittedAt }) },
+      faceVerificationSession: {
+        updateMany: async ({ where }: { where: Record<string, unknown> }) => {
+          assert.deepEqual(where.createdAt, { gt: submittedAt })
+          return { count: 0 }
+        },
+      },
+    }
+    mock.method(prisma, '$transaction', async (callback: (tx: typeof transaction) => Promise<unknown>) => callback(transaction))
+    await assert.rejects(
+      consumeResumeFaceGrant('old-grant', 'schedule-1', 'student-1', 'attempt-2', 'actor-1'),
+      /expired or was already used/,
+    )
   })
 
   it('allows one content load for the latest grant and rejects replay', async () => {

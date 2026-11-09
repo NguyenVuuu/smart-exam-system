@@ -8,7 +8,7 @@ export default function StudentFaceGate({ children }: { children: React.ReactNod
   const { logout } = useLogout()
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['student-face-profile'],
-    queryFn: studentFaceApi.profile,
+    queryFn: () => studentFaceApi.profile(),
     retry: 1,
     staleTime: 30_000,
   })

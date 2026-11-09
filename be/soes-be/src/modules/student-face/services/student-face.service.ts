@@ -8,27 +8,38 @@ import * as repository from '../repositories/student-face.repository'
 import * as provider from './face-provider'
 import { assessFaceVisibility, assessLiveness } from './face-liveness.policy'
 import { nextFaceRetryState } from './face-retry.policy'
+import { examRetryState, retryWindowStart } from './face-retry-scope'
 import { decryptFaceImage, encryptFaceImage, enrollmentImageContext, failedImageContext, imageMimeType } from './face-image.crypto'
 
-export async function getProfile(studentId: string) {
+export async function getProfile(studentId: string, scheduleId?: string) {
   const profile = await repository.findFaceProfile(studentId)
+  const retry = scheduleId && profile?.status === 'ACTIVE' ? await examRetryState(prisma, studentId, scheduleId) : null
   return {
     enabled: faceVerificationConfig.enabled,
     enrolled: profile?.status === 'ACTIVE',
-    failedAttemptsSinceSuccess: profile?.failedAttemptsSinceSuccess ?? 0,
-    cooldownUntil: profile?.cooldownUntil ?? null,
-    requiresManualReview: profile?.requiresManualReview ?? false,
+    failedAttemptsSinceSuccess: retry?.failedAttemptsSinceSuccess ?? 0,
+    cooldownUntil: retry?.cooldownUntil ?? null,
+    requiresManualReview: retry?.requiresManualReview ?? false,
   }
 }
 
 export async function getManualApproval(studentId: string, scheduleId: string) {
-  const grant = await repository.findManualApproval(studentId, scheduleId)
+  const windowStart = await retryWindowStart(prisma, studentId, scheduleId)
+  const grant = await repository.findManualApproval(studentId, scheduleId, windowStart)
   return grant
 }
 
 export async function getPendingManualReviews(teacherId: string, scheduleId: string) {
   if (!faceVerificationConfig.enabled) return []
-  const profiles = await repository.findPendingManualReviews(teacherId, scheduleId)
+  const candidates = await repository.findPendingManualReviews(teacherId, scheduleId)
+  const states = await Promise.all(candidates.map(async ({ studentId }) => {
+    const retry = await examRetryState(prisma, studentId, scheduleId)
+    const approval = retry.requiresManualReview
+      ? await repository.findManualApproval(studentId, scheduleId, retry.windowStart) : null
+    return { retry, approval }
+  }))
+  const profiles = candidates.flatMap((profile, index) => states[index].retry.requiresManualReview && !states[index].approval
+    ? [{ ...profile, failedAttemptsSinceSuccess: states[index].retry.failedAttemptsSinceSuccess }] : [])
   const captures = await prisma.faceReviewCapture.findMany({
     where: { examScheduleId: scheduleId, studentId: { in: profiles.map(({ studentId }) => studentId) }, expiresAt: { gt: new Date() } },
     select: { studentId: true, capturedAt: true },
@@ -50,8 +61,9 @@ export async function createSession(studentId: string, purpose: 'ENROLLMENT' | '
   } else {
     if (!scheduleId) throw new ConflictError('Exam schedule is required')
     if (profile?.status !== 'ACTIVE') throw new ForbiddenError('Register your face before entering an exam')
-    if (profile.requiresManualReview) throw new ForbiddenError('Proctor approval is required')
-    if (profile.cooldownUntil && profile.cooldownUntil > new Date()) throw new ForbiddenError('Face verification is temporarily paused')
+    const retry = await examRetryState(prisma, studentId, scheduleId)
+    if (retry.requiresManualReview) throw new ForbiddenError('Proctor approval is required')
+    if (retry.cooldownUntil && retry.cooldownUntil > new Date()) throw new ForbiddenError('Face verification is temporarily paused')
     const [schedule, enrollment] = await Promise.all([
       findScheduleById(scheduleId), findEnrollment(scheduleId, studentId),
     ])
@@ -62,9 +74,11 @@ export async function createSession(studentId: string, purpose: 'ENROLLMENT' | '
     }
   }
 
-  const pending = await repository.countPendingSessions(studentId, purpose, scheduleId)
+  const scopeStart = purpose === 'EXAM_ENTRY' && scheduleId ? await retryWindowStart(prisma, studentId, scheduleId) : null
+  const pending = await repository.countPendingSessions(studentId, purpose, scheduleId, scopeStart)
   if (pending >= 2) throw new ConflictError('Complete the current face verification first')
-  const recent = await repository.countRecentSessions(studentId, new Date(Date.now() - 15 * 60 * 1000))
+  const recentSince = new Date(Math.max(Date.now() - 15 * 60 * 1000, scopeStart?.getTime() ?? 0))
+  const recent = await repository.countRecentSessions(studentId, recentSince, purpose, scheduleId)
   if (recent >= 12) throw new ForbiddenError('Too many face verification sessions. Please try again later')
 
   const providerSessionId = await provider.createLivenessSession(purpose)
@@ -78,19 +92,20 @@ async function recordFailure(id: string, studentId: string, actorUserId: string,
   const ciphertext = purpose === 'EXAM_ENTRY' && scheduleId && mimeType && image
     ? encryptFaceImage(image, failedImageContext(studentId, scheduleId)) : null
   await prisma.$transaction(async (tx) => {
-    await tx.faceVerificationSession.update({ where: { id }, data: { status: 'FAILED', failureCode: code, completedAt: new Date() } })
     let retryState: ReturnType<typeof nextFaceRetryState> | null = null
     if (purpose === 'EXAM_ENTRY') {
-      const [profile] = await tx.$queryRaw<{ failedAttemptsSinceSuccess: number }[]>`
-        SELECT "failedAttemptsSinceSuccess" FROM "StudentFaceProfile"
+      await tx.$queryRaw`
+        SELECT "id" FROM "StudentFaceProfile"
         WHERE "studentId" = ${studentId} FOR UPDATE
       `
-      if (!profile) throw new NotFoundError('Face profile not found')
-      retryState = nextFaceRetryState(profile.failedAttemptsSinceSuccess, new Date(), faceVerificationConfig)
-      await tx.studentFaceProfile.update({
-        where: { studentId },
-        data: retryState,
+      if (!scheduleId) throw new ConflictError('Exam schedule is required')
+      const windowStart = await retryWindowStart(tx, studentId, scheduleId)
+      const changed = await tx.faceVerificationSession.updateMany({
+        where: { id, status: 'PROCESSING', ...(windowStart ? { createdAt: { gt: windowStart } } : {}) },
+        data: { status: 'FAILED', failureCode: code, completedAt: new Date() },
       })
+      if (!changed.count) throw new ConflictError('Face verification belongs to a previous attempt')
+      retryState = await examRetryState(tx, studentId, scheduleId)
       if (scheduleId) {
         await tx.faceReviewCapture.deleteMany({ where: { studentId, examScheduleId: scheduleId } })
         if (ciphertext && mimeType) await tx.faceReviewCapture.create({ data: {
@@ -99,12 +114,14 @@ async function recordFailure(id: string, studentId: string, actorUserId: string,
           expiresAt: new Date(Date.now() + faceVerificationConfig.reviewImageRetentionDays * 86400_000),
         } })
       }
+    } else {
+      await tx.faceVerificationSession.update({ where: { id }, data: { status: 'FAILED', failureCode: code, completedAt: new Date() } })
     }
     await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_VERIFICATION_FAILED', entityType: 'FaceVerificationSession', entityId: id,
-      metadata: { purpose, code, failedAttempts: retryState?.failedAttemptsSinceSuccess,
+      metadata: { purpose, scheduleId, code, failedAttempts: retryState?.failedAttemptsSinceSuccess,
         requiresManualReview: retryState?.requiresManualReview, cooldownUntil: retryState?.cooldownUntil?.toISOString() } })
   })
-  return getProfile(studentId)
+  return getProfile(studentId, scheduleId ?? undefined)
 }
 
 export async function completeSession(studentId: string, id: string, actorUserId: string) {
@@ -122,9 +139,11 @@ export async function completeSession(studentId: string, id: string, actorUserId
   try {
     if (session.purpose === 'EXAM_ENTRY') {
       const profile = await repository.findFaceProfile(studentId)
-      if (!profile) throw new NotFoundError('Face profile not found')
-      if (profile.requiresManualReview) throw new ForbiddenError('Proctor approval is required')
-      if (profile.cooldownUntil && profile.cooldownUntil > new Date()) throw new ForbiddenError('Face verification is temporarily paused')
+      if (profile?.status !== 'ACTIVE' || !session.examScheduleId) throw new NotFoundError('Face profile not found')
+      const retry = await examRetryState(prisma, studentId, session.examScheduleId)
+      if (retry.windowStart && session.createdAt <= retry.windowStart) throw new ConflictError('Face verification belongs to a previous attempt')
+      if (retry.requiresManualReview) throw new ForbiddenError('Proctor approval is required')
+      if (retry.cooldownUntil && retry.cooldownUntil > new Date()) throw new ForbiddenError('Face verification is temporarily paused')
     }
     const result = await provider.getLivenessResult(session.providerSessionId!)
     if (session.expiresAt <= new Date()) {
@@ -186,11 +205,13 @@ export async function completeSession(studentId: string, id: string, actorUserId
       return { status: 'FAILED' as const, failureCode: 'FACE_MISMATCH', ...profile }
     }
     await prisma.$transaction(async (tx) => {
-      const [profile] = await tx.$queryRaw<{ status: string; cooldownUntil: Date | null; requiresManualReview: boolean }[]>`
-        SELECT "status", "cooldownUntil", "requiresManualReview" FROM "StudentFaceProfile"
+      const [profile] = await tx.$queryRaw<{ status: string }[]>`
+        SELECT "status" FROM "StudentFaceProfile"
         WHERE "studentId" = ${studentId} FOR UPDATE
       `
-      if (profile?.status !== 'ACTIVE' || profile.requiresManualReview || (profile.cooldownUntil && profile.cooldownUntil > new Date())) {
+      const retry = await examRetryState(tx, studentId, session.examScheduleId!)
+      if (profile?.status !== 'ACTIVE' || (retry.windowStart && session.createdAt <= retry.windowStart)
+        || retry.requiresManualReview || (retry.cooldownUntil && retry.cooldownUntil > new Date())) {
         throw new ForbiddenError('Face verification is temporarily unavailable')
       }
       if (session.expiresAt <= new Date()) throw new ConflictError('Face verification session expired')
@@ -200,7 +221,6 @@ export async function completeSession(studentId: string, id: string, actorUserId
           completedAt: new Date(), grantExpiresAt: new Date(Date.now() + faceVerificationConfig.grantTtlSeconds * 1000),
         },
       })
-      await tx.studentFaceProfile.update({ where: { studentId }, data: { failedAttemptsSinceSuccess: 0, cooldownUntil: null, requiresManualReview: false } })
       await tx.faceReviewCapture.deleteMany({ where: { studentId, examScheduleId: session.examScheduleId! } })
       await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_VERIFICATION_PASSED', entityType: 'FaceVerificationSession', entityId: id, metadata: { scheduleId: session.examScheduleId } })
     })
@@ -230,8 +250,9 @@ export async function approveManualEntry(teacherId: string, actorUserId: string,
   if (!enrollment) throw new NotFoundError('Student is not assigned to this exam')
   const assignment = await repository.findAssignedProctor(teacherId, scheduleId, enrollment.courseOfferingId)
   if (!assignment) throw new ForbiddenError('Only an assigned proctor may approve face verification')
-  const failedInSchedule = await prisma.faceVerificationSession.count({ where: { studentId, examScheduleId: scheduleId, purpose: 'EXAM_ENTRY', status: 'FAILED' } })
-  if (!failedInSchedule) throw new ConflictError('No failed face verification in this exam')
+  if (!(await examRetryState(prisma, studentId, scheduleId)).requiresManualReview) {
+    throw new ConflictError('Manual approval is only available after repeated face verification failures')
+  }
   const schedule = await findScheduleById(scheduleId)
   const activeAttempt = await findActiveAttempt(scheduleId, studentId)
   const now = new Date()
@@ -239,16 +260,18 @@ export async function approveManualEntry(teacherId: string, actorUserId: string,
     throw new ConflictError('Exam is not open')
   }
   return prisma.$transaction(async (tx) => {
-    const [profile] = await tx.$queryRaw<{ status: string; requiresManualReview: boolean }[]>`
-      SELECT "status", "requiresManualReview" FROM "StudentFaceProfile"
+    const [profile] = await tx.$queryRaw<{ status: string }[]>`
+      SELECT "status" FROM "StudentFaceProfile"
       WHERE "studentId" = ${studentId} FOR UPDATE
     `
-    if (profile?.status !== 'ACTIVE' || !profile.requiresManualReview) {
+    const retry = await examRetryState(tx, studentId, scheduleId)
+    if (profile?.status !== 'ACTIVE' || !retry.requiresManualReview) {
       throw new ConflictError('Manual approval is only available after repeated face verification failures')
     }
     const existing = await tx.faceVerificationSession.findFirst({
       where: { studentId, examScheduleId: scheduleId, method: 'MANUAL_OVERRIDE',
-        status: 'MANUAL_APPROVED', grantExpiresAt: { gt: now } },
+        status: 'MANUAL_APPROVED', grantExpiresAt: { gt: now },
+        ...(retry.windowStart ? { createdAt: { gt: retry.windowStart } } : {}) },
       select: { id: true },
     })
     if (existing) throw new ConflictError('An active manual approval already exists')
@@ -276,18 +299,20 @@ export async function getManualReviewImage(teacherId: string, actorUserId: strin
   if (!enrollment) throw new NotFoundError('Student is not assigned to this exam')
   const assignment = await repository.findAssignedProctor(teacherId, scheduleId, enrollment.courseOfferingId)
   if (!assignment) throw new ForbiddenError('Only an assigned proctor may view face review images')
-  const failedInSchedule = await prisma.faceVerificationSession.count({ where: { studentId, examScheduleId: scheduleId, purpose: 'EXAM_ENTRY', status: 'FAILED' } })
-  if (!failedInSchedule) throw new ForbiddenError('No pending face review in this exam')
+  const retry = await examRetryState(prisma, studentId, scheduleId)
+  if (!retry.requiresManualReview) throw new ForbiddenError('No pending face review in this exam')
   const activeApproval = await prisma.faceVerificationSession.count({ where: {
-    studentId, examScheduleId: scheduleId, method: 'MANUAL_OVERRIDE', status: 'MANUAL_APPROVED', grantExpiresAt: { gt: new Date() },
+    studentId, examScheduleId: scheduleId, method: 'MANUAL_OVERRIDE', status: 'MANUAL_APPROVED',
+    consumedAt: null, grantExpiresAt: { gt: new Date() },
+    ...(retry.windowStart ? { createdAt: { gt: retry.windowStart } } : {}),
   } })
   if (activeApproval) throw new ForbiddenError('Face review has already been approved')
   const profile = await prisma.studentFaceProfile.findUnique({
-    where: { studentId }, select: { status: true, requiresManualReview: true,
+    where: { studentId }, select: { status: true,
       ...(kind === 'enrollment' ? { referenceImageCiphertext: true, referenceImageMimeType: true } : {}),
     },
   })
-  if (profile?.status !== 'ACTIVE' || !profile.requiresManualReview) throw new ForbiddenError('No pending face review')
+  if (profile?.status !== 'ACTIVE') throw new ForbiddenError('No pending face review')
   const capture = kind === 'latest-failed' ? await prisma.faceReviewCapture.findUnique({
     where: { studentId_examScheduleId: { studentId, examScheduleId: scheduleId } },
     select: { imageCiphertext: true, imageMimeType: true, expiresAt: true },

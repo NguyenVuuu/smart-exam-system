@@ -25,7 +25,7 @@ export type FaceCompletion =
   | { status: 'PASSED'; id?: string; scheduleId?: string }
 
 export const studentFaceApi = {
-  profile: async () => (await apiClient.get<ApiResponse<FaceProfile>>('/student/face/profile')).data.data,
+  profile: async (scheduleId?: string) => (await apiClient.get<ApiResponse<FaceProfile>>('/student/face/profile', { params: { scheduleId } })).data.data,
   start: async (purpose: 'ENROLLMENT' | 'EXAM_ENTRY', scheduleId?: string) =>
     (await apiClient.post<ApiResponse<FaceSession>>('/student/face/sessions', { purpose, scheduleId })).data.data,
   complete: async (id: string) =>

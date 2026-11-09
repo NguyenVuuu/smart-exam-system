@@ -108,21 +108,20 @@ export interface CreateAttemptInput {
 async function consumeFaceGrant(tx: Prisma.TransactionClient, faceVerificationId: string | undefined, scheduleId: string, studentId: string, attemptId: string, actorUserId: string) {
   if (!faceVerificationConfig.enabled) return
   if (!faceVerificationId) throw new ForbiddenError('Face verification is required before entering the exam')
+  const now = new Date()
+  const previousAttempt = await tx.examAttempt.findFirst({
+    where: { examScheduleId: scheduleId, studentId,
+      OR: [{ submittedAt: { not: null } }, { deadlineAt: { lte: now } }] },
+    orderBy: { attemptNo: 'desc' }, select: { submittedAt: true, deadlineAt: true },
+  })
+  const windowStart = previousAttempt ? previousAttempt.submittedAt ?? previousAttempt.deadlineAt : null
   const claimed = await tx.faceVerificationSession.updateMany({
     where: { id: faceVerificationId, studentId, examScheduleId: scheduleId, purpose: 'EXAM_ENTRY',
-      status: { in: ['PASSED', 'MANUAL_APPROVED'] }, grantExpiresAt: { gt: new Date() } },
+      status: { in: ['PASSED', 'MANUAL_APPROVED'] }, grantExpiresAt: { gt: now },
+      ...(windowStart ? { createdAt: { gt: windowStart } } : {}) },
     data: { status: 'CONSUMED', consumedAt: new Date(), attemptId },
   })
   if (!claimed.count) throw new ForbiddenError('Face verification has expired or was already used')
-  const grant = await tx.faceVerificationSession.findUniqueOrThrow({
-    where: { id: faceVerificationId }, select: { method: true },
-  })
-  if (grant.method === 'MANUAL_OVERRIDE') {
-    await tx.studentFaceProfile.update({
-      where: { studentId },
-      data: { failedAttemptsSinceSuccess: 0, cooldownUntil: null, requiresManualReview: false },
-    })
-  }
   await writeAuditLog(tx, { userId: actorUserId, action: 'FACE_ENTRY_CONSUMED', entityType: 'ExamAttempt', entityId: attemptId,
     metadata: { faceVerificationId, scheduleId, studentId } })
 }
