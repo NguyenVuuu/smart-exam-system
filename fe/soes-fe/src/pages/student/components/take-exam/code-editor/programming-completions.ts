@@ -2,6 +2,7 @@ import type { Monaco } from '@monaco-editor/react'
 import type * as monaco from 'monaco-editor'
 import type { TakeExamLanguage } from '../../../types/take-exam.types'
 import { PROGRAMMING_LIBRARY, type LibraryFunction } from './programming-library'
+import { getProgrammingTypeCandidates } from './programming-types'
 
 export const MONACO_LANGUAGE_IDS: Record<TakeExamLanguage, string> = {
   C: 'c',
@@ -43,7 +44,7 @@ export function registerProgrammingCompletions(monacoApi: Monaco): () => void {
           startColumn: word.startColumn,
           endColumn: position.column,
         }
-        const suggestions: monaco.languages.CompletionItem[] = getLibraryCandidates(language, beforeWord).map((candidate) => ({
+        const librarySuggestions: monaco.languages.CompletionItem[] = getLibraryCandidates(language, beforeWord).map((candidate) => ({
           label: candidate.name,
           kind: candidate.isScope
             ? monacoApi.languages.CompletionItemKind.Class
@@ -54,7 +55,19 @@ export function registerProgrammingCompletions(monacoApi: Monaco): () => void {
           insertTextRules: monacoApi.languages.CompletionItemInsertTextRule.InsertAsSnippet,
           range,
         }))
-        return { suggestions }
+        const typeSuggestions: monaco.languages.CompletionItem[] = getProgrammingTypeCandidates(language, beforeWord).map((candidate) => ({
+          label: candidate.name,
+          kind: candidate.isClass
+            ? monacoApi.languages.CompletionItemKind.Class
+            : monacoApi.languages.CompletionItemKind.Keyword,
+          detail: candidate.isClass ? 'Kiểu thư viện chuẩn' : 'Kiểu dữ liệu',
+          documentation: candidate.header
+            ? `Cần thêm #include ${candidate.header}`
+            : candidate.importPath ? `Cần thêm import ${candidate.importPath};` : undefined,
+          insertText: candidate.name,
+          range,
+        }))
+        return { suggestions: [...librarySuggestions, ...typeSuggestions] }
       },
     }),
   )
