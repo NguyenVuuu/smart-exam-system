@@ -20,7 +20,9 @@ import type {
   ResultReleaseMode,
   ViolationRecord,
 } from '../../types/teacher-exam.types'
+import type { TeacherExamDefaultsDto } from '../../types/teacher-exam-api.types'
 import type { CourseOffering } from '../../types/teacher-course.types'
+import type { ExamDetailTab } from './ExamDetailTabsNav'
 
 interface ExamDetailDialogsProps {
   exam: Exam
@@ -40,7 +42,7 @@ interface ExamDetailDialogsProps {
   onCloseMakeupModal: () => void
   submissions: ExamSubmission[]
   selectedSession?: ExamSchedule | null
-  examDefaults: any
+  examDefaults: TeacherExamDefaultsDto
   onRefresh: () => Promise<void>
   onReloadSubmissions: () => Promise<void>
   isAssignModalOpen: boolean
@@ -49,14 +51,14 @@ interface ExamDetailDialogsProps {
   courses: CourseOffering[]
   resultReleaseMode: ResultReleaseMode
   resultReleaseAt: string
-  saveSchedule: (session: any, editingSessionId?: string) => Promise<any>
+  saveSchedule: (session: ExamSchedule, editingSessionId?: string) => Promise<ExamSchedule>
   setSelectedSessionId: (idOrFn: (curr: string) => string) => void
-  setActiveTab: (tab: any) => void
+  setActiveTab: (tab: ExamDetailTab) => void
   viewingSession: ExamSchedule | null
   onCloseViewingSession: () => void
   cancellingSession: ExamSchedule | null
   onCloseCancellingSession: () => void
-  cancelSchedule: (id: string, reason: string) => Promise<any>
+  cancelSchedule: (id: string, reason: string) => Promise<void>
   distributionLock: {
     action: 'LOCK' | 'UNLOCK' | null
     saving: boolean

@@ -132,6 +132,7 @@ export default function MakeupScheduleModal({
   // Load eligibility khi mở modal
   useEffect(() => {
     if (!isOpen) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingEligibility(true)
     getTeacherMakeupEligibility(examId, scheduleId)
       .then(setEligibility)
@@ -141,6 +142,7 @@ export default function MakeupScheduleModal({
 
   // Sync availableExams khi prop thay đổi từ bên ngoài
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAvailableExams(initialAvailableExams)
   }, [initialAvailableExams])
 

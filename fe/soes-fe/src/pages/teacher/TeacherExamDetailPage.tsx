@@ -157,18 +157,6 @@ function TeacherExamDetailContent({
     anyMakeupSession?.examId ?? exam.id,
     selectedSessionClosed && violationLogVisible && anyMakeupSession ? anyMakeupSession.id : "",
   )
-  // violationData merged với ca dự phòng để bảng submissions hiển thị badge đúng
-  const mergedViolations = useMemo(
-    () => [...violationData.items, ...makeupViolationData.items],
-    [violationData.items, makeupViolationData.items],
-  )
-  const mergedViolationData = useMemo(
-    () => ({
-      ...violationData,
-      items: mergedViolations,
-    }),
-    [violationData, mergedViolations],
-  )
   const hasVisibleSession = visibleSessions.length > 0;
   const reviewUnavailableTitle = schedulesLoading
     ? "Đang tải ca thi"
@@ -250,8 +238,6 @@ function TeacherExamDetailContent({
       const scheduleId = submission.scheduleId
       const scheduleObj = visibleSessions.find((s) => s.id === scheduleId)
       const examIdForSchedule = scheduleObj?.examId ?? exam.id
-      const pageSize = 500
-
       // Load violations của ca hiện tại — filter theo studentId để lấy đủ
       const data = await getTeacherExamViolations(examIdForSchedule, scheduleId, {
         page: 1, pageSize: 500, studentId: submission.studentId,

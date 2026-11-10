@@ -150,6 +150,7 @@ export default function ExamDetailTabContent({
       )
     case 'submissions':
     default:
+      {
       // ── Mode management (trang đề thi): chỉ đọc, không cho chốt điểm ──
       if (!isCourseSubmissionView) {
         return (
@@ -180,7 +181,6 @@ export default function ExamDetailTabContent({
           (s.status === 'SCHEDULED' || s.status === 'OPEN' || s.status === 'DRAFT'),
       )
       const hasPendingMakeup = Boolean(pendingMakeup)
-      const makeupSessionStudents = pendingMakeup?.targetStudents
       // Ca dự phòng (bất kỳ trạng thái nào) để hiển thị nút xem danh sách
       const anyMakeupSession = visibleSessions.find(
         (s) => s.makeupOfScheduleId === selectedSessionId,
@@ -242,5 +242,6 @@ export default function ExamDetailTabContent({
           unavailableDescription={reviewUnavailableDescription}
         />
       )
+      }
   }
 }

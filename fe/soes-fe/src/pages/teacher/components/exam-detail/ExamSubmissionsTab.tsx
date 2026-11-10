@@ -414,6 +414,7 @@ export function ExamSubmissionsTab({
 
   // Sync khi pendingFinalizeCount thay đổi (lần đầu load hoặc sau chốt)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTotalPendingInCa(pendingFinalizeCount);
   }, [pendingFinalizeCount]);
 
@@ -429,6 +430,7 @@ export function ExamSubmissionsTab({
   const [bulkModal, setBulkModal] = useState<BulkModal | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setScores((current) => {
       const next = { ...current };
       for (const submission of submissions) {
