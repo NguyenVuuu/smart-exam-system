@@ -13,6 +13,8 @@ router.post('/users', requireBackoffice('USERS_MANAGE'), asyncHandler(controller
 router.put('/users/:role/:profileId', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.updateUser))
 router.patch('/users/:role/:profileId/status', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.setStatus))
 router.post('/users/:role/:profileId/reset-password', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.resetPassword))
+router.get('/students/:studentId/face/enrollment-image', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.faceImage))
+router.post('/students/:studentId/face/revoke', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.revokeFace))
 router.post('/course-offerings/:courseOfferingId/enrollments', requireBackoffice('ACADEMIC_MANAGE'), asyncHandler(controller.enroll))
 router.get('/course-offerings/:courseOfferingId/enrollments', requireBackoffice('ACADEMIC_VIEW'), asyncHandler(controller.listEnrollments))
 router.get('/course-offerings/:courseOfferingId/eligible-students', requireBackoffice('ACADEMIC_VIEW'), asyncHandler(controller.listEligibleStudents))

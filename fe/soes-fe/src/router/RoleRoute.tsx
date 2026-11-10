@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore'
 import { resolveRole, ROLE_HOME } from '../utils/role'
 import LoadingScreen from '../components/LoadingScreen'
 import type { UserRole } from '../types/auth.types'
+import StudentFaceGate from './StudentFaceGate'
 
 interface RoleRouteProps {
   children: React.ReactNode
@@ -22,5 +23,6 @@ export default function RoleRoute({ children, allowedRoles }: RoleRouteProps) {
   const role = resolveRole(user)
   if (!allowedRoles.includes(role)) return <Navigate to={ROLE_HOME[role]} replace />
 
+  if (role === 'STUDENT') return <StudentFaceGate>{children}</StudentFaceGate>
   return <>{children}</>
 }

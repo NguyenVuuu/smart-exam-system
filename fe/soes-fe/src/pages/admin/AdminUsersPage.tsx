@@ -5,13 +5,14 @@ import { toast } from 'sonner'
 import AdminButton from './components/AdminButton'
 import AdminLayout from './components/AdminLayout'
 import AdminPageHeader from './components/AdminPageHeader'
+import AdminSegmentedTabs from './components/AdminSegmentedTabs'
 import AdminSelect from './components/AdminSelect'
 import AdminTablePanel from './components/AdminTablePanel'
 import AdminToolbar from './components/AdminToolbar'
 import RemoveDepartmentHeadDialog from './components/users/RemoveDepartmentHeadDialog'
 import UserFormModal from './components/users/UserFormModal'
 import UserImportModal from './components/users/UserImportModal'
-import UsersTable from './components/users/UsersTable'
+import UsersTable, { type UserGroup } from './components/users/UsersTable'
 import { useAdminUsers } from './hooks/useAdminUsers'
 import type { UserPayload } from './types/admin-api.types'
 import type { AdminUser } from './types/admin.types'
@@ -20,7 +21,8 @@ export default function AdminUsersPage() {
   const canManage = useBackofficePermission('USERS_MANAGE')
   const canAssignHead = useBackofficePermission('ACADEMIC_MANAGE')
   const data = useAdminUsers()
-  const [role, setRole] = useState<'ALL' | AdminUser['role']>('ALL')
+  const [group, setGroup] = useState<UserGroup>('STUDENT')
+  const [staffRole, setStaffRole] = useState<'ALL' | 'ADMIN' | 'EDUCATION_OFFICER'>('ALL')
   const [departmentId, setDepartmentId] = useState('ALL')
   const [status, setStatus] = useState<'ALL' | AdminUser['status']>('ALL')
   const [search, setSearch] = useState('')
@@ -38,14 +40,19 @@ export default function AdminUsersPage() {
   const [importText, setImportText] = useState('US000007, Nguyễn Văn Hùng, hung.nv@soes.edu.vn')
 
   const filteredUsers = useMemo(() => data.users.filter((item) =>
-    (role === 'ALL' || item.role === role) &&
-    (departmentId === 'ALL' || item.departmentId === departmentId) &&
+    (group === 'STAFF' ? (item.role === 'ADMIN' || item.role === 'EDUCATION_OFFICER') &&
+      (staffRole === 'ALL' || item.role === staffRole) : item.role === group) &&
+    (group !== 'TEACHER' || departmentId === 'ALL' || item.departmentId === departmentId) &&
     (status === 'ALL' || item.status === status) &&
     `${item.code} ${item.fullName} ${item.email}`.toLowerCase().includes(search.toLowerCase()),
-  ), [data.users, departmentId, role, search, status])
+  ), [data.users, departmentId, group, search, staffRole, status])
+
+  const selectGroup = (next: UserGroup) => {
+    setGroup(next); setStaffRole('ALL'); setDepartmentId('ALL'); setStatus('ALL'); setSearch('')
+  }
 
   const resetForm = () => {
-    setEditingUser(null); setCode(''); setUserRole('STUDENT'); setFullName(''); setEmail('')
+    setEditingUser(null); setCode(''); setUserRole(group === 'STAFF' ? 'EDUCATION_OFFICER' : group); setFullName(''); setEmail('')
     setPhone(''); setUserDepartmentId(data.departments[0]?.id ?? 'NONE'); setUserStatus('ACTIVE')
   }
   const openCreate = () => { resetForm(); setModalOpen(true) }
@@ -102,35 +109,43 @@ export default function AdminUsersPage() {
       <AdminPageHeader icon={<Users size={20} />} title="Người dùng và Tài khoản"
         description="Quản lý sinh viên, giảng viên, giáo vụ và quản trị viên."
         action={canManage && <div className="flex gap-2">
-          <AdminButton tone="secondary" icon={<Upload size={17} />} onClick={() => setImportOpen(true)}>Nhập sinh viên</AdminButton>
+          {group === 'STUDENT' && <AdminButton tone="secondary" icon={<Upload size={17} />} onClick={() => setImportOpen(true)}>Nhập sinh viên</AdminButton>}
           <AdminButton icon={<Plus size={17} />} onClick={openCreate}>Thêm người dùng</AdminButton>
         </div>} />
+      <div className="mb-5 overflow-x-auto pb-1">
+        <AdminSegmentedTabs value={group} onChange={selectGroup} className="whitespace-nowrap" tabs={[
+          { value: 'TEACHER', label: 'Giảng viên' },
+          { value: 'STUDENT', label: 'Sinh viên' },
+          { value: 'STAFF', label: 'Quản trị viên / Giáo vụ' },
+        ]} />
+      </div>
       <AdminTablePanel>
-        <AdminToolbar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm theo mã, họ tên hoặc email..."
-          onReset={() => { setSearch(''); setRole('ALL'); setDepartmentId('ALL'); setStatus('ALL') }}
-          filters={<>
-            <AdminSelect value={role} onChange={setRole} className="w-44" options={[
-              { value: 'ALL', label: 'Vai trò' }, { value: 'ADMIN', label: 'Quản trị viên' },
-              { value: 'EDUCATION_OFFICER', label: 'Giáo vụ' },
-              { value: 'TEACHER', label: 'Giảng viên' }, { value: 'STUDENT', label: 'Sinh viên' },
-            ]} />
-            <AdminSelect value={departmentId} onChange={setDepartmentId} className="w-64" options={[
-              { value: 'ALL', label: 'Bộ môn' }, ...data.departments.map(({ id, name }) => ({ value: id, label: name })),
-            ]} />
-            <AdminSelect value={status} onChange={setStatus} className="w-44" options={[
-              { value: 'ALL', label: 'Trạng thái' }, { value: 'ACTIVE', label: 'Hoạt động' },
-              { value: 'LOCKED', label: 'Bị khóa' },
-            ]} />
-          </>} />
-        {data.loading && <p className="py-8 text-center text-sm text-slate-500">Đang tải người dùng...</p>}
-        {data.error && <p className="py-8 text-center text-sm text-red-500">{data.error} <button className="ml-2 underline" onClick={data.retry}>Thử lại</button></p>}
-        {!data.loading && !data.error && <UsersTable users={filteredUsers} onToggleDepartmentHead={(user) => void toggleHead(user)}
-          onResetPassword={(user) => void data.resetPassword(user).then(() => toast.success('Đã đặt mật khẩu về 123456.')).catch(() => toast.error('Không thể đặt lại mật khẩu.'))}
-          onEditUser={openEdit} onToggleLock={(user) => void data.setStatus(user, user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
-            .then(() => toast.success(user.status === 'ACTIVE' ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.'))
-            .catch(() => toast.error('Không thể đổi trạng thái tài khoản.'))} />}
+          <AdminToolbar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm theo mã, họ tên hoặc email..."
+            onReset={() => { setSearch(''); setStaffRole('ALL'); setDepartmentId('ALL'); setStatus('ALL') }}
+            filters={<>
+              {group === 'STAFF' && <AdminSelect value={staffRole} onChange={setStaffRole} className="w-56" options={[
+                { value: 'ALL', label: 'Tất cả vai trò' }, { value: 'ADMIN', label: 'Quản trị viên' },
+                { value: 'EDUCATION_OFFICER', label: 'Giáo vụ' },
+              ]} />}
+              {group === 'TEACHER' && <AdminSelect value={departmentId} onChange={setDepartmentId} className="w-64" options={[
+                { value: 'ALL', label: 'Bộ môn' }, ...data.departments.map(({ id, name }) => ({ value: id, label: name })),
+              ]} />}
+              <AdminSelect value={status} onChange={setStatus} className="w-52" options={[
+                { value: 'ALL', label: 'Trạng thái' }, { value: 'ACTIVE', label: 'Hoạt động' },
+                { value: 'LOCKED', label: 'Bị khóa' },
+              ]} />
+            </>} />
+          {data.loading && <p className="py-8 text-center text-sm text-slate-500">Đang tải người dùng...</p>}
+          {data.error && <p className="py-8 text-center text-sm text-red-500">{data.error} <button className="ml-2 underline" onClick={data.retry}>Thử lại</button></p>}
+          {!data.loading && !data.error && <UsersTable key={`${group}-${staffRole}-${departmentId}-${status}-${search}`}
+            users={filteredUsers} group={group} onToggleDepartmentHead={(user) => void toggleHead(user)}
+            onResetPassword={(user) => void data.resetPassword(user).then(() => toast.success('Đã đặt mật khẩu về 123456.')).catch(() => toast.error('Không thể đặt lại mật khẩu.'))}
+            onEditUser={openEdit} onToggleLock={(user) => void data.setStatus(user, user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
+              .then(() => toast.success(user.status === 'ACTIVE' ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.'))
+              .catch(() => toast.error('Không thể đổi trạng thái tài khoản.'))} />}
       </AdminTablePanel>
-      <UserFormModal open={canManage && modalOpen} editingUserId={editingUser?.id ?? null} codeInput={code} onCodeChange={setCode}
+      <UserFormModal open={canManage && modalOpen} editingUserId={editingUser?.id ?? null} editingUser={editingUser}
+        onFaceChanged={async () => { setModalOpen(false); setEditingUser(null); await data.retry() }} codeInput={code} onCodeChange={setCode}
         roleInput={userRole} onRoleChange={setUserRole} fullNameInput={fullName} onFullNameChange={setFullName}
         emailInput={email} onEmailChange={setEmail} phoneInput={phone} onPhoneChange={setPhone}
         departmentInput={userDepartmentId} onDepartmentChange={setUserDepartmentId} statusInput={userStatus}

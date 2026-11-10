@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { authenticate } from '../../auth/middlewares/authenticate'
 import { requireStudent } from '../../auth/middlewares/authorize'
 import { uploadViolationEvidence } from '../middlewares/evidence-upload'
+import { requireFaceEntry } from '../middlewares/require-face-entry'
 import * as takeExamController from '../controllers/student-take-exam.controller'
 
 const router = Router()
@@ -27,6 +28,7 @@ router.put(
   '/exam-schedules/:scheduleId/attempts/:attemptId/answers',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.saveAnswer,
 )
 
@@ -35,6 +37,7 @@ router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/submit',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.submitExam,
 )
 
@@ -58,6 +61,7 @@ router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/heartbeat',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.sendHeartbeat,
 )
 
@@ -66,6 +70,7 @@ router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/violations',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   uploadViolationEvidence,
   takeExamController.recordViolation,
 )
@@ -75,6 +80,7 @@ router.patch(
   '/exam-schedules/:scheduleId/attempts/:attemptId/violations/:violationId/end',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.endViolation,
 )
 
@@ -82,6 +88,7 @@ router.get(
   '/exam-schedules/:scheduleId/attempts/:attemptId/live/request',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.getPendingLiveCameraRequest,
 )
 
@@ -89,6 +96,7 @@ router.get(
   '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.getStudentLiveSession,
 )
 
@@ -96,6 +104,7 @@ router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId/offer',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.submitLiveCameraOffer,
 )
 
@@ -103,6 +112,7 @@ router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId/ice-candidates',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.addStudentLiveCandidate,
 )
 
@@ -110,6 +120,7 @@ router.get(
   '/exam-schedules/:scheduleId/attempts/:attemptId/live/:sessionId/ice-candidates',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.getStudentLiveCandidates,
 )
 
@@ -125,6 +136,7 @@ router.post(
   '/exam-schedules/:scheduleId/attempts/:attemptId/questions/:questionId/run',
   authenticate,
   requireStudent(),
+  requireFaceEntry,
   takeExamController.runCode,
 )
 

@@ -16,6 +16,7 @@ import LoginPage from '../pages/auth/LoginPage'
 import RoleSelectPage from '../pages/auth/RoleSelectPage'
 import StudentCourseDetailPage from '../pages/student/StudentCourseDetailPage'
 import StudentDashboard from '../pages/student/StudentDashboard'
+import StudentFaceEnrollmentPage from '../pages/student/StudentFaceEnrollmentPage'
 import StudentExamDetailPage from '../pages/student/StudentExamDetailPage'
 import StudentExamsPage from '../pages/student/StudentExamsPage'
 import StudentExamResultPage from '../pages/student/StudentExamResultPage'
@@ -344,6 +345,14 @@ export default function AppRouter() {
         />
 
         {/* Student only */}
+        <Route
+          path="/student/face-enrollment"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentFaceEnrollmentPage />
+            </RoleRoute>
+          }
+        />
         <Route
           path="/student"
           element={

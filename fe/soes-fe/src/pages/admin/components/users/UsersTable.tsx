@@ -12,14 +12,18 @@ const roleLabel: Record<AdminUser['role'], string> = {
   STUDENT: 'Sinh viên',
 }
 
+export type UserGroup = 'TEACHER' | 'STUDENT' | 'STAFF'
+
 export default function UsersTable({
   users,
+  group,
   onToggleDepartmentHead,
   onResetPassword,
   onEditUser,
   onToggleLock,
 }: {
   users: AdminUser[]
+  group: UserGroup
   onToggleDepartmentHead: (user: AdminUser) => void
   onResetPassword: (user: AdminUser) => void
   onEditUser: (user: AdminUser) => void
@@ -46,7 +50,7 @@ export default function UsersTable({
       width: '250px',
       render: (item) => <span className="text-sm text-slate-700">{item.email}</span>,
     },
-    {
+    ...(group === 'STAFF' ? [{
       header: 'VAI TRÒ',
       width: '150px',
       render: (item) => (
@@ -54,12 +58,12 @@ export default function UsersTable({
           {roleLabel[item.role]}
         </AppBadge>
       ),
-    },
-    {
+    }] satisfies ColumnDef<AdminUser>[] : []),
+    ...(group === 'TEACHER' ? [{
       header: 'BỘ MÔN',
       width: '260px',
       render: (item) => <span className="text-sm text-slate-600">{item.departmentName ?? '—'}</span>,
-    },
+    }] satisfies ColumnDef<AdminUser>[] : []),
     {
       header: 'TRẠNG THÁI',
       width: '150px',
@@ -69,6 +73,15 @@ export default function UsersTable({
         </AppBadge>
       ),
     },
+    ...(group === 'STUDENT' ? [{
+      header: 'KHUÔN MẶT',
+      width: '170px',
+      render: (item) => <AppBadge tone={item.faceEnrollment?.status === 'ACTIVE' ? 'emerald' : item.faceEnrollment?.cleanupPending ? 'rose' : 'blue'}>
+          {item.faceEnrollment?.status === 'ACTIVE' ? 'Đã đăng ký'
+            : item.faceEnrollment?.cleanupPending ? 'Đang thu hồi'
+              : item.faceEnrollment?.status === 'REVOKED' ? 'Đã thu hồi' : 'Chưa đăng ký'}
+        </AppBadge>,
+    }] satisfies ColumnDef<AdminUser>[] : []),
     {
       header: 'THAO TÁC',
       width: '160px',

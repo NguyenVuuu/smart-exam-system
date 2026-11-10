@@ -26,6 +26,7 @@ export const screenShareStatusSchema = z.enum([
 // ─── API 1: Start Exam ────────────────────────────────────────────────────────
 
 export const startExamBodySchema = z.object({
+  faceVerificationId: z.string().uuid().optional(),
   password: z.string().optional().nullable(),
   webcamConfirmed: z.boolean().optional().default(false),
   webcamStatus: webcamStatusSchema.optional(),

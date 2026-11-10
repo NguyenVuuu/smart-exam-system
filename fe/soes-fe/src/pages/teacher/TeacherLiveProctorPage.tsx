@@ -17,6 +17,7 @@ import LiveStreamPanel from './components/proctoring/LiveStreamPanel'
 import ProctoringAssignmentPicker from './components/proctoring/ProctoringAssignmentPicker'
 import ProctoringMetrics from './components/proctoring/ProctoringMetrics'
 import StudentLiveTable from './components/proctoring/StudentLiveTable'
+import FaceManualReviewPanel from './components/proctoring/FaceManualReviewPanel'
 import ViolationLogTable from './components/proctoring/ViolationLogTable'
 import { violationTypeLabels } from './constants/violationLog.constants'
 import { useTeacherProctorAssignments } from './hooks/useTeacherProctorAssignments'
@@ -31,7 +32,7 @@ import type { ProctoringSessionRecord, ViolationRecord } from './types/teacher-e
 import type { TeacherPaginationMeta } from './api/teacher-exams.api'
 import type { ProctorAssignmentApiDto } from './types/teacher-course-api.types'
 
-type ProctoringTab = 'live' | 'violations'
+type ProctoringTab = 'live' | 'violations' | 'face'
 
 const REFRESH_MS = 10_000
 const ASSIGNMENT_PAGE_SIZE = 10
@@ -314,9 +315,13 @@ export default function TeacherLiveProctorPage() {
                 >
                   <AlertTriangle size={16} /> Nhật ký vi phạm ({totalViolationCount})
                 </button>
+                {!scheduleEnded && <button type="button" onClick={() => setActiveTab('face')}
+                  className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === 'face' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
+                  <ShieldAlert size={16} /> Xác minh danh tính
+                </button>}
               </div>
 
-              {activeTab === 'live' ? (
+              {activeTab === 'face' && !scheduleEnded ? <FaceManualReviewPanel scheduleId={scheduleId} refreshVersion={refreshVersion} /> : activeTab === 'live' ? (
                 <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
                   <TeacherTablePanel>
                     <TeacherToolbar

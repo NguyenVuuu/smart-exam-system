@@ -22,7 +22,7 @@ import type {
   QuestionAnswer,
   TakeExamAnswers,
 } from './types/take-exam.types'
-import { takeExamApi, type ExamSessionScreenShareStatus, type ExamSessionWebcamStatus, type RunCodeResponse } from './api/student-take-exam.api'
+import { clearActiveFaceEntry, setActiveFaceEntry, takeExamApi, type ExamSessionScreenShareStatus, type ExamSessionWebcamStatus, type RunCodeResponse } from './api/student-take-exam.api'
 import type { RecordViolationPayload } from './api/student-take-exam.api'
 import { hasAnswer } from './components/take-exam/take-exam.utils'
 import { useDebounce } from 'use-debounce'
@@ -58,8 +58,10 @@ export default function StudentTakeExamPage() {
   const location = useLocation()
 
   const attemptId = location.state?.attemptId
+  const faceVerificationId = location.state?.faceVerificationId as string | undefined
 
   const resultPath = `/student/course-offerings/${courseOfferingId}/exam-schedules/${scheduleId}/result`
+  const detailPath = `/student/course-offerings/${courseOfferingId}/exam-schedules/${scheduleId}`
 
   const [isQuestionNavigatorOpen, setIsQuestionNavigatorOpen] = useState(false)
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false)
@@ -69,10 +71,23 @@ export default function StudentTakeExamPage() {
   const [runCodeErrorQuestionId, setRunCodeErrorQuestionId] = useState<string | null>(null)
   const previousWebcamStatusRef = useRef<ExamSessionWebcamStatus | null>(null)
   const previousScreenStatusRef = useRef<ExamSessionScreenShareStatus | null>(null)
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
 
-  const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId)
+  const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId, faceVerificationId)
+
+  useEffect(() => {
+    if (!session || !scheduleId || !attemptId || !faceVerificationId) return
+    setActiveFaceEntry(scheduleId, attemptId, faceVerificationId)
+    return () => clearActiveFaceEntry(faceVerificationId)
+  }, [session, scheduleId, attemptId, faceVerificationId])
+
+  useEffect(() => {
+    if (!faceVerificationId) return
+    const entryState = window.history.state as { usr?: { faceVerificationId?: string } } | null
+    if (entryState?.usr?.faceVerificationId === faceVerificationId) {
+      window.history.replaceState({ ...entryState, usr: null }, '')
+    }
+  }, [faceVerificationId])
   const { mutateAsync: runCodeApi, isPending: isRunningCode } = useRunCodeMutation()
   const { mutate: sendHeartbeat } = useSendHeartbeatMutation()
   const { mutateAsync: recordViolation } = useRecordViolationMutation()
@@ -133,6 +148,7 @@ export default function StudentTakeExamPage() {
     flaggedQuestionIds,
     phase,
     saveState,
+    lastSavedAt,
     nextQuestion,
     previousQuestion,
     goToQuestion,
@@ -164,10 +180,6 @@ export default function StudentTakeExamPage() {
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
-
-  useEffect(() => {
-    if (saveState === 'SAVED') setLastSavedAt(new Date().toISOString())
-  }, [saveState])
 
   const handleViolationDetected = useCallback((payload: RecordViolationPayload) => {
     if (!scheduleId || !attemptId) return undefined
@@ -385,8 +397,9 @@ export default function StudentTakeExamPage() {
 
   if (!scheduleId || !attemptId) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 px-6 text-sm text-slate-500">
-        Thiếu thông tin bài thi hoặc chưa bắt đầu làm bài.
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-6 text-sm text-slate-600">
+        <p>Để vào lại bài thi, vui lòng xác minh khuôn mặt một lần nữa.</p>
+        <button type="button" onClick={() => navigate(detailPath, { replace: true })} className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white">Về trang ca thi</button>
       </div>
     )
   }
@@ -401,8 +414,9 @@ export default function StudentTakeExamPage() {
 
   if (error || !session) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 px-6 text-sm text-red-500">
-        Không thể tải nội dung bài thi. Vui lòng thử lại.
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-6 text-sm text-red-600">
+        <p>Không thể tải nội dung bài thi. Vui lòng quay lại ca thi để xác minh và vào lại.</p>
+        <button type="button" onClick={() => navigate(detailPath, { replace: true })} className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white">Về trang ca thi</button>
       </div>
     )
   }
