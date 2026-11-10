@@ -135,11 +135,46 @@ export const cancelTeacherExamSchedule = (examId: string, scheduleId: string, re
 export const createTeacherMakeupSchedule = (
   examId: string,
   scheduleId: string,
-  payload: TeacherExamSchedulePayload & { studentIds: string[] },
+  payload: {
+    studentIds: string[]
+    makeupExamId?: string | null
+    startTime: string
+    endTime: string
+    durationMinutes: number
+    password?: string | null
+    enableTabLock: boolean
+    requireFullscreen: boolean
+    enableWebcam: boolean
+    enableScreenMonitoring: boolean
+    blockCopyPaste: boolean
+    blockRightClick: boolean
+  },
 ) => apiClient.post<ApiResponse<TeacherExamScheduleDto>>(
   `/teacher/exams/${examId}/schedules/${scheduleId}/makeup`,
   payload,
 ).then(({ data }) => data.data)
+
+export interface MakeupEligibility {
+  eligible: boolean
+  reason: 'not_found' | 'already_published' | 'deadline_passed' | 'makeup_exists' | null
+  deadline?: string
+  existingMakeup?: {
+    id: string
+    status: string
+    startTime: string
+    endTime: string
+  }
+}
+
+export const getTeacherMakeupEligibility = (examId: string, scheduleId: string) =>
+  apiClient.get<ApiResponse<MakeupEligibility>>(
+    `/teacher/exams/${examId}/schedules/${scheduleId}/makeup-eligibility`,
+  ).then(({ data }) => data.data)
+
+export const getTeacherExamsBySubject = (subjectId: string) =>
+  apiClient.get<ApiResponse<{ items: TeacherExamDto[]; pagination: unknown }>>('/teacher/exams', {
+    params: { subjectId, pageSize: 100 },
+  }).then(({ data }) => data.data.items)
 
 export const getTeacherExamSubmissions = (examId: string, scheduleId: string, page: number, pageSize = 10) =>
   apiClient.get<ApiResponse<TeacherSubmissionPage>>(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions`, {
@@ -161,10 +196,14 @@ export async function getAllTeacherExamSubmissions(examId: string, scheduleId: s
 export const getTeacherExamViolations = (
   examId: string,
   scheduleId: string,
-  params: { page?: number; pageSize?: number } = {},
+  params: { page?: number; pageSize?: number; studentId?: string } = {},
 ) =>
   apiClient.get<ApiResponse<TeacherViolationPage>>(`/teacher/exams/${examId}/schedules/${scheduleId}/violations`, {
-    params: { page: params.page ?? 1, pageSize: params.pageSize ?? 10 },
+    params: {
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 10,
+      ...(params.studentId && { studentId: params.studentId }),
+    },
   }).then(({ data }) => data.data)
 
 export const getTeacherProctoringSessions = (examId: string, scheduleId: string) =>

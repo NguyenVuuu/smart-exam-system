@@ -98,7 +98,10 @@ export const toExamSchedule = (dto: TeacherExamScheduleDto): ExamSchedule => {
     allowedIpRange: dto.allowedIpRanges.join(', '),
     distributionMode: dto.distributionMode,
     randomQuestionCount: dto.randomQuestionCount,
-    proctorIds: course?.proctors.map(({ id }) => id) ?? [], status: dto.status,
+    proctorIds: course?.proctors.map(({ id }) => id) ?? [],
+    targetStudents: dto.targetStudents,
+    makeupOfScheduleId: dto.makeupOfScheduleId ?? null,
+    status: dto.status,
   }
 }
 
@@ -106,6 +109,7 @@ export const toExamSubmission = (dto: TeacherExamSubmissionDto): ExamSubmission 
   ...dto,
   submittedAt: dto.submittedAt ?? '',
   hasSubmitted: dto.submittedAt !== null,
+  isMakeup: dto.isMakeup ?? false,
   scoreAdjustments: dto.scoreAdjustments ?? [],
   answers: dto.answers.map((answer) => ({
     ...answer,

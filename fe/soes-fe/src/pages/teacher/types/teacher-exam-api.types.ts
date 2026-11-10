@@ -109,6 +109,10 @@ export interface TeacherExamScheduleDto {
   allowedIpRanges: string[]
   courses: Array<{ id: string; code: string; proctors: Array<{ id: string; code: string; fullName: string }> }>
   exam: { id: string; title: string; type: string; subject: { id: string; code: string; name: string } }
+  /** Danh sách sinh viên được phép vào ca — chỉ có giá trị với ca dự phòng */
+  targetStudents?: Array<{ id: string; studentCode: string; fullName: string }>
+  /** ID ca thi gốc nếu đây là ca dự phòng */
+  makeupOfScheduleId?: string | null
 }
 
 export interface TeacherExamSchedulePayload {
@@ -150,6 +154,8 @@ export interface TeacherExamSubmissionDto {
   violationCount: number
   violationsViewed: boolean
   violationsViewedAt: string | null
+  /** true nếu attempt này thuộc ca thi dự phòng */
+  isMakeup: boolean
   regradeRequest?: {
     status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
     reason: string

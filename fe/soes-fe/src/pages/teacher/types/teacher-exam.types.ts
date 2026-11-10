@@ -70,6 +70,10 @@ export interface ExamSchedule {
   randomQuestionCount?: number | null
   resultsPublished?: boolean
   proctorIds?: string[]
+  /** Danh sách sinh viên được phép vào ca — chỉ có giá trị với ca dự phòng */
+  targetStudents?: Array<{ id: string; studentCode: string; fullName: string }>
+  /** ID ca thi gốc nếu đây là ca dự phòng */
+  makeupOfScheduleId?: string | null
   status: 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED' | 'CANCELLED'
 }
 
@@ -158,6 +162,8 @@ export interface ExamSubmission {
   scoreAdjustments?: GradeAdjustment[]
   regradeRequest?: RegradeRequest
   finalScore: number | null
+  /** true nếu attempt này thuộc ca thi dự phòng */
+  isMakeup: boolean
   sectionScores?: Array<{ id: string; title: string; score: number; maxScore: number }>
   status: 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'INVALIDATED'
   codingResults?: StudentCodingSubmissionResult[]
