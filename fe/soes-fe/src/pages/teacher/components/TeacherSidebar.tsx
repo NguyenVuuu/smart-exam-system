@@ -21,7 +21,7 @@ import { useAuthStore } from '../../../store/authStore'
 import { useSystemSettingsStore } from '../../../store/systemSettingsStore'
 import type { UserPermission } from '../../../types/auth.types'
 import { useReviewGroupAccess } from '../hooks/useReviewGroupAccess'
-import { getTeacherInitials } from '../utils/teacher-account.utils'
+import { getTeacherInitials, getTeacherPositionLabel } from '../utils/teacher-account.utils'
 
 interface SubNavItem {
   label: string
@@ -99,6 +99,7 @@ export default function TeacherSidebar() {
   const location = useLocation()
   const user = useAuthStore((state) => state.user)
   const userInitials = getTeacherInitials(user?.fullName)
+  const positionLabel = getTeacherPositionLabel(user?.position)
   const { logout } = useLogout()
   const permissions = useAuthStore((state) => state.user?.permissions ?? EMPTY_PERMISSIONS)
   const reviewAccess = useReviewGroupAccess().data
@@ -230,7 +231,7 @@ export default function TeacherSidebar() {
                 {systemSettings.shortName || 'SOES'}
               </span>
               <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase shrink-0">
-                Giảng viên
+                {positionLabel}
               </span>
             </div>
           )}
@@ -311,7 +312,7 @@ export default function TeacherSidebar() {
                 <p className="truncate text-xs font-semibold text-slate-950">
                   {user?.fullName ?? 'Giảng viên'}
                 </p>
-                <p className="truncate text-[11px] font-normal text-slate-500">Giảng viên</p>
+                <p className="truncate text-[11px] font-normal text-slate-500">{positionLabel}</p>
               </div>
             </div>
             <button
