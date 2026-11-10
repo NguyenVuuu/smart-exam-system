@@ -53,6 +53,7 @@ export default function UserFormModal({
   onConfirm: () => void
 }) {
   const isAdmin = useAuthStore((state) => state.user?.role === 'ADMIN')
+  const canSelectDepartment = roleInput === 'TEACHER'
   const codeEditedRef = useRef(false)
   useEffect(() => {
     if (open && !editingUserId) {
@@ -141,9 +142,9 @@ export default function UserFormModal({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <AdminField label="Bộ môn">
             <AdminSelect
-              value={roleInput === 'ADMIN' || roleInput === 'EDUCATION_OFFICER' ? 'NONE' : departmentInput}
+              value={canSelectDepartment ? departmentInput : 'NONE'}
               onChange={onDepartmentChange}
-              disabled={roleInput === 'ADMIN' || roleInput === 'EDUCATION_OFFICER'}
+              disabled={!canSelectDepartment}
               options={[
                 { value: 'NONE', label: 'Không áp dụng' },
                 ...departments.map((item) => ({ value: item.id, label: item.name })),
