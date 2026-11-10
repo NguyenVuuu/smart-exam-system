@@ -245,7 +245,7 @@ export default function PostDetailScreen() {
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                 <Text style={{ fontSize: 14 }}>📝</Text>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.4, fontSize: 11 }}>
+                <Text style={{ fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.4, fontSize: 11 }}>
                   Nội dung
                 </Text>
               </View>
