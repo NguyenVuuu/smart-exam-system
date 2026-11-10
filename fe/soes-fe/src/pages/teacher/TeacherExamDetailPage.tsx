@@ -22,8 +22,9 @@ import type {
   ExamSchedule,
   ExamSubmission,
   ResultReleaseMode,
+  ViolationRecord,
 } from "./types/teacher-exam.types";
-import { copyTeacherExam } from "./api/teacher-exams.api";
+import { copyTeacherExam, getTeacherExamViolations } from "./api/teacher-exams.api";
 import { toast } from "sonner";
 import { useTeacherExamDetail } from "./hooks/useTeacherExamDetail";
 import { useTeacherExamSchedules } from "./hooks/useTeacherExamSchedules";
@@ -147,6 +148,15 @@ function TeacherExamDetailContent({
     exam.id,
     selectedSessionClosed && violationLogVisible ? selectedSessionId : "",
   );
+  // Ca dự phòng (nếu có) — load violations song song để hiển thị trong popup
+  const anyMakeupSession = useMemo(
+    () => visibleSessions.find((s) => s.makeupOfScheduleId === selectedSessionId),
+    [visibleSessions, selectedSessionId],
+  )
+  const makeupViolationData = useTeacherExamViolations(
+    anyMakeupSession?.examId ?? exam.id,
+    selectedSessionClosed && violationLogVisible && anyMakeupSession ? anyMakeupSession.id : "",
+  )
   const hasVisibleSession = visibleSessions.length > 0;
   const reviewUnavailableTitle = schedulesLoading
     ? "Đang tải ca thi"
@@ -216,14 +226,39 @@ function TeacherExamDetailContent({
       .catch(() => toast.error("Không thể cập nhật cấu hình công bố điểm."));
   };
 
+  const [submissionViolations, setSubmissionViolations] = useState<ViolationRecord[]>([])
+  const [sourceSubmissionViolations, setSourceSubmissionViolations] = useState<ViolationRecord[] | undefined>(undefined)
+
   const openSubmissionViolations = async (submission: ExamSubmission) => {
     try {
-      await submissionData.markViolationsViewed(submission.attemptId);
-      setViewingViolationSubmission({ ...submission, violationsViewed: true });
+      await submissionData.markViolationsViewed(submission.attemptId)
+      setViewingViolationSubmission({ ...submission, violationsViewed: true })
+      setSourceSubmissionViolations(undefined)
+
+      const scheduleId = submission.scheduleId
+      const scheduleObj = visibleSessions.find((s) => s.id === scheduleId)
+      const examIdForSchedule = scheduleObj?.examId ?? exam.id
+      // Load violations của ca hiện tại — filter theo studentId để lấy đủ
+      const data = await getTeacherExamViolations(examIdForSchedule, scheduleId, {
+        page: 1, pageSize: 500, studentId: submission.studentId,
+      })
+      setSubmissionViolations(data.items.filter((v) => v.attemptId === submission.attemptId))
+
+      // Nếu đây là ca dự phòng, load thêm violations ca gốc
+      if (scheduleObj?.makeupOfScheduleId) {
+        const sourceScheduleId = scheduleObj.makeupOfScheduleId
+        // Ca gốc luôn thuộc exam.id (đề gốc)
+        const sourceData = await getTeacherExamViolations(exam.id, sourceScheduleId, {
+          page: 1, pageSize: 500, studentId: submission.studentId,
+        })
+        setSourceSubmissionViolations(sourceData.items)
+      }
     } catch {
-      toast.error("Không thể ghi nhận đã mở xem vi phạm.");
+      toast.error("Không thể ghi nhận đã mở xem vi phạm.")
+      setSubmissionViolations([])
+      setSourceSubmissionViolations(undefined)
     }
-  };
+  }
 
   const handleCopyExam = async () => {
     try {
@@ -311,6 +346,7 @@ function TeacherExamDetailContent({
               resultReleaseAt={resultReleaseAt}
               isResultsPublished={isResultsPublished}
               violationData={violationData}
+              makeupViolationData={isCourseSubmissionView ? makeupViolationData : undefined}
               submissionData={submissionData}
               onSelectSession={setSelectedSessionId}
               onViewEvidence={setSelectedEvidenceUrl}
@@ -328,7 +364,7 @@ function TeacherExamDetailContent({
                 if (targetSession) setCancellingSession(targetSession);
               }}
               onChangeResultReleaseMode={changeResultReleaseMode}
-              onOpenMakeupModal={() => setIsMakeupModalOpen(true)}
+              onOpenMakeupModal={isCourseSubmissionView && selectedSessionClosed ? () => setIsMakeupModalOpen(true) : undefined}
               onViewSubmission={setViewingSubmission}
               onViewViolations={(submission) =>
                 void openSubmissionViolations(submission)
@@ -349,7 +385,8 @@ function TeacherExamDetailContent({
         onCloseViewingSubmission={() => setViewingSubmission(null)}
         viewingViolationSubmission={viewingViolationSubmission}
         onCloseViolationSubmission={() => setViewingViolationSubmission(null)}
-        violations={violationData.items}
+        violations={submissionViolations}
+        sourceViolations={sourceSubmissionViolations}
         isPreviewOpen={isPreviewOpen}
         onClosePreview={() => setIsPreviewOpen(false)}
         isMakeupModalOpen={isMakeupModalOpen}

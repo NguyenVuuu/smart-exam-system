@@ -57,15 +57,31 @@ const teacherScheduleInclude = (teacherId: string) => ({
     include: scheduleInclude.scheduleCourses.include,
   },
   attempts: scheduleInclude.attempts,
+  targetStudents: scheduleInclude.targetStudents,
   _count: scheduleInclude._count,
 }) satisfies Prisma.ExamScheduleInclude
 
 export const listExamSchedules = (teacherId: string, examId: string) => prisma.examSchedule.findMany({
   where: {
-    examId,
     OR: [
-      { exam: { createdById: teacherId, type: { not: 'FINAL' } } },
-      { scheduleCourses: { some: { courseOffering: { teacherId } } } },
+      // Ca thi thuộc đề này (ca gốc)
+      {
+        examId,
+        OR: [
+          { exam: { createdById: teacherId, type: { not: 'FINAL' } } },
+          { scheduleCourses: { some: { courseOffering: { teacherId } } } },
+        ],
+      },
+      // Ca dự phòng của ca thi thuộc đề này (đề có thể khác)
+      {
+        makeupOfSchedule: {
+          examId,
+          OR: [
+            { exam: { createdById: teacherId, type: { not: 'FINAL' } } },
+            { scheduleCourses: { some: { courseOffering: { teacherId } } } },
+          ],
+        },
+      },
     ],
   },
   include: teacherScheduleInclude(teacherId),
@@ -92,6 +108,8 @@ export const findOwnedScheduleForMakeup = (
   where: {
     id: scheduleId,
     examId,
+    // Chỉ ca gốc (không phải ca dự phòng) mới được tạo ca dự phòng
+    makeupOfScheduleId: null,
     createdById: userId,
     exam: { createdById: teacherId },
     scheduleCourses: { some: { courseOffering: { teacherId } } },
@@ -102,11 +120,17 @@ export const findOwnedScheduleForMakeup = (
     status: true,
     startTime: true,
     endTime: true,
-    exam: { select: { title: true, status: true } },
+    resultsPublishedAt: true,
+    blockCopyPaste: true,
+    blockRightClick: true,
+    locationMode: true,
+    allowedIpRanges: true,
+    exam: { select: { id: true, title: true, status: true, subjectId: true } },
     scheduleCourses: {
       take: 1,
       select: { courseOffering: { select: { id: true, code: true, subjectId: true, semesterId: true } } },
     },
+    _count: { select: { makeupSchedules: true } },
   },
 })
 
@@ -117,3 +141,45 @@ export const listCourseStudents = (courseOfferingId: string, studentIds: string[
   },
   select: { id: true, userId: true },
 })
+
+/** Tìm ca dự phòng đang còn chạy (SCHEDULED hoặc OPEN) của ca gốc */
+export const findActiveMakeupSchedule = (scheduleId: string) =>
+  prisma.examSchedule.findFirst({
+    where: {
+      makeupOfScheduleId: scheduleId,
+      status: { in: ['DRAFT', 'SCHEDULED', 'OPEN'] },
+    },
+    select: { id: true, title: true, status: true, startTime: true, endTime: true },
+  })
+
+/** Kiểm tra trạng thái ca dự phòng của một ca gốc */
+export const findMakeupEligibility = async (
+  teacherId: string,
+  userId: string,
+  examId: string,
+  scheduleId: string,
+) => {
+  const schedule = await prisma.examSchedule.findFirst({
+    where: {
+      id: scheduleId,
+      examId,
+      // Chỉ cho tạo dự phòng từ ca gốc — không cho từ ca dự phòng
+      makeupOfScheduleId: null,
+      createdById: userId,
+      exam: { createdById: teacherId },
+      scheduleCourses: { some: { courseOffering: { teacherId } } },
+    },
+    select: {
+      id: true,
+      status: true,
+      endTime: true,
+      resultsPublishedAt: true,
+      makeupSchedules: {
+        select: { id: true, status: true, startTime: true, endTime: true },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
+  })
+  return schedule
+}

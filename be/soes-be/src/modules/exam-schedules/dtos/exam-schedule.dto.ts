@@ -36,6 +36,14 @@ export interface ExamScheduleDto {
     code: string;
     proctors: Array<{ id: string; code: string; fullName: string }>;
   }>;
+  /** Danh sách sinh viên được phép vào ca — chỉ có giá trị với ca dự phòng */
+  targetStudents: Array<{
+    id: string
+    studentCode: string
+    fullName: string
+  }>
   createdAt: Date;
   updatedAt: Date;
+  /** ID của ca thi gốc nếu đây là ca dự phòng */
+  makeupOfScheduleId?: string | null
 }

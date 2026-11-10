@@ -1,4 +1,4 @@
-import { CalendarClock, Eye, EyeOff, Globe, MonitorCheck, Users, X } from 'lucide-react'
+import { CalendarClock, Eye, EyeOff, Globe, MonitorCheck, RefreshCw, Users, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { releaseLabel } from '../../../constants/ExamEditorConfig'
@@ -137,6 +137,32 @@ export default function ExamSessionDetailModal({
             <DetailBox label="Sinh viên đã vào thi" value={`${session.participantCount ?? 0} SV`} />
             <DetailBox label="Bài nộp" value={`${session.submissionCount ?? 0} bài`} />
           </div>
+
+          {/* Danh sách sinh viên được phép thi — chỉ hiện với ca dự phòng */}
+          {session.targetStudents && session.targetStudents.length > 0 && (
+            <div className="rounded-xl border border-violet-100 bg-violet-50 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-violet-900">
+                <RefreshCw size={15} className="text-violet-600" />
+                Ca thi dự phòng — {session.targetStudents.length} sinh viên được phép thi lại
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-56 overflow-y-auto">
+                {session.targetStudents.map((s, idx) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-2.5 rounded-lg border border-violet-100 bg-white px-3 py-2"
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-700">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-900">{s.studentCode}</p>
+                      <p className="truncate text-[11px] text-slate-500">{s.fullName}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

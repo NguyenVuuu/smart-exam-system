@@ -48,6 +48,7 @@ export function toExamSubmissionDto(row: SubmissionRow): ExamSubmissionDto {
     violationCount: row._count.violations,
     violationsViewed: row._count.violations === 0 || row.violationsViewedAt !== null,
     violationsViewedAt: row.violationsViewedAt,
+    isMakeup: row.examSchedule.makeupOfScheduleId !== null,
     regradeRequest: gradeAppeal ? {
       status: gradeAppeal.status,
       reason: gradeAppeal.reason,

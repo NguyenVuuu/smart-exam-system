@@ -25,6 +25,8 @@ export interface ExamSubmissionDto {
   violationCount: number
   violationsViewed: boolean
   violationsViewedAt: Date | null
+  /** true nếu attempt này thuộc ca thi dự phòng */
+  isMakeup: boolean
   regradeRequest?: {
     status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED'
     reason: string

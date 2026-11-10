@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   EvidenceImageModal,
@@ -10,7 +11,8 @@ import ExamDistributionLockDialog from './ExamDistributionLockDialog'
 import ExamSessionDetailModal from './session/ExamSessionDetailModal'
 import MakeupScheduleModal from './MakeupScheduleModal'
 import SubmissionViolationsModal from './SubmissionViolationsModal'
-import { createTeacherMakeupSchedule } from '../../api/teacher-exams.api'
+import { createTeacherMakeupSchedule, getTeacherExamsBySubject } from '../../api/teacher-exams.api'
+import type { TeacherExamDto } from '../../types/teacher-exam-api.types'
 import type {
   Exam,
   ExamSchedule,
@@ -18,7 +20,9 @@ import type {
   ResultReleaseMode,
   ViolationRecord,
 } from '../../types/teacher-exam.types'
+import type { TeacherExamDefaultsDto } from '../../types/teacher-exam-api.types'
 import type { CourseOffering } from '../../types/teacher-course.types'
+import type { ExamDetailTab } from './ExamDetailTabsNav'
 
 interface ExamDetailDialogsProps {
   exam: Exam
@@ -30,13 +34,15 @@ interface ExamDetailDialogsProps {
   viewingViolationSubmission: ExamSubmission | null
   onCloseViolationSubmission: () => void
   violations: ViolationRecord[]
+  /** Violations ca gốc — chỉ có khi SV đang xem là ca dự phòng */
+  sourceViolations?: ViolationRecord[]
   isPreviewOpen: boolean
   onClosePreview: () => void
   isMakeupModalOpen: boolean
   onCloseMakeupModal: () => void
   submissions: ExamSubmission[]
   selectedSession?: ExamSchedule | null
-  examDefaults: any
+  examDefaults: TeacherExamDefaultsDto
   onRefresh: () => Promise<void>
   onReloadSubmissions: () => Promise<void>
   isAssignModalOpen: boolean
@@ -45,14 +51,14 @@ interface ExamDetailDialogsProps {
   courses: CourseOffering[]
   resultReleaseMode: ResultReleaseMode
   resultReleaseAt: string
-  saveSchedule: (session: any, editingSessionId?: string) => Promise<any>
+  saveSchedule: (session: ExamSchedule, editingSessionId?: string) => Promise<ExamSchedule>
   setSelectedSessionId: (idOrFn: (curr: string) => string) => void
-  setActiveTab: (tab: any) => void
+  setActiveTab: (tab: ExamDetailTab) => void
   viewingSession: ExamSchedule | null
   onCloseViewingSession: () => void
   cancellingSession: ExamSchedule | null
   onCloseCancellingSession: () => void
-  cancelSchedule: (id: string, reason: string) => Promise<any>
+  cancelSchedule: (id: string, reason: string) => Promise<void>
   distributionLock: {
     action: 'LOCK' | 'UNLOCK' | null
     saving: boolean
@@ -71,6 +77,7 @@ export default function ExamDetailDialogs({
   viewingViolationSubmission,
   onCloseViolationSubmission,
   violations,
+  sourceViolations,
   isPreviewOpen,
   onClosePreview,
   isMakeupModalOpen,
@@ -96,6 +103,23 @@ export default function ExamDetailDialogs({
   cancelSchedule,
   distributionLock,
 }: ExamDetailDialogsProps) {
+  const [availableExams, setAvailableExams] = useState<TeacherExamDto[]>([])
+
+  // Load đề cùng môn khi mở modal dự phòng
+  useEffect(() => {
+    if (!isMakeupModalOpen) return
+    getTeacherExamsBySubject(exam.subjectId)
+      .then((items) =>
+        // Lọc bỏ đề hiện tại và chỉ lấy PUBLISHED/LOCKED
+        setAvailableExams(
+          items.filter(
+            (e) => e.id !== exam.id && (e.status === 'READY' || e.status === 'LOCKED'),
+          ),
+        ),
+      )
+      .catch(() => setAvailableExams([]))
+  }, [isMakeupModalOpen, exam.id, exam.subjectId])
+
   return (
     <>
       <EvidenceImageModal
@@ -112,6 +136,7 @@ export default function ExamDetailDialogs({
         violations={violations.filter(
           (violation) => violation.attemptId === viewingViolationSubmission?.attemptId,
         )}
+        sourceViolations={sourceViolations}
         onClose={onCloseViolationSubmission}
         onViewEvidence={onViewEvidence}
       />
@@ -120,45 +145,38 @@ export default function ExamDetailDialogs({
         isOpen={isPreviewOpen}
         onClose={onClosePreview}
       />
-      <MakeupScheduleModal
-        isOpen={isMakeupModalOpen}
-        submissions={submissions}
-        defaultDurationMinutes={selectedSession?.durationMinutes ?? exam.defaultDurationMinutes}
-        onClose={onCloseMakeupModal}
-        onCreate={async (input) => {
-          if (!selectedSession) return
-          await createTeacherMakeupSchedule(exam.id, selectedSession.id, {
-            courseOfferingId:
-              selectedSession.courseOfferingId ||
-              selectedSession.courseOfferings?.[0]?.id ||
-              '',
-            startTime: input.startTime,
-            endTime: input.endTime,
-            durationMinutes: input.durationMinutes,
-            maxAttempts: 1,
-            password: input.password,
-            resultReleaseMode: 'MANUAL',
-            resultReleaseAt: null,
-            allowStudentReview: false,
-            enableTabLock: selectedSession.enableTabLock ?? examDefaults.enableTabLock,
-            requireFullscreen: selectedSession.requireFullscreen ?? examDefaults.requireFullscreen,
-            enableWebcam: selectedSession.enableWebcam ?? examDefaults.enableWebcam,
-            enableScreenMonitoring:
-              selectedSession.enableScreenMonitoring ?? examDefaults.enableScreenMonitoring,
-            blockCopyPaste: selectedSession.blockCopyPaste ?? examDefaults.blockCopyPaste,
-            blockRightClick: selectedSession.blockRightClick ?? examDefaults.blockRightClick,
-            locationMode: 'ONLINE',
-            allowedIpRanges: [],
-            distributionMode: 'SHUFFLE_QUESTIONS_AND_OPTIONS',
-            randomQuestionCount: null,
-            studentIds: input.studentIds,
-          })
-          await onRefresh()
-          await onReloadSubmissions()
-          onCloseMakeupModal()
-          toast.success('Đã tạo ca thi dự phòng.')
-        }}
-      />
+      {selectedSession && (
+        <MakeupScheduleModal
+          isOpen={isMakeupModalOpen}
+          examId={exam.id}
+          scheduleId={selectedSession.id}
+          sourceSchedule={selectedSession}
+          subjectId={exam.subjectId}
+          submissions={submissions}
+          availableExams={availableExams}
+          onClose={onCloseMakeupModal}
+          onCreate={async (input) => {
+            await createTeacherMakeupSchedule(exam.id, selectedSession.id, {
+              studentIds: input.studentIds,
+              makeupExamId: input.makeupExamId,
+              startTime: input.startTime,
+              endTime: input.endTime,
+              durationMinutes: input.durationMinutes,
+              password: input.password,
+              enableTabLock: input.enableTabLock,
+              requireFullscreen: input.requireFullscreen,
+              enableWebcam: input.enableWebcam,
+              enableScreenMonitoring: input.enableScreenMonitoring,
+              blockCopyPaste: input.blockCopyPaste,
+              blockRightClick: input.blockRightClick,
+            })
+            await onRefresh()
+            await onReloadSubmissions()
+            onCloseMakeupModal()
+            toast.success('Đã tạo ca thi dự phòng.')
+          }}
+        />
+      )}
       <AssignExamToCourseModal
         isOpen={isAssignModalOpen}
         examId={exam.id}

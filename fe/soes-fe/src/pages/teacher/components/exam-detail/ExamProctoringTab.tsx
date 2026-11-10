@@ -1,4 +1,5 @@
 import { RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
 import AppSelect from "../../../../components/common/AppSelect";
 import type {
   ExamSchedule,
@@ -34,6 +35,21 @@ export function ExamProctoringTab({
   const selectedSession =
     sessions.find((session) => session.id === selectedSessionId) ?? sessions[0];
 
+  // Phân chia sessions thành ca gốc và ca dự phòng
+  const { sourceSessions, makeupSessions } = useMemo(() => {
+    const src = sessions.filter((s) => !s.makeupOfScheduleId)
+    const mu = sessions.filter((s) => Boolean(s.makeupOfScheduleId))
+    return { sourceSessions: src, makeupSessions: mu }
+  }, [sessions])
+
+  const hasMakeup = makeupSessions.length > 0
+  // Tab: 'source' | 'makeup' — chỉ hiện nếu có ca dự phòng
+  const [activeSessionTab, setActiveSessionTab] = useState<'source' | 'makeup'>('source')
+
+  const visibleSessions = hasMakeup
+    ? (activeSessionTab === 'source' ? sourceSessions : makeupSessions)
+    : sessions
+
   return (
     <div className="space-y-5">
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -49,12 +65,47 @@ export function ExamProctoringTab({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-3">
+          {/* Tab ca gốc / ca dự phòng — chỉ hiện khi có ca dự phòng */}
+          {hasMakeup && (
+            <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSessionTab('source')
+                  if (sourceSessions.length > 0) onSessionChange(sourceSessions[0]!.id)
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeSessionTab === 'source'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Ca gốc ({sourceSessions.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSessionTab('makeup')
+                  if (makeupSessions.length > 0) onSessionChange(makeupSessions[0]!.id)
+                }}
+                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeSessionTab === 'makeup'
+                    ? 'bg-violet-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <RefreshCw size={11} />
+                Ca dự phòng ({makeupSessions.length})
+              </button>
+            </div>
+          )}
+
           <AppSelect
             value={selectedSession?.id ?? ""}
             onChange={onSessionChange}
             className="w-full sm:w-80"
             buttonClassName="bg-gray-50 rounded-xl py-2.5 text-sm"
-            options={sessions.map((session) => ({
+            options={visibleSessions.map((session) => ({
               value: session.id,
               label: `${session.courseCode} • ${formatSessionRange(session.startTime, session.endTime)}`,
             }))}
