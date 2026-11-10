@@ -1,4 +1,4 @@
-import { AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Eye, HelpCircle, MessageSquare, ShieldAlert, Wrench } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Eye, HelpCircle, MessageSquare, RefreshCw, ShieldAlert, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import AppBadge from "../../../../components/common/AppBadge";
@@ -344,6 +344,10 @@ export function ExamSubmissionsTab({
   onPrepareFinalize,
   onFinalizeAll,
   pendingFinalizeCount,
+  hasPendingMakeup = false,
+  makeupSessionStudents,
+  makeupSession,
+  onOpenMakeupModal,
   loading,
   pagination,
   onPageChange,
@@ -380,6 +384,14 @@ export function ExamSubmissionsTab({
     items: Array<{ attemptId: string; score: number; reason?: string }>,
   ) => Promise<number>;
   pendingFinalizeCount: number;
+  /** true nếu đang có ca thi dự phòng chưa kết thúc — block chốt điểm */
+  hasPendingMakeup?: boolean;
+  /** Danh sách SV whitelist của ca dự phòng đang chạy */
+  makeupSessionStudents?: Array<{ id: string; studentCode: string; fullName: string }>;
+  /** Session object của ca dự phòng (nếu đã tạo) — để hiển thị thông tin */
+  makeupSession?: { id: string; status: string; startTime: string; endTime: string } | null;
+  /** Mở modal tạo ca dự phòng — chỉ truyền khi ca đã CLOSED và chưa chốt điểm */
+  onOpenMakeupModal?: () => void;
   loading: boolean;
   pagination: {
     page: number;
@@ -396,6 +408,7 @@ export function ExamSubmissionsTab({
   const [scores, setScores] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const [showMakeupStudents, setShowMakeupStudents] = useState(false);
   // Tổng số bài chưa chốt trong toàn ca (từ API, không phải trang hiện tại)
   const [totalPendingInCa, setTotalPendingInCa] = useState(pendingFinalizeCount);
 
@@ -602,7 +615,15 @@ export function ExamSubmissionsTab({
       header: "Sinh viên",
       width: "210px",
       render: (s) => (
-        <span className="text-sm font-bold text-gray-900">{s.studentName}</span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-bold text-gray-900">{s.studentName}</span>
+          {s.isMakeup && (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+              <RefreshCw size={9} />
+              Dự phòng
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -816,16 +837,70 @@ export function ExamSubmissionsTab({
                 xem trước khi chốt.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void handleFinalizeAll()}
-              disabled={saving || preparing || pendingFinalizeCount === 0}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CheckCircle2 size={17} />
-              {preparing ? "Đang tải..." : "Chốt cả ca"}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Đã có ca dự phòng → nút xem danh sách SV */}
+              {makeupSessionStudents && makeupSessionStudents.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowMakeupStudents(true)}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 text-sm font-semibold text-violet-700 hover:bg-violet-100"
+                >
+                  <RefreshCw size={15} />
+                  Ca dự phòng ({makeupSessionStudents.length} SV)
+                </button>
+              )}
+              {/* Chưa có ca dự phòng → nút tạo */}
+              {!makeupSessionStudents?.length && onOpenMakeupModal && (
+                <button
+                  type="button"
+                  onClick={onOpenMakeupModal}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                >
+                  Tạo ca dự phòng
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleFinalizeAll()}
+                disabled={saving || preparing || pendingFinalizeCount === 0 || hasPendingMakeup}
+                title={hasPendingMakeup ? "Ca thi dự phòng chưa kết thúc — không thể chốt điểm" : undefined}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CheckCircle2 size={17} />
+                {preparing ? "Đang tải..." : "Chốt cả ca"}
+              </button>
+            </div>
           </div>
+
+          {/* Banner cảnh báo ca dự phòng chưa kết thúc */}
+          {hasPendingMakeup && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-amber-900">Đang có ca thi dự phòng chưa kết thúc</p>
+                  <p className="mt-0.5 text-xs text-amber-700">
+                    Vui lòng đợi ca thi dự phòng kết thúc trước khi chốt điểm để đảm bảo điểm của tất cả sinh viên được tính chính xác.
+                  </p>
+                </div>
+              </div>
+              {makeupSessionStudents && makeupSessionStudents.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-white px-4 py-3">
+                  <p className="text-xs font-semibold text-amber-800 mb-2">
+                    Sinh viên được phép thi ca dự phòng ({makeupSessionStudents.length} người):
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                    {makeupSessionStudents.map((s) => (
+                      <div key={s.id} className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-1.5">
+                        <span className="text-xs font-semibold text-amber-900 w-20 shrink-0">{s.studentCode}</span>
+                        <span className="text-xs text-amber-700 truncate">{s.fullName}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             <DataTable
@@ -905,6 +980,62 @@ export function ExamSubmissionsTab({
           onConfirm={(items) => void executeFinalizeAll(items)}
           onClose={() => setBulkModal(null)}
         />
+      )}
+
+      {/* ── Popup danh sách sinh viên ca dự phòng ── */}
+      {showMakeupStudents && makeupSessionStudents && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+                  <RefreshCw size={17} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Sinh viên ca dự phòng</h3>
+                  <p className="text-xs text-gray-500">
+                    {makeupSession && (
+                      <>
+                        {new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(makeupSession.startTime))}
+                        {' → '}
+                        {new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(makeupSession.endTime))}
+                        {' · '}
+                      </>
+                    )}
+                    {makeupSessionStudents.length} người được phép thi
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMakeupStudents(false)}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
+              {makeupSessionStudents.map((s, idx) => (
+                <div key={s.id} className="flex items-center gap-3 px-5 py-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-bold text-violet-700">
+                    {idx + 1}
+                  </span>
+                  <span className="w-24 shrink-0 text-xs font-semibold text-gray-800">{s.studentCode}</span>
+                  <span className="truncate text-xs text-gray-600">{s.fullName}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-gray-100 bg-gray-50 px-5 py-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowMakeupStudents(false)}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

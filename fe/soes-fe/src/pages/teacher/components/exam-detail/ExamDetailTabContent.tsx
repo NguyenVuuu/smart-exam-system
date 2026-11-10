@@ -37,6 +37,8 @@ interface ExamDetailTabContentProps {
   isResultsPublished: boolean
   violationData: ReturnType<typeof useTeacherExamViolations>
   submissionData: ReturnType<typeof useTeacherExamSubmissions>
+  /** Violation data của ca dự phòng — chỉ có trong mode course-submissions khi có ca dự phòng */
+  makeupViolationData?: ReturnType<typeof useTeacherExamViolations>
   onSelectSession: (sessionId: string) => void
   onViewEvidence: (url: string | null) => void
   onCreateSession: () => void
@@ -44,7 +46,8 @@ interface ExamDetailTabContentProps {
   onEditSession: (session: ExamSchedule) => void
   onDeleteSession: (sessionId: string) => void
   onChangeResultReleaseMode: (mode: ResultReleaseMode) => void
-  onOpenMakeupModal: () => void
+  /** Mở modal tạo ca dự phòng — chỉ có trong mode course-submissions khi ca đã CLOSED */
+  onOpenMakeupModal?: () => void
   onViewSubmission: (submission: ExamSubmission) => void
   onViewViolations: (submission: ExamSubmission) => void
   isTampered?: boolean
@@ -70,6 +73,7 @@ export default function ExamDetailTabContent({
   isResultsPublished,
   violationData,
   submissionData,
+  makeupViolationData,
   onSelectSession,
   onViewEvidence,
   onCreateSession,
@@ -95,6 +99,12 @@ export default function ExamDetailTabContent({
         onPageChange={violationData.setPage}
         onRefresh={violationData.reload}
         onViewEvidence={onViewEvidence}
+        makeupViolations={makeupViolationData?.items}
+        makeupPagination={makeupViolationData?.pagination}
+        makeupLoading={makeupViolationData?.loading}
+        makeupError={makeupViolationData?.error ?? null}
+        onMakeupPageChange={makeupViolationData?.setPage}
+        onMakeupRefresh={makeupViolationData?.reload}
       />
     ) : (
       <CourseReviewUnavailable
@@ -143,40 +153,38 @@ export default function ExamDetailTabContent({
       // ── Mode management (trang đề thi): chỉ đọc, không cho chốt điểm ──
       if (!isCourseSubmissionView) {
         return (
-          <>
-            {selectedSessionClosed && selectedSession && (
-              <div className="mb-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={onOpenMakeupModal}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 px-4 text-sm font-semibold text-blue-700 hover:bg-blue-100"
-                >
-                  Tạo ca dự phòng
-                </button>
-              </div>
-            )}
-            <ExamSubmissionsReadOnlyTab
-              submissions={submissionData.items}
-              sessions={visibleSessions}
-              selectedSessionId={selectedSessionId}
-              selectedSession={selectedSession}
-              onSessionChange={onSelectSession}
-              onViewSubmission={onViewSubmission}
-              onViewViolations={onViewViolations}
-              loading={submissionData.loading}
-              pagination={submissionData.pagination}
-              onPageChange={submissionData.setPage}
-              canReview={selectedSessionClosed}
-              showSessionSelector
-              unavailableTitle={reviewUnavailableTitle}
-              unavailableDescription={reviewUnavailableDescription}
-              examId={exam.id}
-            />
-          </>
+          <ExamSubmissionsReadOnlyTab
+            submissions={submissionData.items}
+            sessions={visibleSessions}
+            selectedSessionId={selectedSessionId}
+            selectedSession={selectedSession}
+            onSessionChange={onSelectSession}
+            onViewSubmission={onViewSubmission}
+            onViewViolations={onViewViolations}
+            loading={submissionData.loading}
+            pagination={submissionData.pagination}
+            onPageChange={submissionData.setPage}
+            canReview={selectedSessionClosed}
+            showSessionSelector
+            unavailableTitle={reviewUnavailableTitle}
+            unavailableDescription={reviewUnavailableDescription}
+            examId={exam.id}
+          />
         )
       }
 
       // ── Mode course-submissions (trang lớp học phần): đầy đủ chức năng chốt điểm ──
+      // Ca dự phòng chưa kết thúc → block chốt
+      const pendingMakeup = visibleSessions.find(
+        (s) => s.makeupOfScheduleId === selectedSessionId &&
+          (s.status === 'SCHEDULED' || s.status === 'OPEN' || s.status === 'DRAFT'),
+      )
+      const hasPendingMakeup = Boolean(pendingMakeup)
+      const makeupSessionStudents = pendingMakeup?.targetStudents
+      // Ca dự phòng (bất kỳ trạng thái nào) để hiển thị nút xem danh sách
+      const anyMakeupSession = visibleSessions.find(
+        (s) => s.makeupOfScheduleId === selectedSessionId,
+      )
       return (
         <ExamSubmissionsTab
           submissions={submissionData.items}
@@ -204,7 +212,7 @@ export default function ExamDetailTabContent({
           }
           onViewSubmission={onViewSubmission}
           onViewViolations={onViewViolations}
-          violationsByStudentId={violationData.items.reduce<Record<string, Array<{ id: string; evidenceImageUrl: string }>>>((acc, v) => {
+          violationsByStudentId={[...violationData.items, ...(makeupViolationData?.items ?? [])].reduce<Record<string, Array<{ id: string; evidenceImageUrl: string }>>>((acc, v) => {
             if (v.evidenceImageUrl) {
               acc[v.studentId] = [...(acc[v.studentId] ?? []), { id: v.id, evidenceImageUrl: v.evidenceImageUrl }]
             }
@@ -216,6 +224,15 @@ export default function ExamDetailTabContent({
           onPrepareFinalize={submissionData.prepareFinalize}
           onFinalizeAll={submissionData.finalizeMany}
           pendingFinalizeCount={submissionData.pendingFinalizeCount}
+          hasPendingMakeup={hasPendingMakeup}
+          makeupSessionStudents={anyMakeupSession?.targetStudents}
+          makeupSession={anyMakeupSession ? {
+            id: anyMakeupSession.id,
+            status: anyMakeupSession.status,
+            startTime: anyMakeupSession.startTime,
+            endTime: anyMakeupSession.endTime,
+          } : null}
+          onOpenMakeupModal={onOpenMakeupModal}
           loading={submissionData.loading}
           pagination={submissionData.pagination}
           onPageChange={submissionData.setPage}
