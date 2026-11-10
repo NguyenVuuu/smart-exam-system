@@ -93,7 +93,11 @@ export function useStudentLiveStreamPublisher(input: {
       if (session.id === sessionIdRef.current) cleanupPeer()
     }
 
-    socket.emit('proctoring:join_attempt', { scheduleId: input.scheduleId, attemptId: input.attemptId })
+    const joinAttempt = () => {
+      socket.emit('proctoring:join_attempt', { scheduleId: input.scheduleId, attemptId: input.attemptId })
+    }
+    if (socket.connected) joinAttempt()
+    socket.on('connect', joinAttempt)
     socket.on('live:request', handleLiveRequest)
     socket.on('live:answer', handleLiveAnswer)
     socket.on('live:teacher_candidate', handleTeacherCandidate)
@@ -101,6 +105,7 @@ export function useStudentLiveStreamPublisher(input: {
 
     return () => {
       cancelled = true
+      socket.off('connect', joinAttempt)
       socket.off('live:request', handleLiveRequest)
       socket.off('live:answer', handleLiveAnswer)
       socket.off('live:teacher_candidate', handleTeacherCandidate)

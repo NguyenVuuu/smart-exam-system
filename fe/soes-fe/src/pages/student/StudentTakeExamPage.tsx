@@ -11,7 +11,7 @@ import TakeExamHeader from './components/take-exam/TakeExamHeader'
 import TakeExamProgress from './components/take-exam/TakeExamProgress'
 import './components/take-exam/take-exam.css'
 import { useExamIntegrityGuard } from './hooks/take-exam/useExamIntegrityGuard'
-import { isExamScreenShareStreamLive, type ExamScreenShareStatus, useExamScreenShare } from './hooks/take-exam/useExamScreenShare'
+import { cancelScheduledExamScreenShareStop, isExamScreenShareStreamLive, scheduleExamScreenShareStop, stopActiveExamScreenShareStream, type ExamScreenShareStatus, useExamScreenShare } from './hooks/take-exam/useExamScreenShare'
 import { useExamWebcam } from './hooks/take-exam/useExamWebcam'
 import { captureScreenEvidence, useScreenShareViolationMonitor } from './hooks/take-exam/useScreenShareViolationMonitor'
 import { useWebcamViolationMonitor } from './hooks/take-exam/useWebcamViolationMonitor'
@@ -109,6 +109,15 @@ export default function StudentTakeExamPage() {
     return scheduleExamWebcamStop
   }, [])
 
+  useEffect(() => {
+    cancelScheduledExamScreenShareStop()
+    window.addEventListener('pagehide', stopActiveExamScreenShareStream)
+    return () => {
+      window.removeEventListener('pagehide', stopActiveExamScreenShareStream)
+      scheduleExamScreenShareStop()
+    }
+  }, [])
+
   const defaultAnswers = useMemo<TakeExamAnswers>(() => {
     if (!session) return {}
     return session.questions.reduce<TakeExamAnswers>((answersObj, question) => {
@@ -128,6 +137,7 @@ export default function StudentTakeExamPage() {
   const [debouncedAnswers] = useDebounce(answers, 2000)
 
   const handleTimeExpired = useCallback(() => {
+    stopActiveExamScreenShareStream()
     toast.error('Hết thời gian làm bài', {
       description: 'Bài thi đã được nộp tự động bằng dữ liệu hiện có.',
     })
@@ -135,6 +145,7 @@ export default function StudentTakeExamPage() {
   }, [attemptId, navigate, resultPath])
 
   const handleSubmitted = useCallback(() => {
+    stopActiveExamScreenShareStream()
     toast.success('Đã nộp bài thi', {
       description: 'Bài làm đã được nộp thành công.',
     })
@@ -163,6 +174,10 @@ export default function StudentTakeExamPage() {
     onTimeExpired: handleTimeExpired,
     onSubmitted: handleSubmitted
   })
+
+  useEffect(() => {
+    if (phase !== 'IN_PROGRESS') stopActiveExamScreenShareStream()
+  }, [phase])
 
   useEffect(() => {
     const handleOnline = () => {
@@ -314,8 +329,10 @@ export default function StudentTakeExamPage() {
   // Auto-save when answers change
   useEffect(() => {
     if (!session || phase !== 'IN_PROGRESS') return
-    const hasAnyAnswer = Object.values(debouncedAnswers).some(val => val !== undefined && val !== '' && (Array.isArray(val) ? val.length > 0 : true))
-    if (hasAnyAnswer) {
+    const hasSavableAnswer = Object.values(debouncedAnswers).some((answer) =>
+      typeof answer === 'string' || (Array.isArray(answer) && answer.length > 0),
+    )
+    if (hasSavableAnswer) {
       saveAnswersToServer()
     }
   }, [debouncedAnswers, phase, saveAnswersToServer, session])

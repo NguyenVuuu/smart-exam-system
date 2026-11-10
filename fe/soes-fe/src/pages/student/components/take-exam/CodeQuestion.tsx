@@ -6,6 +6,7 @@ import type {
 } from '../../types/take-exam.types'
 import type { RunCodeResponse } from '../../api/student-take-exam.api'
 import CodeRunResult from './code-editor/CodeRunResult'
+import { getProgrammingSource } from './code-editor/programming-starters'
 
 const ProgrammingCodeEditor = lazy(() => import('./code-editor/ProgrammingCodeEditor'))
 const EDITOR_FALLBACK_HEIGHT = 'clamp(420px, 58vh, 620px)'
@@ -31,8 +32,8 @@ export default function CodeQuestion({
   runError,
   blockRightClick,
 }: CodeQuestionProps) {
-  const codeValue = typeof value === 'string' ? value : question.starterCode ?? ''
   const language = question.language ?? 'JAVA'
+  const codeValue = getProgrammingSource(language, value, question.answer)
   const editorId = `code-answer-${question.id}`
   const canRun = codeValue.trim().length > 0 && !isRunning
 

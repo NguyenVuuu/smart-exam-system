@@ -3,6 +3,7 @@ import AppSelect from '../../../../components/common/AppSelect'
 import type { ExamQuestionItem, ExamSection } from '../../types/teacher-exam.types'
 import type { Question } from '../../types/teacher-question-bank.types'
 import { questionTypeLabel } from '../../constants/ExamEditorConfig'
+import { canPlaceQuestionInSection } from '../../utils/ExamQuestionReorder'
 
 export function QuestionRow({
   item,
@@ -97,7 +98,7 @@ export function QuestionRow({
             onChange={onSectionChange}
             buttonClassName="bg-white text-xs rounded-lg p-2 shadow-2xs"
             menuClassName="min-w-52"
-            options={sections.map((section) => ({
+            options={sections.filter((section) => canPlaceQuestionInSection(item, section)).map((section) => ({
               value: section.id,
               label: section.title,
             }))}

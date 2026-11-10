@@ -1,11 +1,11 @@
 import { AxiosError } from 'axios'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { takeExamApi } from '../../api/student-take-exam.api'
 import { studentFaceApi } from '../../api/student-face.api'
 import FaceVerification from '../face/FaceVerification'
-import { isExamScreenShareStreamLive, useExamScreenShare } from '../../hooks/take-exam/useExamScreenShare'
+import { isExamScreenShareStreamLive, scheduleExamScreenShareStop, useExamScreenShare } from '../../hooks/take-exam/useExamScreenShare'
 import { useExamWebcam } from '../../hooks/take-exam/useExamWebcam'
 import type { ExamDetail } from '../../types/exam-detail.types'
 import { hasActiveExamWebcam, isExamWebcamStreamLive } from '../../utils/exam-webcam'
@@ -27,6 +27,10 @@ export default function ExamAction({ data }: ExamActionProps) {
   const [password, setPassword] = useState('')
   const webcam = useExamWebcam(data.enableWebcam)
   const screenShare = useExamScreenShare(data.enableScreenMonitoring)
+
+  useEffect(() => {
+    return scheduleExamScreenShareStop
+  }, [])
 
   if (status === 'SUBMITTED') {
     return (

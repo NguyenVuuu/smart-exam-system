@@ -28,6 +28,7 @@ const attemptRoom = (attemptId: string) => `proctoring:attempt:${attemptId}`
 const teacherRoom = (teacherId: string) => `proctoring:teacher:${teacherId}`
 const studentRoom = (studentId: string) => `proctoring:student:${studentId}`
 const userRoom = (userId: string) => `user:${userId}`
+const isTeacherRole = (role: AccountRole) => role === 'TEACHER' || role === 'DEPARTMENT_HEAD'
 
 function socketUser(socket: Socket): SocketUser {
   return socket.data.user as SocketUser
@@ -97,12 +98,12 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
   io.on('connection', (socket) => {
     const user = socketUser(socket)
     void socket.join(userRoom(user.id))
-    if (user.role === 'TEACHER') void socket.join(teacherRoom(user.profileId))
+    if (isTeacherRole(user.role)) void socket.join(teacherRoom(user.profileId))
     if (user.role === 'STUDENT') void socket.join(studentRoom(user.profileId))
 
     socket.on('proctoring:join_schedule', async ({ scheduleId }: { scheduleId: string }, ack?: (data: unknown) => void) => {
       try {
-        if (user.role !== 'TEACHER') throw new Error('Only teachers can join schedule rooms')
+        if (!isTeacherRole(user.role)) throw new Error('Only teachers can join schedule rooms')
         const data = await teacherGrading.listLiveProctoringSessions(user.profileId, scheduleId)
         await socket.join(scheduleRoom(scheduleId))
         ack?.({ ok: true, data })
@@ -128,7 +129,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
 
     socket.on('live:request_camera', async ({ attemptId }: { attemptId: string }, ack?: (data: unknown) => void) => {
       try {
-        if (user.role !== 'TEACHER') throw new Error('Only teachers can request live camera')
+        if (!isTeacherRole(user.role)) throw new Error('Only teachers can request live camera')
         const session = await teacherGrading.requestLiveCamera(user.profileId, attemptId)
         io?.to(attemptRoom(attemptId)).emit('live:request', session)
         ack?.({ ok: true, data: session })
@@ -139,7 +140,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
 
     socket.on('live:request_screen', async ({ attemptId }: { attemptId: string }, ack?: (data: unknown) => void) => {
       try {
-        if (user.role !== 'TEACHER') throw new Error('Only teachers can request live screen')
+        if (!isTeacherRole(user.role)) throw new Error('Only teachers can request live screen')
         const session = await teacherGrading.requestLiveScreen(user.profileId, attemptId)
         io?.to(attemptRoom(attemptId)).emit('live:request', session)
         ack?.({ ok: true, data: session })
@@ -167,7 +168,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
       ack?: (data: unknown) => void,
     ) => {
       try {
-        if (user.role !== 'TEACHER') throw new Error('Only teachers can answer live offers')
+        if (!isTeacherRole(user.role)) throw new Error('Only teachers can answer live offers')
         const session = await teacherGrading.submitTeacherLiveAnswer(user.profileId, sessionId, answer)
         io?.to(attemptRoom(session.attemptId)).emit('live:answer', session)
         ack?.({ ok: true, data: session })
@@ -193,7 +194,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
 
     socket.on('live:teacher_candidate', async ({ sessionId, candidate }: CandidatePayload, ack?: (data: unknown) => void) => {
       try {
-        if (user.role !== 'TEACHER') throw new Error('Only teachers can publish ICE candidates')
+        if (!isTeacherRole(user.role)) throw new Error('Only teachers can publish ICE candidates')
         await teacherGrading.addTeacherLiveCandidate(user.profileId, sessionId, candidate)
         const session = await teacherGrading.getTeacherLiveSession(user.profileId, sessionId)
         io?.to(attemptRoom(session.attemptId)).emit('live:teacher_candidate', { sessionId, candidate })
@@ -205,7 +206,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
 
     socket.on('live:end', async ({ sessionId }: { sessionId: string }, ack?: (data: unknown) => void) => {
       try {
-        const session = user.role === 'TEACHER'
+        const session = isTeacherRole(user.role)
           ? await teacherGrading.endTeacherLiveSession(user.profileId, sessionId)
           : null
         if (!session) throw new Error('Live session not found')

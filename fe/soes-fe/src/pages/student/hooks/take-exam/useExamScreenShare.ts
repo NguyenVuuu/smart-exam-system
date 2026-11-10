@@ -11,6 +11,8 @@ export type ExamScreenShareStatus =
   | 'ERROR'
 
 let activeExamScreenShareStream: MediaStream | null = null
+let scheduledStopId: number | null = null
+let streamGeneration = 0
 
 export function isExamScreenShareStreamLive(stream: MediaStream | null): stream is MediaStream {
   const track = stream?.getVideoTracks()[0]
@@ -22,8 +24,24 @@ export function getActiveExamScreenShareStream() {
 }
 
 export function stopActiveExamScreenShareStream() {
+  streamGeneration += 1
+  cancelScheduledExamScreenShareStop()
   activeExamScreenShareStream?.getTracks().forEach((track) => track.stop())
   activeExamScreenShareStream = null
+}
+
+export function scheduleExamScreenShareStop() {
+  cancelScheduledExamScreenShareStop()
+  scheduledStopId = window.setTimeout(() => {
+    scheduledStopId = null
+    stopActiveExamScreenShareStream()
+  }, 0)
+}
+
+export function cancelScheduledExamScreenShareStop() {
+  if (scheduledStopId === null) return
+  window.clearTimeout(scheduledStopId)
+  scheduledStopId = null
 }
 
 function getScreenShareErrorStatus(error: unknown): ExamScreenShareStatus {
@@ -63,11 +81,8 @@ export function useExamScreenShare(required: boolean) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const stop = useCallback(() => {
-    setStream((current) => {
-      current?.getTracks().forEach((track) => track.stop())
-      if (current === activeExamScreenShareStream) activeExamScreenShareStream = null
-      return null
-    })
+    stopActiveExamScreenShareStream()
+    setStream(null)
     setStatus((current) => current === 'ACTIVE' ? 'STOPPED' : current)
   }, [])
 
@@ -89,12 +104,17 @@ export function useExamScreenShare(required: boolean) {
 
     setStatus('REQUESTING')
     setErrorMessage(null)
+    const generation = streamGeneration
 
     try {
       const nextStream = await navigator.mediaDevices.getDisplayMedia({
         video: { displaySurface: 'monitor' } as MediaTrackConstraints,
         audio: false,
       })
+      if (generation !== streamGeneration) {
+        nextStream.getTracks().forEach((track) => track.stop())
+        throw new Error('SCREEN_SHARE_CANCELLED')
+      }
       if (!isWholeScreenShare(nextStream)) {
         nextStream.getTracks().forEach((track) => track.stop())
         setStream(null)

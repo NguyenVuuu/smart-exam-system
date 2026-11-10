@@ -11,7 +11,6 @@ import {
   type AccountRole,
 } from '../../../utils/jwt'
 import type {
-  AvailableRoleDto,
   LoginApiResponseDto,
   LoginRequestDto,
   LoginResponseDto,
@@ -23,6 +22,7 @@ import { toAdminProfileDto, toStudentProfileDto, toTeacherProfileDto } from '../
 import type { ChangePasswordInput, UpdateMeInput } from '../validators/auth.validator'
 import * as repo from '../repositories/auth.repository'
 import type { UserWithProfiles } from '../repositories/auth.repository'
+import { resolveAvailableRoles } from './available-roles'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -39,14 +39,6 @@ interface SelectionEntry {
   roles: AccountRole[]
   /** 'LOGIN' = đăng nhập thông thường; 'ROLE_SWITCH' = chuyển vai trò trong phiên */
   source: 'LOGIN' | 'ROLE_SWITCH'
-}
-
-const ROLE_DISPLAY_NAMES: Record<AccountRole, string> = {
-  ADMIN: 'Quản trị viên',
-  EDUCATION_OFFICER: 'Giáo vụ',
-  TEACHER: 'Giảng viên',
-  DEPARTMENT_HEAD: 'Trưởng bộ môn',
-  STUDENT: 'Sinh viên',
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -80,116 +72,10 @@ async function issueTokens(profile: UserProfileDto): Promise<LoginResponseDto> {
 }
 
 /**
- * Resolves available roles for a user from user.roles and attached profiles.
- */
-function resolveAvailableRoles(user: UserWithProfiles): AvailableRoleDto[] {
-  const roles = (user.roles as AccountRole[]) || []
-  const available: AvailableRoleDto[] = []
-
-  for (const role of roles) {
-    if (role === 'STUDENT') {
-      const student = user.students.find((s) => s.status === 'ACTIVE') ?? user.students[0]
-      if (student) {
-        available.push({
-          role: 'STUDENT',
-          name: ROLE_DISPLAY_NAMES.STUDENT,
-          profileId: student.id,
-          code: user.username ?? '',
-        })
-      }
-    } else if (role === 'TEACHER') {
-      const teacher = user.teachers.find((t) => t.status === 'ACTIVE') ?? user.teachers[0]
-      if (teacher) {
-        available.push({
-          role: 'TEACHER',
-          name: ROLE_DISPLAY_NAMES.TEACHER,
-          profileId: teacher.id,
-          code: user.username ?? '',
-          position: teacher.position,
-        })
-      }
-    } else if (role === 'DEPARTMENT_HEAD') {
-      const teacher = user.teachers.find((t) => t.status === 'ACTIVE') ?? user.teachers[0]
-      if (teacher) {
-        available.push({
-          role: 'DEPARTMENT_HEAD',
-          name: ROLE_DISPLAY_NAMES.DEPARTMENT_HEAD,
-          profileId: teacher.id,
-          code: user.username ?? '',
-          position: 'DEPARTMENT_HEAD',
-        })
-      }
-    } else if (role === 'ADMIN') {
-      const admin = user.admins.find((a) => a.role === 'ADMIN' && a.status === 'ACTIVE') ?? user.admins[0]
-      if (admin) {
-        available.push({
-          role: 'ADMIN',
-          name: ROLE_DISPLAY_NAMES.ADMIN,
-          profileId: admin.id,
-          code: user.username ?? '',
-        })
-      }
-    } else if (role === 'EDUCATION_OFFICER') {
-      const admin = user.admins.find((a) => a.role === 'EDUCATION_OFFICER' && a.status === 'ACTIVE') ?? user.admins[0]
-      if (admin) {
-        available.push({
-          role: 'EDUCATION_OFFICER',
-          name: ROLE_DISPLAY_NAMES.EDUCATION_OFFICER,
-          profileId: admin.id,
-          code: user.username ?? '',
-        })
-      }
-    }
-  }
-
-  // Fallback: If roles array in DB was empty, infer from attached profiles
-  if (available.length === 0) {
-    if (user.students.length > 0 && user.students[0].status === 'ACTIVE') {
-      available.push({
-        role: 'STUDENT',
-        name: ROLE_DISPLAY_NAMES.STUDENT,
-        profileId: user.students[0].id,
-        code: user.username ?? '',
-      })
-    }
-    if (user.teachers.length > 0 && user.teachers[0].status === 'ACTIVE') {
-      const t = user.teachers[0]
-      if (t.position === 'DEPARTMENT_HEAD') {
-        available.push({
-          role: 'DEPARTMENT_HEAD',
-          name: ROLE_DISPLAY_NAMES.DEPARTMENT_HEAD,
-          profileId: t.id,
-          code: user.username ?? '',
-          position: 'DEPARTMENT_HEAD',
-        })
-      }
-      available.push({
-        role: 'TEACHER',
-        name: ROLE_DISPLAY_NAMES.TEACHER,
-        profileId: t.id,
-        code: user.username ?? '',
-        position: t.position,
-      })
-    }
-    if (user.admins.length > 0 && user.admins[0].status === 'ACTIVE') {
-      const a = user.admins[0]
-      available.push({
-        role: a.role as AccountRole,
-        name: ROLE_DISPLAY_NAMES[a.role as AccountRole] ?? a.role,
-        profileId: a.id,
-        code: user.username ?? '',
-      })
-    }
-  }
-
-  return available
-}
-
-/**
  * Given a User and selected role, builds the UserProfileDto
  */
 async function buildProfileForRole(user: UserWithProfiles, role: AccountRole): Promise<UserProfileDto> {
-  const allRoles = user.roles as AccountRole[]
+  const allRoles = resolveAvailableRoles(user).map(({ role: availableRole }) => availableRole)
 
   if (role === 'STUDENT') {
     const student = user.students[0]

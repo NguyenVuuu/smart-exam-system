@@ -114,13 +114,17 @@ export function useLiveProctorSocket({
     if (!scheduleId) return
     const socket = getSocket()
 
-    socket.emit('proctoring:join_schedule', { scheduleId }, (response: { ok: boolean; data?: { schedule: { title: string }; items: ProctoringSessionRecord[] }; error?: string }) => {
-      if (!response.ok) return
-      if (response.data) {
-        setScheduleTitle(response.data.schedule.title)
-        setSessions(response.data.items)
-      }
-    })
+    const joinSchedule = () => {
+      socket.emit('proctoring:join_schedule', { scheduleId }, (response: { ok: boolean; data?: { schedule: { title: string }; items: ProctoringSessionRecord[] }; error?: string }) => {
+        if (!response.ok) return
+        if (response.data) {
+          setScheduleTitle(response.data.schedule.title)
+          setSessions(response.data.items)
+        }
+      })
+    }
+    if (socket.connected) joinSchedule()
+    socket.on('connect', joinSchedule)
 
     const handleHeartbeat = (payload: {
       attemptId: string
@@ -216,6 +220,7 @@ export function useLiveProctorSocket({
     socket.on('live:ended', handleLiveEnded)
 
     return () => {
+      socket.off('connect', joinSchedule)
       socket.off('student:heartbeat', handleHeartbeat)
       socket.off('student:offline', handleOffline)
       socket.off('violation:created', handleViolationCreated)
@@ -262,9 +267,12 @@ export function useLiveProctorSocket({
       liveSessionIdRef.current = liveSession.id
       setLiveSessionId(liveSession.id)
       toast.success(streamType === 'SCREEN' ? `Đang mở màn hình của ${session.studentName}.` : `Đang mở camera của ${session.studentName}.`)
-    } catch {
+    } catch (error) {
       stopLive()
-      toast.error(streamType === 'SCREEN' ? 'Không thể mở màn hình sinh viên.' : 'Không thể mở camera sinh viên.')
+      const reason = error instanceof Error ? error.message : ''
+      toast.error(streamType === 'SCREEN' ? 'Không thể mở màn hình sinh viên.' : 'Không thể mở camera sinh viên.', {
+        description: reason || 'Không nhận được phản hồi từ máy chủ. Vui lòng thử lại.',
+      })
     }
   }
 

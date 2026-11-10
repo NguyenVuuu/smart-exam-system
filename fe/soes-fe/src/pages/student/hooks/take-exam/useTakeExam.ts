@@ -76,7 +76,7 @@ export function useTakeExam({
         if (!question) return []
 
         if (question.type === 'CODING') {
-          if (typeof answerValue !== 'string' || answerValue.trim().length === 0) return []
+          if (typeof answerValue !== 'string') return []
           return [{ questionId, answer: answerValue }]
         }
 

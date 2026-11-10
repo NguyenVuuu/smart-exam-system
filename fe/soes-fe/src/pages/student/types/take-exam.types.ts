@@ -17,7 +17,6 @@ export interface TakeExamQuestion {
   points: number
   options?: TakeExamChoiceOption[]
   language?: TakeExamLanguage
-  starterCode?: string
   programmingConfig?: {
     timeLimitMs: number
     memoryLimitMb: number

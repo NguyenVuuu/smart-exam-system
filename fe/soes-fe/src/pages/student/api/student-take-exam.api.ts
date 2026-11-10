@@ -266,7 +266,6 @@ function toTakeExamQuestion(q: ApiTakeExamQuestion): TakeExamQuestion {
     content: q.content,
     points: q.points,
     language: isCoding ? (q.language as TakeExamQuestion['language']) : undefined,
-    starterCode: isCoding ? (q.draftSourceCode ?? '') : undefined,
     programmingConfig: isCoding ? q.programmingConfig : undefined,
     options: isCoding ? undefined : q.options,
     answer: isCoding
