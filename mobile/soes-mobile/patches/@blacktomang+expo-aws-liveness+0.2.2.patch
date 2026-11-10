@@ -1,8 +1,16 @@
 diff --git a/node_modules/@blacktomang/expo-aws-liveness/android/src/main/java/expo/modules/awsliveness/ExpoAwsLivenessView.kt b/node_modules/@blacktomang/expo-aws-liveness/android/src/main/java/expo/modules/awsliveness/ExpoAwsLivenessView.kt
-index a008786..65d1950 100644
+index a008786..63ffdfd 100644
 --- a/node_modules/@blacktomang/expo-aws-liveness/android/src/main/java/expo/modules/awsliveness/ExpoAwsLivenessView.kt
 +++ b/node_modules/@blacktomang/expo-aws-liveness/android/src/main/java/expo/modules/awsliveness/ExpoAwsLivenessView.kt
-@@ -26,6 +26,10 @@ private const val TAG = "ExpoAwsLiveness"
+@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.ui.platform.ComposeView
+ import androidx.compose.ui.platform.ViewCompositionStrategy
++import androidx.compose.ui.unit.sp
+ import androidx.lifecycle.findViewTreeLifecycleOwner
+ import androidx.lifecycle.findViewTreeViewModelStoreOwner
+ import androidx.lifecycle.setViewTreeLifecycleOwner
+@@ -26,6 +27,10 @@ private const val TAG = "ExpoAwsLiveness"
  class ExpoAwsLivenessView(context: Context, appContext: AppContext) :
    ExpoView(context, appContext) {
  
@@ -13,3 +21,18 @@ index a008786..65d1950 100644
    val onComplete by EventDispatcher()
    val onError by EventDispatcher()
  
+@@ -200,7 +205,13 @@ class ExpoAwsLivenessView(context: Context, appContext: AppContext) :
+         "dark" -> LivenessColorScheme.Defaults.darkColorScheme
+         else -> LivenessColorScheme.default()
+       }
+-      MaterialTheme(colorScheme = colorScheme) {
++      // Keep the SDK's scan prompts readable without covering the face oval.
++      val scanTypography = MaterialTheme.typography.copy(
++        headlineLarge = MaterialTheme.typography.headlineLarge.copy(fontSize = 20.sp, lineHeight = 24.sp),
++        titleMedium = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
++        bodyMedium = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
++      )
++      MaterialTheme(colorScheme = colorScheme, typography = scanTypography) {
+         FaceLivenessDetector(
+           sessionId = capturedSessionId,
+           region = capturedRegion,
