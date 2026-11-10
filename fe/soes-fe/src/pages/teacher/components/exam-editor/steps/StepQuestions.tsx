@@ -109,26 +109,31 @@ export function StepQuestions(props: {
         </div>
 
         {props.visibleQuestions.length > 0 && (
-          <p className="text-xs text-gray-500">Kéo card để đổi thứ tự hoặc thả lên tab phần thi phù hợp. Có thể chọn biểu tượng ⋮⋮ rồi nhấn ↑/↓.</p>
+          <p className="text-xs text-gray-500">Kéo và thả vào bất kỳ vị trí nào trên card câu hỏi khác để đổi thứ tự; thả lên tab để chuyển phần thi.</p>
         )}
-        <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
+        <div className="space-y-3">
           {props.visibleQuestions.map((item, sectionIndex) => {
             const globalIndex = props.questions.findIndex((q) => q.questionId === item.questionId)
             return (
               <div
                 key={item.questionId}
                 draggable
-                className={`relative cursor-grab active:cursor-grabbing ${drag.draggedQuestionId === item.questionId ? 'opacity-50' : ''}`}
+                tabIndex={0}
+                role="group"
+                aria-label={`Câu ${sectionIndex + 1}. Kéo để đổi thứ tự hoặc nhấn mũi tên lên, xuống`}
+                className={`relative cursor-grab rounded-xl focus:outline-none focus:ring-inset focus:ring-2 focus:ring-blue-500 active:cursor-grabbing ${drag.draggedQuestionId === item.questionId ? 'opacity-50' : ''} ${drag.dropTarget?.questionId === item.questionId ? 'ring-inset ring-2 ring-blue-500 bg-blue-50' : ''}`}
                 onPointerDownCapture={drag.prepareDrag}
                 onPointerUpCapture={(event) => { event.currentTarget.draggable = true }}
                 onDragStart={(event) => drag.startDrag(event, item.questionId)}
                 onDragEnd={(event) => { event.currentTarget.draggable = true; drag.clearDrag() }}
                 onDragOver={(event) => drag.dragOverQuestion(event, item)}
                 onDrop={(event) => drag.dropOnQuestion(event, item)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+                  event.preventDefault()
+                  drag.moveWithKeyboard(item.questionId, event.key === 'ArrowUp' ? -1 : 1)
+                }}
               >
-                {drag.dropTarget?.questionId === item.questionId && (
-                  <div className={`pointer-events-none absolute inset-x-1 z-10 h-1 rounded-full bg-blue-500 ${drag.dropTarget.edge === 'before' ? '-top-2' : '-bottom-2'}`} />
-                )}
                 <QuestionRow
                   item={item}
                   revisionNote={item.snapshotQuestionId ? props.revisionNotes.get(item.snapshotQuestionId) : undefined}
@@ -140,7 +145,6 @@ export function StepQuestions(props: {
                   onSectionChange={(sectionId) => updateQuestionSection(item.questionId, sectionId)}
                   onEdit={() => props.onEdit(item.question)}
                   onRemove={() => props.setQuestions(props.questions.filter((question) => question.questionId !== item.questionId))}
-                  onMove={(direction) => drag.moveWithKeyboard(item.questionId, direction)}
                 />
               </div>
             )

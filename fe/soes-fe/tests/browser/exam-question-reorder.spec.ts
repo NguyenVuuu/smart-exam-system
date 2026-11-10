@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { reorderExamQuestions } from '../../src/pages/teacher/utils/ExamQuestionReorder'
+import { getQuestionCardDropTarget, reorderExamQuestions } from '../../src/pages/teacher/utils/ExamQuestionReorder'
 import type { ExamQuestionItem, ExamSection } from '../../src/pages/teacher/types/teacher-exam.types'
 
 const sections = [
@@ -16,11 +16,11 @@ const questions = [
 ] as ExamQuestionItem[]
 
 test('moves a question before or after another question in the same section', () => {
-  const before = reorderExamQuestions(questions, sections, 'c', { sectionId: 'objective-a', questionId: 'a', edge: 'before' })
+  const before = reorderExamQuestions(questions, sections, 'c', getQuestionCardDropTarget(questions, 'c', questions[0]))
   expect(before.map(({ questionId }) => questionId)).toEqual(['c', 'a', 'b', 'd'])
   expect(before.map(({ order }) => order)).toEqual([1, 2, 3, 4])
 
-  const after = reorderExamQuestions(questions, sections, 'a', { sectionId: 'objective-a', questionId: 'c', edge: 'after' })
+  const after = reorderExamQuestions(questions, sections, 'a', getQuestionCardDropTarget(questions, 'a', questions[2]))
   expect(after.map(({ questionId }) => questionId)).toEqual(['b', 'c', 'a', 'd'])
   expect(after.find(({ questionId }) => questionId === 'a')?.points).toBe(2)
 })

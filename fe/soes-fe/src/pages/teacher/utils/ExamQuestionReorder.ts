@@ -13,6 +13,20 @@ export function canPlaceQuestionInSection(question: ExamQuestionItem, section: E
     : section.type === 'OBJECTIVE'
 }
 
+export function getQuestionCardDropTarget(
+  questions: ExamQuestionItem[],
+  draggedQuestionId: string,
+  targetQuestion: ExamQuestionItem,
+): QuestionDropTarget {
+  const sourceIndex = questions.findIndex((question) => question.questionId === draggedQuestionId)
+  const targetIndex = questions.findIndex((question) => question.questionId === targetQuestion.questionId)
+  return {
+    sectionId: targetQuestion.sectionId ?? '',
+    questionId: targetQuestion.questionId,
+    edge: sourceIndex < targetIndex ? 'after' : 'before',
+  }
+}
+
 export function reorderExamQuestions(
   questions: ExamQuestionItem[],
   sections: ExamSection[],

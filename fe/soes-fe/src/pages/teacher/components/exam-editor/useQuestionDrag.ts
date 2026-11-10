@@ -1,8 +1,8 @@
 import { useState, type DragEvent, type PointerEvent } from 'react'
 import type { ExamQuestionItem, ExamSection } from '../../types/teacher-exam.types'
-import { canPlaceQuestionInSection, reorderExamQuestions, type QuestionDropTarget } from '../../utils/ExamQuestionReorder'
+import { canPlaceQuestionInSection, getQuestionCardDropTarget, reorderExamQuestions, type QuestionDropTarget } from '../../utils/ExamQuestionReorder'
 
-const INTERACTIVE_SELECTOR = 'button:not([data-drag-handle]), input, textarea, select, label, a, [role="combobox"]'
+const INTERACTIVE_SELECTOR = 'button, input, textarea, select, label, a, [role="combobox"]'
 
 interface QuestionDragOptions {
   questions: ExamQuestionItem[]
@@ -42,11 +42,6 @@ export function useQuestionDrag({ questions, sections, setQuestions, setActiveSe
     event.currentTarget.draggable = !element.closest(INTERACTIVE_SELECTOR)
   }
 
-  const questionDropTarget = (event: DragEvent<HTMLDivElement>, question: ExamQuestionItem): QuestionDropTarget => {
-    const midpoint = event.currentTarget.getBoundingClientRect().top + event.currentTarget.offsetHeight / 2
-    return { sectionId: question.sectionId ?? '', questionId: question.questionId, edge: event.clientY < midpoint ? 'before' : 'after' }
-  }
-
   const dragOverQuestion = (event: DragEvent<HTMLDivElement>, question: ExamQuestionItem) => {
     if (!draggedQuestionId) return
     if (draggedQuestionId === question.questionId || !canDropInSection(question.sectionId ?? '')) {
@@ -55,14 +50,14 @@ export function useQuestionDrag({ questions, sections, setQuestions, setActiveSe
     }
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
-    const target = questionDropTarget(event, question)
-    setDropTarget((current) => current?.questionId === target.questionId && current?.edge === target.edge ? current : target)
+    const target = getQuestionCardDropTarget(questions, draggedQuestionId, question)
+    setDropTarget((current) => current?.questionId === target.questionId ? current : target)
   }
 
   const dropOnQuestion = (event: DragEvent<HTMLDivElement>, question: ExamQuestionItem) => {
     if (!draggedQuestionId || !canDropInSection(question.sectionId ?? '')) return
     event.preventDefault()
-    setQuestions(reorderExamQuestions(questions, sections, draggedQuestionId, questionDropTarget(event, question)))
+    setQuestions(reorderExamQuestions(questions, sections, draggedQuestionId, getQuestionCardDropTarget(questions, draggedQuestionId, question)))
     clearDrag()
   }
 
