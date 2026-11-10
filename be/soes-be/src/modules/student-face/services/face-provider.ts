@@ -76,10 +76,11 @@ export async function matchStudentFace(studentId: string, image: Uint8Array) {
   return result.FaceMatches?.find((match) => match.Face?.ExternalImageId === studentId)?.Similarity ?? 0
 }
 
-export async function deleteStudentFace(faceId: string) {
+export async function deleteStudentFace(faceId: string, collectionId = faceVerificationConfig.collectionId) {
   if (faceVerificationConfig.provider === 'mock') return
-  await client.send(new DeleteFacesCommand({
-    CollectionId: faceVerificationConfig.collectionId,
+  const result = await client.send(new DeleteFacesCommand({
+    CollectionId: collectionId,
     FaceIds: [faceId],
   }))
+  if (result.UnsuccessfulFaceDeletions?.length) throw new Error('AWS could not delete the enrolled face')
 }

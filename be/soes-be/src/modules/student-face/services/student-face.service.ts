@@ -57,7 +57,7 @@ export async function createSession(studentId: string, purpose: 'ENROLLMENT' | '
   if (!faceVerificationConfig.enabled) throw new ConflictError('Face verification is not enabled')
   const profile = await repository.findFaceProfile(studentId)
   if (purpose === 'ENROLLMENT') {
-    if (profile?.status === 'ACTIVE') throw new ConflictError('Face is already enrolled')
+    if (profile?.status === 'ACTIVE' || profile?.providerFaceId) throw new ConflictError('Face enrollment is not yet available')
   } else {
     if (!scheduleId) throw new ConflictError('Exam schedule is required')
     if (profile?.status !== 'ACTIVE') throw new ForbiddenError('Register your face before entering an exam')
@@ -139,7 +139,9 @@ export async function completeSession(studentId: string, id: string, actorUserId
   try {
     if (session.purpose === 'EXAM_ENTRY') {
       const profile = await repository.findFaceProfile(studentId)
-      if (profile?.status !== 'ACTIVE' || !session.examScheduleId) throw new NotFoundError('Face profile not found')
+      if (profile?.status !== 'ACTIVE' || !profile.enrolledAt || session.createdAt < profile.enrolledAt || !session.examScheduleId) {
+        throw new NotFoundError('Face profile not found')
+      }
       const retry = await examRetryState(prisma, studentId, session.examScheduleId)
       if (retry.windowStart && session.createdAt <= retry.windowStart) throw new ConflictError('Face verification belongs to a previous attempt')
       if (retry.requiresManualReview) throw new ForbiddenError('Proctor approval is required')
@@ -170,15 +172,15 @@ export async function completeSession(studentId: string, id: string, actorUserId
 
     if (session.purpose === 'ENROLLMENT') {
       const existing = await repository.findFaceProfile(studentId)
-      if (existing?.status === 'ACTIVE') throw new ConflictError('Face is already enrolled')
+      if (existing?.status === 'ACTIVE' || existing?.providerFaceId) throw new ConflictError('Face enrollment is not yet available')
       const mimeType = imageMimeType(assessment.image)
       const ciphertext = faceVerificationConfig.provider === 'mock' ? null : encryptFaceImage(assessment.image, enrollmentImageContext(studentId))
       const faceId = await provider.indexStudentFace(studentId, assessment.image)
       try {
         await prisma.$transaction(async (tx) => {
           await tx.$queryRaw`SELECT "id" FROM "Student" WHERE "id" = ${studentId} FOR UPDATE`
-          const current = await tx.studentFaceProfile.findUnique({ where: { studentId }, select: { status: true } })
-          if (current?.status === 'ACTIVE') throw new ConflictError('Face is already enrolled')
+          const current = await tx.studentFaceProfile.findUnique({ where: { studentId }, select: { status: true, providerFaceId: true } })
+          if (current?.status === 'ACTIVE' || current?.providerFaceId) throw new ConflictError('Face enrollment is not yet available')
           if (session.expiresAt <= new Date()) throw new ConflictError('Face verification session expired')
           await tx.studentFaceProfile.upsert({
             where: { studentId },
@@ -205,12 +207,13 @@ export async function completeSession(studentId: string, id: string, actorUserId
       return { status: 'FAILED' as const, failureCode: 'FACE_MISMATCH', ...profile }
     }
     await prisma.$transaction(async (tx) => {
-      const [profile] = await tx.$queryRaw<{ status: string }[]>`
-        SELECT "status" FROM "StudentFaceProfile"
+      const [profile] = await tx.$queryRaw<{ status: string; enrolledAt: Date | null }[]>`
+        SELECT "status", "enrolledAt" FROM "StudentFaceProfile"
         WHERE "studentId" = ${studentId} FOR UPDATE
       `
       const retry = await examRetryState(tx, studentId, session.examScheduleId!)
-      if (profile?.status !== 'ACTIVE' || (retry.windowStart && session.createdAt <= retry.windowStart)
+      if (profile?.status !== 'ACTIVE' || !profile.enrolledAt || session.createdAt < profile.enrolledAt
+        || (retry.windowStart && session.createdAt <= retry.windowStart)
         || retry.requiresManualReview || (retry.cooldownUntil && retry.cooldownUntil > new Date())) {
         throw new ForbiddenError('Face verification is temporarily unavailable')
       }

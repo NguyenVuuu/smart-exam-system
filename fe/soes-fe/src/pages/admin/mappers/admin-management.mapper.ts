@@ -34,4 +34,5 @@ export const toAdminUser = (dto: UserApiDto): AdminUser => ({
   departmentId: dto.department?.id, departmentName: dto.department?.name,
   position: dto.position === 'DEPARTMENT_HEAD' ? 'DEPARTMENT_HEAD' : dto.role === 'TEACHER' ? 'LECTURER' : undefined,
   status: dto.status === 'ACTIVE' ? 'ACTIVE' : 'LOCKED',
+  faceEnrollment: dto.faceEnrollment,
 })
