@@ -3,6 +3,7 @@ import { Braces, WandSparkles } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type { TakeExamLanguage } from '../../../types/take-exam.types'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../../constants/programmingLanguages'
+import { MONACO_LANGUAGE_IDS, registerProgrammingCompletions } from './programming-completions'
 
 interface ProgrammingCodeEditorProps {
   id: string
@@ -16,12 +17,6 @@ interface ProgrammingCodeEditorProps {
 
 const LANGUAGE_LABELS: Record<TakeExamLanguage, string> = {
   ...PROGRAMMING_LANGUAGE_LABELS,
-}
-
-const MONACO_LANGUAGES: Record<TakeExamLanguage, string> = {
-  C: 'c',
-  CPP: 'cpp',
-  JAVA: 'java',
 }
 
 const FILE_EXTENSIONS: Record<TakeExamLanguage, string> = {
@@ -42,6 +37,7 @@ export default function ProgrammingCodeEditor({
   blockRightClick,
 }: ProgrammingCodeEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
+  const disposeCompletionsRef = useRef<(() => void) | null>(null)
   const isRunningRef = useRef(isRunning)
   const onRunRef = useRef(onRun)
   const valueRef = useRef(value)
@@ -51,6 +47,8 @@ export default function ProgrammingCodeEditor({
     onRunRef.current = onRun
     valueRef.current = value
   }, [isRunning, onRun, value])
+
+  useEffect(() => () => disposeCompletionsRef.current?.(), [])
 
   const handleBeforeMount: BeforeMount = (monaco) => {
     monaco.editor.defineTheme('soes-exam-dark', {
@@ -79,6 +77,8 @@ export default function ProgrammingCodeEditor({
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
+    disposeCompletionsRef.current?.()
+    disposeCompletionsRef.current = registerProgrammingCompletions(monaco)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       if (!isRunningRef.current && valueRef.current.trim().length > 0) {
         onRunRef.current()
@@ -125,7 +125,7 @@ export default function ProgrammingCodeEditor({
       <div id={id} className="take-exam-code__monaco" style={{ height: EDITOR_HEIGHT }}>
         <Editor
           height={EDITOR_HEIGHT}
-          language={MONACO_LANGUAGES[language]}
+          language={MONACO_LANGUAGE_IDS[language]}
           theme="soes-exam-dark"
           value={value}
           beforeMount={handleBeforeMount}
@@ -162,6 +162,8 @@ export default function ProgrammingCodeEditor({
             padding: { top: 14, bottom: 14 },
             renderLineHighlight: 'all',
             scrollBeyondLastLine: false,
+            quickSuggestions: true,
+            suggestOnTriggerCharacters: true,
             smoothScrolling: true,
             tabSize: 4,
             wordWrap: 'off',

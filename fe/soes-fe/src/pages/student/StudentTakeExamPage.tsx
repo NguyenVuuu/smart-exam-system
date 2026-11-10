@@ -314,8 +314,10 @@ export default function StudentTakeExamPage() {
   // Auto-save when answers change
   useEffect(() => {
     if (!session || phase !== 'IN_PROGRESS') return
-    const hasAnyAnswer = Object.values(debouncedAnswers).some(val => val !== undefined && val !== '' && (Array.isArray(val) ? val.length > 0 : true))
-    if (hasAnyAnswer) {
+    const hasSavableAnswer = Object.values(debouncedAnswers).some((answer) =>
+      typeof answer === 'string' || (Array.isArray(answer) && answer.length > 0),
+    )
+    if (hasSavableAnswer) {
       saveAnswersToServer()
     }
   }, [debouncedAnswers, phase, saveAnswersToServer, session])
