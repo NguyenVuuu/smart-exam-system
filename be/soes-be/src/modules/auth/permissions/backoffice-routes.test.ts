@@ -43,7 +43,8 @@ stubModule('../../exam-schedules/controllers/exam-schedule.controller', {
 stubModule('../../admin-monitoring/admin-monitoring.controller', { proctoring: ok, reports: ok })
 stubModule('../../admin-users/controllers/admin-users.controller', {
   getNextCode: ok, listUsers: ok, listReferences: ok, createUser: ok, updateUser: ok,
-  setStatus: ok, resetPassword: ok, enroll: ok, listEnrollments: ok, withdraw: ok,
+  setStatus: ok, resetPassword: ok, faceImage: ok, revokeFace: ok,
+  enroll: ok, listEnrollments: ok, listEligibleStudents: ok, withdraw: ok,
 })
 stubModule('../../exam-review-groups/controllers/backoffice-review-group.controller', {
   list: ok, get: ok, listDepartments: ok, create: ok, rename: ok, setStatus: ok, candidates: ok, addMember: ok, removeMember: ok,
@@ -75,6 +76,8 @@ test('shared admin routers enforce only the permissions of the matched endpoint'
       ['/permissions', '', 403],
       ['/users', 'SCHEDULES_VIEW', 403],
       ['/users', 'USERS_VIEW', 200],
+      ['/students/00000000-0000-4000-8000-000000000001/face/enrollment-image', 'USERS_VIEW', 403],
+      ['/students/00000000-0000-4000-8000-000000000001/face/enrollment-image', 'USERS_MANAGE', 200],
       ['/review-groups', '', 403],
       ['/review-groups', 'REVIEW_GROUP_VIEW', 200],
       ['/review-groups/departments', 'REVIEW_GROUP_VIEW', 200],
@@ -106,6 +109,8 @@ test('shared admin routers enforce only the permissions of the matched endpoint'
       ['POST', '/course-offerings/course/enrollments', 'ACADEMIC_MANAGE', 200],
       ['POST', '/users', 'USERS_VIEW', 403],
       ['POST', '/users', 'USERS_MANAGE', 200],
+      ['POST', '/students/00000000-0000-4000-8000-000000000001/face/revoke', 'USERS_VIEW', 403],
+      ['POST', '/students/00000000-0000-4000-8000-000000000001/face/revoke', 'USERS_MANAGE', 200],
       ['POST', '/review-groups', 'REVIEW_GROUP_VIEW', 403],
       ['POST', '/review-groups', 'REVIEW_GROUP_MANAGE_ALL', 200],
       ['POST', '/semesters', 'SCHEDULES_MANAGE', 403],

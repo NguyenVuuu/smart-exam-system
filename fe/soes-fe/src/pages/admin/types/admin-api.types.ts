@@ -71,6 +71,13 @@ export interface UserApiDto {
   id: string; profileId: string; code: string; fullName: string; role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT'
   email: string | null; phoneNumber: string | null; status: string; position: string | null
   department: { id: string; code: string; name: string } | null
+  faceEnrollment: {
+    status: 'PENDING' | 'ACTIVE' | 'REVOKED'
+    enrolledAt: string | null
+    revokedAt: string | null
+    imageAvailable: boolean
+    cleanupPending: boolean
+  } | null
 }
 
 export interface DepartmentPayload {

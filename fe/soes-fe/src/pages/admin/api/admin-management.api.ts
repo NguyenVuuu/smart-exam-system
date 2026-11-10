@@ -60,6 +60,11 @@ export const setUserStatus = (role: UserApiDto['role'], profileId: string, statu
   .patch(`/admin/users/${role}/${profileId}/status`, { status })
 export const resetUserPassword = (role: UserApiDto['role'], profileId: string) => apiClient
   .post(`/admin/users/${role}/${profileId}/reset-password`, { password: '123456' })
+export const getStudentEnrollmentImage = (studentId: string) => apiClient
+  .get<Blob>(`/admin/students/${studentId}/face/enrollment-image`, { responseType: 'blob' })
+  .then((response) => response.data)
+export const revokeStudentFace = (studentId: string, reason: string) => apiClient
+  .post(`/admin/students/${studentId}/face/revoke`, { reason })
 
 export const enrollStudents = (courseOfferingId: string, studentIds: string[]) => apiClient
   .post(`/admin/course-offerings/${courseOfferingId}/enrollments`, { studentIds })

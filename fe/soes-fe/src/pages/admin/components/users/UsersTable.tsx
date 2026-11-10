@@ -70,6 +70,16 @@ export default function UsersTable({
       ),
     },
     {
+      header: 'KHUÔN MẶT',
+      width: '170px',
+      render: (item) => item.role !== 'STUDENT' ? <span className="text-slate-400">—</span>
+        : <AppBadge tone={item.faceEnrollment?.status === 'ACTIVE' ? 'emerald' : item.faceEnrollment?.cleanupPending ? 'rose' : 'blue'}>
+          {item.faceEnrollment?.status === 'ACTIVE' ? 'Đã đăng ký'
+            : item.faceEnrollment?.cleanupPending ? 'Đang thu hồi'
+              : item.faceEnrollment?.status === 'REVOKED' ? 'Đã thu hồi' : 'Chưa đăng ký'}
+        </AppBadge>,
+    },
+    {
       header: 'THAO TÁC',
       width: '160px',
       align: 'right',

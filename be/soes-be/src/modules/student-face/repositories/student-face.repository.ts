@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client'
 
 export function findFaceProfile(studentId: string) {
   return prisma.studentFaceProfile.findUnique({ where: { studentId }, select: {
-    studentId: true, status: true, providerFaceId: true,
+    studentId: true, status: true, providerFaceId: true, enrolledAt: true,
   } })
 }
 

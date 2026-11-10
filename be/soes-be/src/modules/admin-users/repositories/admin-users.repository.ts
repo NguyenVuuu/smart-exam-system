@@ -12,7 +12,10 @@ export const userSelect = {
     },
     take: 1,
   },
-  students: { select: { id: true, studentCode: true, status: true }, take: 1 },
+  students: { select: { id: true, studentCode: true, status: true,
+    faceProfile: { select: { status: true, enrolledAt: true, revokedAt: true,
+      referenceImageCapturedAt: true, providerFaceId: true } },
+  }, take: 1 },
 } satisfies Prisma.UserSelect
 
 export function listUsers(query: UsersQuery) {

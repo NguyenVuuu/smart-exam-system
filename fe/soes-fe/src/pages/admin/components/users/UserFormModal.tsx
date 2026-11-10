@@ -5,10 +5,13 @@ import { getNextUserCode } from '../../api/admin-management.api'
 import { AdminField, AdminInput } from '../AdminFormFields'
 import AdminModal from '../AdminModal'
 import AdminSelect from '../AdminSelect'
+import StudentFaceEnrollmentSection from './StudentFaceEnrollmentSection'
 
 export default function UserFormModal({
   open,
   editingUserId,
+  editingUser,
+  onFaceChanged,
   codeInput,
   onCodeChange,
   roleInput,
@@ -29,6 +32,8 @@ export default function UserFormModal({
 }: {
   open: boolean
   editingUserId: string | null
+  editingUser: AdminUser | null
+  onFaceChanged: () => Promise<void>
   codeInput: string
   onCodeChange: (val: string) => void
   roleInput: AdminUser['role']
@@ -156,6 +161,8 @@ export default function UserFormModal({
             />
           </AdminField>
         </div>
+        {isAdmin && editingUser?.role === 'STUDENT' && editingUser.profileId &&
+          <StudentFaceEnrollmentSection user={editingUser} studentId={editingUser.profileId} onChanged={onFaceChanged} />}
       </div>
     </AdminModal>
   )

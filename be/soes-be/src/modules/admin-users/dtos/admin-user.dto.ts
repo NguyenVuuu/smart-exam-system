@@ -4,4 +4,11 @@ export interface AdminUserDto {
   role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT'; status: string
   position: string | null
   department: { id: string; code: string; name: string } | null
+  faceEnrollment: {
+    status: 'PENDING' | 'ACTIVE' | 'REVOKED'
+    enrolledAt: Date | null
+    revokedAt: Date | null
+    imageAvailable: boolean
+    cleanupPending: boolean
+  } | null
 }

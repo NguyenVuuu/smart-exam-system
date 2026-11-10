@@ -130,7 +130,8 @@ export default function AdminUsersPage() {
             .then(() => toast.success(user.status === 'ACTIVE' ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.'))
             .catch(() => toast.error('Không thể đổi trạng thái tài khoản.'))} />}
       </AdminTablePanel>
-      <UserFormModal open={canManage && modalOpen} editingUserId={editingUser?.id ?? null} codeInput={code} onCodeChange={setCode}
+      <UserFormModal open={canManage && modalOpen} editingUserId={editingUser?.id ?? null} editingUser={editingUser}
+        onFaceChanged={async () => { setModalOpen(false); setEditingUser(null); await data.retry() }} codeInput={code} onCodeChange={setCode}
         roleInput={userRole} onRoleChange={setUserRole} fullNameInput={fullName} onFullNameChange={setFullName}
         emailInput={email} onEmailChange={setEmail} phoneInput={phone} onPhoneChange={setPhone}
         departmentInput={userDepartmentId} onDepartmentChange={setUserDepartmentId} statusInput={userStatus}

@@ -66,6 +66,13 @@ export interface AdminUser {
   departmentId?: string
   position?: 'LECTURER' | 'DEPARTMENT_HEAD'
   status: 'ACTIVE' | 'LOCKED'
+  faceEnrollment?: {
+    status: 'PENDING' | 'ACTIVE' | 'REVOKED'
+    enrolledAt: string | null
+    revokedAt: string | null
+    imageAvailable: boolean
+    cleanupPending: boolean
+  } | null
 }
 
 export interface SharedQuestionAdmin {

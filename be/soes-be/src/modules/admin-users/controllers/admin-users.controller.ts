@@ -4,6 +4,7 @@ import { ForbiddenError } from '../../../errors/AppError'
 import { sendSuccess as send } from '../../../utils/httpResponse'
 import * as service from '../services/admin-users.service'
 import { accountStatusSchema, createUserSchema, enrollmentBodySchema, enrollmentQuerySchema, resetPasswordSchema, updateUserSchema, usersQuerySchema } from '../validators/admin-users.validator'
+import * as faceService from '../services/admin-users.face.service'
 
 const profileParams = z.object({ role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']), profileId: z.string().min(1) })
 const enrollmentParams = z.object({ courseOfferingId: z.string().min(1), studentId: z.string().min(1).optional() })
@@ -28,7 +29,7 @@ export const listReferences = async (req: Request, res: Response) => {
   const page = await service.list(query)
   send(res, {
     ...page,
-    items: page.items.map((item) => ({ ...item, email: null, phoneNumber: null, avatarUrl: null })),
+    items: page.items.map((item) => ({ ...item, email: null, phoneNumber: null, avatarUrl: null, faceEnrollment: null })),
   })
 }
 export const createUser = async (req: Request, res: Response) => {
@@ -50,6 +51,26 @@ export const resetPassword = async (req: Request, res: Response) => {
   const params = profileParams.parse(req.params)
   requireAdminForAdminAccount(req, params.role)
   send(res, await service.resetPassword(params.role, params.profileId, resetPasswordSchema.parse(req.body).password))
+}
+const studentFaceParams = z.object({ studentId: z.string().uuid() })
+const revokeFaceSchema = z.object({ reason: z.string().trim().min(10).max(500) })
+function requireFaceAdmin(req: Request) {
+  if (req.user?.role !== 'ADMIN') throw new ForbiddenError('Only administrators can manage enrolled faces')
+}
+export const faceImage = async (req: Request, res: Response) => {
+  requireFaceAdmin(req)
+  const { studentId } = studentFaceParams.parse(req.params)
+  const image = await faceService.getEnrollmentImage(studentId, req.user!.id)
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.type(image.mimeType).send(image.bytes)
+}
+export const revokeFace = async (req: Request, res: Response) => {
+  requireFaceAdmin(req)
+  const { studentId } = studentFaceParams.parse(req.params)
+  const { reason } = revokeFaceSchema.parse(req.body)
+  send(res, await faceService.revokeEnrollment(studentId, req.user!.id, reason))
 }
 export const enroll = async (req: Request, res: Response) => {
   const { courseOfferingId } = enrollmentParams.parse(req.params)
