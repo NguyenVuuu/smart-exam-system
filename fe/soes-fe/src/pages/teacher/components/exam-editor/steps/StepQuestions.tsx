@@ -5,6 +5,7 @@ import { StepCard } from '../ExamEditorPrimitives'
 import { QuestionRow } from '../QuestionRow'
 import type { ApiFieldErrors } from '../../../../../api/errors'
 import { normalizePoint } from '../../../utils/ExamEditorUtils'
+import { useQuestionDrag } from '../useQuestionDrag'
 
 export function StepQuestions(props: {
   sections: ExamSection[]
@@ -25,6 +26,13 @@ export function StepQuestions(props: {
   fieldErrors?: ApiFieldErrors
   onFieldChange?: (field: string) => void
 }) {
+  const drag = useQuestionDrag({
+    questions: props.questions,
+    sections: props.sections,
+    setQuestions: props.setQuestions,
+    setActiveSectionId: props.setActiveSectionId,
+  })
+
   const updateQuestionPoints = (index: number, points: number) => {
     props.onFieldChange?.('items')
     const updated = [...props.questions]
@@ -56,8 +64,12 @@ export function StepQuestions(props: {
                   key={section.id}
                   type="button"
                   onClick={() => props.setActiveSectionId(section.id)}
+                  onDragOver={(event) => drag.dragOverSection(event, section.id)}
+                  onDrop={(event) => drag.dropOnSection(event, section.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                    props.activeSectionId === section.id
+                    drag.dropTarget?.sectionId === section.id && !drag.dropTarget.questionId
+                      ? 'border-blue-500 bg-blue-100 text-blue-900 ring-2 ring-blue-200'
+                      : props.activeSectionId === section.id
                       ? 'border-blue-500 bg-blue-50 text-blue-800'
                       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                   }`}
@@ -96,25 +108,41 @@ export function StepQuestions(props: {
           </div>
         </div>
 
+        {props.visibleQuestions.length > 0 && (
+          <p className="text-xs text-gray-500">Kéo card để đổi thứ tự hoặc thả lên tab phần thi phù hợp. Có thể chọn biểu tượng ⋮⋮ rồi nhấn ↑/↓.</p>
+        )}
         <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
           {props.visibleQuestions.map((item, sectionIndex) => {
             const globalIndex = props.questions.findIndex((q) => q.questionId === item.questionId)
             return (
-              <QuestionRow
+              <div
                 key={item.questionId}
-                item={item}
-                revisionNote={item.snapshotQuestionId ? props.revisionNotes.get(item.snapshotQuestionId) : undefined}
-                index={sectionIndex}
-                sections={props.sections}
-                isCollapsed={props.collapsedQuestionIds.includes(item.questionId)}
-                onToggleCollapse={() => props.onToggleQuestionCollapse(item.questionId)}
-                onPointChange={(points) => updateQuestionPoints(globalIndex, points)}
-                onSectionChange={(sectionId) => updateQuestionSection(item.questionId, sectionId)}
-                onEdit={() => props.onEdit(item.question)}
-                onRemove={() => {
-                  props.setQuestions(props.questions.filter((q) => q.questionId !== item.questionId))
-                }}
-              />
+                draggable
+                className={`relative cursor-grab active:cursor-grabbing ${drag.draggedQuestionId === item.questionId ? 'opacity-50' : ''}`}
+                onPointerDownCapture={drag.prepareDrag}
+                onPointerUpCapture={(event) => { event.currentTarget.draggable = true }}
+                onDragStart={(event) => drag.startDrag(event, item.questionId)}
+                onDragEnd={(event) => { event.currentTarget.draggable = true; drag.clearDrag() }}
+                onDragOver={(event) => drag.dragOverQuestion(event, item)}
+                onDrop={(event) => drag.dropOnQuestion(event, item)}
+              >
+                {drag.dropTarget?.questionId === item.questionId && (
+                  <div className={`pointer-events-none absolute inset-x-1 z-10 h-1 rounded-full bg-blue-500 ${drag.dropTarget.edge === 'before' ? '-top-2' : '-bottom-2'}`} />
+                )}
+                <QuestionRow
+                  item={item}
+                  revisionNote={item.snapshotQuestionId ? props.revisionNotes.get(item.snapshotQuestionId) : undefined}
+                  index={sectionIndex}
+                  sections={props.sections}
+                  isCollapsed={props.collapsedQuestionIds.includes(item.questionId)}
+                  onToggleCollapse={() => props.onToggleQuestionCollapse(item.questionId)}
+                  onPointChange={(points) => updateQuestionPoints(globalIndex, points)}
+                  onSectionChange={(sectionId) => updateQuestionSection(item.questionId, sectionId)}
+                  onEdit={() => props.onEdit(item.question)}
+                  onRemove={() => props.setQuestions(props.questions.filter((question) => question.questionId !== item.questionId))}
+                  onMove={(direction) => drag.moveWithKeyboard(item.questionId, direction)}
+                />
+              </div>
             )
           })}
 

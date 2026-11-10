@@ -1,8 +1,9 @@
-import { Check, ChevronDown, ChevronUp, Code, Edit, MessageSquareText, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Code, Edit, GripVertical, MessageSquareText, Trash2 } from 'lucide-react'
 import AppSelect from '../../../../components/common/AppSelect'
 import type { ExamQuestionItem, ExamSection } from '../../types/teacher-exam.types'
 import type { Question } from '../../types/teacher-question-bank.types'
 import { questionTypeLabel } from '../../constants/ExamEditorConfig'
+import { canPlaceQuestionInSection } from '../../utils/ExamQuestionReorder'
 
 export function QuestionRow({
   item,
@@ -15,6 +16,7 @@ export function QuestionRow({
   onSectionChange,
   onEdit,
   onRemove,
+  onMove,
 }: {
   item: ExamQuestionItem
   revisionNote?: string
@@ -26,11 +28,13 @@ export function QuestionRow({
   onSectionChange: (sectionId: string) => void
   onEdit: () => void
   onRemove: () => void
+  onMove: (direction: -1 | 1) => void
 }) {
   if (isCollapsed) {
     return (
       <div className="px-4 py-3 rounded-xl border border-gray-100 bg-white hover:border-blue-100 transition-colors">
         <div className="flex items-center gap-3">
+          <QuestionDragHandle index={index} onMove={onMove} />
           <button
             type="button"
             onClick={onToggleCollapse}
@@ -57,6 +61,7 @@ export function QuestionRow({
   return (
     <div className="p-4 rounded-xl border border-gray-100 bg-white hover:border-blue-100 transition-colors">
       <div className="flex items-start gap-3">
+        <QuestionDragHandle index={index} onMove={onMove} />
         <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
           {index + 1}
         </div>
@@ -97,7 +102,7 @@ export function QuestionRow({
             onChange={onSectionChange}
             buttonClassName="bg-white text-xs rounded-lg p-2 shadow-2xs"
             menuClassName="min-w-52"
-            options={sections.map((section) => ({
+            options={sections.filter((section) => canPlaceQuestionInSection(item, section)).map((section) => ({
               value: section.id,
               label: section.title,
             }))}
@@ -126,6 +131,27 @@ export function QuestionRow({
       {revisionNote && <RevisionFeedback note={revisionNote} />}
     </div>
   )
+}
+
+function QuestionDragHandle({ index, onMove }: {
+  index: number
+  onMove: (direction: -1 | 1) => void
+}) {
+  return <button
+    type="button"
+    draggable
+    data-drag-handle
+    onKeyDown={(event) => {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+      event.preventDefault()
+      onMove(event.key === 'ArrowUp' ? -1 : 1)
+    }}
+    className="flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-blue-500"
+    aria-label={`Đổi vị trí câu ${index + 1}. Kéo thả hoặc nhấn mũi tên lên, xuống`}
+    title="Kéo để sắp xếp; nhấn ↑ hoặc ↓ để đổi vị trí"
+  >
+    <GripVertical size={17} />
+  </button>
 }
 
 function RevisionFeedback({ note }: { note: string }) {
