@@ -14,8 +14,14 @@ export const scheduleInclude = {
     },
   },
   attempts: { select: { studentId: true, status: true } },
+  targetStudents: {
+    include: {
+      student: { select: { id: true, studentCode: true, user: { select: { fullName: true } } } },
+    },
+    orderBy: { createdAt: 'asc' as const },
+  },
   _count: { select: { attempts: true } },
-}
+} satisfies Prisma.ExamScheduleInclude
 
 function effectiveStatusWhere(status: SchedulesQuery['status']): Prisma.ExamScheduleWhereInput {
   if (!status) return {}

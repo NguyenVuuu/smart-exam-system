@@ -2,6 +2,16 @@ import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 
+/** Tìm ca dự phòng đang còn chạy (chưa kết thúc) của ca gốc */
+export const findActiveMakeupSchedule = (sourceScheduleId: string) =>
+  prisma.examSchedule.findFirst({
+    where: {
+      makeupOfScheduleId: sourceScheduleId,
+      status: { in: ['DRAFT', 'SCHEDULED', 'OPEN'] },
+    },
+    select: { id: true, title: true, status: true, startTime: true, endTime: true },
+  })
+
 export const submissionInclude = {
   student: { include: { user: { select: { fullName: true } } } },
   examSchedule: {
@@ -57,7 +67,15 @@ const violationAccess = (teacherId: string): Prisma.ExamScheduleWhereInput => ({
 
 export const findScheduleAccess = (teacherId: string, examId: string, scheduleId: string) =>
   prisma.examSchedule.findFirst({
-    where: { id: scheduleId, examId, ...gradingAccess(teacherId) },
+    where: {
+      id: scheduleId,
+      // Ca dự phòng có examId khác ca gốc — chỉ cần kiểm tra examId hoặc ca gốc khớp examId
+      OR: [
+        { examId },
+        { makeupOfSchedule: { examId } },
+      ],
+      ...gradingAccess(teacherId),
+    },
     select: {
       id: true, status: true, startTime: true, endTime: true,
       resultReleaseMode: true, resultReleaseAt: true, resultsPublishedAt: true,
@@ -184,9 +202,16 @@ export async function addManualViolationEvidence(input: {
 async function ensureZeroAttemptsForAbsentees(scheduleId: string, courseOfferingIds: string[]) {
   const schedule = await prisma.examSchedule.findUnique({
     where: { id: scheduleId },
-    select: { id: true, examId: true, endTime: true },
+    select: {
+      id: true, examId: true, endTime: true,
+      // Ca dự phòng có targetStudents — không tạo phantom attempt, chỉ SV whitelist mới được thi
+      makeupOfScheduleId: true,
+      targetStudents: { select: { studentId: true } },
+    },
   })
   if (!schedule) return
+  // Ca dự phòng: không tạo phantom attempt cho người không được phép thi
+  if (schedule.makeupOfScheduleId) return
 
   const enrollments = await prisma.enrollment.findMany({
     where: { courseOfferingId: { in: courseOfferingIds } },
@@ -229,9 +254,13 @@ export async function listSubmissions(scheduleId: string, courseOfferingIds: str
   await ensureZeroAttemptsForAbsentees(scheduleId, courseOfferingIds)
   const makeupSchedules = await prisma.examSchedule.findMany({
     where: { makeupOfScheduleId: scheduleId },
-    select: { id: true },
+    select: { id: true, targetStudents: { select: { studentId: true } } },
   })
   const scheduleIds = [scheduleId, ...makeupSchedules.map((schedule) => schedule.id)]
+  // Tập hợp studentId được phép thi ca dự phòng (để lọc bỏ phantom attempt của SV không được phép)
+  const makeupTargetStudentIds = new Set(
+    makeupSchedules.flatMap((s) => s.targetStudents.map((t) => t.studentId)),
+  )
   const where: Prisma.ExamAttemptWhereInput = {
     examScheduleId: { in: scheduleIds },
     courseOfferingId: { in: courseOfferingIds },
@@ -244,8 +273,12 @@ export async function listSubmissions(scheduleId: string, courseOfferingIds: str
   })
   const byStudent = new Map<string, (typeof rows)[number]>()
   for (const row of rows) {
-    const current = byStudent.get(row.studentId)
     const isMakeup = row.examSchedule.makeupOfScheduleId === scheduleId
+    // Bỏ qua attempt của ca dự phòng nếu SV đó không có trong whitelist
+    if (isMakeup && makeupTargetStudentIds.size > 0 && !makeupTargetStudentIds.has(row.studentId)) {
+      continue
+    }
+    const current = byStudent.get(row.studentId)
     const currentIsMakeup = current?.examSchedule.makeupOfScheduleId === scheduleId
     if (!current || (isMakeup && !currentIsMakeup)) {
       byStudent.set(row.studentId, row)
@@ -368,8 +401,14 @@ export function markAttemptViolationsViewed(input: {
   return prisma.examAttempt.updateMany({
     where: {
       id: input.attemptId,
-      examScheduleId: input.scheduleId,
-      examSchedule: { examId: input.examId, ...gradingAccess(input.teacherId) },
+      // Attempt có thể thuộc ca gốc hoặc ca dự phòng của ca gốc
+      examSchedule: {
+        OR: [
+          { id: input.scheduleId },
+          { makeupOfScheduleId: input.scheduleId },
+        ],
+        ...gradingAccess(input.teacherId),
+      },
       courseOffering: { teacherId: input.teacherId },
       violations: { some: {} },
     },

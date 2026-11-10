@@ -40,6 +40,12 @@ export function toExamScheduleDto(row: ScheduleRow): ExamScheduleDto {
       id: courseOffering.id, code: courseOffering.code,
       proctors: proctors.map(({ teacher }) => ({ id: teacher.id, code: teacher.teacherCode, fullName: teacher.user.fullName })),
     })),
+    targetStudents: row.targetStudents.map(({ student }) => ({
+      id: student.id,
+      studentCode: student.studentCode,
+      fullName: student.user.fullName,
+    })),
     createdAt: row.createdAt, updatedAt: row.updatedAt,
+    makeupOfScheduleId: row.makeupOfScheduleId ?? null,
   }
 }

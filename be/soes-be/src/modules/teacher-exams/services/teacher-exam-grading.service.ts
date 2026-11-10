@@ -498,6 +498,14 @@ export async function finalizeScores(
   const invalid = data.items.find((item) => item.score > totalPoints)
   if (invalid) throw new ValidationError('Score cannot exceed exam total points')
 
+  // Block chốt nếu có ca dự phòng đang chạy (SCHEDULED hoặc OPEN)
+  const activeMakeup = await repo.findActiveMakeupSchedule(scheduleId)
+  if (activeMakeup) {
+    throw new ConflictError(
+      `Ca thi dự phòng "${activeMakeup.title}" chưa kết thúc. Vui lòng đợi ca dự phòng kết thúc trước khi chốt điểm.`,
+    )
+  }
+
   const result = await repo.finalizeScores({ teacherId, userId, examId, scheduleId, items: data.items })
   if (!result) throw new NotFoundError('Exam submissions not found')
   if (result.blockedAttemptIds.length) {

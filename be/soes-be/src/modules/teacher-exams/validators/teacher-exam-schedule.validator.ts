@@ -32,8 +32,29 @@ export const teacherExamScheduleBodySchema = z.object({
 })
 
 export const teacherScheduleCancellationSchema = z.object({ reason: z.string().trim().min(5).max(1000) })
-export const teacherMakeupScheduleBodySchema = teacherExamScheduleBodySchema.extend({
+
+/**
+ * Schema cho ca thi dự phòng.
+ * - `studentIds`: Danh sách sinh viên được phép thi ca dự phòng.
+ * - `makeupExamId`: Đề thi cho ca dự phòng (có thể khác đề gốc). Nếu không truyền thì dùng đề của ca gốc.
+ * - `courseOfferingId` không bắt buộc — lấy từ ca gốc.
+ */
+export const teacherMakeupScheduleBodySchema = z.object({
   studentIds: z.array(z.string().uuid()).min(1).max(200),
+  makeupExamId: z.string().uuid().optional().nullable(),
+  startTime: z.coerce.date(),
+  endTime: z.coerce.date(),
+  durationMinutes: z.coerce.number().int().min(1).max(1440),
+  password: z.string().trim().min(4).max(100).optional().nullable(),
+  enableTabLock: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableTabLock),
+  requireFullscreen: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.requireFullscreen),
+  enableWebcam: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableWebcam),
+  enableScreenMonitoring: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.enableScreenMonitoring),
+  blockCopyPaste: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.blockCopyPaste),
+  blockRightClick: z.boolean().default(EXAM_SCHEDULE_DEFAULTS.blockRightClick),
+}).superRefine((data, ctx) => {
+  if (data.endTime <= data.startTime) ctx.addIssue({ code: 'custom', path: ['endTime'], message: 'End time must be after start time' })
 })
+
 export type TeacherExamScheduleBody = z.infer<typeof teacherExamScheduleBodySchema>
 export type TeacherMakeupScheduleBody = z.infer<typeof teacherMakeupScheduleBodySchema>

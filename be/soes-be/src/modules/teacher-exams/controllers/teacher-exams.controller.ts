@@ -79,6 +79,16 @@ export const createMakeupSchedule = async (req: Request, res: Response) => {
   ), 201)
 }
 
+export const getMakeupEligibility = async (req: Request, res: Response) => {
+  const params = z.object({ id: z.string().min(1), scheduleId: z.string().min(1) }).parse(req.params)
+  send(res, await scheduleService.getMakeupEligibility(
+    req.user!.profileId,
+    req.user!.id,
+    params.id,
+    params.scheduleId,
+  ))
+}
+
 const gradingParams = z.object({
   id: z.string().min(1), scheduleId: z.string().min(1), attemptId: z.string().min(1).optional(),
 })

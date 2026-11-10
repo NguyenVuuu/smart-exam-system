@@ -154,6 +154,46 @@ export async function create(
   return dto;
 }
 
+export async function getMakeupEligibility(
+  teacherId: string,
+  userId: string,
+  examId: string,
+  scheduleId: string,
+) {
+  const schedule = await repo.findMakeupEligibility(teacherId, userId, examId, scheduleId)
+  if (!schedule) return { eligible: false, reason: 'not_found' as const }
+
+  const now = new Date()
+  const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000
+  const deadline = new Date(schedule.endTime.getTime() + FORTY_EIGHT_HOURS_MS)
+
+  // Đã chốt điểm → không cho tạo
+  if (schedule.resultsPublishedAt) {
+    return { eligible: false, reason: 'already_published' as const, deadline }
+  }
+  // Quá 48h → không cho tạo
+  if (now > deadline) {
+    return { eligible: false, reason: 'deadline_passed' as const, deadline }
+  }
+  // Đã có ca dự phòng → không cho tạo thêm
+  const existingMakeup = schedule.makeupSchedules[0]
+  if (existingMakeup) {
+    return {
+      eligible: false,
+      reason: 'makeup_exists' as const,
+      deadline,
+      existingMakeup: {
+        id: existingMakeup.id,
+        status: existingMakeup.status,
+        startTime: existingMakeup.startTime,
+        endTime: existingMakeup.endTime,
+      },
+    }
+  }
+
+  return { eligible: true, reason: null, deadline }
+}
+
 export async function createMakeup(
   teacherId: string,
   userId: string,
@@ -168,20 +208,95 @@ export async function createMakeup(
   })
   const course = source.scheduleCourses[0]?.courseOffering
   if (!course) throw new NotFoundError("Course offering not found")
-  await requireVerifiedExamAnchor(examId)
+
+  // ── Validate nghiệp vụ ca dự phòng ──────────────────────────────────────────
+
+  const now = new Date()
+  const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000
+  const deadline = new Date(source.endTime.getTime() + FORTY_EIGHT_HOURS_MS)
+
+  // Ca gốc chưa kết thúc thì không thể tạo ca dự phòng
+  const sourceStatus = computeScheduleStatus(source.status, source.startTime, source.endTime)
+  if (sourceStatus !== 'CLOSED') {
+    throw new ConflictError('Ca gốc chưa kết thúc, không thể tạo ca dự phòng')
+  }
+
+  // Đã chốt điểm
+  if (source.resultsPublishedAt) {
+    throw new ConflictError('Điểm đã được chốt, không thể tạo ca dự phòng')
+  }
+
+  // Quá 48h kể từ khi ca gốc kết thúc
+  if (now > deadline) {
+    throw new ConflictError('Đã quá 48 giờ kể từ khi ca thi kết thúc, không thể tạo ca dự phòng')
+  }
+
+  // Đã có ca dự phòng
+  if (source._count.makeupSchedules > 0) {
+    throw new ConflictError('Ca thi này đã có ca dự phòng, không thể tạo thêm')
+  }
+
+  // startTime phải sau endTime của ca gốc
+  if (data.startTime <= source.endTime) {
+    throw new ValidationError('Thời gian bắt đầu ca dự phòng phải sau khi ca gốc kết thúc')
+  }
+
+  // ── Xác định examId cho ca dự phòng ─────────────────────────────────────────
+
+  // Nếu GV chọn đề khác thì verify đề đó, không thì dùng đề gốc
+  const makeupExamId = data.makeupExamId ?? examId
+  if (makeupExamId !== examId) {
+    // Kiểm tra đề mới: phải cùng môn học, đã anchor blockchain
+    const makeupExam = await repo.findOwnedExam(teacherId, makeupExamId)
+    if (!makeupExam) throw new NotFoundError('Đề thi dự phòng không tồn tại hoặc bạn không có quyền')
+    if (makeupExam.subjectId !== source.exam.subjectId) {
+      throw new ValidationError('Đề thi dự phòng phải cùng môn học với ca gốc')
+    }
+    if (makeupExam.status !== 'READY' || !makeupExam._count.examQuestions) {
+      throw new ValidationError('Đề thi dự phòng phải ở trạng thái sẵn sàng và có câu hỏi')
+    }
+  }
+  await requireVerifiedExamAnchor(makeupExamId)
+
+  // ── Validate sinh viên ────────────────────────────────────────────────────────
 
   const students = await repo.listCourseStudents(course.id, data.studentIds)
   if (students.length !== new Set(data.studentIds).size) {
-    throw new ValidationError("Some selected students are not enrolled in this course offering")
+    throw new ValidationError("Một số sinh viên không thuộc lớp học phần này")
   }
 
-  const input = await toWriteInput(teacherId, examId, source.exam.title, course.code, {
-    ...data,
-    courseOfferingId: course.id,
-  })
-  input.title = `${input.title} (Dự phòng)`
-  input.makeupOfScheduleId = sourceScheduleId
-  input.targetStudentIds = data.studentIds
+  // ── Tạo ScheduleWriteInput cho ca dự phòng ────────────────────────────────────
+
+  const passwordHash = data.password ? await bcrypt.hash(data.password, 10) : null
+  const input: ScheduleWriteInput = {
+    title: `${course.code} - ${source.exam.title} (Dự phòng)`,
+    examId: makeupExamId,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    durationMinutes: data.durationMinutes,
+    maxAttempts: 1,
+    passwordHash,
+    enableTabLock: data.enableTabLock,
+    maxTabSwitches: null,
+    requireFullscreen: data.requireFullscreen,
+    enableWebcam: data.enableWebcam,
+    enableScreenMonitoring: data.enableScreenMonitoring,
+    blockCopyPaste: data.blockCopyPaste,
+    blockRightClick: data.blockRightClick,
+    locationMode: source.locationMode,
+    allowedIpRanges: source.allowedIpRanges,
+    distributionMode: 'SHUFFLE_QUESTIONS_AND_OPTIONS',
+    randomQuestionCount: null,
+    resultReleaseMode: 'MANUAL',
+    resultReleaseAt: null,
+    reviewPolicy: 'NONE',
+    reviewStartAt: null,
+    reviewEndAt: null,
+    status: 'SCHEDULED',
+    courses: [{ courseOfferingId: course.id, teacherIds: [teacherId] }],
+    makeupOfScheduleId: sourceScheduleId,
+    targetStudentIds: data.studentIds,
+  }
 
   const row = await runSerializable(async (tx) => {
     await assertNoConflict(tx, teacherId, course.id, input)

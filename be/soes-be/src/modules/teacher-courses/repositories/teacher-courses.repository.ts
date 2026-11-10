@@ -181,7 +181,11 @@ export function listCourseStudents(teacherId: string, courseOfferingId: string, 
 export function listCourseExams(teacherId: string, courseOfferingId: string, query: CourseCollectionQuery) {
   const where = {
     courseOfferingId, courseOffering: { teacherId },
-    ...(query.keyword && { examSchedule: { exam: { title: { contains: query.keyword, mode: 'insensitive' as const } } } }),
+    // Ẩn ca thi dự phòng khỏi danh sách bài thi của lớp
+    examSchedule: {
+      makeupOfScheduleId: null,
+      ...(query.keyword && { exam: { title: { contains: query.keyword, mode: 'insensitive' as const } } }),
+    },
   }
   return Promise.all([
     prisma.examScheduleCourse.count({ where }),
