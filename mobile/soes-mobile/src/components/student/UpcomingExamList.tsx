@@ -1,4 +1,5 @@
 import { View, Text } from 'react-native'
+import { CalendarDays } from 'lucide-react-native'
 import type { UpcomingExam } from '../../types/dashboard.types'
 
 export default function UpcomingExamList({ exams }: { exams: UpcomingExam[] }) {
@@ -10,7 +11,7 @@ export default function UpcomingExamList({ exams }: { exams: UpcomingExam[] }) {
     }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
         <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#f0fdf4', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 14 }}>📅</Text>
+          <CalendarDays size={16} color="#16a34a" />
         </View>
         <Text style={{ fontSize: 13, fontWeight: '700', color: '#0f172a' }}>Bài thi sắp tới</Text>
       </View>

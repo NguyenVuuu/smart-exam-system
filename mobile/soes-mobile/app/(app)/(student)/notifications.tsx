@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native'
 import { router } from 'expo-router'
+import { Bell, Check, CheckCheck, RefreshCw } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import {
   getStudentNotifications, markNotificationRead, markAllNotificationsRead,
@@ -141,7 +142,7 @@ export default function NotificationsScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#fef9c3', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 18 }}>🔔</Text>
+                <Bell size={20} color="#ca8a04" />
               </View>
               <View>
                 <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>Thông báo</Text>
@@ -157,7 +158,7 @@ export default function NotificationsScreen() {
               disabled={isLoading || unreadCount === 0 || markingAll}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', opacity: (isLoading || unreadCount === 0) ? 0.5 : 1 }}
             >
-              <Text style={{ fontSize: 14 }}>✓</Text>
+              <CheckCheck size={16} color="#475569" />
               <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569' }}>Đánh dấu đã đọc</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -165,7 +166,7 @@ export default function NotificationsScreen() {
               disabled={isLoading}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', opacity: isLoading ? 0.5 : 1 }}
             >
-              <Text style={{ fontSize: 14 }}>↻</Text>
+              <RefreshCw size={16} color="#475569" />
               <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569' }}>Làm mới</Text>
             </TouchableOpacity>
           </View>
@@ -188,7 +189,7 @@ export default function NotificationsScreen() {
           )}
           {!isLoading && !error && notifications.length === 0 && (
             <View style={{ alignItems: 'center', paddingTop: 40 }}>
-              <Text style={{ fontSize: 32, marginBottom: 8 }}>🔔</Text>
+              <Bell size={34} color="#94a3b8" style={{ marginBottom: 8 }} />
               <Text style={{ color: '#94a3b8', fontSize: 13 }}>Bạn chưa có thông báo nào.</Text>
             </View>
           )}
@@ -220,7 +221,7 @@ export default function NotificationsScreen() {
                   </View>
 
                   {item.isRead && (
-                    <Text style={{ fontSize: 16, color: '#cbd5e1', marginTop: 2 }}>✓</Text>
+                    <Check size={17} color="#cbd5e1" style={{ marginTop: 2 }} />
                   )}
                 </TouchableOpacity>
               ))}

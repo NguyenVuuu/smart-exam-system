@@ -3,6 +3,7 @@ import {
   FlatList, ActivityIndicator,
 } from 'react-native'
 import { router } from 'expo-router'
+import { ArrowRight, BookOpen, BookOpenText, ChevronLeft, ChevronRight, ClipboardList, FileText, GraduationCap, Search, Star, X } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { useStudentSubjects } from '../../../src/hooks/useStudentSubjects'
 import StudentLayout from '../../../src/components/student/StudentLayout'
@@ -24,7 +25,7 @@ function SubjectCardItem({ subject }: { subject: SubjectCard }) {
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 20 }}>📖</Text>
+          <BookOpen size={22} color="#2563eb" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -38,25 +39,25 @@ function SubjectCardItem({ subject }: { subject: SubjectCard }) {
 
       {/* Teacher */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-        <Text style={{ fontSize: 12 }}>👨‍🏫</Text>
+        <GraduationCap size={14} color="#64748b" />
         <Text style={{ fontSize: 12, color: '#64748b' }} numberOfLines={1}>{subject.teacherName}</Text>
       </View>
 
       {/* Stats */}
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text style={{ fontSize: 11 }}>📝</Text>
+          <FileText size={13} color="#64748b" />
           <Text style={{ fontSize: 11, color: '#64748b' }}>{subject.postCount} bài đăng</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text style={{ fontSize: 11 }}>📋</Text>
+          <ClipboardList size={13} color="#64748b" />
           <Text style={{ fontSize: 11, color: '#64748b' }}>{subject.examCount} bài thi</Text>
         </View>
       </View>
 
       {/* Button */}
-      <View style={{ backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 8, alignItems: 'center' }}>
-        <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>Vào môn học →</Text>
+      <View style={{ backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 }}>
+        <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>Vào môn học</Text><ArrowRight size={14} color="#2563eb" />
       </View>
     </TouchableOpacity>
   )
@@ -82,7 +83,7 @@ function Pagination({ page, totalPages, onPageChange }: { page: number; totalPag
         onPress={() => onPageChange(page - 1)} disabled={page <= 1}
         style={{ width: 34, height: 34, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', opacity: page <= 1 ? 0.4 : 1 }}
       >
-        <Text style={{ color: '#64748b', fontSize: 16 }}>‹</Text>
+        <ChevronLeft size={17} color="#64748b" />
       </TouchableOpacity>
       {pages.map(p => (
         <TouchableOpacity
@@ -96,7 +97,7 @@ function Pagination({ page, totalPages, onPageChange }: { page: number; totalPag
         onPress={() => onPageChange(page + 1)} disabled={page >= totalPages}
         style={{ width: 34, height: 34, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', opacity: page >= totalPages ? 0.4 : 1 }}
       >
-        <Text style={{ color: '#64748b', fontSize: 16 }}>›</Text>
+        <ChevronRight size={17} color="#64748b" />
       </TouchableOpacity>
     </View>
   )
@@ -117,7 +118,7 @@ export default function SubjectsScreen() {
           {/* Page title */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 }}>
             <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18 }}>📖</Text>
+              <BookOpen size={20} color="#2563eb" />
             </View>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>Môn Học Của Tôi</Text>
           </View>
@@ -127,7 +128,7 @@ export default function SubjectsScreen() {
             <View style={{ gap: 8, marginBottom: 16 }}>
               {/* Search */}
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, height: 42 }}>
-                <Text style={{ fontSize: 14, color: '#94a3b8', marginRight: 8 }}>🔍</Text>
+                <Search size={17} color="#94a3b8" style={{ marginRight: 8 }} />
                 <TextInput
                   style={{ flex: 1, fontSize: 13, color: '#0f172a' }}
                   placeholder="Tìm kiếm môn học..."
@@ -137,7 +138,7 @@ export default function SubjectsScreen() {
                 />
                 {keyword ? (
                   <TouchableOpacity onPress={() => setKeyword('')}>
-                    <Text style={{ color: '#94a3b8', fontSize: 16 }}>✕</Text>
+                    <X size={16} color="#94a3b8" />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -151,9 +152,10 @@ export default function SubjectsScreen() {
                         key={s.id} onPress={() => onSemesterChange(s.id)}
                         style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: currentSemesterId === s.id ? '#2563eb' : '#fff', borderWidth: 1, borderColor: currentSemesterId === s.id ? '#2563eb' : '#e2e8f0' }}
                       >
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: currentSemesterId === s.id ? '#fff' : '#475569' }}>
-                          {s.name}{s.isCurrent ? ' ✦' : ''}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: currentSemesterId === s.id ? '#fff' : '#475569' }}>{s.name}</Text>
+                          {s.isCurrent && <Star size={12} fill={currentSemesterId === s.id ? '#fff' : '#2563eb'} color={currentSemesterId === s.id ? '#fff' : '#2563eb'} />}
+                        </View>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -182,7 +184,7 @@ export default function SubjectsScreen() {
           {/* Empty */}
           {!isLoading && !error && items.length === 0 && (
             <View style={{ alignItems: 'center', paddingVertical: 48 }}>
-              <Text style={{ fontSize: 32, marginBottom: 8 }}>📚</Text>
+              <BookOpenText size={34} color="#94a3b8" style={{ marginBottom: 8 }} />
               <Text style={{ fontSize: 14, color: '#94a3b8' }}>Không có môn học trong học kỳ này.</Text>
             </View>
           )}

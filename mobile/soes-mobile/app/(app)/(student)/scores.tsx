@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator,
 } from 'react-native'
 import { router } from 'expo-router'
+import { ChartNoAxesColumn, RefreshCw, Search, Star, Trophy, X } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { getStudentScores, type StudentScore } from '../../../src/api/student-portal.api'
 import { getStudentSubjects } from '../../../src/api/student-subjects.api'
@@ -98,15 +99,15 @@ export default function ScoresScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18 }}>📊</Text>
+              <ChartNoAxesColumn size={20} color="#2563eb" />
             </View>
             <View>
               <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>Điểm số</Text>
               <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Tổng hợp điểm đã công bố</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={() => void load(selectedSemesterId)} disabled={loading} style={{ paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', opacity: loading ? 0.5 : 1 }}>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569' }}>↻ Làm mới</Text>
+          <TouchableOpacity onPress={() => void load(selectedSemesterId)} disabled={loading} style={{ paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', opacity: loading ? 0.5 : 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <RefreshCw size={14} color="#475569" /><Text style={{ fontSize: 12, fontWeight: '600', color: '#475569' }}>Làm mới</Text>
           </TouchableOpacity>
         </View>
 
@@ -126,9 +127,10 @@ export default function ScoresScreen() {
                   {semesterOptions.map(s => (
                     <TouchableOpacity key={s.id} onPress={() => { setSelectedSemesterId(s.id); void load(s.id) }}
                       style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: selectedSemesterId === s.id ? '#2563eb' : '#fff', borderWidth: 1, borderColor: selectedSemesterId === s.id ? '#2563eb' : '#e2e8f0' }}>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: selectedSemesterId === s.id ? '#fff' : '#475569' }}>
-                        {s.name}{s.isCurrent ? ' ✦' : ''}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: selectedSemesterId === s.id ? '#fff' : '#475569' }}>{s.name}</Text>
+                        {s.isCurrent && <Star size={12} fill={selectedSemesterId === s.id ? '#fff' : '#2563eb'} color={selectedSemesterId === s.id ? '#fff' : '#2563eb'} />}
+                      </View>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -149,9 +151,9 @@ export default function ScoresScreen() {
               </ScrollView>
             )}
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, height: 42 }}>
-              <Text style={{ fontSize: 14, color: '#94a3b8', marginRight: 8 }}>🔍</Text>
+              <Search size={17} color="#94a3b8" style={{ marginRight: 8 }} />
               <TextInput style={{ flex: 1, fontSize: 13, color: '#0f172a' }} placeholder="Tìm bài thi hoặc môn học..." placeholderTextColor="#94a3b8" value={keyword} onChangeText={setKeyword} />
-              {keyword ? <TouchableOpacity onPress={() => setKeyword('')}><Text style={{ color: '#94a3b8' }}>✕</Text></TouchableOpacity> : null}
+              {keyword ? <TouchableOpacity onPress={() => setKeyword('')}><X size={16} color="#94a3b8" /></TouchableOpacity> : null}
             </View>
           </View>
         )}
@@ -167,7 +169,7 @@ export default function ScoresScreen() {
         )}
         {!loading && !error && filtered.length === 0 && (
           <View style={{ alignItems: 'center', paddingTop: 40 }}>
-            <Text style={{ fontSize: 32, marginBottom: 8 }}>🏆</Text>
+            <Trophy size={34} color="#94a3b8" style={{ marginBottom: 8 }} />
             <Text style={{ color: '#94a3b8', fontSize: 13 }}>Chưa có điểm phù hợp.</Text>
           </View>
         )}

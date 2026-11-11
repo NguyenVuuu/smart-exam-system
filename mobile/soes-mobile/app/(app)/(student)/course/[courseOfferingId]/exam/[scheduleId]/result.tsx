@@ -4,6 +4,7 @@ import {
   TextInput, Modal, Alert,
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
+import { ArrowLeft, ArrowRight, CircleCheck, CircleX, Eye, FileText, Hourglass, Lightbulb, LockKeyhole, Ban, X } from 'lucide-react-native'
 import { useRequireAuth } from '../../../../../../../src/hooks/useRequireAuth'
 import {
   getAttemptStatus, getAttemptResult, listGradeAppeals, createGradeAppeal,
@@ -81,11 +82,11 @@ function ReviewQuestion({ item }: { item: AttemptReviewItem }) {
   return (
     <View style={{ backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#f1f5f9' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Text style={{ fontSize: 14 }}>{isCorrect === true ? '✅' : isCorrect === false ? '❌' : '📝'}</Text>
+        {isCorrect === true ? <CircleCheck size={14} color="#16a34a" /> : isCorrect === false ? <CircleX size={14} color="#dc2626" /> : <FileText size={14} color="#64748b" />}
         <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569' }}>Câu {item.orderIndex}</Text>
         <Text style={{ fontSize: 11, color: '#94a3b8' }}>{item.points} điểm</Text>
         {item.score !== null && (
-          <Text style={{ fontSize: 11, color: scoreColor(item.score) }}>→ {fmtScore(item.score)} đ</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><ArrowRight size={11} color={scoreColor(item.score)} /><Text style={{ fontSize: 11, color: scoreColor(item.score) }}>{fmtScore(item.score)} đ</Text></View>
         )}
       </View>
       <Text style={{ fontSize: 13, color: '#1e293b', lineHeight: 20, marginBottom: 10 }}>{item.content}</Text>
@@ -116,8 +117,9 @@ function ReviewQuestion({ item }: { item: AttemptReviewItem }) {
         </View>
       )}
       {item.explanation && (
-        <View style={{ backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', borderRadius: 8, padding: 10, marginTop: 8 }}>
-          <Text style={{ fontSize: 12, color: '#92400e', lineHeight: 18 }}>💡 {item.explanation}</Text>
+        <View style={{ flexDirection: 'row', gap: 6, backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', borderRadius: 8, padding: 10, marginTop: 8 }}>
+          <Lightbulb size={13} color="#92400e" />
+          <Text style={{ flex: 1, fontSize: 12, color: '#92400e', lineHeight: 18 }}>{item.explanation}</Text>
         </View>
       )}
     </View>
@@ -201,7 +203,7 @@ export default function ExamResultScreen() {
 
           {/* Back */}
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
-            <Text style={{ fontSize: 16, color: '#64748b' }}>←</Text>
+            <ArrowLeft size={16} color="#64748b" />
             <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '500' }}>Quay lại</Text>
           </TouchableOpacity>
 
@@ -244,11 +246,12 @@ export default function ExamResultScreen() {
                   </View>
                 </View>
               ) : (
-                <View style={{ backgroundColor: '#eff6ff', borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#bfdbfe' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#eff6ff', borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#bfdbfe' }}>
+                  {result.reason === 'GRADING' ? <Hourglass size={15} color="#1d4ed8" /> : result.reason === 'PENDING_RELEASE' ? <LockKeyhole size={15} color="#1d4ed8" /> : <Ban size={15} color="#1d4ed8" />}
                   <Text style={{ fontSize: 13, color: '#1d4ed8', lineHeight: 20 }}>
-                    {result.reason === 'GRADING' && '⏳ Bài làm đang được chấm điểm...'}
-                    {result.reason === 'PENDING_RELEASE' && `🔒 Điểm chưa được công bố${result.releaseAt ? ` - dự kiến ${fmtDT(result.releaseAt)}` : ''}.`}
-                    {result.reason === 'NEVER' && '🚫 Ca thi này không công bố điểm cho sinh viên.'}
+                    {result.reason === 'GRADING' && 'Bài làm đang được chấm điểm...'}
+                    {result.reason === 'PENDING_RELEASE' && `Điểm chưa được công bố${result.releaseAt ? ` - dự kiến ${fmtDT(result.releaseAt)}` : ''}.`}
+                    {result.reason === 'NEVER' && 'Ca thi này không công bố điểm cho sinh viên.'}
                   </Text>
                 </View>
               )}
@@ -266,15 +269,17 @@ export default function ExamResultScreen() {
                 <View style={{ marginBottom: 16 }}>
                   <Text style={{ fontSize: 15, fontWeight: '800', color: '#0f172a', marginBottom: 12 }}>Chi tiết bài làm</Text>
                   {(result.reviewPolicy === 'NONE' || result.reviewPolicy === 'SCORE_ONLY') && (
-                    <View style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                      {result.reviewPolicy === 'SCORE_ONLY' ? <Eye size={14} color="#64748b" /> : <LockKeyhole size={14} color="#64748b" />}
                       <Text style={{ fontSize: 13, color: '#64748b' }}>
-                        {result.reviewPolicy === 'SCORE_ONLY' ? '👁️ Ca thi chỉ cho phép xem điểm tổng.' : '🔒 Ca thi không cho phép xem lại bài làm.'}
+                        {result.reviewPolicy === 'SCORE_ONLY' ? 'Ca thi chỉ cho phép xem điểm tổng.' : 'Ca thi không cho phép xem lại bài làm.'}
                       </Text>
                     </View>
                   )}
                   {!result.reviewAvailable && result.reviewAvailableAt && (
-                    <View style={{ backgroundColor: '#fef9c3', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#fde68a' }}>
-                      <Text style={{ fontSize: 13, color: '#92400e' }}>⏳ Xem lại bài mở lúc {fmtDT(result.reviewAvailableAt)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#fef9c3', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#fde68a' }}>
+                      <Hourglass size={14} color="#92400e" />
+                      <Text style={{ fontSize: 13, color: '#92400e' }}>Xem lại bài mở lúc {fmtDT(result.reviewAvailableAt)}</Text>
                     </View>
                   )}
                   {result.reviewAvailable && result.reviewItems.length > 0 && (
@@ -357,7 +362,7 @@ export default function ExamResultScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#0f172a' }}>Lịch sử điều chỉnh điểm</Text>
               <TouchableOpacity onPress={() => setShowAdjModal(false)}>
-                <Text style={{ fontSize: 20, color: '#94a3b8' }}>✕</Text>
+                <X size={20} color="#94a3b8" />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -369,7 +374,7 @@ export default function ExamResultScreen() {
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <Text style={{ fontSize: 13, color: '#dc2626', fontWeight: '700' }}>{fmtScore(adj.previousScore)}</Text>
-                    <Text style={{ fontSize: 13, color: '#94a3b8' }}>→</Text>
+                    <ArrowRight size={13} color="#94a3b8" />
                     <Text style={{ fontSize: 13, color: '#16a34a', fontWeight: '700' }}>{fmtScore(adj.newScore)}</Text>
                   </View>
                   <Text style={{ fontSize: 12, color: '#475569', lineHeight: 18 }}>{adj.reason}</Text>
