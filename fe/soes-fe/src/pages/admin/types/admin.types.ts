@@ -56,6 +56,7 @@ export interface StudentCandidate {
 
 export interface AdminUser {
   id: string
+  userId: string
   profileId?: string
   code: string
   fullName: string

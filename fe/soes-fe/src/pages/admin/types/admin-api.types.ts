@@ -96,11 +96,12 @@ export interface CourseOfferingPayload {
 
 export interface UserPayload {
   role: UserApiDto['role']; code: string; fullName: string; email?: string | null
+  roles?: UserApiDto['role'][]
   phoneNumber?: string | null; departmentId?: string | null
   status: 'ACTIVE' | 'INACTIVE'; password?: string
 }
 
-export type UpdateUserPayload = Omit<UserPayload, 'password'>
+export type UpdateUserPayload = Omit<UserPayload, 'role' | 'roles' | 'password'>
 
 export interface ReadyFinalExamApiDto {
   id: string; title: string; totalPoints: string | number; defaultDurationMinutes: number; format: string

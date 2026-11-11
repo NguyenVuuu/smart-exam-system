@@ -1,9 +1,10 @@
 import bcrypt from 'bcrypt'
-import { ConflictError, NotFoundError, ValidationError } from '../../../errors/AppError'
+import type { UserRole } from '@prisma/client'
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../../errors/AppError'
 import { toPagination } from '../../../utils/pagination'
 import { runSerializable } from '../../../utils/transaction'
 import * as repo from '../repositories/admin-users.repository'
-import type { CreateUserBody, EnrollmentQuery, UpdateUserBody, UsersQuery } from '../validators/admin-users.validator'
+import type { AddUserRoleBody, CreateUserBody, EnrollmentQuery, UpdateUserBody, UsersQuery } from '../validators/admin-users.validator'
 import { toAdminUserDto } from '../mappers/admin-user.mapper'
 import { notifyUsers } from '../../notifications/notifications.service'
 
@@ -48,15 +49,56 @@ export async function create(data: CreateUserBody) {
   }
 
   if (await codeBelongsToAnotherProfile(userCode)) throw new ConflictError('Account code already exists')
-  if (data.role === 'TEACHER' && !data.departmentId) throw new ValidationError('Teacher department is required')
+  if ((data.roles ?? [data.role]).includes('TEACHER') && !data.departmentId) {
+    throw new ValidationError('Teacher department is required')
+  }
 
   const password = await bcrypt.hash(data.password, saltRounds)
   return repo.createUser({ ...data, code: userCode }, password)
 }
 
-export async function update(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, data: UpdateUserBody) {
+async function requireAdminForAccount(userId: string, actorRole: string) {
+  if (actorRole === 'ADMIN') return
+  const account = await repo.findUserRoleSummary(userId)
+  if (account?.roles.includes('ADMIN') || account?.admins.some((admin) => admin.role === 'ADMIN')) {
+    throw new ForbiddenError('Only administrators can manage administrator accounts')
+  }
+}
+
+export async function addRole(userId: string, data: AddUserRoleBody, actorRole: string) {
+  return runSerializable(async (tx) => {
+    const user = await repo.findUserForRoleChange(tx, userId)
+    if (!user?.username) throw new NotFoundError('Account not found')
+    if (actorRole !== 'ADMIN' && (user.roles.includes('ADMIN') || user.admins.some((admin) => admin.role === 'ADMIN'))) {
+      throw new ForbiddenError('Only administrators can manage administrator accounts')
+    }
+    if (user.roles.includes('ADMIN') || user.admins.some((admin) => admin.role === 'ADMIN')) {
+      throw new ValidationError('Vai trò Quản trị viên không kết hợp với vai trò khác')
+    }
+    if ((data.role === 'STUDENT' && user.students.length) || (data.role === 'TEACHER' && user.teachers.length) ||
+      (data.role === 'EDUCATION_OFFICER' && user.admins.length)) {
+      throw new ConflictError('Tài khoản đã có vai trò này')
+    }
+    if (data.role === 'TEACHER' && !data.departmentId) {
+      throw new ValidationError('Teacher department is required')
+    }
+    if (await codeBelongsToAnotherProfile(user.username, { role: data.role, profileId: '', userId })) {
+      throw new ConflictError('Account code already exists')
+    }
+    const roles: UserRole[] = [
+      ...(user.students.length ? ['STUDENT' as const] : []),
+      ...(user.teachers.length ? [user.teachers[0].position === 'DEPARTMENT_HEAD' ? 'DEPARTMENT_HEAD' as const : 'TEACHER' as const] : []),
+      ...(user.admins.length ? [user.admins[0].role] : []),
+    ]
+    if (roles.length >= 3) throw new ConflictError('Tài khoản đã có đủ ba vai trò')
+    return repo.attachRole(tx, userId, user.username, user.status, roles, data.role, data.departmentId)
+  })
+}
+
+export async function update(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, data: UpdateUserBody, actorRole: string) {
   const profile = await repo.findProfile(role, profileId)
   if (!profile) throw new NotFoundError('Account not found')
+  await requireAdminForAccount(profile.userId, actorRole)
   const emailOwner = data.email ? await repo.findUserByEmail(data.email) : null
   if (emailOwner && emailOwner.id !== profile.userId) throw new ConflictError('Email already exists')
   if (await codeBelongsToAnotherProfile(data.code, { role, profileId, userId: profile.userId })) throw new ConflictError('Account code already exists')
@@ -64,17 +106,19 @@ export async function update(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | '
   return repo.updateUser(role, profileId, profile.userId, data)
 }
 
-async function requireProfile(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string) {
-  if (!await repo.findProfile(role, profileId)) throw new NotFoundError('Account not found')
+async function requireProfile(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, actorRole: string) {
+  const profile = await repo.findProfile(role, profileId)
+  if (!profile) throw new NotFoundError('Account not found')
+  await requireAdminForAccount(profile.userId, actorRole)
 }
 
-export async function setStatus(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, status: 'ACTIVE' | 'INACTIVE') {
-  await requireProfile(role, profileId)
+export async function setStatus(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, status: 'ACTIVE' | 'INACTIVE', actorRole: string) {
+  await requireProfile(role, profileId, actorRole)
   return repo.updateStatus(role, profileId, status)
 }
 
-export async function resetPassword(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, rawPassword: string) {
-  await requireProfile(role, profileId)
+export async function resetPassword(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, rawPassword: string, actorRole: string) {
+  await requireProfile(role, profileId, actorRole)
   return repo.updatePassword(role, profileId, await bcrypt.hash(rawPassword, saltRounds))
 }
 

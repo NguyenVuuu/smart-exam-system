@@ -14,8 +14,11 @@ export function useAdminUsers() {
     setLoading(true)
     setError(null)
     try {
-      const [userPage, departmentPage] = await Promise.all([api.getUsers(), api.getDepartments()])
-      setUsers(userPage.items.map(toAdminUser))
+      const [studentPage, teacherPage, adminPage, officerPage, departmentPage] = await Promise.all([
+        api.getUsers('STUDENT'), api.getUsers('TEACHER'), api.getUsers('ADMIN'),
+        api.getUsers('EDUCATION_OFFICER'), api.getDepartments(),
+      ])
+      setUsers([studentPage, teacherPage, adminPage, officerPage].flatMap((page) => page.items.map(toAdminUser)))
       setDepartments(departmentPage.items.map(toDepartment))
     } catch {
       setError('Không thể tải danh sách người dùng.')
@@ -24,9 +27,16 @@ export function useAdminUsers() {
     }
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
 
   const create = async (payload: UserPayload) => { await api.createUser(payload); await load() }
+  const addRole = async (userId: string, role: 'STUDENT' | 'TEACHER' | 'EDUCATION_OFFICER', departmentId?: string | null) => {
+    await api.addUserRole(userId, role, departmentId)
+    await load()
+  }
   const update = async (user: AdminUser, payload: UpdateUserPayload) => {
     if (!user.profileId) throw new Error('Missing profile id')
     await api.updateUser(user.role, user.profileId, payload)
@@ -46,5 +56,5 @@ export function useAdminUsers() {
     await load()
   }
 
-  return { users, departments, loading, error, retry: load, create, update, setStatus, resetPassword, setDepartmentHead }
+  return { users, departments, loading, error, retry: load, create, addRole, update, setStatus, resetPassword, setDepartmentHead }
 }
