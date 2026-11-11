@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AdminAcademicPage from '../pages/admin/AdminAcademicPage'
+import AdminAccountPage from '../pages/admin/AdminAccountPage'
 import AdminAuditLogPage from '../pages/admin/AdminAuditLogPage'
 import AdminClassSectionsPage from '../pages/admin/AdminClassSectionsPage'
 import AdminPermissionsPage from '../pages/admin/AdminPermissionsPage'
@@ -78,6 +79,14 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['ADMIN', 'EDUCATION_OFFICER']}>
               <BackofficeHome />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/admin/account"
+          element={
+            <RoleRoute allowedRoles={['ADMIN', 'EDUCATION_OFFICER']}>
+              <AdminAccountPage />
             </RoleRoute>
           }
         />

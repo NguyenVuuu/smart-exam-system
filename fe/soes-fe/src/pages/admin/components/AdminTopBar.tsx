@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, HelpCircle, Loader2, PanelLeftClose, PanelLeftOpen, RefreshCw } from 'lucide-react'
+import { Bell, ChevronDown, HelpCircle, KeyRound, Loader2, LogOut, PanelLeftClose, PanelLeftOpen, RefreshCw, UserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLogout } from '../../../auth/hooks/useLogout'
@@ -118,10 +118,24 @@ export default function AdminTopBar() {
             <div className="absolute right-0 top-11 w-56 bg-[#0e1726] border border-slate-800 rounded-2xl shadow-2xl z-30 py-2 font-sans">
               <div className="px-4 py-2 border-b border-slate-800">
                 <p className="text-xs font-bold text-white">{user?.fullName ?? 'Trần Quang Huy'}</p>
-                <p className="text-[11px] text-[#10b981] font-semibold">Tài khoản Quản trị viên</p>
+                <p className="text-[11px] text-[#10b981] font-semibold">
+                  Tài khoản {user?.role === 'EDUCATION_OFFICER' ? 'Giáo vụ' : 'Quản trị viên'}
+                </p>
               </div>
 
               <div className="py-1">
+                <button
+                  onClick={() => { setOpenUserMenu(false); navigate('/admin/account') }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800/60 hover:text-white"
+                >
+                  <UserRound size={14} /> Hồ sơ cá nhân
+                </button>
+                <button
+                  onClick={() => { setOpenUserMenu(false); navigate('/admin/account?tab=security') }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800/60 hover:text-white"
+                >
+                  <KeyRound size={14} /> Đổi mật khẩu
+                </button>
                 {hasMultipleRoles && (
                   <button
                     onClick={() => {
@@ -140,9 +154,9 @@ export default function AdminTopBar() {
                     setOpenUserMenu(false)
                     logout()
                   }}
-                  className="w-full text-left px-4 py-2 text-xs font-medium text-rose-400 hover:bg-rose-950/40 transition-colors"
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-medium text-rose-400 transition-colors hover:bg-rose-950/40"
                 >
-                  Đăng xuất Quản trị
+                  <LogOut size={14} /> Đăng xuất
                 </button>
               </div>
             </div>

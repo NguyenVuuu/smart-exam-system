@@ -5,9 +5,9 @@ import { useAuthStore } from '../../store/authStore'
 import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
-import AccountSecurityTipsCard from './components/account/AccountSecurityTipsCard'
+import AccountPasswordForm from '../account/components/AccountPasswordForm'
+import AccountSecurityTipsCard from '../account/components/AccountSecurityTipsCard'
 import TeacherAccountSidebarCard from './components/account/TeacherAccountSidebarCard'
-import TeacherPasswordForm from './components/account/TeacherPasswordForm'
 import TeacherProfileForm from './components/account/TeacherProfileForm'
 
 type AccountTab = 'profile' | 'security'
@@ -58,7 +58,7 @@ export default function TeacherAccountPage() {
 
                 {/* Form Container */}
                 <div className="p-6">
-                  {activeTab === 'profile' ? <TeacherProfileForm /> : <TeacherPasswordForm />}
+                  {activeTab === 'profile' ? <TeacherProfileForm /> : <AccountPasswordForm />}
                 </div>
               </section>
 
