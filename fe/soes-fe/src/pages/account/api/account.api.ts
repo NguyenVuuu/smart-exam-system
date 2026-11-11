@@ -5,21 +5,21 @@ interface ApiResponse<T> {
   data: T
 }
 
-export interface UpdateTeacherProfilePayload {
+export interface UpdateAccountProfilePayload {
   email: string | null
   phoneNumber: string | null
 }
 
-export interface ChangeTeacherPasswordPayload {
+export interface ChangeAccountPasswordPayload {
   currentPassword: string
   newPassword: string
 }
 
-export async function updateTeacherProfile(payload: UpdateTeacherProfilePayload): Promise<User> {
+export async function updateAccountProfile(payload: UpdateAccountProfilePayload): Promise<User> {
   const response = await apiClient.patch<ApiResponse<User>>('/auth/me', payload)
   return response.data.data
 }
 
-export async function changeTeacherPassword(payload: ChangeTeacherPasswordPayload): Promise<void> {
+export async function changeAccountPassword(payload: ChangeAccountPasswordPayload): Promise<void> {
   await apiClient.patch('/auth/me/password', payload)
 }

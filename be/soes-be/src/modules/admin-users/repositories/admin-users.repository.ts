@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client'
+import type { Prisma, UserRole } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import type { CreateUserBody, EnrollmentQuery, UpdateUserBody, UsersQuery } from '../validators/admin-users.validator'
 
@@ -51,6 +51,9 @@ export function listUsers(query: UsersQuery) {
 
 export const findUserByEmail = (email: string) => prisma.user.findFirst({ where: { email } })
 export const findUserByUsername = (username: string) => prisma.user.findUnique({ where: { username } })
+export const findUserRoleSummary = (userId: string) => prisma.user.findUnique({
+  where: { id: userId }, select: { roles: true, admins: { select: { role: true } } },
+})
 export const findAdminByCode = (code: string) => prisma.admin.findUnique({ where: { adminCode: code } })
 export const findTeacherByCode = (code: string) => prisma.teacher.findUnique({ where: { teacherCode: code } })
 export const findStudentByCode = (code: string) => prisma.student.findUnique({ where: { studentCode: code } })
@@ -93,12 +96,14 @@ export async function findProfile(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER
 
 export async function updateStatus(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, status: 'ACTIVE' | 'INACTIVE') {
   const profile = await findProfile(role, profileId)
-  if (profile?.userId) {
-    await prisma.user.update({ where: { id: profile.userId }, data: { status } })
-  }
-  if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') return prisma.admin.update({ where: { id: profileId }, data: { status } })
-  if (role === 'TEACHER') return prisma.teacher.update({ where: { id: profileId }, data: { status } })
-  return prisma.student.update({ where: { id: profileId }, data: { status } })
+  if (!profile) return null
+  return prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: profile.userId }, data: { status } })
+    await tx.admin.updateMany({ where: { userId: profile.userId }, data: { status } })
+    await tx.teacher.updateMany({ where: { userId: profile.userId }, data: { status } })
+    await tx.student.updateMany({ where: { userId: profile.userId }, data: { status } })
+    return { userId: profile.userId, status }
+  })
 }
 
 export async function updatePassword(role: 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'STUDENT', profileId: string, password: string) {
@@ -121,15 +126,11 @@ export function updateUser(
         status: data.status,
       },
     })
-    if (role === 'ADMIN' || role === 'EDUCATION_OFFICER') {
-      await tx.admin.update({ where: { id: profileId }, data: { adminCode: data.code, status: data.status } })
-    } else if (role === 'TEACHER') {
-      await tx.teacher.update({
-        where: { id: profileId },
-        data: { teacherCode: data.code, status: data.status, departmentId: data.departmentId! },
-      })
-    } else {
-      await tx.student.update({ where: { id: profileId }, data: { studentCode: data.code, status: data.status } })
+    await tx.admin.updateMany({ where: { userId }, data: { adminCode: data.code, status: data.status } })
+    await tx.teacher.updateMany({ where: { userId }, data: { teacherCode: data.code, status: data.status } })
+    await tx.student.updateMany({ where: { userId }, data: { studentCode: data.code, status: data.status } })
+    if (role === 'TEACHER') {
+      await tx.teacher.update({ where: { id: profileId }, data: { departmentId: data.departmentId! } })
     }
     return { id: userId, profileId, code: data.code, role }
   })
@@ -137,6 +138,7 @@ export function updateUser(
 
 export function createUser(data: CreateUserBody, password: string) {
   return prisma.$transaction(async (tx) => {
+    const roles = data.roles ?? [data.role]
     const user = await tx.user.create({
       data: {
         fullName: data.fullName,
@@ -145,20 +147,53 @@ export function createUser(data: CreateUserBody, password: string) {
         phoneNumber: data.phoneNumber,
         password,
         status: data.status,
-        roles: [data.role],
+        roles,
       },
     })
-    if (data.role === 'ADMIN' || data.role === 'EDUCATION_OFFICER') {
-      await tx.admin.create({ data: { adminCode: data.code, role: data.role, status: data.status, userId: user.id } })
-    } else if (data.role === 'TEACHER') {
+    const backofficeRole = roles.find((role) => role === 'ADMIN' || role === 'EDUCATION_OFFICER')
+    if (backofficeRole) {
+      await tx.admin.create({ data: { adminCode: data.code, role: backofficeRole, status: data.status, userId: user.id } })
+    }
+    if (roles.includes('TEACHER')) {
       await tx.teacher.create({
         data: { teacherCode: data.code, status: data.status, userId: user.id, departmentId: data.departmentId },
       })
-    } else {
+    }
+    if (roles.includes('STUDENT')) {
       await tx.student.create({ data: { studentCode: data.code, status: data.status, userId: user.id } })
     }
-    return { id: user.id, code: data.code, role: data.role }
+    return { id: user.id, code: data.code, roles }
   })
+}
+
+export function findUserForRoleChange(tx: Prisma.TransactionClient, userId: string) {
+  return tx.user.findUnique({
+    where: { id: userId },
+    select: { id: true, username: true, status: true, roles: true,
+      students: { select: { id: true } }, teachers: { select: { id: true, position: true } },
+      admins: { select: { id: true, role: true } },
+    },
+  })
+}
+
+export async function attachRole(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  code: string,
+  status: 'ACTIVE' | 'INACTIVE',
+  roles: UserRole[],
+  role: 'STUDENT' | 'TEACHER' | 'EDUCATION_OFFICER',
+  departmentId?: string | null,
+) {
+  if (role === 'TEACHER') {
+    await tx.teacher.create({ data: { userId, teacherCode: code, status, departmentId } })
+  } else if (role === 'STUDENT') {
+    await tx.student.create({ data: { userId, studentCode: code, status } })
+  } else {
+    await tx.admin.create({ data: { userId, adminCode: code, role, status } })
+  }
+  await tx.user.update({ where: { id: userId }, data: { roles: [...roles, role] } })
+  return { userId, roles: [...roles, role] }
 }
 
 export async function enrollmentContext(

@@ -4,9 +4,9 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '../../../../api/errors'
 import { useAuthStore } from '../../../../store/authStore'
-import { updateTeacherProfile } from '../../api/teacher-account.api'
+import { updateAccountProfile } from '../../../account/api/account.api'
 import { getTeacherPositionLabel } from '../../utils/teacher-account.utils'
-import AccountFormField from './AccountFormField'
+import AccountFormField from '../../../account/components/AccountFormField'
 
 interface ProfileFormValues {
   email: string
@@ -37,7 +37,7 @@ export default function TeacherProfileForm() {
 
   const saveProfile = handleSubmit(async (values) => {
     try {
-      const updatedUser = await updateTeacherProfile({
+      const updatedUser = await updateAccountProfile({
         email: values.email.trim() || null,
         phoneNumber: values.phoneNumber.trim() || null,
       })
@@ -93,14 +93,6 @@ export default function TeacherProfileForm() {
             />
           </AccountFormField>
 
-          <AccountFormField label="Vai trò hệ thống">
-            <input
-              type="text"
-              readOnly
-              value={user?.role === 'TEACHER' ? 'Giảng viên' : user?.role ?? '-'}
-              className={readonlyInputClass}
-            />
-          </AccountFormField>
         </div>
       </div>
 
@@ -128,7 +120,7 @@ export default function TeacherProfileForm() {
               aria-invalid={Boolean(errors.email)}
               {...register('email', {
                 validate: (value) =>
-                  !value.trim() || /^S+@S+.S+$/.test(value.trim()) || 'Email không đúng định dạng.',
+                  !value.trim() || /^\S+@\S+\.\S+$/.test(value.trim()) || 'Email không đúng định dạng.',
               })}
             />
           </AccountFormField>
@@ -148,7 +140,7 @@ export default function TeacherProfileForm() {
               {...register('phoneNumber', {
                 maxLength: { value: 20, message: 'Số điện thoại không được vượt quá 20 ký tự.' },
                 validate: (value) =>
-                  !value.trim() || /^[0-9+().s-]+$/.test(value.trim()) || 'Số điện thoại chứa ký tự không hợp lệ.',
+                  !value.trim() || /^[0-9+().\s-]+$/.test(value.trim()) || 'Số điện thoại chứa ký tự không hợp lệ.',
               })}
             />
           </AccountFormField>

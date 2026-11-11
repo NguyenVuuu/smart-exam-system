@@ -2,6 +2,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   ActivityIndicator, Platform, Animated,
 } from 'react-native'
+import { ContactRound, Eye, EyeOff, GraduationCap, IdCard, KeyRound, LockKeyhole, LogOut, Mail, Phone, Save, ShieldCheck, TriangleAlert, UserRound, type LucideIcon } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { useStudentAccount } from '../../../src/hooks/useStudentAccount'
 import { useKeyboardBottomOffset } from '../../../src/hooks/useKeyboardBottomOffset'
@@ -26,11 +27,12 @@ function InputField({
   keyboardType?: 'default' | 'email-address' | 'phone-pad'
   secureTextEntry?: boolean
   editable?: boolean
-  icon: string
+  icon: LucideIcon
 }) {
   const [showPass, setShowPass] = useState(false)
   const [focused, setFocused] = useState(false)
   const isPass = secureTextEntry === true
+  const Icon = icon
 
   return (
     <View style={{ marginBottom: 14 }}>
@@ -44,7 +46,7 @@ function InputField({
         borderColor: focused ? '#2563eb' : '#e2e8f0',
         paddingHorizontal: 12, height: 48,
       }}>
-        <Text style={{ fontSize: 16, marginRight: 8, opacity: 0.6 }}>{icon}</Text>
+        <Icon size={17} color="#94a3b8" style={{ marginRight: 8 }} />
         <TextInput
           style={{ flex: 1, fontSize: 14, color: editable ? '#0f172a' : '#94a3b8' }}
           value={value}
@@ -60,7 +62,7 @@ function InputField({
         />
         {isPass && (
           <TouchableOpacity onPress={() => setShowPass(p => !p)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={{ fontSize: 14, color: '#94a3b8' }}>{showPass ? '🙈' : '👁️'}</Text>
+            {showPass ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
           </TouchableOpacity>
         )}
       </View>
@@ -70,8 +72,9 @@ function InputField({
 
 // ── Section card ──────────────────────────────────────────────────────────────
 function SectionCard({ title, subtitle, icon, children }: {
-  title: string; subtitle?: string; icon: string; children: React.ReactNode
+  title: string; subtitle?: string; icon: LucideIcon; children: React.ReactNode
 }) {
+  const Icon = icon
   return (
     <View style={{
       backgroundColor: '#fff', borderRadius: 18, padding: 20, marginBottom: 14,
@@ -80,7 +83,7 @@ function SectionCard({ title, subtitle, icon, children }: {
     }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 }}>
         <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 18 }}>{icon}</Text>
+          <Icon size={19} color="#2563eb" />
         </View>
         <View>
           <Text style={{ fontSize: 14, fontWeight: '800', color: '#0f172a' }}>{title}</Text>
@@ -108,7 +111,7 @@ function SaveButton({ label, onPress, busy }: { label: string; onPress: () => vo
     >
       {busy
         ? <ActivityIndicator size="small" color="#fff" />
-        : <Text style={{ fontSize: 15 }}>💾</Text>
+        : <Save size={17} color="#fff" />
       }
       <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>
         {busy ? 'Đang lưu...' : label}
@@ -159,8 +162,8 @@ export default function StudentAccountScreen() {
               {user?.fullName ?? '—'}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#eff6ff', borderRadius: 20, borderWidth: 1, borderColor: '#bfdbfe' }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#1d4ed8' }}>🎓 Sinh viên</Text>
+              <View style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#eff6ff', borderRadius: 20, borderWidth: 1, borderColor: '#bfdbfe', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <GraduationCap size={13} color="#1d4ed8" /><Text style={{ fontSize: 12, fontWeight: '700', color: '#1d4ed8' }}>Sinh viên</Text>
               </View>
               <View style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#f8fafc', borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0' }}>
                 <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>{studentCode}</Text>
@@ -171,7 +174,7 @@ export default function StudentAccountScreen() {
           {/* ── Load error ────────────────────────────────────────────── */}
           {loadError && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fef2f2', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: '#fecaca' }}>
-              <Text style={{ fontSize: 14 }}>⚠️</Text>
+              <TriangleAlert size={16} color="#dc2626" />
               <Text style={{ fontSize: 12, color: '#dc2626', flex: 1 }}>
                 Không thể tải thông tin mới nhất. Đang hiển thị dữ liệu đã lưu.
               </Text>
@@ -179,20 +182,20 @@ export default function StudentAccountScreen() {
           )}
 
           {/* ── Readonly info ──────────────────────────────────────────── */}
-          <SectionCard title="Thông tin tài khoản" subtitle="Thông tin hệ thống, không thể thay đổi" icon="🪪">
-            <InputField label="Họ và tên" value={user?.fullName ?? ''} onChangeText={() => {}} icon="👤" editable={false} />
-            <InputField label="Mã sinh viên" value={studentCode} onChangeText={() => {}} icon="🎓" editable={false} />
+          <SectionCard title="Thông tin tài khoản" subtitle="Thông tin hệ thống, không thể thay đổi" icon={IdCard}>
+            <InputField label="Họ và tên" value={user?.fullName ?? ''} onChangeText={() => {}} icon={UserRound} editable={false} />
+            <InputField label="Mã sinh viên" value={studentCode} onChangeText={() => {}} icon={GraduationCap} editable={false} />
           </SectionCard>
 
           {/* ── Contact info ───────────────────────────────────────────── */}
-          <SectionCard title="Thông tin liên hệ" subtitle="Cập nhật email và số điện thoại" icon="📋">
+          <SectionCard title="Thông tin liên hệ" subtitle="Cập nhật email và số điện thoại" icon={ContactRound}>
             <InputField
               label="Email"
               value={email}
               onChangeText={setEmail}
               placeholder="vd: sinhvien@email.com"
               keyboardType="email-address"
-              icon="✉️"
+              icon={Mail}
             />
             <InputField
               label="Số điện thoại"
@@ -200,20 +203,20 @@ export default function StudentAccountScreen() {
               onChangeText={setPhone}
               placeholder="vd: 0901234567"
               keyboardType="phone-pad"
-              icon="📱"
+              icon={Phone}
             />
             <SaveButton label="Lưu thông tin liên hệ" onPress={() => void saveProfile()} busy={busy} />
           </SectionCard>
 
           {/* ── Change password ────────────────────────────────────────── */}
-          <SectionCard title="Đổi mật khẩu" subtitle="Bảo mật tài khoản của bạn" icon="🔐">
+          <SectionCard title="Đổi mật khẩu" subtitle="Bảo mật tài khoản của bạn" icon={ShieldCheck}>
             <InputField
               label="Mật khẩu hiện tại"
               value={currentPassword}
               onChangeText={setCurrentPassword}
               placeholder="Nhập mật khẩu hiện tại"
               secureTextEntry
-              icon="🔑"
+              icon={KeyRound}
             />
             <InputField
               label="Mật khẩu mới"
@@ -221,7 +224,7 @@ export default function StudentAccountScreen() {
               onChangeText={setNewPassword}
               placeholder="Tối thiểu 6 ký tự"
               secureTextEntry
-              icon="🔒"
+              icon={LockKeyhole}
             />
             <InputField
               label="Xác nhận mật khẩu mới"
@@ -229,7 +232,7 @@ export default function StudentAccountScreen() {
               onChangeText={setConfirmPassword}
               placeholder="Nhập lại mật khẩu mới"
               secureTextEntry
-              icon="🔒"
+              icon={LockKeyhole}
             />
             {/* Password strength hint */}
             {newPassword.length > 0 && (
@@ -259,7 +262,7 @@ export default function StudentAccountScreen() {
               marginTop: 4,
             }}
           >
-            <Text style={{ fontSize: 16 }}>🚪</Text>
+            <LogOut size={18} color="#64748b" />
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#dc2626' }}>Đăng xuất</Text>
           </TouchableOpacity>
 

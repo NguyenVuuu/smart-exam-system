@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native'
+import { Hand } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { useStudentDashboard } from '../../../src/hooks/useStudentDashboard'
 import StudentLayout from '../../../src/components/student/StudentLayout'
@@ -34,9 +35,10 @@ export default function StudentDashboard() {
         ) : (
           <>
             <View style={{ marginBottom: 18 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>
-                Xin chào, {fullName} 👋
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>Xin chào, {fullName}</Text>
+                <Hand size={19} color="#f59e0b" />
+              </View>
               <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 3 }}>
                 Chúc bạn có một ngày học tập hiệu quả!
               </Text>

@@ -1,6 +1,6 @@
 import { ShieldCheck } from 'lucide-react'
 
-export default function AccountSecurityTipsCard() {
+export default function AccountSecurityTipsCard({ audience = 'Giảng viên' }: { audience?: string }) {
   const tips = [
     {
       title: 'Bảo mật mật khẩu tài khoản',
@@ -20,7 +20,7 @@ export default function AccountSecurityTipsCard() {
     <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-5 space-y-3.5">
       <div className="flex items-center gap-2 text-blue-900 font-semibold text-sm">
         <ShieldCheck size={18} className="text-blue-600" />
-        <h3>Khuyến nghị bảo mật cho Giảng viên</h3>
+        <h3>Khuyến nghị bảo mật cho {audience}</h3>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {tips.map((tip, idx) => (

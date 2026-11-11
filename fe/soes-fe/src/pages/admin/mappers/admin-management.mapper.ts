@@ -29,7 +29,7 @@ export const toCourseEnrollment = (dto: CourseEnrollmentApiDto): CourseEnrollmen
 })
 
 export const toAdminUser = (dto: UserApiDto): AdminUser => ({
-  id: dto.profileId, profileId: dto.profileId, code: dto.code, fullName: dto.fullName,
+  id: dto.profileId, userId: dto.id, profileId: dto.profileId, code: dto.code, fullName: dto.fullName,
   email: dto.email ?? '', phone: dto.phoneNumber ?? undefined, role: dto.role,
   departmentId: dto.department?.id, departmentName: dto.department?.name,
   position: dto.position === 'DEPARTMENT_HEAD' ? 'DEPARTMENT_HEAD' : dto.role === 'TEACHER' ? 'LECTURER' : undefined,

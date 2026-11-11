@@ -32,6 +32,7 @@ export default function AdminUsersPage() {
   const [removeHeadUser, setRemoveHeadUser] = useState<AdminUser | null>(null)
   const [code, setCode] = useState('')
   const [userRole, setUserRole] = useState<AdminUser['role']>('STUDENT')
+  const [selectedRoles, setSelectedRoles] = useState<AdminUser['role'][]>(['STUDENT'])
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -52,19 +53,21 @@ export default function AdminUsersPage() {
   }
 
   const resetForm = () => {
-    setEditingUser(null); setCode(''); setUserRole(group === 'STAFF' ? 'EDUCATION_OFFICER' : group); setFullName(''); setEmail('')
+    const initialRole = group === 'STAFF' ? 'EDUCATION_OFFICER' : group
+    setEditingUser(null); setCode(''); setUserRole(initialRole); setSelectedRoles([initialRole]); setFullName(''); setEmail('')
     setPhone(''); setUserDepartmentId(data.departments[0]?.id ?? 'NONE'); setUserStatus('ACTIVE')
   }
   const openCreate = () => { resetForm(); setModalOpen(true) }
   const openEdit = (user: AdminUser) => {
     setEditingUser(user); setCode(user.code); setUserRole(user.role); setFullName(user.fullName)
+    setSelectedRoles(data.users.filter((item) => item.userId === user.userId).map((item) => item.role))
     setEmail(user.email); setPhone(user.phone ?? ''); setUserDepartmentId(user.departmentId ?? 'NONE')
     setUserStatus(user.status); setModalOpen(true)
   }
   const payload = (): UserPayload => ({
-    role: userRole, code: code.trim().toUpperCase(), fullName: fullName.trim(),
+    role: userRole, roles: selectedRoles, code: code.trim().toUpperCase(), fullName: fullName.trim(),
     email: email.trim().toLowerCase() || null, phoneNumber: phone.trim() || null,
-    departmentId: userRole === 'TEACHER' ? userDepartmentId : null,
+    departmentId: selectedRoles.includes('TEACHER') && !editingUser ? userDepartmentId : userRole === 'TEACHER' ? userDepartmentId : null,
     status: userStatus === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE', password: '123456',
   })
 
@@ -72,15 +75,32 @@ export default function AdminUsersPage() {
     const body = payload()
     if (!body.code) return toast.error('Vui lòng nhập mã tài khoản.')
     if (!body.fullName || !body.email) return toast.error('Vui lòng nhập họ tên và email.')
-    if (body.role === 'TEACHER' && (!body.departmentId || body.departmentId === 'NONE')) {
+    if (selectedRoles.includes('TEACHER') && (!body.departmentId || body.departmentId === 'NONE') && !editingUser) {
       return toast.error('Vui lòng chọn bộ môn cho giảng viên.')
     }
     try {
-      if (editingUser) await data.update(editingUser, body)
-      else await data.create(body)
+      if (editingUser) {
+        await data.update(editingUser, {
+          code: body.code, fullName: body.fullName, email: body.email,
+          phoneNumber: body.phoneNumber, departmentId: body.departmentId, status: body.status,
+        })
+      } else await data.create(body)
       setModalOpen(false)
       toast.success(editingUser ? 'Đã cập nhật tài khoản.' : 'Đã tạo tài khoản với mật khẩu mặc định 123456.')
     } catch { toast.error('Không thể lưu tài khoản. Mã hoặc email có thể đã tồn tại.') }
+  }
+
+  const addRole = async (role: 'STUDENT' | 'TEACHER' | 'EDUCATION_OFFICER') => {
+    if (!editingUser) return
+    if (role === 'TEACHER' && (!userDepartmentId || userDepartmentId === 'NONE')) {
+      return toast.error('Vui lòng chọn bộ môn cho giảng viên.')
+    }
+    try {
+      await data.addRole(editingUser.userId, role, role === 'TEACHER' ? userDepartmentId : null)
+      setModalOpen(false)
+      setEditingUser(null)
+      toast.success('Đã thêm vai trò vào tài khoản.')
+    } catch { toast.error('Không thể thêm vai trò. Kiểm tra mã tài khoản và thử lại.') }
   }
 
   const importStudents = async () => {
@@ -146,7 +166,9 @@ export default function AdminUsersPage() {
       </AdminTablePanel>
       <UserFormModal open={canManage && modalOpen} editingUserId={editingUser?.id ?? null} editingUser={editingUser}
         onFaceChanged={async () => { setModalOpen(false); setEditingUser(null); await data.retry() }} codeInput={code} onCodeChange={setCode}
-        roleInput={userRole} onRoleChange={setUserRole} fullNameInput={fullName} onFullNameChange={setFullName}
+        roleInput={userRole} rolesInput={selectedRoles} onRolesChange={(roles) => { setSelectedRoles(roles); setUserRole(roles[0]) }}
+        existingRoles={editingUser ? data.users.filter((item) => item.userId === editingUser.userId).map((item) => item.role) : []}
+        onAddRole={(role) => void addRole(role)} fullNameInput={fullName} onFullNameChange={setFullName}
         emailInput={email} onEmailChange={setEmail} phoneInput={phone} onPhoneChange={setPhone}
         departmentInput={userDepartmentId} onDepartmentChange={setUserDepartmentId} statusInput={userStatus}
         onStatusChange={setUserStatus} departments={data.departments} onClose={() => setModalOpen(false)} onConfirm={() => void saveUser()} />

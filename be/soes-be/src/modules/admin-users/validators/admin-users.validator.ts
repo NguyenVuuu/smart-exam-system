@@ -11,8 +11,9 @@ export const usersQuerySchema = z.object({
   departmentId: id.optional(),
 })
 
-export const createUserSchema = z.object({
+const createUserFields = z.object({
   role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']),
+  roles: z.array(z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT'])).min(1).max(3).optional(),
   code: z.string().trim().max(30)
     .transform((value) => value ? value.toUpperCase() : '')
     .refine((value) => !value || /^US\d+$/.test(value), 'Mã người dùng phải có dạng US + chữ số')
@@ -25,7 +26,21 @@ export const createUserSchema = z.object({
   password: z.string().min(6).max(100).default('123456'),
 })
 
-export const updateUserSchema = createUserSchema.omit({ role: true, password: true })
+export const createUserSchema = createUserFields.superRefine((data, ctx) => {
+  if (!data.roles) return
+  const roles = new Set(data.roles)
+  if (roles.size !== data.roles.length || !roles.has(data.role) ||
+    (roles.has('ADMIN') && roles.size > 1)) {
+    ctx.addIssue({ code: 'custom', path: ['roles'], message: 'Vai trò Quản trị viên không kết hợp với vai trò khác' })
+  }
+})
+
+export const updateUserSchema = createUserFields.omit({ role: true, password: true, roles: true })
+export const addUserRoleSchema = z.object({
+  role: z.enum(['STUDENT', 'TEACHER', 'EDUCATION_OFFICER']),
+  departmentId: id.optional().nullable(),
+})
+export const addUserRoleParamsSchema = z.object({ userId: id })
 
 export const accountStatusSchema = z.object({ status: z.enum(['ACTIVE', 'INACTIVE']) })
 export const resetPasswordSchema = z.object({ password: z.string().min(6).max(100).default('123456') })
@@ -37,5 +52,6 @@ export const enrollmentQuerySchema = z.object({
 
 export type UsersQuery = z.infer<typeof usersQuerySchema>
 export type CreateUserBody = z.infer<typeof createUserSchema>
+export type AddUserRoleBody = z.infer<typeof addUserRoleSchema>
 export type UpdateUserBody = z.infer<typeof updateUserSchema>
 export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>

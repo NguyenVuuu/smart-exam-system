@@ -47,13 +47,15 @@ export const saveCourseOffering = (id: string | null, payload: CourseOfferingPay
   ? apiClient.put<ApiResponse<CourseOfferingApiDto>>(`/admin/course-offerings/${id}`, payload).then(unwrap)
   : apiClient.post<ApiResponse<CourseOfferingApiDto>>('/admin/course-offerings', payload).then(unwrap)
 
-export const getUsers = () => getAllPages<UserApiDto>('/admin/users')
+export const getUsers = (role: UserApiDto['role']) => getAllPages<UserApiDto>('/admin/users', { role })
 export const getUserReferences = (role: 'TEACHER' | 'STUDENT') =>
   getAllPages<UserApiDto>('/admin/users/references', { role, status: 'ACTIVE' })
 export const getNextUserCode = () =>
   apiClient.get<ApiResponse<{ code: string }>>('/admin/users/next-code').then(unwrap)
 export const createUser = (payload: UserPayload) => apiClient
   .post<ApiResponse<unknown>>('/admin/users', payload).then(unwrap)
+export const addUserRole = (userId: string, role: 'STUDENT' | 'TEACHER' | 'EDUCATION_OFFICER', departmentId?: string | null) => apiClient
+  .post<ApiResponse<unknown>>(`/admin/users/${userId}/roles`, { role, departmentId }).then(unwrap)
 export const updateUser = (role: UserApiDto['role'], profileId: string, payload: UpdateUserPayload) => apiClient
   .put<ApiResponse<unknown>>(`/admin/users/${role}/${profileId}`, payload).then(unwrap)
 export const setUserStatus = (role: UserApiDto['role'], profileId: string, status: 'ACTIVE' | 'INACTIVE') => apiClient

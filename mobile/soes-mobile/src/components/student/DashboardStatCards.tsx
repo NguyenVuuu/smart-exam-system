@@ -1,11 +1,12 @@
 import { View, Text } from 'react-native'
+import { BookOpen, CalendarDays, ChartNoAxesColumn, ClipboardList } from 'lucide-react-native'
 import type { StatCard } from '../../types/dashboard.types'
 
 const CONFIGS = {
-  subject:  { emoji: '📖', bg: '#eff6ff', accent: '#2563eb', label_color: '#1d4ed8' },
-  exam:     { emoji: '📋', bg: '#fefce8', accent: '#ca8a04', label_color: '#a16207' },
-  gpa:      { emoji: '📊', bg: '#f0fdf4', accent: '#16a34a', label_color: '#15803d' },
-  upcoming: { emoji: '🗓️', bg: '#fdf4ff', accent: '#9333ea', label_color: '#7e22ce' },
+  subject:  { icon: BookOpen, bg: '#eff6ff', accent: '#2563eb' },
+  exam:     { icon: ClipboardList, bg: '#fefce8', accent: '#ca8a04' },
+  gpa:      { icon: ChartNoAxesColumn, bg: '#f0fdf4', accent: '#16a34a' },
+  upcoming: { icon: CalendarDays, bg: '#fdf4ff', accent: '#9333ea' },
 }
 
 export default function DashboardStatCards({ cards }: { cards: StatCard[] }) {
@@ -13,6 +14,7 @@ export default function DashboardStatCards({ cards }: { cards: StatCard[] }) {
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
       {cards.map((card) => {
         const cfg = CONFIGS[card.icon]
+        const Icon = cfg.icon
         return (
           <View
             key={card.label}
@@ -33,7 +35,7 @@ export default function DashboardStatCards({ cards }: { cards: StatCard[] }) {
             }}
           >
             <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: cfg.bg, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 20 }}>{cfg.emoji}</Text>
+              <Icon size={21} color={cfg.accent} />
             </View>
             <View>
               <Text style={{ fontSize: 11, color: '#94a3b8', fontWeight: '500', marginBottom: 2 }}>{card.label}</Text>

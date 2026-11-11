@@ -1,4 +1,5 @@
 import { View, Text } from 'react-native'
+import { Bell } from 'lucide-react-native'
 import type { NotificationItem } from '../../types/dashboard.types'
 
 const DOT: Record<string, string> = {
@@ -16,7 +17,7 @@ export default function NotificationList({ notifications }: { notifications: Not
     }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
         <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#fef9c3', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 14 }}>🔔</Text>
+          <Bell size={16} color="#ca8a04" />
         </View>
         <Text style={{ fontSize: 13, fontWeight: '700', color: '#0f172a' }}>Thông báo</Text>
       </View>

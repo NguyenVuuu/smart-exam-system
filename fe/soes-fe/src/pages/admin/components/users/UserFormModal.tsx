@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { Check, Plus } from 'lucide-react'
 import { useAuthStore } from '../../../../store/authStore'
 import type { AdminUser, Department } from '../../types/admin.types'
 import { getNextUserCode } from '../../api/admin-management.api'
@@ -15,7 +16,10 @@ export default function UserFormModal({
   codeInput,
   onCodeChange,
   roleInput,
-  onRoleChange,
+  rolesInput,
+  onRolesChange,
+  existingRoles,
+  onAddRole,
   fullNameInput,
   onFullNameChange,
   emailInput,
@@ -37,7 +41,10 @@ export default function UserFormModal({
   codeInput: string
   onCodeChange: (val: string) => void
   roleInput: AdminUser['role']
-  onRoleChange: (val: AdminUser['role']) => void
+  rolesInput: AdminUser['role'][]
+  onRolesChange: (roles: AdminUser['role'][]) => void
+  existingRoles: AdminUser['role'][]
+  onAddRole: (role: 'STUDENT' | 'TEACHER' | 'EDUCATION_OFFICER') => void
   fullNameInput: string
   onFullNameChange: (val: string) => void
   emailInput: string
@@ -53,7 +60,21 @@ export default function UserFormModal({
   onConfirm: () => void
 }) {
   const isAdmin = useAuthStore((state) => state.user?.role === 'ADMIN')
-  const canSelectDepartment = roleInput === 'TEACHER'
+  const addableRoles: ('STUDENT' | 'TEACHER' | 'EDUCATION_OFFICER')[] =
+    editingUserId && existingRoles.length < 3 && !existingRoles.includes('ADMIN')
+    ? (['STUDENT', 'TEACHER', 'EDUCATION_OFFICER'] as const).filter((role) => !existingRoles.includes(role))
+    : []
+  const canSelectDepartment = roleInput === 'TEACHER' || (!editingUserId && rolesInput.includes('TEACHER')) || addableRoles.includes('TEACHER')
+  const toggleRole = (role: AdminUser['role']) => {
+    if (role === 'ADMIN') {
+      onRolesChange(rolesInput.includes('ADMIN') ? ['STUDENT'] : ['ADMIN'])
+    } else if (rolesInput.includes(role)) {
+      if (rolesInput.length > 1) onRolesChange(rolesInput.filter((item) => item !== role))
+    } else {
+      const selected = rolesInput.filter((item) => item !== 'ADMIN')
+      onRolesChange([...selected, role])
+    }
+  }
   const codeEditedRef = useRef(false)
   useEffect(() => {
     if (open && !editingUserId) {
@@ -76,7 +97,9 @@ export default function UserFormModal({
     <AdminModal
       open={open}
       title={editingUserId ? 'Cập nhật người dùng' : 'Thêm người dùng mới'}
-      description="Tạo hoặc cập nhật tài khoản. Mật khẩu mặc định sẽ được sinh tự động."
+      description={editingUserId
+        ? 'Chỉnh sửa thông tin và thêm vai trò cho tài khoản hiện tại.'
+        : 'Tạo tài khoản mới với mật khẩu mặc định.'}
       confirmText={editingUserId ? 'Cập nhật người dùng' : 'Tạo người dùng'}
       onClose={onClose}
       onConfirm={onConfirm}
@@ -98,19 +121,42 @@ export default function UserFormModal({
             />
           </AdminField>
           <AdminField label="Vai trò">
-            <AdminSelect
-              value={roleInput}
-              onChange={(value) => {
-                onRoleChange(value as AdminUser['role'])
-              }}
-              disabled={Boolean(editingUserId)}
-              options={[
-                { value: 'STUDENT', label: 'Sinh viên' },
-                { value: 'TEACHER', label: 'Giảng viên' },
-                ...(isAdmin ? [{ value: 'ADMIN', label: 'Quản trị viên' }] : []),
-                { value: 'EDUCATION_OFFICER', label: 'Giáo vụ' },
-              ]}
-            />
+            {editingUserId ? (
+              <div className="flex min-h-12 flex-wrap items-center gap-2">
+                {existingRoles.map((role) => <span key={role}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                  <Check size={15} />
+                  {role === 'STUDENT' ? 'Sinh viên' : role === 'TEACHER' ? 'Giảng viên' : role === 'ADMIN' ? 'Quản trị viên' : 'Giáo vụ'}
+                </span>)}
+                {addableRoles.map((role) => <button key={role} type="button" onClick={() => onAddRole(role)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-blue-300 bg-white px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:border-blue-500 hover:bg-blue-50">
+                  <Plus size={15} />
+                  {role === 'STUDENT' ? 'Sinh viên' : role === 'TEACHER' ? 'Giảng viên' : 'Giáo vụ'}
+                </button>)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ['STUDENT', 'Sinh viên'], ['TEACHER', 'Giảng viên'],
+                  ...(isAdmin ? [['ADMIN', 'Quản trị viên']] : []),
+                  ['EDUCATION_OFFICER', 'Giáo vụ'],
+                ] as [AdminUser['role'], string][]).map(([role, label]) => {
+                  const selected = rolesInput.includes(role)
+                  const disabled = rolesInput.includes('ADMIN') && role !== 'ADMIN'
+                  return <button key={role} type="button" aria-pressed={selected} disabled={disabled}
+                    onClick={() => toggleRole(role)}
+                    className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-medium transition-colors ${
+                      selected ? 'border-emerald-500 bg-emerald-50 text-emerald-800' :
+                        'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50'
+                    } disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-400`}>
+                    <span className={`flex size-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300'}`}>
+                      {selected && <Check size={13} strokeWidth={3} />}
+                    </span>
+                    {label}
+                  </button>
+                })}
+              </div>
+            )}
           </AdminField>
         </div>
 
@@ -140,7 +186,7 @@ export default function UserFormModal({
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <AdminField label="Bộ môn">
+          <AdminField label={editingUserId && addableRoles.includes('TEACHER') ? 'Bộ môn nếu thêm vai trò Giảng viên' : 'Bộ môn'}>
             <AdminSelect
               value={canSelectDepartment ? departmentInput : 'NONE'}
               onChange={onDepartmentChange}

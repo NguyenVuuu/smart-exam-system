@@ -1,10 +1,12 @@
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
+import { ArrowLeft, CircleAlert, Clock3, Download, FileText, Megaphone, Paperclip, Pencil } from 'lucide-react-native'
 import { useRequireAuth } from '../../../../../../src/hooks/useRequireAuth'
 import { usePostDetail } from '../../../../../../src/hooks/useCourseDetail'
 import { RichContent } from '../../../../../../src/components/ui/RichContent'
 import StudentLayout from '../../../../../../src/components/student/StudentLayout'
+import { StudentFileIcon } from '../../../../../../src/components/student/fileIcon'
 import * as Sharing from 'expo-sharing'
 import { File, Directory, Paths } from 'expo-file-system'
 import { Platform } from 'react-native'
@@ -19,19 +21,6 @@ function fmtDateTime(iso: string) {
   const date = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
   const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
   return `${time} - ${date}`
-}
-
-function getFileIcon(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
-  if (ext === 'pdf') return '📕'
-  if (['doc','docx'].includes(ext)) return '📘'
-  if (['xls','xlsx'].includes(ext)) return '📗'
-  if (['ppt','pptx'].includes(ext)) return '📙'
-  if (['png','jpg','jpeg','gif','webp'].includes(ext)) return '🖼️'
-  if (['zip','rar','7z'].includes(ext)) return '🗜️'
-  if (['mp4','mov','avi'].includes(ext)) return '🎬'
-  if (['mp3','wav','aac'].includes(ext)) return '🎵'
-  return '📄'
 }
 
 function getFileIconBg(fileName: string): string {
@@ -96,7 +85,6 @@ function AttachmentItem({
     }
   }
 
-  const icon = getFileIcon(attachment.fileName)
   const iconBg = getFileIconBg(attachment.fileName)
 
   return (
@@ -109,7 +97,7 @@ function AttachmentItem({
         backgroundColor: iconBg,
         alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       }}>
-        <Text style={{ fontSize: 20 }}>{icon}</Text>
+        <StudentFileIcon fileType={attachment.fileName} size={20} />
       </View>
 
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -136,7 +124,7 @@ function AttachmentItem({
       >
         {downloading
           ? <ActivityIndicator size="small" color="#4f46e5" />
-          : <Text style={{ fontSize: 13 }}>⬇️</Text>
+          : <Download size={13} color="#2563eb" />
         }
         <Text style={{ fontSize: 12, fontWeight: '700', color: downloading ? '#4f46e5' : '#2563eb' }}>
           {downloading ? 'Đang tải...' : 'Tải'}
@@ -168,7 +156,7 @@ export default function PostDetailScreen() {
           activeOpacity={0.7}
         >
           <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 14, color: '#475569' }}>←</Text>
+            <ArrowLeft size={14} color="#475569" />
           </View>
           <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '500' }}>Quay lại</Text>
         </TouchableOpacity>
@@ -184,7 +172,7 @@ export default function PostDetailScreen() {
         {/* Error */}
         {error && (
           <View style={{ alignItems: 'center', paddingTop: 60, gap: 12 }}>
-            <Text style={{ fontSize: 28 }}>😕</Text>
+            <CircleAlert size={28} color="#ef4444" />
             <Text style={{ fontSize: 14, color: '#ef4444', textAlign: 'center' }}>{error}</Text>
             <TouchableOpacity
               onPress={() => router.back()}
@@ -208,12 +196,13 @@ export default function PostDetailScreen() {
               {/* Badges */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' }}>
-                  <Text style={{ fontSize: 11 }}>📢</Text>
+                  <Megaphone size={11} color="#1d4ed8" />
                   <Text style={{ fontSize: 11, fontWeight: '700', color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 0.3 }}>Bài đăng</Text>
                 </View>
                 {post.edited && (
-                  <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' }}>
-                    <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '500' }}>✏️ Đã chỉnh sửa</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' }}>
+                    <Pencil size={10} color="#94a3b8" />
+                    <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '500' }}>Đã chỉnh sửa</Text>
                   </View>
                 )}
               </View>
@@ -226,7 +215,7 @@ export default function PostDetailScreen() {
               {/* Meta */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
                 <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: '#f0fdf4', alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 15 }}>🕐</Text>
+                  <Clock3 size={15} color="#16a34a" />
                 </View>
                 <View>
                   <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 }}>Thời gian đăng</Text>
@@ -244,7 +233,7 @@ export default function PostDetailScreen() {
               borderWidth: 1, borderColor: '#f1f5f9',
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-                <Text style={{ fontSize: 14 }}>📝</Text>
+                <FileText size={14} color="#475569" />
                 <Text style={{ fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.4, fontSize: 11 }}>
                   Nội dung
                 </Text>
@@ -262,7 +251,7 @@ export default function PostDetailScreen() {
                 {/* Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                    <Text style={{ fontSize: 14 }}>📎</Text>
+                    <Paperclip size={14} color="#475569" />
                     <Text style={{ fontSize: 13, fontWeight: '700', color: '#0f172a' }}>Tệp đính kèm</Text>
                   </View>
                   <View style={{ paddingHorizontal: 9, paddingVertical: 3, backgroundColor: '#f1f5f9', borderRadius: 20 }}>

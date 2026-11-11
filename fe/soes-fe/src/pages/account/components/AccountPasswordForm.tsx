@@ -1,9 +1,9 @@
 import { Check, Eye, EyeOff, KeyRound, Lock, LockKeyhole, ShieldCheck, X } from 'lucide-react'
 import { useState } from 'react'
-import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
+import { useForm, useWatch, type UseFormRegisterReturn } from 'react-hook-form'
 import { toast } from 'sonner'
-import { getApiErrorMessage } from '../../../../api/errors'
-import { changeTeacherPassword } from '../../api/teacher-account.api'
+import { getApiErrorMessage } from '../../../api/errors'
+import { changeAccountPassword } from '../api/account.api'
 import AccountFormField from './AccountFormField'
 
 interface PasswordFormValues {
@@ -58,17 +58,17 @@ function calculatePasswordStrength(pass: string): { score: number; label: string
   return { score: 3, label: 'Mạnh', color: 'bg-emerald-500' }
 }
 
-export default function TeacherPasswordForm() {
+export default function AccountPasswordForm() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<PasswordFormValues>()
 
-  const newPassword = watch('newPassword', '')
-  const confirmPassword = watch('confirmPassword', '')
+  const newPassword = useWatch({ control, name: 'newPassword', defaultValue: '' })
+  const confirmPassword = useWatch({ control, name: 'confirmPassword', defaultValue: '' })
   const strength = calculatePasswordStrength(newPassword)
 
   const hasMinLength = newPassword.length >= 6
@@ -77,7 +77,7 @@ export default function TeacherPasswordForm() {
 
   const savePassword = handleSubmit(async ({ currentPassword, newPassword: nextPassword }) => {
     try {
-      await changeTeacherPassword({ currentPassword, newPassword: nextPassword })
+      await changeAccountPassword({ currentPassword, newPassword: nextPassword })
       reset()
       toast.success('Đã đổi mật khẩu thành công.')
     } catch (error) {

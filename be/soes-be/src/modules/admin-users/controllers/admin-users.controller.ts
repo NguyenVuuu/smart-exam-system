@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { ForbiddenError } from '../../../errors/AppError'
 import { sendSuccess as send } from '../../../utils/httpResponse'
 import * as service from '../services/admin-users.service'
-import { accountStatusSchema, createUserSchema, enrollmentBodySchema, enrollmentQuerySchema, resetPasswordSchema, updateUserSchema, usersQuerySchema } from '../validators/admin-users.validator'
+import { accountStatusSchema, addUserRoleParamsSchema, addUserRoleSchema, createUserSchema, enrollmentBodySchema, enrollmentQuerySchema, resetPasswordSchema, updateUserSchema, usersQuerySchema } from '../validators/admin-users.validator'
 import * as faceService from '../services/admin-users.face.service'
 
 const profileParams = z.object({ role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'STUDENT']), profileId: z.string().min(1) })
@@ -34,23 +34,28 @@ export const listReferences = async (req: Request, res: Response) => {
 }
 export const createUser = async (req: Request, res: Response) => {
   const body = createUserSchema.parse(req.body)
-  requireAdminForAdminAccount(req, body.role)
+  if ((body.roles ?? [body.role]).includes('ADMIN')) requireAdminForAdminAccount(req, 'ADMIN')
   send(res, await service.create(body), 201)
+}
+export const addUserRole = async (req: Request, res: Response) => {
+  const { userId } = addUserRoleParamsSchema.parse(req.params)
+  const body = addUserRoleSchema.parse(req.body)
+  send(res, await service.addRole(userId, body, req.user!.role), 201)
 }
 export const updateUser = async (req: Request, res: Response) => {
   const params = profileParams.parse(req.params)
   requireAdminForAdminAccount(req, params.role)
-  send(res, await service.update(params.role, params.profileId, updateUserSchema.parse(req.body)))
+  send(res, await service.update(params.role, params.profileId, updateUserSchema.parse(req.body), req.user!.role))
 }
 export const setStatus = async (req: Request, res: Response) => {
   const params = profileParams.parse(req.params)
   requireAdminForAdminAccount(req, params.role)
-  send(res, await service.setStatus(params.role, params.profileId, accountStatusSchema.parse(req.body).status))
+  send(res, await service.setStatus(params.role, params.profileId, accountStatusSchema.parse(req.body).status, req.user!.role))
 }
 export const resetPassword = async (req: Request, res: Response) => {
   const params = profileParams.parse(req.params)
   requireAdminForAdminAccount(req, params.role)
-  send(res, await service.resetPassword(params.role, params.profileId, resetPasswordSchema.parse(req.body).password))
+  send(res, await service.resetPassword(params.role, params.profileId, resetPasswordSchema.parse(req.body).password, req.user!.role))
 }
 const studentFaceParams = z.object({ studentId: z.string().uuid() })
 const revokeFaceSchema = z.object({ reason: z.string().trim().min(10).max(500) })

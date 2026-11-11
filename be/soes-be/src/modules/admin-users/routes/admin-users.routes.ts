@@ -10,6 +10,7 @@ router.get('/users/next-code', requireBackoffice('USERS_MANAGE'), asyncHandler(c
 router.get('/users/references', requireBackoffice('ACADEMIC_VIEW', 'SCHEDULES_VIEW'), asyncHandler(controller.listReferences))
 router.get('/users', requireBackoffice('USERS_VIEW'), asyncHandler(controller.listUsers))
 router.post('/users', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.createUser))
+router.post('/users/:userId/roles', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.addUserRole))
 router.put('/users/:role/:profileId', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.updateUser))
 router.patch('/users/:role/:profileId/status', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.setStatus))
 router.post('/users/:role/:profileId/reset-password', requireBackoffice('USERS_MANAGE'), asyncHandler(controller.resetPassword))

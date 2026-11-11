@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react-native'
 import {
   View,
   Text,
@@ -48,7 +49,7 @@ export default function LoginScreen() {
             <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex-row items-center justify-between">
               <Text className="text-red-600 text-sm flex-1">{error}</Text>
               <TouchableOpacity onPress={clearError} className="ml-2">
-                <Text className="text-red-400 text-lg">✕</Text>
+                <X size={18} color="#f87171" />
               </TouchableOpacity>
             </View>
           ) : null}
