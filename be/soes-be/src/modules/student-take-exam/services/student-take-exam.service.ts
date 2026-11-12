@@ -1,7 +1,7 @@
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
+import { ConflictError, ForbiddenError, NotFoundError, TooManyRequestsError, ValidationError } from "../../../errors/AppError";
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcrypt'
-import type { Prisma, ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
+import type { Prisma, ScreenShareStatus, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
@@ -25,6 +25,8 @@ import {
 } from '../../student-common/exam-visibility.policy'
 import * as live from '../../proctoring-live/proctoring-live.service'
 import { emitAttemptEvent, emitProctoringEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
+import { studentViolationSeverity } from './violation.policy'
+import redis from '../../../lib/redis'
 
 /**
  * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
@@ -1022,9 +1024,7 @@ export async function recordViolation(
   studentId: string,
   input: {
     violationType: string
-    severity: string
     description?: string
-    detectedAt?: string
     metadata?: Prisma.InputJsonObject
   },
   evidenceFiles: Express.Multer.File[] = [],
@@ -1038,17 +1038,16 @@ export async function recordViolation(
   if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
     throw new ConflictError('Exam attempt has ended')
   }
-  if (input.violationType === 'TAB_SWITCH' && !attempt.examSchedule.enableTabLock) {
-    throw new ConflictError('Tab switch monitoring is disabled for this exam schedule')
-  }
+  const severity = studentViolationSeverity(input.violationType as ViolationType, attempt.examSchedule)
   if (input.violationType === 'PHONE_DETECTED' && evidenceFiles.length !== 1) {
     throw new ValidationError('Phone detection requires one evidence image')
   }
+  const rateKey = `proctoring:violations:${attemptId}`
+  const count = await redis.incr(rateKey)
+  if (count === 1) await redis.expire(rateKey, 60)
+  if (count > 30) throw new TooManyRequestsError('Too many violation reports; retry shortly')
 
-  const detectedAt = input.detectedAt ? new Date(input.detectedAt) : now
-  if (Number.isNaN(detectedAt.getTime())) {
-    throw new ValidationError('Invalid detectedAt')
-  }
+  const detectedAt = now
 
   const source = getViolationSource(input.violationType as ViolationType)
   const evidenceType = getViolationEvidenceType(input.violationType as ViolationType)
@@ -1103,7 +1102,7 @@ export async function recordViolation(
     attemptId,
     violationType: input.violationType as ViolationType,
     source,
-    severity: input.severity as SeverityLevel,
+    severity,
     description: input.description,
     metadata: input.metadata,
     detectedAt,
@@ -1131,12 +1130,8 @@ export async function endViolation(
   attemptId: string,
   studentId: string,
   violationId: string,
-  endedAtInput?: string,
 ): Promise<RecordViolationResult> {
-  const endedAt = endedAtInput ? new Date(endedAtInput) : new Date()
-  if (Number.isNaN(endedAt.getTime())) {
-    throw new ValidationError('Invalid endedAt')
-  }
+  const endedAt = new Date()
 
   const violation = await repo.endViolation({
     scheduleId,
