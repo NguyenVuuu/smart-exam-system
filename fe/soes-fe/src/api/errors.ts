@@ -26,6 +26,10 @@ const commonMessageTranslations: Record<string, string> = {
   'Internal server error': 'Hệ thống đang gặp lỗi. Vui lòng thử lại sau.',
   'Data conflicts with an existing record': 'Dữ liệu bị trùng hoặc xung đột với bản ghi đã có.',
   'Resource not found': 'Không tìm thấy dữ liệu tương ứng.',
+  'AI provider is temporarily unavailable': 'Dịch vụ AI đang quá tải hoặc tạm gián đoạn. Vui lòng thử lại sau.',
+  'AI provider rate limit reached': 'Dịch vụ AI đã đạt giới hạn lượt dùng. Vui lòng thử lại sau.',
+  'AI assistant is temporarily unavailable': 'Trợ lý AI tạm thời không phản hồi. Vui lòng thử lại sau.',
+  'AI assistant is not configured': 'Trợ lý AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
 }
 
 const examMessageTranslations: Record<string, string> = {

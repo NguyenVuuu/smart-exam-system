@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Text, TouchableOpacity, View } from 'react-native'
-import { createPracticeSet, getPracticeSet, listPracticeSets, submitPracticeSet,
+import { createPracticeSet, getLearningAgentError, getPracticeSet, listPracticeSets, submitPracticeSet,
   type PracticeSet, type PracticeSummary, type StudyMaterial } from '../../api/student-learning.api'
 
 const card = { padding: 16, borderRadius: 16, backgroundColor: '#fff' } as const
@@ -21,7 +21,7 @@ export default function StudentPracticeSection({ materials }: { materials: Study
     try {
       setCurrent(await createPracticeSet(selectedMaterial)); setChoices({})
       setSets(await listPracticeSets())
-    } catch { setError('Chưa thể tạo bài luyện từ tài liệu này. Hãy thử lại sau.') }
+    } catch (cause) { setError(getLearningAgentError(cause, 'Chưa thể tạo bài luyện. Vui lòng thử lại sau.')) }
     finally { setBusy(false) }
   }
 
@@ -55,7 +55,8 @@ export default function StudentPracticeSection({ materials }: { materials: Study
       style={{ padding: 12, borderRadius: 10, backgroundColor: '#2563eb', opacity: !selectedMaterial || busy ? 0.5 : 1 }}>
       <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '700' }}>Tạo 5 câu ôn tập</Text>
     </TouchableOpacity>
-    {!!error && <Text accessibilityRole="alert" style={{ color: '#b91c1c' }}>{error}</Text>}
+    {!!error && <Text accessibilityRole="alert" style={{ color: '#b91c1c', backgroundColor: '#fef2f2',
+      borderColor: '#fecaca', borderWidth: 1, borderRadius: 12, padding: 12 }}>{error}</Text>}
     {sets.map((set) => <TouchableOpacity key={set.id} accessibilityRole="button" onPress={() => void open(set.id)}>
       <Text style={{ color: '#2563eb' }}>{set.subject.name} · {set.completedAt ? `${set.score}/${set._count.items}` : 'Chưa nộp'}</Text>
     </TouchableOpacity>)}

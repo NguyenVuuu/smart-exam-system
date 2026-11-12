@@ -1,4 +1,12 @@
 import { apiClient } from './client'
+import { isAxiosError } from 'axios'
+
+export function getLearningAgentError(error: unknown, fallback: string): string {
+  if (!isAxiosError(error)) return fallback
+  if (error.response?.status === 503) return 'Dịch vụ AI đang quá tải hoặc tạm gián đoạn. Vui lòng thử lại sau.'
+  if (error.response?.status === 429) return 'Dịch vụ AI đã đạt giới hạn lượt dùng. Vui lòng thử lại sau.'
+  return fallback
+}
 
 export interface StudentLearningInsights {
   analyzedAttemptCount: number

@@ -23,12 +23,19 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
       body: JSON.stringify({ ...z.record(z.string(), z.unknown()).parse(payload), model }),
       signal: AbortSignal.timeout(timeoutMs),
     })
-    if (!response.ok) throw new Error(`Agent returned ${response.status}`)
+    if (!response.ok) {
+      logger.warn('AI agent returned an error', { workflow: path, status: response.status, elapsedMs: Date.now() - startedAt })
+      if (response.status === 429) throw new AppError(429, 'AI provider rate limit reached')
+      if (response.status === 503) throw new AppError(503, 'AI provider is temporarily unavailable')
+      throw new AppError(503, 'AI assistant is temporarily unavailable')
+    }
     const answer = schema.parse(await response.json())
     logger.info('AI agent request completed', { workflow: path, model, elapsedMs: Date.now() - startedAt })
     return answer
-  } catch {
-    logger.warn('AI agent request failed', { workflow: path, elapsedMs: Date.now() - startedAt })
+  } catch (error) {
+    if (error instanceof AppError) throw error
+    logger.warn('AI agent request failed', { workflow: path, elapsedMs: Date.now() - startedAt,
+      cause: error instanceof Error ? error.name : 'Unknown' })
     throw new AppError(503, 'AI assistant is temporarily unavailable')
   }
 }

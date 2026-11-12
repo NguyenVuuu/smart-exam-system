@@ -1,5 +1,6 @@
 import { BookOpenCheck, Send } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { getApiErrorMessage } from '../../api/errors'
 import { askLearningAgent, getLearningInsights, getStudyMaterials, type LearningAnswer, type StudentLearningInsights, type StudyMaterial } from './api/student-learning.api'
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
@@ -36,8 +37,8 @@ export default function StudentLearningPage() {
       setAnswer(await askLearningAgent(message, materialId || undefined))
       setAnsweredFromMaterial(materialId)
       setQuestion('')
-    } catch {
-      setError('Trợ lý hiện chưa thể trả lời. Hãy thử lại sau hoặc kiểm tra với giảng viên.')
+    } catch (cause) {
+      setError(getApiErrorMessage(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
     } finally {
       setAsking(false)
     }

@@ -38,6 +38,29 @@ test('validates agent output and does not expose service errors', async () => {
   }
 })
 
+test('preserves provider outage and rate limit statuses without exposing upstream details', async () => {
+  const previousEnabled = process.env.AI_AGENT_ENABLED
+  const previousSecret = process.env.AI_AGENT_SHARED_SECRET
+  const previousFetch = globalThis.fetch
+  process.env.AI_AGENT_ENABLED = 'true'
+  process.env.AI_AGENT_SHARED_SECRET = 'test-secret'
+  try {
+    for (const [status, message] of [
+      [503, 'AI provider is temporarily unavailable'],
+      [429, 'AI provider rate limit reached'],
+    ] as const) {
+      globalThis.fetch = async () => new Response('private-provider-detail', { status })
+      await assert.rejects(requestInsightAgent('/v1/student/insights', {}), { statusCode: status, message })
+    }
+  } finally {
+    globalThis.fetch = previousFetch
+    if (previousEnabled === undefined) delete process.env.AI_AGENT_ENABLED
+    else process.env.AI_AGENT_ENABLED = previousEnabled
+    if (previousSecret === undefined) delete process.env.AI_AGENT_SHARED_SECRET
+    else process.env.AI_AGENT_SHARED_SECRET = previousSecret
+  }
+})
+
 test('uses the selected system model for agent workflows', async () => {
   const previousEnabled = process.env.AI_AGENT_ENABLED
   const previousSecret = process.env.AI_AGENT_SHARED_SECRET

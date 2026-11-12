@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getApiErrorMessage } from '../../../api/errors'
 import { createPracticeSet, getPracticeSet, listPracticeSets, submitPracticeSet,
   type PracticeSet, type PracticeSummary, type StudyMaterial } from '../api/student-learning.api'
 
@@ -26,7 +27,7 @@ export default function StudentPracticePanel({ materials }: { materials: StudyMa
       const next = await createPracticeSet(materialId)
       setCurrent(next); setChoices({})
       setSets(await listPracticeSets())
-    } catch { setError('Chưa thể tạo bài luyện từ tài liệu này. Hãy thử tài liệu khác hoặc thử lại sau.') }
+    } catch (cause) { setError(getApiErrorMessage(cause, 'Chưa thể tạo bài luyện. Vui lòng thử lại sau.')) }
     finally { setBusy(false) }
   }
 
@@ -55,7 +56,7 @@ export default function StudentPracticePanel({ materials }: { materials: StudyMa
       <button type="button" disabled={!materialId || busy} onClick={() => void create()}
         className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Tạo 5 câu ôn tập</button>
     </div>
-    {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+    {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
     {sets.length > 0 && <div className="flex flex-wrap gap-2">
       {sets.map((set) => <button key={set.id} type="button" onClick={() => void open(set.id)}
         className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">

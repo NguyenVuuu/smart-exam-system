@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { BookOpenCheck, Send } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
-import { askLearningAgent, getLearningInsights, getStudyMaterials, type LearningAnswer, type StudentLearningInsights, type StudyMaterial } from '../../../src/api/student-learning.api'
+import { askLearningAgent, getLearningAgentError, getLearningInsights, getStudyMaterials, type LearningAnswer, type StudentLearningInsights, type StudyMaterial } from '../../../src/api/student-learning.api'
 import StudentLayout from '../../../src/components/student/StudentLayout'
 import StudentPracticeSection from '../../../src/components/student/StudentPracticeSection'
 
@@ -38,8 +38,8 @@ export default function StudentLearningScreen() {
       setAnswer(await askLearningAgent(message, materialId || undefined))
       setAnsweredFromMaterial(materialId)
       setQuestion('')
-    } catch {
-      setError('Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.')
+    } catch (cause) {
+      setError(getLearningAgentError(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
     } finally {
       setAsking(false)
     }

@@ -46,7 +46,7 @@ def test_provider_quota_returns_retryable_status_without_details(monkeypatch):
         headers={"authorization": "Bearer test-secret"},
         json={"message": "test", "analyzedAttemptCount": 0,
               "limitedToRecentAttempts": False, "topics": []})
-    assert response.status_code == 503
+    assert response.status_code == 429
     assert "provider-internal-detail" not in response.text
 
 
