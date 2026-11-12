@@ -15,6 +15,7 @@ import { adminUsersRoutes } from './modules/admin-users'
 import { adminPermissionsRoutes } from './modules/admin-permissions'
 import { teacherCoursesRoutes } from './modules/teacher-courses'
 import { teacherQuestionsRoutes } from './modules/teacher-questions'
+import { learningTopicsRoutes } from './modules/learning-topics'
 import { teacherExamsRoutes } from './modules/teacher-exams'
 import { reviewGroupRoutes, backofficeReviewGroupRoutes } from './modules/exam-review-groups'
 import { examScheduleRoutes } from './modules/exam-schedules'
@@ -85,6 +86,7 @@ app.use('/api/admin', adminSystemSettingsRoutes)
 app.use('/api/teacher', teacherCoursesRoutes)
 app.use('/api/teacher', teacherSystemSettingsRouter)
 app.use('/api/teacher', teacherQuestionsRoutes)
+app.use('/api/teacher', learningTopicsRoutes)
 app.use('/api/teacher', teacherExamsRoutes)
 app.use('/api/teacher', reviewGroupRoutes)
 app.use('/api/teacher', gradeAppealsRoutes)

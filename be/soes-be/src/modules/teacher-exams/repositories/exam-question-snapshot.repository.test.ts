@@ -30,3 +30,18 @@ test('exam snapshot encrypts programming test input and expected output', async 
   assert.equal(decryptField(stored.input), 'PRIVATE-INPUT')
   assert.equal(decryptField(stored.expectedOutput), 'PRIVATE-OUTPUT')
 })
+
+test('exam snapshot preserves topic labels even if the catalog changes later', async () => {
+  let data: Record<string, any> | undefined
+  const tx = { examQuestion: { create: async (input: { data: Record<string, any> }) => { data = input.data; return input.data } } } as unknown as Prisma.TransactionClient
+  await createExamQuestion(tx, 'exam-1', {
+    question: {
+      id: 'question-1', title: 'Title', content: 'Content', explanation: null,
+      type: 'SINGLE_CHOICE', difficulty: 'EASY', language: null, options: [],
+      programmingConfig: null, programmingTests: [],
+      topics: [{ id: 'topic-1', code: 'JOIN', name: 'SQL joins' }],
+    },
+    points: 10, orderIndex: 1,
+  })
+  assert.deepEqual(data?.topics.create, [{ topicId: 'topic-1', code: 'JOIN', name: 'SQL joins' }])
+})

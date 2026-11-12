@@ -69,6 +69,7 @@ export function toExamQuestionsDto(questions: ExamDetailRow['examQuestions']) {
     title: decryptField(question.title), content: decryptField(question.content), explanation: decryptNullable(question.explanation), type: question.type,
     difficulty: question.difficulty, language: question.language,
     points: Number(question.points), orderIndex: question.orderIndex,
+    topics: question.topics.map((topic) => ({ id: topic.topicId, code: topic.code, name: topic.name })),
     options: question.options.map((option) => ({ id: option.id, ...openExamOption(option) })),
     programmingConfig: question.programmingConfig ? {
       timeLimitMs: question.programmingConfig.timeLimitMs,

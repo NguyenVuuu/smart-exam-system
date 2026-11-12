@@ -233,12 +233,49 @@ model Subject {
   courseOfferings CourseOffering[]
   enrollments     Enrollment[]
   questions       Question[]
+  learningTopics  LearningTopic[]
   questionBank    QuestionBank?
   exams           Exam[]
   aiGenerations   AIGenerationHistory[]
   department      Department            @relation("DepartmentSubjects", fields: [departmentId], references: [id])
 
   @@index([departmentId])
+}
+
+model LearningTopic {
+  id         String   @id @default(uuid())
+  subjectId  String
+  code       String
+  name       String
+  createdAt  DateTime @default(now())
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions  QuestionTopic[]
+  snapshots  ExamQuestionTopic[]
+
+  @@unique([subjectId, code])
+  @@index([subjectId])
+}
+
+model QuestionTopic {
+  questionId String
+  topicId    String
+  question   Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  topic      LearningTopic @relation(fields: [topicId], references: [id], onDelete: Restrict)
+
+  @@id([questionId, topicId])
+  @@index([topicId])
+}
+
+model ExamQuestionTopic {
+  examQuestionId String
+  topicId        String
+  code           String
+  name           String
+  examQuestion   ExamQuestion @relation(fields: [examQuestionId], references: [id], onDelete: Cascade)
+  topic          LearningTopic @relation(fields: [topicId], references: [id], onDelete: Restrict)
+
+  @@id([examQuestionId, topicId])
+  @@index([topicId])
 }
 
 model CourseOffering {
@@ -408,6 +445,7 @@ model Question {
   options            QuestionOption[]
   programmingConfig  QuestionProgrammingConfig?
   programmingTests   QuestionProgrammingTestCase[]
+  topics             QuestionTopic[]
 
   @@index([ownerId])
   @@index([subjectId])
@@ -666,6 +704,7 @@ model ExamQuestion {
   programmingConfig      ProgrammingQuestionConfig?
   studentAnswers         StudentAnswer[]
   programmingSubmissions ProgrammingSubmission[]
+  topics                 ExamQuestionTopic[]
 
   @@unique([examId, orderIndex])
   @@index([examId])

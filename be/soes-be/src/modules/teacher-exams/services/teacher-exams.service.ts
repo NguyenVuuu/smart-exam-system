@@ -75,6 +75,7 @@ function toQuestionSnapshot(question: AutoQuestionPoolItem): SnapshotSource {
     type: question.type,
     difficulty: question.difficulty,
     language: question.language ?? null,
+    topics: question.topics.map(({ topic }) => ({ id: topic.id, code: topic.code, name: topic.name })),
     options: question.options.map((option, index) => ({
       content: openExamOption(option).content,
       isCorrect: openExamOption(option).isCorrect,

@@ -27,6 +27,7 @@ export const examDetailInclude = {
       options: { orderBy: { orderIndex: 'asc' as const } },
       programmingConfig: true,
       programmingTests: true,
+      topics: true,
     },
   },
 }
@@ -100,7 +101,7 @@ export const findAvailableQuestions = (teacherId: string, subjectId: string, ids
     id: { in: ids }, subjectId,
     OR: [{ ownerId: teacherId }, { questionBankItem: { status: 'APPROVED', removedAt: null } }],
   },
-  include: { options: true, programmingConfig: true, programmingTests: true },
+  include: { options: true, programmingConfig: true, programmingTests: true, topics: { include: { topic: true } } },
 })
 
 const questionTypesByExamFormat: Record<AutoGenerateExamBody['format'], QuestionType[]> = {
@@ -134,6 +135,7 @@ export function findAutoExamQuestionPool(
       options: { orderBy: { orderIndex: 'asc' } },
       programmingConfig: true,
       programmingTests: { orderBy: { orderIndex: 'asc' } },
+      topics: { include: { topic: true } },
     },
   })
 }

@@ -258,7 +258,7 @@ export function copyExam(sourceId: string, teacherId: string) {
       where: { id: sourceId },
       include: {
         sections: true,
-        examQuestions: { include: { options: true, programmingConfig: true, programmingTests: true } },
+        examQuestions: { include: { options: true, programmingConfig: true, programmingTests: true, topics: true } },
       },
     })
     const activeSemester = await tx.semester.findFirst({
@@ -304,6 +304,7 @@ export function copyExam(sourceId: string, teacherId: string) {
           title: decryptField(question.title),
           content: decryptField(question.content),
           explanation: decryptNullable(question.explanation),
+          topics: question.topics.map((topic) => ({ id: topic.topicId, code: topic.code, name: topic.name })),
           options: question.options.map((o) => ({
             ...openExamOption(o),
             orderIndex: o.orderIndex,
