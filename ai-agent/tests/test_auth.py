@@ -64,7 +64,8 @@ def test_authorized_practice_response_uses_validated_source(monkeypatch):
     quote = "INNER JOIN trả các hàng có khóa khớp."
 
     class Model:
-        def with_structured_output(self, _schema):
+        def with_structured_output(self, _schema, *, method):
+            assert method == "function_calling"
             return self
 
         async def ainvoke(self, _messages):

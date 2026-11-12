@@ -32,7 +32,7 @@ def build_evidence(state: AgentState) -> AgentState:
 
 
 def create_workflow(model: ChatGoogleGenerativeAI, role: str):
-    structured = model.with_structured_output(AgentAnswer)
+    structured = model.with_structured_output(AgentAnswer, method="function_calling")
 
     async def explain(state: AgentState) -> AgentState:
         if not state["evidence"]["topics"] and not state["evidence"]["questions"] and not state["evidence"]["material"]:
@@ -95,7 +95,7 @@ async def run_teacher(model: ChatGoogleGenerativeAI, request: TeacherRequest) ->
 
 
 async def propose_exam_matrix(model: ChatGoogleGenerativeAI, request: ExamMatrixRequest) -> ExamMatrixProposal:
-    structured = model.with_structured_output(ExamMatrixProposal)
+    structured = model.with_structured_output(ExamMatrixProposal, method="function_calling")
     response = await structured.ainvoke([
         ("system", (
             "Bạn đề xuất ma trận số câu cho giảng viên. Chỉ dựa trên số câu hiện có trong ngân hàng. "

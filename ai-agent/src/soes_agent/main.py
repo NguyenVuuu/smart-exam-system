@@ -39,7 +39,7 @@ async def log_agent_request(request: Request, call_next):
         if request.url.path.startswith("/v1/"):
             logger.info("AI workflow=%s status=%s elapsed_ms=%s model=%s",
                         request.url.path, status, round((perf_counter() - started) * 1000),
-                        os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash"))
+                        os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite"))
 
 
 def require_service(authorization: str = Header(default="")) -> None:
@@ -53,7 +53,7 @@ def get_model() -> ChatGoogleGenerativeAI:
     if not api_key:
         raise HTTPException(status_code=503, detail="Model is not configured")
     return ChatGoogleGenerativeAI(
-        model=os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash"),
+        model=os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite"),
         api_key=api_key,
         thinking_level="low",
         timeout=50,

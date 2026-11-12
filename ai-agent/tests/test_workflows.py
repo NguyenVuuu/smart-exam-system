@@ -21,7 +21,8 @@ def test_evidence_contains_only_numeric_metrics():
 @pytest.mark.asyncio
 async def test_empty_results_never_call_the_model():
     class Model:
-        def with_structured_output(self, _schema):
+        def with_structured_output(self, _schema, *, method):
+            assert method == "function_calling"
             return self
 
         async def ainvoke(self, _messages):
@@ -38,7 +39,8 @@ async def test_empty_results_never_call_the_model():
 @pytest.mark.asyncio
 async def test_insufficient_topic_sample_is_not_sent_to_model():
     class Model:
-        def with_structured_output(self, _schema):
+        def with_structured_output(self, _schema, *, method):
+            assert method == "function_calling"
             return self
 
         async def ainvoke(self, _messages):
@@ -59,7 +61,8 @@ async def test_insufficient_topic_sample_is_not_sent_to_model():
 @pytest.mark.asyncio
 async def test_discards_model_citations_not_present_in_evidence():
     class Model:
-        def with_structured_output(self, _schema):
+        def with_structured_output(self, _schema, *, method):
+            assert method == "function_calling"
             return self
 
         async def ainvoke(self, _messages):
@@ -83,7 +86,8 @@ async def test_discards_model_citations_not_present_in_evidence():
 @pytest.mark.asyncio
 async def test_matrix_workflow_returns_only_a_proposal():
     class Model:
-        def with_structured_output(self, _schema):
+        def with_structured_output(self, _schema, *, method):
+            assert method == "function_calling"
             return self
 
         async def ainvoke(self, _messages):

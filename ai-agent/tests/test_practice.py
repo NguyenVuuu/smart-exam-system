@@ -53,7 +53,8 @@ def test_practice_keeps_only_valid_unique_candidates():
 @pytest.mark.asyncio
 async def test_generation_uses_selected_material_only():
     class Model:
-        def with_structured_output(self, _schema):
+        def with_structured_output(self, _schema, *, method):
+            assert method == "function_calling"
             return self
 
         async def ainvoke(self, messages):

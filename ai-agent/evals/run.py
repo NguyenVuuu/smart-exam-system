@@ -75,12 +75,16 @@ async def evaluate(selected_case: str | None = None) -> int:
             if role == "teacher":
                 allowed_percentages.update(item.averagePercentage for item in request.questions)
             claimed_percentages = {int(value) for value in re.findall(r"\b(\d{1,3})\s*%", text)}
-            passed = (expected_ids.issubset(set(answer.evidenceIds))
-                      and required_term.casefold() in text.casefold()
-                      and not any(term.casefold() in text.casefold() for term in forbidden_terms)
-                      and claimed_percentages.issubset(allowed_percentages))
+            checks = {
+                "evidence": expected_ids.issubset(set(answer.evidenceIds)),
+                "requiredTerm": required_term.casefold() in text.casefold(),
+                "forbiddenTerm": not any(term.casefold() in text.casefold() for term in forbidden_terms),
+                "percentages": claimed_percentages.issubset(allowed_percentages),
+            }
+            passed = all(checks.values())
             result = {"case": name, "passed": passed,
-                      "elapsedMs": round((perf_counter() - started) * 1000)}
+                      "elapsedMs": round((perf_counter() - started) * 1000),
+                      **({"checks": checks} if not passed else {})}
         except Exception as exc:
             result = {"case": name, "passed": False, "errorType": type(exc).__name__}
         print(json.dumps(result), flush=True)

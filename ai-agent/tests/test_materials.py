@@ -23,7 +23,8 @@ def test_reads_plain_text_and_rejects_empty_material():
 @pytest.mark.asyncio
 async def test_material_can_support_an_answer_without_released_exam_results():
     class Model:
-        def with_structured_output(self, _schema):
+        def with_structured_output(self, _schema, *, method):
+            assert method == "function_calling"
             return self
 
         async def ainvoke(self, messages):
@@ -45,7 +46,8 @@ async def test_material_can_support_an_answer_without_released_exam_results():
 @pytest.mark.asyncio
 async def test_uncited_material_answer_is_not_shown():
     class Model:
-        def with_structured_output(self, _schema):
+        def with_structured_output(self, _schema, *, method):
+            assert method == "function_calling"
             return self
 
         async def ainvoke(self, _messages):

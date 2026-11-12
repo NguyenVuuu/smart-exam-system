@@ -45,7 +45,7 @@ def validate_draft(draft: PracticeDraft, source: str, count: int) -> PracticeDra
 async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraftRequest) -> PracticeDraft:
     source = extract_material(request.material)
     candidate_count = request.count if request.count == 1 else min(10, request.count + 2)
-    structured = model.with_structured_output(PracticeDraft)
+    structured = model.with_structured_output(PracticeDraft, method="function_calling")
     response = await structured.ainvoke([
         ("system", (
             "Tạo đúng số câu trắc nghiệm ôn tập tiếng Việt từ tài liệu học tập. "
