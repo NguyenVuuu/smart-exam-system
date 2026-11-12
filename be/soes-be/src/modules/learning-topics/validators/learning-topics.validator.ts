@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const subjectParamSchema = z.object({ subjectId: z.string().uuid() })
+export const subjectParamSchema = z.object({ subjectId: z.string().trim().min(1).max(100) })
 export const questionParamSchema = z.object({ questionId: z.string().uuid() })
 export const createTopicSchema = z.object({
   code: z.string().trim().toUpperCase().regex(/^[A-Z0-9_-]{2,32}$/),

@@ -10,6 +10,7 @@ export interface TeacherQuestionDto {
   aiDifficultyReason: string | null
   language: 'JAVA' | 'C' | 'CPP' | null
   subject: { id: string; code: string; name: string }
+  topics: Array<{ id: string; code: string; name: string }>
   owner: { id: string; fullName: string }
   options: Array<{ id: string; content: string; isCorrect: boolean }>
   programmingConfig: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number } | null

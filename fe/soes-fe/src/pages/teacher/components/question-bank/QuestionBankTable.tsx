@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, CloudUpload, Edit, Eye, XCircle } from 'lucide-react'
+import { Archive, ArchiveRestore, CloudUpload, Edit, Eye, Tags, XCircle } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import DataTable, { type ColumnDef } from '../../../../components/common/DataTable'
 import type { Question, QuestionType } from '../../types/teacher-question-bank.types'
@@ -46,6 +46,7 @@ export default function QuestionBankTable({
   isLoading = false,
   onView,
   onEdit,
+  onEditTopics,
   onArchive,
   onRestore,
   onShare,
@@ -57,6 +58,7 @@ export default function QuestionBankTable({
   isLoading?: boolean
   onView: (q: Question) => void
   onEdit: (q: Question) => void
+  onEditTopics: (q: Question) => void
   onArchive: (q: Question) => void
   onRestore: (q: Question) => void
   onShare: (qId: string) => void
@@ -75,6 +77,9 @@ export default function QuestionBankTable({
         <div className="min-w-0 w-[360px] max-w-[360px] space-y-1 py-1">
           <p className="truncate text-sm font-semibold text-gray-900">{q.title}</p>
           <p className="line-clamp-1 text-xs text-blue-600">{q.subjectName}</p>
+          <p className={`line-clamp-1 text-xs ${q.topics?.length ? 'text-slate-500' : 'text-amber-700'}`}>
+            {q.topics?.length ? q.topics.map((topic) => topic.name).join(' · ') : 'Chưa gắn chủ đề'}
+          </p>
         </div>
       ),
     },
@@ -117,7 +122,7 @@ export default function QuestionBankTable({
     },
     {
       header: 'THAO TÁC',
-      width: activeTab === 'SHARED' ? '92px' : '132px',
+      width: activeTab === 'SHARED' ? '92px' : '164px',
       align: 'right',
       render: (q) => {
         const isArchived = Boolean(q.archivedAt)
@@ -166,6 +171,12 @@ export default function QuestionBankTable({
 
             {activeTab === 'PERSONAL' && !isArchived && (
               <>
+                {!lockedInSharedBank && <button
+                  onClick={(e) => { e.stopPropagation(); onEditTopics(q) }}
+                  className="rounded-lg p-1.5 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                  title="Gắn chủ đề câu hỏi" aria-label={`Gắn chủ đề cho ${q.title}`}>
+                  <Tags size={16} />
+                </button>}
                 {canShareQuestion && (
                   <button
                     onClick={(e) => {
