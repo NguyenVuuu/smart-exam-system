@@ -1,7 +1,9 @@
 import os
+import logging
 from hmac import compare_digest
+from time import perf_counter
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .contracts import AgentAnswer, ExamMatrixProposal, ExamMatrixRequest, PracticeDraft, PracticeDraftRequest, StudentRequest, TeacherRequest
@@ -9,6 +11,22 @@ from .practice import generate_practice
 from .workflows import propose_exam_matrix, run_student, run_teacher
 
 app = FastAPI(title="SOES AI Agent", docs_url=None, redoc_url=None)
+logger = logging.getLogger(__name__)
+
+
+@app.middleware("http")
+async def log_agent_request(request: Request, call_next):
+    started = perf_counter()
+    status = 500
+    try:
+        response = await call_next(request)
+        status = response.status_code
+        return response
+    finally:
+        if request.url.path.startswith("/v1/"):
+            logger.info("AI workflow=%s status=%s elapsed_ms=%s model=%s",
+                        request.url.path, status, round((perf_counter() - started) * 1000),
+                        os.environ.get("AI_AGENT_MODEL", "gemini-3.8-flash"))
 
 
 def require_service(authorization: str = Header(default="")) -> None:

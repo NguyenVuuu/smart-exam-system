@@ -1,3 +1,5 @@
+import logging
+
 from fastapi.testclient import TestClient
 
 from soes_agent.main import app
@@ -11,3 +13,13 @@ def test_rejects_requests_without_service_secret(monkeypatch):
 
 def test_health_does_not_require_model_configuration():
     assert TestClient(app).get("/health").json() == {"status": "ok"}
+
+
+def test_workflow_log_contains_metadata_only(monkeypatch, caplog):
+    monkeypatch.setenv("AI_AGENT_SHARED_SECRET", "test-secret")
+    with caplog.at_level(logging.INFO, logger="soes_agent.main"):
+        response = TestClient(app).post("/v1/student/insights", json={"message": "private-prompt"})
+    assert response.status_code == 401
+    assert "status=401" in caplog.text
+    assert "private-prompt" not in caplog.text
+    assert "test-secret" not in caplog.text
