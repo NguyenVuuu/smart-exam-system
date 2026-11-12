@@ -231,7 +231,7 @@ export default function TeacherSidebar() {
                 {systemSettings.shortName || 'SOES'}
               </span>
               <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase shrink-0">
-                {positionLabel}
+                Giảng viên
               </span>
             </div>
           )}
