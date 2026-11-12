@@ -1,4 +1,5 @@
 import { Camera, Image, MonitorUp } from 'lucide-react'
+import { useEffect } from 'react'
 import type { ProctoringSessionRecord } from '../../types/teacher-exam.types'
 import type { LiveStreamType } from './StudentLiveTable'
 
@@ -24,6 +25,19 @@ export default function LiveStreamPanel({
   onCapture,
 }: LiveStreamPanelProps) {
   const isScreen = liveStreamType === 'SCREEN'
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !remoteStream) return
+
+    video.srcObject = remoteStream
+    void video.play().catch(() => undefined)
+
+    return () => {
+      video.pause()
+      video.srcObject = null
+    }
+  }, [remoteStream, videoRef])
 
   return (
     <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xs">

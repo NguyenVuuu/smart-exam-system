@@ -88,11 +88,6 @@ export function useLiveProctorSocket({
   const handleLiveOfferRef = useRef<((session: LiveOffer) => Promise<void>) | null>(null)
   const visionAlertsRef = useRef<Set<string>>(new Set())
 
-  useEffect(() => {
-    if (!videoRef.current) return
-    videoRef.current.srcObject = remoteStream
-  }, [remoteStream])
-
   const stopLive = useCallback(() => {
     requestGenerationRef.current++
     if (requestTimerRef.current !== null) window.clearTimeout(requestTimerRef.current)
