@@ -5,7 +5,7 @@ Private LangChain/LangGraph service. The TypeScript backend validates user roles
 Install Python 3.12 or 3.13, then from this directory:
 
 ```powershell
-python -m venv .venv
+py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[test]"
 python -m pytest
@@ -13,6 +13,8 @@ python -m uvicorn soes_agent.main:app --host 127.0.0.1 --port 8001
 ```
 
 Set `AI_AGENT_SHARED_SECRET` to the same high-entropy value in the backend and this service. Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` only in the private agent environment. Configure `AI_AGENT_MODEL` to select a supported model. Keep these values out of Git.
+
+Before starting the application, apply the backend migrations from `be/soes-be` with `npx prisma migrate deploy`. The backend must have `AI_AGENT_ENABLED=true`, `AI_AGENT_URL=http://127.0.0.1:8001`, and the same `AI_AGENT_SHARED_SECRET` as the Python process. Keep the Python service listening on localhost or a private network. Restart the backend after changing its environment. The model provider must be configured separately; installing Python and LangChain alone does not enable AI responses.
 
 The student material flow uses the existing course enrollment access rule. The backend allows a student to select one PDF, DOCX, or UTF-8 TXT file already visible in their enrolled class, up to 3 MiB. The agent reads at most 20,000 characters and requires a valid material citation in its answer. Scanned PDFs without extractable text are unsupported. The teacher's `aiEnabled` material flag remains reserved for teacher question generation. Material-based study suggestions never imply that a hidden exam was graded or analyzed.
 
