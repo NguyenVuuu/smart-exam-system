@@ -18,6 +18,9 @@ test('severity is determined by server policy and schedule flags', () => {
   assert.throws(() => studentViolationSeverity('PHONE_DETECTED', { ...flags, enableWebcam: false }))
   assert.throws(() => studentViolationSeverity('TAB_SWITCH', { ...flags, enableTabLock: false }))
   assert.throws(() => studentViolationSeverity('SCREEN_SHARE_STOPPED', { ...flags, enableScreenMonitoring: false }))
+  assert.throws(() => studentViolationSeverity('COPY_PASTE', { ...flags, blockCopyPaste: false }))
+  assert.throws(() => studentViolationSeverity('RIGHT_CLICK', { ...flags, blockRightClick: false }))
+  assert.throws(() => studentViolationSeverity('FULLSCREEN_EXIT', { ...flags, requireFullscreen: false }))
 })
 
 test('client severity and timestamps are discarded at the request boundary', () => {

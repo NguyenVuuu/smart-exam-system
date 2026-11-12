@@ -10,6 +10,7 @@ import * as teacherGrading from '../teacher-exams/services/teacher-exam-grading.
 import * as studentTakeExam from '../student-take-exam/services/student-take-exam.service'
 import * as live from '../proctoring-live/proctoring-live.service'
 import { setProctoringEmitter } from './proctoring-realtime.events'
+import { attemptRoom, isTeacherRole, joinStudentAttemptRoom, scheduleRoom } from './proctoring-room.policy'
 
 type SocketUser = {
   id: string
@@ -24,12 +25,9 @@ type CandidatePayload = {
 
 let io: Server | null = null
 
-const scheduleRoom = (scheduleId: string) => `proctoring:schedule:${scheduleId}`
-const attemptRoom = (attemptId: string) => `proctoring:attempt:${attemptId}`
 const teacherRoom = (teacherId: string) => `proctoring:teacher:${teacherId}`
 const studentRoom = (studentId: string) => `proctoring:student:${studentId}`
 const userRoom = (userId: string) => `user:${userId}`
-const isTeacherRole = (role: AccountRole) => role === 'TEACHER' || role === 'DEPARTMENT_HEAD'
 
 function socketUser(socket: Socket): SocketUser {
   return socket.data.user as SocketUser
@@ -114,6 +112,10 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
       }
     })
 
+    socket.on('proctoring:leave_schedule', ({ scheduleId }: { scheduleId: string }) => {
+      if (isTeacherRole(user.role)) void socket.leave(scheduleRoom(scheduleId))
+    })
+
     socket.on('proctoring:join_attempt', async (
       { scheduleId, attemptId }: { scheduleId: string; attemptId: string },
       ack?: (data: unknown) => void,
@@ -121,7 +123,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
       try {
         if (user.role !== 'STUDENT') throw new Error('Only students can join attempt rooms')
         await studentTakeExam.requireLiveAttempt(scheduleId, attemptId, user.profileId)
-        await socket.join(attemptRoom(attemptId))
+        await joinStudentAttemptRoom(socket, attemptId)
         ack?.({ ok: true })
         for (const streamType of ['WEBCAM', 'SCREEN'] as const) {
           const pending = await live.getPendingStudentRequest(attemptId, scheduleId, streamType)

@@ -26,6 +26,7 @@ import {
 import * as live from '../../proctoring-live/proctoring-live.service'
 import { emitAttemptEvent, emitProctoringEvent, emitTeacherEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
 import { studentViolationSeverity } from './violation.policy'
+import { normalizeScreenHeartbeat, normalizeWebcamHeartbeat } from './heartbeat.policy'
 import redis from '../../../lib/redis'
 
 /**
@@ -1002,12 +1003,8 @@ export async function sendHeartbeat(
   }
 
   // ── 4. Update ExamSession.lastHeartbeat atomically ─────────────────────────
-  const webcamStatus = attemptData.examSchedule.enableWebcam
-    ? (input.webcamStatus && input.webcamStatus !== 'NOT_REQUIRED' ? input.webcamStatus : 'DISCONNECTED')
-    : 'NOT_REQUIRED'
-  const screenShareStatus = attemptData.examSchedule.enableScreenMonitoring
-    ? (input.screenShareStatus && input.screenShareStatus !== 'NOT_REQUIRED' ? input.screenShareStatus : 'STOPPED')
-    : 'NOT_REQUIRED'
+  const webcamStatus = normalizeWebcamHeartbeat(attemptData.examSchedule.enableWebcam, input.webcamStatus)
+  const screenShareStatus = normalizeScreenHeartbeat(attemptData.examSchedule.enableScreenMonitoring, input.screenShareStatus)
 
   await repo.upsertExamSessionHeartbeat(attemptId, now, { webcamStatus, screenShareStatus })
   emitProctoringEvent(scheduleId, 'student:heartbeat', {

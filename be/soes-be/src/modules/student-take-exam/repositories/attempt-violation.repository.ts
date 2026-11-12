@@ -421,6 +421,7 @@ export async function endViolation(input: {
         id: input.violationId,
         attemptId: input.attemptId,
         endedAt: null,
+        source: { not: 'PROCTOR' },
         attempt: {
           examScheduleId: input.scheduleId,
           studentId: input.studentId,

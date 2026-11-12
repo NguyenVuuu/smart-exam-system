@@ -262,6 +262,7 @@ export function useLiveProctorSocket({
     socket.on('live:ended', handleLiveEnded)
 
     return () => {
+      socket.emit('proctoring:leave_schedule', { scheduleId })
       socket.off('connect', joinSchedule)
       socket.off('disconnect', handleDisconnect)
       socket.off('student:heartbeat', handleHeartbeat)

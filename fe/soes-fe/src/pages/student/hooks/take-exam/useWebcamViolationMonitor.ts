@@ -178,6 +178,9 @@ export function useWebcamViolationMonitor(input: {
     let watchdog: number | undefined
     let recoveryTimer: number | undefined
     let failures = 0
+    let healthySince = 0
+    let unavailable = false
+    let softErrors = 0
     let lastVideoTime = -1
     let observingFace = false
     let lastFaceObservedAt = 0
@@ -254,7 +257,7 @@ export function useWebcamViolationMonitor(input: {
     }
 
     const schedule = () => {
-      if (!cancelled) timer = window.setTimeout(() => { void tick() }, intervalMs)
+      if (!cancelled && !unavailable) timer = window.setTimeout(() => { void tick() }, intervalMs)
     }
 
     const observeFace = async (type: WebcamIssueType | null, observedAt: number) => {
@@ -296,6 +299,7 @@ export function useWebcamViolationMonitor(input: {
       if (cancelled) return
       failures++
       if (failures >= 3) {
+        unavailable = true
         setVisionStatus('UNAVAILABLE')
         setVisionError('Nhận diện camera tạm ngừng. Giảng viên đã được thông báo; camera vẫn hoạt động.')
         return
@@ -318,7 +322,7 @@ export function useWebcamViolationMonitor(input: {
           window.clearTimeout(watchdog)
           if (data.type === 'ready') {
             ready = true
-            failures = 0
+            healthySince = Date.now()
             setVisionStatus('READY')
             setVisionError(null)
             return
@@ -326,12 +330,15 @@ export function useWebcamViolationMonitor(input: {
           if (data.type === 'error' && data.fatal) { failWorker(); return }
           try {
             if (data.type === 'error') {
+              if (++softErrors >= 3) { failWorker(); return }
               issueStartedAtRef.current = {}
               setVisionStatus('RECOVERING')
               setVisionError('Nhận diện camera gặp lỗi tạm thời; hệ thống đang thử lại.')
             } else {
+              softErrors = 0
               intervalMs = data.intervalMs ?? intervalMs
               if (!data.skipped) {
+                if (Date.now() - healthySince > 60_000) failures = 0
                 setVisionStatus('READY')
                 setVisionError(null)
                 if (data.kind === 'face') void observeFace(data.issue ?? null, data.capturedAt ?? Date.now())
