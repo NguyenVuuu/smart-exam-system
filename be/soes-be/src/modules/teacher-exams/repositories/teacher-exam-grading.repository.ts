@@ -122,6 +122,7 @@ export const findAttemptAccessForLiveProctoring = (teacherId: string, attemptId:
     where: {
       id: attemptId,
       status: 'IN_PROGRESS',
+      deadlineAt: { gt: new Date() },
       examSchedule: violationAccess(teacherId),
     },
     select: {

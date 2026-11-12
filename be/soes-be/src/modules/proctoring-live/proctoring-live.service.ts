@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import redis from '../../lib/redis'
+import { ConflictError } from '../../errors/AppError'
 
 const REQUEST_TTL_SECONDS = 30
 const SESSION_TTL_SECONDS = 10 * 60
@@ -71,10 +72,14 @@ export async function requestLiveStream(input: { attemptId: string; scheduleId: 
   const existingId = await redis.get(attemptKey(input.attemptId, input.scheduleId, input.streamType))
   if (existingId) {
     const existing = await readSession(existingId)
-    if (existing && existing.teacherId === input.teacherId && existing.status !== 'ENDED') {
+    if (existing && existing.teacherId === input.teacherId && existing.status === 'REQUESTED') {
       await writeSession(existing)
       return publicSession(existing)
     }
+    if (existing && existing.teacherId !== input.teacherId && existing.status !== 'ENDED') {
+      throw new ConflictError('Another proctor is already viewing this stream')
+    }
+    if (existing && existing.status !== 'ENDED') await endSession(existing)
   }
 
   const now = Date.now()

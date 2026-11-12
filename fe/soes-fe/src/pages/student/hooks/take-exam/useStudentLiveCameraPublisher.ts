@@ -1,10 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { getSocket } from '../../../../api/socket'
 import { takeExamApi, type LiveCameraSession } from '../../api/student-take-exam.api'
-
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-}
+import { getRtcConfiguration } from '../../../../utils/rtc-configuration'
 
 export function useStudentLiveStreamPublisher(input: {
   enabled: boolean
@@ -32,7 +29,7 @@ export function useStudentLiveStreamPublisher(input: {
     const startSession = async (sessionId: string) => {
       if (peerRef.current || !input.stream) return
 
-      const peer = new RTCPeerConnection(RTC_CONFIG)
+      const peer = new RTCPeerConnection(getRtcConfiguration())
       peerRef.current = peer
       sessionIdRef.current = sessionId
 
@@ -61,11 +58,13 @@ export function useStudentLiveStreamPublisher(input: {
         offerToReceiveVideo: false,
       })
       await peer.setLocalDescription(offer)
-      socket.emit('live:student_offer', {
+      socket.timeout(8_000).emit('live:student_offer', {
         scheduleId: input.scheduleId,
         attemptId: input.attemptId,
         sessionId,
         offer,
+      }, (error: Error | null, response: { ok: boolean }) => {
+        if ((error || !response?.ok) && sessionIdRef.current === sessionId) cleanupPeer()
       })
     }
 
@@ -98,6 +97,7 @@ export function useStudentLiveStreamPublisher(input: {
     }
     if (socket.connected) joinAttempt()
     socket.on('connect', joinAttempt)
+    socket.on('disconnect', cleanupPeer)
     socket.on('live:request', handleLiveRequest)
     socket.on('live:answer', handleLiveAnswer)
     socket.on('live:teacher_candidate', handleTeacherCandidate)
@@ -106,6 +106,7 @@ export function useStudentLiveStreamPublisher(input: {
     return () => {
       cancelled = true
       socket.off('connect', joinAttempt)
+      socket.off('disconnect', cleanupPeer)
       socket.off('live:request', handleLiveRequest)
       socket.off('live:answer', handleLiveAnswer)
       socket.off('live:teacher_candidate', handleTeacherCandidate)
