@@ -22,6 +22,13 @@ export interface LearningAnswer {
   caveat: string | null
 }
 
+export interface StudyMaterial {
+  id: string
+  title: string | null
+  fileName: string
+  courseOffering: { id: string; code: string; subject: { name: string } }
+}
+
 interface ApiResponse<T> { data: T }
 
 export async function getLearningInsights(): Promise<StudentLearningInsights> {
@@ -29,7 +36,12 @@ export async function getLearningInsights(): Promise<StudentLearningInsights> {
   return data.data
 }
 
-export async function askLearningAgent(message: string): Promise<LearningAnswer> {
-  const { data } = await apiClient.post<ApiResponse<{ answer: LearningAnswer }>>('/student/learning/ask', { message })
+export async function getStudyMaterials(): Promise<StudyMaterial[]> {
+  const { data } = await apiClient.get<ApiResponse<StudyMaterial[]>>('/student/learning/materials')
+  return data.data
+}
+
+export async function askLearningAgent(message: string, materialId?: string): Promise<LearningAnswer> {
+  const { data } = await apiClient.post<ApiResponse<{ answer: LearningAnswer }>>('/student/learning/ask', { message, materialId })
   return data.data.answer
 }
