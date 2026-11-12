@@ -115,43 +115,66 @@ export function useScreenShareViolationMonitor(input: {
   enabled: boolean
   scheduleId: string
   attemptId: string
-  stream: MediaStream | null
   screenShareStatus: ExamScreenShareStatus
 }) {
   const openViolationRef = useRef<OpenViolationState | null>(null)
+  const pendingRef = useRef<Promise<void>>(Promise.resolve())
+
+  useEffect(() => () => {
+    const openViolation = openViolationRef.current
+    if (!openViolation) return
+    openViolationRef.current = null
+    void takeExamApi.endViolation(input.scheduleId, input.attemptId, openViolation.id).catch(() => undefined)
+  }, [input.attemptId, input.scheduleId])
 
   useEffect(() => {
-    if (!input.enabled || !input.scheduleId || !input.attemptId) return
-
     let cancelled = false
+    let retryTimer: number | undefined
+    let retryDelayMs = 2_000
+    const scheduleId = input.scheduleId
+    const attemptId = input.attemptId
+    const issue = input.enabled ? issueFromScreenStatus(input.screenShareStatus) : null
 
-    const closeOpenViolation = async () => {
-      const openViolation = openViolationRef.current
-      if (!openViolation) return
-      openViolationRef.current = null
-      await takeExamApi.endViolation(input.scheduleId, input.attemptId, openViolation.id, new Date().toISOString()).catch(() => undefined)
+    const scheduleRetry = () => {
+      if (cancelled) return
+      retryTimer = window.setTimeout(() => {
+        pendingRef.current = pendingRef.current.then(sync, sync)
+      }, retryDelayMs)
+      retryDelayMs = Math.min(retryDelayMs * 2, 30_000)
     }
 
     const sync = async () => {
-      const issue = issueFromScreenStatus(input.screenShareStatus)
-      if (!issue) {
-        await closeOpenViolation()
+      if (cancelled || !scheduleId || !attemptId) return
+      const openViolation = openViolationRef.current
+      if (openViolation?.type === issue) return
+      if (openViolation) {
+        try {
+          await takeExamApi.endViolation(scheduleId, attemptId, openViolation.id)
+          if (openViolationRef.current?.id === openViolation.id) openViolationRef.current = null
+        } catch {
+          scheduleRetry()
+          return
+        }
+      }
+      if (cancelled || !issue) return
+      const payload = buildPayload(issue)
+      const response = await takeExamApi.recordViolation(scheduleId, attemptId, payload).catch(() => null)
+      if (!response) {
+        scheduleRetry()
         return
       }
-      if (openViolationRef.current?.type === issue) return
-
-      await closeOpenViolation()
-      const payload = buildPayload(issue)
-      const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, payload).catch(() => null)
-      if (!cancelled && response) {
+      if (cancelled) {
+        await takeExamApi.endViolation(scheduleId, attemptId, response.id).catch(() => undefined)
+      } else {
         openViolationRef.current = { id: response.id, type: issue }
       }
     }
 
-    void sync()
+    pendingRef.current = pendingRef.current.then(sync, sync)
 
     return () => {
       cancelled = true
+      window.clearTimeout(retryTimer)
     }
-  }, [input.attemptId, input.enabled, input.scheduleId, input.screenShareStatus, input.stream])
+  }, [input.attemptId, input.enabled, input.scheduleId, input.screenShareStatus])
 }

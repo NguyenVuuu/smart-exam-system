@@ -240,7 +240,6 @@ export default function StudentTakeExamPage() {
     enabled: phase === 'IN_PROGRESS' && Boolean(session?.integritySettings.enableScreenMonitoring),
     scheduleId: scheduleId ?? '',
     attemptId: attemptId ?? '',
-    stream: screenStream,
     screenShareStatus: screenStatus,
   })
 

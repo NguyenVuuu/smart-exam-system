@@ -152,6 +152,8 @@ export function createManualProctorViolation(input: {
       detectedBy: 'PROCTOR',
       detectedById: input.teacherUserId,
       detectedAt: input.detectedAt,
+      endedAt: input.detectedAt,
+      durationSeconds: 0,
       description: input.description ?? null,
     },
       select: {

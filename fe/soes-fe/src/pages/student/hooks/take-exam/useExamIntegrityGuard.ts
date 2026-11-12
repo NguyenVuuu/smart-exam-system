@@ -55,10 +55,15 @@ export function useExamIntegrityGuard({
   const fullscreenCaptureAttemptedRef = useRef(false)
   const fullscreenCapturedEvidenceRef = useRef<File[] | undefined>(undefined)
   const fullscreenViolationIdRef = useRef<string | null>(null)
+  const captureScreenEvidenceRef = useRef(captureScreenEvidence)
   const lastTabSwitchReportedAtRef = useRef(0)
   const tabSwitchTimeoutRef = useRef<number | null>(null)
   const [isFullscreenActive, setIsFullscreenActive] = useState(() => Boolean(document.fullscreenElement))
   const [fullscreenExitCountdown, setFullscreenExitCountdown] = useState<number | null>(null)
+
+  useEffect(() => {
+    captureScreenEvidenceRef.current = captureScreenEvidence
+  }, [captureScreenEvidence])
 
   const reportViolation = useCallback(async (payload: Omit<RecordViolationPayload, 'detectedAt'> & { detectedAt?: string }, dedupe = true) => {
     const now = Date.now()
@@ -86,16 +91,21 @@ export function useExamIntegrityGuard({
       detectedAt: new Date(startedAt).toISOString(),
     }, false)
     if (response?.id) {
-      fullscreenViolationIdRef.current = response.id
-      if (fullscreenViolationStorageKey) window.localStorage.setItem(fullscreenViolationStorageKey, response.id)
+      if (fullscreenExitStartedAtRef.current !== startedAt) {
+        await onEndViolation?.(response.id, new Date().toISOString())
+      } else {
+        fullscreenViolationIdRef.current = response.id
+        if (fullscreenViolationStorageKey) window.localStorage.setItem(fullscreenViolationStorageKey, response.id)
+      }
     }
-  }, [fullscreenViolationStorageKey, reportViolation])
+  }, [fullscreenViolationStorageKey, onEndViolation, reportViolation])
 
   const reportSevereFullscreenExit = useCallback(async (startedAt: number, description: string) => {
     if (fullscreenSevereReportedRef.current) return
     fullscreenSevereReportedRef.current = true
-    const evidenceFiles = fullscreenCapturedEvidenceRef.current ?? await captureScreenEvidence?.().catch(() => undefined)
+    const evidenceFiles = fullscreenCapturedEvidenceRef.current ?? await captureScreenEvidenceRef.current?.().catch(() => undefined)
     fullscreenCaptureAttemptedRef.current = true
+    if (fullscreenExitStartedAtRef.current !== startedAt) return
     const response = await reportViolation({
       violationType: 'FULLSCREEN_EXIT',
       severity: 'HIGH',
@@ -104,10 +114,14 @@ export function useExamIntegrityGuard({
       evidenceFiles,
     }, false)
     if (response?.id) {
-      fullscreenViolationIdRef.current = response.id
-      if (fullscreenViolationStorageKey) window.localStorage.setItem(fullscreenViolationStorageKey, response.id)
+      if (fullscreenExitStartedAtRef.current !== startedAt) {
+        await onEndViolation?.(response.id, new Date().toISOString())
+      } else {
+        fullscreenViolationIdRef.current = response.id
+        if (fullscreenViolationStorageKey) window.localStorage.setItem(fullscreenViolationStorageKey, response.id)
+      }
     }
-  }, [captureScreenEvidence, fullscreenViolationStorageKey, reportViolation])
+  }, [fullscreenViolationStorageKey, onEndViolation, reportViolation])
 
   useEffect(() => {
     if (!fullscreenViolationStorageKey) return
