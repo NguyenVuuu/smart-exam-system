@@ -17,9 +17,14 @@ def require_service(authorization: str = Header(default="")) -> None:
 
 
 def get_model() -> ChatGoogleGenerativeAI:
-    if not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
+    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
         raise HTTPException(status_code=503, detail="Model is not configured")
-    return ChatGoogleGenerativeAI(model=os.environ.get("AI_AGENT_MODEL", "gemini-2.5-flash"), temperature=0)
+    return ChatGoogleGenerativeAI(
+        model=os.environ.get("AI_AGENT_MODEL", "gemini-2.5-flash"),
+        api_key=api_key,
+        temperature=0,
+    )
 
 
 @app.get("/health")

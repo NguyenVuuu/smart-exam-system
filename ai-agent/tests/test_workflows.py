@@ -32,7 +32,28 @@ async def test_empty_results_never_call_the_model():
         limitedToRecentAttempts=False, topics=[],
     ))
     assert answer.actions == []
-    assert "Chưa có kết quả" in answer.summary
+    assert "Chưa có dữ liệu" in answer.summary
+
+
+@pytest.mark.asyncio
+async def test_insufficient_topic_sample_is_not_sent_to_model():
+    class Model:
+        def with_structured_output(self, _schema):
+            return self
+
+        async def ainvoke(self, _messages):
+            raise AssertionError("Insufficient data must not reach the model")
+
+    answer = await run_student(Model(), StudentRequest(
+        message="Tôi yếu gì?", analyzedAttemptCount=1, limitedToRecentAttempts=False,
+        topics=[{
+            "topicId": "join", "code": "JOIN", "name": "SQL joins",
+            "questionCount": 1, "earnedPoints": 0, "possiblePoints": 1,
+            "percentage": 0, "sufficientData": False,
+        }],
+    ))
+    assert answer.evidenceIds == []
+    assert answer.actions == []
 
 
 @pytest.mark.asyncio
