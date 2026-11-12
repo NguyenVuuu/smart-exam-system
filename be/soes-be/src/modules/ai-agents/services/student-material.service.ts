@@ -25,6 +25,7 @@ export async function loadStudentMaterial(studentId: string, materialId: string)
   if (buffer.length > maxBytes) throw new ValidationError('Material is too large for AI study')
   return {
     materialId: material.id,
+    subjectId: material.courseOffering.subjectId,
     title: (material.title?.trim() || material.fileName).slice(0, 150),
     mimeType,
     contentBase64: buffer.toString('base64'),

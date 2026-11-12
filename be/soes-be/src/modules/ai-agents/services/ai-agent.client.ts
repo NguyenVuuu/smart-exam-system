@@ -2,9 +2,9 @@ import { aiAgentConfig } from '../../../config'
 import { AppError } from '../../../errors/AppError'
 import { logger } from '../../../lib/logger'
 import type { z } from 'zod'
-import { agentAnswerSchema, examMatrixProposalSchema } from '../validators/ai-agent.validator'
+import { agentAnswerSchema, examMatrixProposalSchema, practiceDraftSchema } from '../validators/ai-agent.validator'
 
-type AgentPath = '/v1/student/insights' | '/v1/teacher/insights' | '/v1/teacher/exam-matrix'
+type AgentPath = '/v1/student/insights' | '/v1/student/practice-draft' | '/v1/teacher/insights' | '/v1/teacher/exam-matrix'
 
 async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unknown, schema: T): Promise<z.infer<T>> {
   if (!aiAgentConfig.enabled || !aiAgentConfig.sharedSecret) {
@@ -36,3 +36,6 @@ export const requestInsightAgent = (path: '/v1/student/insights' | '/v1/teacher/
 
 export const requestExamMatrixAgent = (payload: unknown) =>
   requestAgent('/v1/teacher/exam-matrix', payload, examMatrixProposalSchema)
+
+export const requestPracticeDraftAgent = (payload: unknown) =>
+  requestAgent('/v1/student/practice-draft', payload, practiceDraftSchema)

@@ -4,7 +4,8 @@ from hmac import compare_digest
 from fastapi import Depends, FastAPI, Header, HTTPException
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from .contracts import AgentAnswer, ExamMatrixProposal, ExamMatrixRequest, StudentRequest, TeacherRequest
+from .contracts import AgentAnswer, ExamMatrixProposal, ExamMatrixRequest, PracticeDraft, PracticeDraftRequest, StudentRequest, TeacherRequest
+from .practice import generate_practice
 from .workflows import propose_exam_matrix, run_student, run_teacher
 
 app = FastAPI(title="SOES AI Agent", docs_url=None, redoc_url=None)
@@ -43,6 +44,14 @@ async def student_insights(request: StudentRequest) -> AgentAnswer:
 @app.post("/v1/teacher/insights", response_model=AgentAnswer, dependencies=[Depends(require_service)])
 async def teacher_insights(request: TeacherRequest) -> AgentAnswer:
     return await run_teacher(get_model(), request)
+
+
+@app.post("/v1/student/practice-draft", response_model=PracticeDraft, dependencies=[Depends(require_service)])
+async def student_practice_draft(request: PracticeDraftRequest) -> PracticeDraft:
+    try:
+        return await generate_practice(get_model(), request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/v1/teacher/exam-matrix", response_model=ExamMatrixProposal, dependencies=[Depends(require_service)])

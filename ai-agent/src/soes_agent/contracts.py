@@ -63,6 +63,23 @@ class ExamMatrixProposal(BaseModel):
     rationale: str = Field(max_length=500)
 
 
+class PracticeDraftRequest(BaseModel):
+    material: StudyMaterial
+    count: int = Field(ge=1, le=10)
+
+
+class PracticeQuestion(BaseModel):
+    stem: str = Field(min_length=10, max_length=1000)
+    options: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(min_length=4, max_length=4)
+    correctIndex: int = Field(ge=0, le=3)
+    explanation: str = Field(min_length=10, max_length=500)
+    supportQuote: str = Field(min_length=10, max_length=300)
+
+
+class PracticeDraft(BaseModel):
+    questions: list[PracticeQuestion] = Field(min_length=1, max_length=10)
+
+
 class AgentAnswer(BaseModel):
     summary: str = Field(max_length=1500)
     actions: list[Annotated[str, Field(max_length=500)]] = Field(max_length=5)
