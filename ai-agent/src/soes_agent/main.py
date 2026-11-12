@@ -1,17 +1,28 @@
 import os
 import logging
 from hmac import compare_digest
+from pathlib import Path
 from time import perf_counter
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
 
 from .contracts import AgentAnswer, ExamMatrixProposal, ExamMatrixRequest, PracticeDraft, PracticeDraftRequest, StudentRequest, TeacherRequest
 from .practice import generate_practice
 from .workflows import propose_exam_matrix, run_student, run_teacher
 
+load_dotenv(Path(__file__).resolve().parents[2] / '.env')
 app = FastAPI(title="SOES AI Agent", docs_url=None, redoc_url=None)
 logger = logging.getLogger(__name__)
+
+
+@app.exception_handler(GoogleRateLimitError)
+@app.exception_handler(GoogleAPIError)
+async def model_unavailable(_request: Request, _error: GoogleAPIError | GoogleRateLimitError) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"detail": "AI model is temporarily unavailable"})
 
 
 @app.middleware("http")
@@ -26,7 +37,7 @@ async def log_agent_request(request: Request, call_next):
         if request.url.path.startswith("/v1/"):
             logger.info("AI workflow=%s status=%s elapsed_ms=%s model=%s",
                         request.url.path, status, round((perf_counter() - started) * 1000),
-                        os.environ.get("AI_AGENT_MODEL", "gemini-3.6-flash"))
+                        os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash"))
 
 
 def require_service(authorization: str = Header(default="")) -> None:
@@ -40,7 +51,7 @@ def get_model() -> ChatGoogleGenerativeAI:
     if not api_key:
         raise HTTPException(status_code=503, detail="Model is not configured")
     return ChatGoogleGenerativeAI(
-        model=os.environ.get("AI_AGENT_MODEL", "gemini-3.6-flash"),
+        model=os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash"),
         api_key=api_key,
         thinking_level="low",
         timeout=50,
