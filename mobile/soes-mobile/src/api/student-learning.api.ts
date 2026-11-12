@@ -55,7 +55,7 @@ export async function getStudyMaterials(): Promise<StudyMaterial[]> {
 
 export async function askLearningAgent(message: string, materialId?: string): Promise<LearningAnswer> {
   const { data } = await apiClient.post<ApiResponse<{ answer: LearningAnswer }>>(
-    '/student/learning/ask', { message, materialId }, { timeout: 30000 },
+    '/student/learning/ask', { message, materialId }, { timeout: 65000 },
   )
   return data.data.answer
 }
@@ -72,7 +72,7 @@ export async function getPracticeSet(id: string): Promise<PracticeSet> {
 
 export async function createPracticeSet(materialId: string): Promise<PracticeSet> {
   const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice',
-    { materialId, count: 5 }, { timeout: 30000 })
+    { materialId, count: 5 }, { timeout: 65000 })
   return data.data
 }
 

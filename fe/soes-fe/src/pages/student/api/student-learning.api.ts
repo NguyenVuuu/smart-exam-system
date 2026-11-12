@@ -81,7 +81,7 @@ export async function getPracticeSet(id: string): Promise<PracticeSet> {
 }
 
 export async function createPracticeSet(materialId: string, count = 5): Promise<PracticeSet> {
-  const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice', { materialId, count }, { timeout: 30000 })
+  const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice', { materialId, count }, { timeout: 65000 })
   return data.data
 }
 
