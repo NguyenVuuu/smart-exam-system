@@ -58,6 +58,7 @@ async def test_generation_uses_selected_material_only():
 
         async def ainvoke(self, messages):
             assert SOURCE in messages[1][1]
+            assert "Tạo 1 câu ứng viên" in messages[1][1]
             assert "Mức độ: ADVANCED" in messages[1][1]
             return draft().model_dump()
 

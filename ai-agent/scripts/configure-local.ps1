@@ -42,7 +42,9 @@ $agentLines = if (Test-Path -LiteralPath $agentEnv) { [System.IO.File]::ReadAllL
 $agentLines = Set-EnvValue $agentLines 'GEMINI_API_KEY' $geminiKey
 $agentLines = Set-EnvValue $agentLines 'AI_AGENT_SHARED_SECRET' $secret
 if (-not (Get-EnvValue $agentLines 'AI_AGENT_MODEL')) {
-  $agentLines = Set-EnvValue $agentLines 'AI_AGENT_MODEL' 'gemini-3.5-flash'
+  $backendModel = Get-EnvValue $backendLines 'GEMINI_MODEL'
+  if (-not $backendModel) { $backendModel = 'gemini-3.1-flash-lite' }
+  $agentLines = Set-EnvValue $agentLines 'AI_AGENT_MODEL' $backendModel
 }
 
 $encoding = New-Object System.Text.UTF8Encoding $false

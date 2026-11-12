@@ -8,7 +8,7 @@ Install Python 3.12 or 3.13. For local development, run the configuration helper
 ./ai-agent/scripts/configure-local.ps1
 ```
 
-The helper preserves an existing shared secret and is safe to rerun after a backend key change. The two `.env` files are ignored by Git. Start the private agent in its own terminal from `ai-agent`:
+The helper preserves an existing shared secret and model setting. For a new agent `.env`, it uses the backend's `GEMINI_MODEL` value. The two `.env` files are ignored by Git. Start the private agent in its own terminal from `ai-agent`:
 
 ```powershell
 py -3.13 -m venv .venv
@@ -20,9 +20,9 @@ python -m uvicorn soes_agent.main:app --host 127.0.0.1 --port 8001
 
 The service loads `ai-agent/.env` on startup. In a second terminal, start the backend from `be/soes-be` with `npm run dev`, then start the web or mobile client as usual. Restart both services after changing their `.env` files. Check `http://127.0.0.1:8001/health`; it should respond with `{"status":"ok"}`. If a student or teacher request returns 503, verify that both services are running and that the backend and agent have the same shared secret.
 
-Run `python scripts/smoke-local.py` from `ai-agent` to check the authenticated HTTP path with synthetic topic data. Add `--practice` to also test one generated practice draft. The script prints only pass messages; the server log records endpoint, status, elapsed time, and model, without prompts or credentials. A 503 means the provider is temporarily unavailable or its quota is exhausted; the agent cannot make more requests until the provider allows them.
+Run `python scripts/smoke-local.py` from `ai-agent` to check the authenticated HTTP path with synthetic topic data. Add `--practice` to also test one generated practice draft, or `--practice-only` to test that endpoint alone. The script prints only pass messages; the server log records endpoint, status, elapsed time, and model, without prompts or credentials. A 503 means the provider is temporarily unavailable or its quota is exhausted; the agent cannot make more requests until the provider allows them.
 
-Set `AI_AGENT_SHARED_SECRET` to the same high-entropy value in the backend and this service. Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` only in the private agent environment. The default model is `gemini-3.5-flash`, which passed all four synthetic insight cases locally. Model availability and output quality can change; compare candidates with `python evals/run.py` before switching. Keep secrets out of Git.
+Set `AI_AGENT_SHARED_SECRET` to the same high-entropy value in the backend and this service. Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` only in the private agent environment. Local development currently uses `gemini-3.1-flash-lite`, which passed all four synthetic insight cases on 12 November 2026. The Python fallback model remains `gemini-3.5-flash` if `AI_AGENT_MODEL` is unset. Model availability and output quality can change; compare candidates with `python evals/run.py` before switching. Keep secrets out of Git.
 
 Before starting the application, apply the backend migrations from `be/soes-be` with `npx prisma migrate deploy`. The backend must have `AI_AGENT_ENABLED=true`, `AI_AGENT_URL=http://127.0.0.1:8001`, and the same `AI_AGENT_SHARED_SECRET` as the Python process. Keep the Python service listening on localhost or a private network. The model provider must be configured separately; installing Python and LangChain alone does not enable AI responses.
 
