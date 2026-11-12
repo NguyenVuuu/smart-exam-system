@@ -10,10 +10,9 @@ import type { ProctoringSessionRecord, ViolationRecord } from '../types/teacher-
 import type { TeacherPaginationMeta } from '../api/teacher-exams.api'
 import type { LiveStatus } from '../components/proctoring/LiveStreamPanel'
 import type { LiveStreamType } from '../components/proctoring/StudentLiveTable'
+import { getRtcConfiguration } from '../../../utils/rtc-configuration'
 
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-}
+type LiveOffer = { id: string; status: string; offer: RTCSessionDescriptionInit | null }
 
 function normalizeRealtimeViolation(payload: Partial<ViolationRecord> & {
   violationType?: ViolationRecord['type']
@@ -82,13 +81,19 @@ export function useLiveProctorSocket({
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const peerRef = useRef<RTCPeerConnection | null>(null)
   const liveSessionIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!videoRef.current) return
-    videoRef.current.srcObject = remoteStream
-  }, [remoteStream])
+  const requestTimerRef = useRef<number | null>(null)
+  const requestGenerationRef = useRef(0)
+  const streamReadyRef = useRef(false)
+  const pendingOfferRef = useRef<LiveOffer | null>(null)
+  const handleLiveOfferRef = useRef<((session: LiveOffer) => Promise<void>) | null>(null)
+  const visionAlertsRef = useRef<Set<string>>(new Set())
 
   const stopLive = useCallback(() => {
+    requestGenerationRef.current++
+    if (requestTimerRef.current !== null) window.clearTimeout(requestTimerRef.current)
+    requestTimerRef.current = null
+    streamReadyRef.current = false
+    pendingOfferRef.current = null
     const sessionId = liveSessionIdRef.current
     if (sessionId) {
       getSocket().emit('live:end', { sessionId })
@@ -105,6 +110,7 @@ export function useLiveProctorSocket({
   }, [])
 
   useEffect(() => () => {
+    if (requestTimerRef.current !== null) window.clearTimeout(requestTimerRef.current)
     const sessionId = liveSessionIdRef.current
     if (sessionId) void endTeacherLiveCamera(sessionId).catch(() => undefined)
     peerRef.current?.close()
@@ -125,11 +131,18 @@ export function useLiveProctorSocket({
     }
     if (socket.connected) joinSchedule()
     socket.on('connect', joinSchedule)
+    const handleDisconnect = () => {
+      if (!liveSessionIdRef.current) return
+      stopLive()
+      toast.warning('Kết nối giám sát bị ngắt. Hãy mở lại luồng trực tiếp sau khi kết nối khôi phục.')
+    }
+    socket.on('disconnect', handleDisconnect)
 
     const handleHeartbeat = (payload: {
       attemptId: string
       webcamStatus?: ProctoringSessionRecord['webcamStatus']
       screenShareStatus?: ProctoringSessionRecord['screenShareStatus']
+      visionStatus?: ProctoringSessionRecord['visionStatus']
       lastHeartbeatAt?: string
       isOnline?: boolean
     }) => {
@@ -139,9 +152,18 @@ export function useLiveProctorSocket({
             isOnline: payload.isOnline ?? item.isOnline,
             webcamStatus: payload.webcamStatus ?? item.webcamStatus,
             screenShareStatus: payload.screenShareStatus ?? item.screenShareStatus,
+            visionStatus: payload.visionStatus ?? item.visionStatus,
             lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt,
           }
         : item))
+      if (payload.visionStatus === 'UNAVAILABLE' && !visionAlertsRef.current.has(payload.attemptId)) {
+        visionAlertsRef.current.add(payload.attemptId)
+        toast.warning('Nhận diện camera trên máy sinh viên tạm ngừng', {
+          description: 'Vẫn có thể mở camera trực tiếp để kiểm tra trong khi sinh viên tiếp tục làm bài.',
+        })
+      } else if (payload.visionStatus === 'READY') {
+        visionAlertsRef.current.delete(payload.attemptId)
+      }
     }
 
     const handleOffline = (payload: {
@@ -161,6 +183,7 @@ export function useLiveProctorSocket({
           }
         : item))
       if (payload.attemptId === liveAttemptId) stopLive()
+      visionAlertsRef.current.delete(payload.attemptId)
     }
 
     const handleViolationCreated = (payload: ViolationRecord) => {
@@ -192,15 +215,29 @@ export function useLiveProctorSocket({
       setViolations((current) => current.map((item) => item.id === payload.id ? { ...item, ...payload } : item))
     }
 
-    const handleLiveOffer = async (session: { id: string; status: string; offer: RTCSessionDescriptionInit | null }) => {
+    const handleLiveOffer = async (session: LiveOffer) => {
+      if (!liveSessionIdRef.current) {
+        pendingOfferRef.current = session
+        return
+      }
       const peer = peerRef.current
       if (!peer || session.id !== liveSessionIdRef.current || !session.offer || peer.currentRemoteDescription) return
-      setLiveStatus('CONNECTING')
-      await peer.setRemoteDescription(session.offer)
-      const answer = await peer.createAnswer()
-      await peer.setLocalDescription(answer)
-      socket.emit('live:teacher_answer', { sessionId: session.id, answer })
+      try {
+        setLiveStatus('CONNECTING')
+        await peer.setRemoteDescription(session.offer)
+        const answer = await peer.createAnswer()
+        await peer.setLocalDescription(answer)
+        socket.timeout(8_000).emit('live:teacher_answer', { sessionId: session.id, answer }, (error: Error | null, response: { ok: boolean }) => {
+          if (!error && response?.ok) return
+          stopLive()
+          toast.error('Không thể thiết lập luồng trực tiếp. Vui lòng thử lại.')
+        })
+      } catch {
+        stopLive()
+        toast.error('Không thể xử lý tín hiệu camera/màn hình. Vui lòng thử lại.')
+      }
     }
+    handleLiveOfferRef.current = handleLiveOffer
 
     const handleStudentCandidate = async ({ sessionId, candidate }: { sessionId: string; candidate: RTCIceCandidateInit }) => {
       if (sessionId !== liveSessionIdRef.current) return
@@ -220,7 +257,9 @@ export function useLiveProctorSocket({
     socket.on('live:ended', handleLiveEnded)
 
     return () => {
+      socket.emit('proctoring:leave_schedule', { scheduleId })
       socket.off('connect', joinSchedule)
+      socket.off('disconnect', handleDisconnect)
       socket.off('student:heartbeat', handleHeartbeat)
       socket.off('student:offline', handleOffline)
       socket.off('violation:created', handleViolationCreated)
@@ -228,21 +267,44 @@ export function useLiveProctorSocket({
       socket.off('live:offer', handleLiveOffer)
       socket.off('live:student_candidate', handleStudentCandidate)
       socket.off('live:ended', handleLiveEnded)
+      handleLiveOfferRef.current = null
     }
   }, [debouncedViolationSearch, liveAttemptId, scheduleId, selectedViolationStudentId, selectedViolationType, setScheduleTitle, setSessions, setViolationPagination, setViolations, stopLive, violationPage])
 
+  useEffect(() => {
+    if (!liveSessionId) return
+    const keepAlive = () => getSocket().timeout(8_000).emit('live:keepalive', { sessionId: liveSessionId }, (error: Error | null, response: { ok: boolean }) => {
+      if (!error && response?.ok) return
+      stopLive()
+      toast.error('Phiên xem trực tiếp đã ngắt. Vui lòng mở lại.')
+    })
+    const timer = window.setInterval(keepAlive, 60_000)
+    return () => window.clearInterval(timer)
+  }, [liveSessionId, stopLive])
+
   const startLive = async (session: ProctoringSessionRecord, streamType: LiveStreamType) => {
     if (liveAttemptId && (liveAttemptId !== session.attemptId || liveStreamType !== streamType)) stopLive()
+    if (!getSocket().connected) {
+      toast.error('Chưa kết nối được máy chủ giám sát. Vui lòng thử lại.')
+      return
+    }
+    const requestGeneration = ++requestGenerationRef.current
+    streamReadyRef.current = false
+    pendingOfferRef.current = null
     onSwitchToLiveTab?.()
     setLiveAttemptId(session.attemptId)
     setLiveStreamType(streamType)
     setLiveStatus('REQUESTING')
     setRemoteStream(null)
 
-    const peer = new RTCPeerConnection(RTC_CONFIG)
+    const peer = new RTCPeerConnection(getRtcConfiguration())
     peerRef.current = peer
 
     peer.ontrack = (event) => {
+      if (requestGeneration !== requestGenerationRef.current) return
+      streamReadyRef.current = true
+      if (requestTimerRef.current !== null) window.clearTimeout(requestTimerRef.current)
+      requestTimerRef.current = null
       setRemoteStream(event.streams[0] ?? new MediaStream([event.track]))
       setLiveStatus('CONNECTED')
     }
@@ -259,13 +321,26 @@ export function useLiveProctorSocket({
     try {
       const eventName = streamType === 'SCREEN' ? 'live:request_screen' : 'live:request_camera'
       const liveSession = await new Promise<Awaited<ReturnType<typeof startTeacherLiveCamera>>>((resolve, reject) => {
-        getSocket().emit(eventName, { attemptId: session.attemptId }, (response: { ok: boolean; data?: Awaited<ReturnType<typeof startTeacherLiveCamera>>; error?: string }) => {
+        getSocket().timeout(8_000).emit(eventName, { attemptId: session.attemptId }, (timeoutError: Error | null, response: { ok: boolean; data?: Awaited<ReturnType<typeof startTeacherLiveCamera>>; error?: string }) => {
+          if (timeoutError) { reject(new Error('Máy chủ giám sát không phản hồi trong 8 giây.')); return }
           if (response.ok && response.data) resolve(response.data)
           else reject(new Error(response.error ?? 'Unable to request live stream'))
         })
       })
+      if (requestGeneration !== requestGenerationRef.current) {
+        void endTeacherLiveCamera(liveSession.id).catch(() => undefined)
+        return
+      }
       liveSessionIdRef.current = liveSession.id
       setLiveSessionId(liveSession.id)
+      const pendingOffer = pendingOfferRef.current as LiveOffer | null
+      pendingOfferRef.current = null
+      if (pendingOffer?.id === liveSession.id) void handleLiveOfferRef.current?.(pendingOffer)
+      if (!streamReadyRef.current) requestTimerRef.current = window.setTimeout(() => {
+        if (requestGeneration !== requestGenerationRef.current) return
+        stopLive()
+        toast.error('Không nhận được hình ảnh trực tiếp trong 20 giây. Hãy kiểm tra kết nối của sinh viên rồi thử lại.')
+      }, 20_000)
       toast.success(streamType === 'SCREEN' ? `Đang mở màn hình của ${session.studentName}.` : `Đang mở camera của ${session.studentName}.`)
     } catch (error) {
       stopLive()

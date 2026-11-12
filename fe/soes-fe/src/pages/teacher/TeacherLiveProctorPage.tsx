@@ -87,7 +87,7 @@ export default function TeacherLiveProctorPage() {
   const [violationPagination, setViolationPagination] = useState<TeacherPaginationMeta>(emptyViolationPagination)
   const [refreshVersion, setRefreshVersion] = useState(0)
   const [loadedRequestKey, setLoadedRequestKey] = useState('')
-  const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null)
+  const [evidence, setEvidence] = useState<{ url: string; type: ViolationRecord['type'] } | null>(null)
   const [extensionTarget, setExtensionTarget] = useState<ProctoringSessionRecord | null>(null)
   const [isExtendingTime, setIsExtendingTime] = useState(false)
 
@@ -397,7 +397,7 @@ export default function TeacherLiveProctorPage() {
                   />
                   <ViolationLogTable
                     violations={violations}
-                    onViewEvidence={setEvidenceUrl}
+                    onViewEvidence={(url, type) => setEvidence({ url, type })}
                     loading={loading}
                     pagination={violationPagination}
                     onPageChange={setViolationPage}
@@ -421,9 +421,12 @@ export default function TeacherLiveProctorPage() {
       )}
 
       <EvidenceImageModal
-        imageUrl={evidenceUrl}
-        onClose={() => setEvidenceUrl(null)}
+        imageUrl={evidence?.url ?? null}
+        onClose={() => setEvidence(null)}
         title="Ảnh bằng chứng vi phạm"
+        description={evidence && ['CAMERA_BLOCKED', 'CAMERA_DISCONNECTED', 'CAMERA_PERMISSION_DENIED'].includes(evidence.type)
+          ? 'Ảnh cũ có thể là khung hình cuối trước khi camera ngừng gửi hình; ảnh không chứng minh camera hoạt động tại thời điểm báo lỗi.'
+          : undefined}
       />
     </div>
   )

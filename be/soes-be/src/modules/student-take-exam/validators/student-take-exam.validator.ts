@@ -77,6 +77,7 @@ export type SendHeartbeatParams = z.infer<typeof sendHeartbeatParamsSchema>
 export const sendHeartbeatBodySchema = z.object({
   webcamStatus: webcamStatusSchema.optional(),
   screenShareStatus: screenShareStatusSchema.optional(),
+  visionStatus: z.enum(['READY', 'RECOVERING', 'UNAVAILABLE']).optional(),
 })
 
 export type SendHeartbeatBody = z.infer<typeof sendHeartbeatBodySchema>
@@ -96,8 +97,6 @@ export const violationTypeSchema = z.enum([
   'CAMERA_PERMISSION_DENIED',
   'SCREEN_SHARE_STOPPED',
   'SCREEN_PERMISSION_DENIED',
-  'PROCTOR_WEBCAM_CAPTURE',
-  'PROCTOR_SCREEN_CAPTURE',
 ])
 
 export const severityLevelSchema = z.enum(['LOW', 'MEDIUM', 'HIGH'])
@@ -120,9 +119,7 @@ const phoneMetadataSchema = z.object({
 
 export const recordViolationBodySchema = z.object({
   violationType: violationTypeSchema,
-  severity: severityLevelSchema,
   description: z.string().trim().max(500).optional(),
-  detectedAt: z.string().datetime().optional(),
   metadata: z.preprocess((value) => {
     if (typeof value !== 'string') return value
     try { return JSON.parse(value) } catch { return value }

@@ -40,13 +40,13 @@ function formatViolationDuration(violation: ViolationRecord): string {
 
 function renderEvidenceCell(
   violation: ViolationRecord,
-  onViewEvidence: (url: string) => void,
+  onViewEvidence: (url: string, type: ViolationRecord['type']) => void,
 ) {
   if (violation.evidenceImageUrl) {
     return (
       <button
         type="button"
-        onClick={() => onViewEvidence(violation.evidenceImageUrl!)}
+        onClick={() => onViewEvidence(violation.evidenceImageUrl!, violation.type)}
         className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
       >
         <Image size={14} /> Xem ảnh
@@ -67,7 +67,7 @@ function renderEvidenceCell(
 
 export interface ViolationLogTableProps {
   violations: ViolationRecord[];
-  onViewEvidence: (url: string) => void;
+  onViewEvidence: (url: string, type: ViolationRecord['type']) => void;
   loading?: boolean;
   error?: string | null;
   onRefresh?: () => void;
@@ -230,21 +230,6 @@ export default function ViolationLogTable({
               </td>
               <td className="px-5 py-4 text-right">
                 {renderEvidenceCell(violation, onViewEvidence)}
-                {/* eslint-disable-next-line no-constant-binary-expression */}
-                {false &&
-                  (violation.evidenceImageUrl ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onViewEvidence(violation.evidenceImageUrl!)
-                      }
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
-                    >
-                      <Image size={14} /> Xem ảnh
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-400">Không có ảnh</span>
-                  ))}
               </td>
             </tr>
           ))}

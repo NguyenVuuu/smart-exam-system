@@ -37,7 +37,11 @@ export function findAttemptForViolation(
       id: true,
       status: true,
       deadlineAt: true,
-      examSchedule: { select: { enableTabLock: true, proctoringStoragePath: true } },
+      examSchedule: { select: {
+        enableTabLock: true, requireFullscreen: true, enableWebcam: true,
+        enableScreenMonitoring: true, blockCopyPaste: true, blockRightClick: true,
+        proctoringStoragePath: true,
+      } },
       studentId: true,
       student: {
         select: {
@@ -417,6 +421,7 @@ export async function endViolation(input: {
         id: input.violationId,
         attemptId: input.attemptId,
         endedAt: null,
+        source: { not: 'PROCTOR' },
         attempt: {
           examScheduleId: input.scheduleId,
           studentId: input.studentId,
@@ -481,4 +486,16 @@ export async function closeOpenWebcamObservationViolations(attemptIds: string[],
   })))
 
   return openViolations.length
+}
+
+export async function closeOpenAttemptViolations(attemptId: string, endedAt: Date) {
+  const open = await prisma.violation.findMany({
+    where: { attemptId, endedAt: null },
+    select: { id: true, detectedAt: true },
+  })
+  return Promise.all(open.map((violation) => prisma.violation.update({
+    where: { id: violation.id },
+    data: { endedAt, durationSeconds: durationSecondsBetween(violation.detectedAt, endedAt) },
+    select: syncedViolationSelect,
+  })))
 }

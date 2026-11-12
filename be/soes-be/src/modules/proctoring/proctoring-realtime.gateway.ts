@@ -8,7 +8,9 @@ import { tokenBlacklist } from '../../lib/redis'
 import { verifyAccessToken, type AccountRole } from '../../utils/jwt'
 import * as teacherGrading from '../teacher-exams/services/teacher-exam-grading.service'
 import * as studentTakeExam from '../student-take-exam/services/student-take-exam.service'
+import * as live from '../proctoring-live/proctoring-live.service'
 import { setProctoringEmitter } from './proctoring-realtime.events'
+import { attemptRoom, isTeacherRole, joinStudentAttemptRoom, scheduleRoom } from './proctoring-room.policy'
 
 type SocketUser = {
   id: string
@@ -23,12 +25,9 @@ type CandidatePayload = {
 
 let io: Server | null = null
 
-const scheduleRoom = (scheduleId: string) => `proctoring:schedule:${scheduleId}`
-const attemptRoom = (attemptId: string) => `proctoring:attempt:${attemptId}`
 const teacherRoom = (teacherId: string) => `proctoring:teacher:${teacherId}`
 const studentRoom = (studentId: string) => `proctoring:student:${studentId}`
 const userRoom = (userId: string) => `user:${userId}`
-const isTeacherRole = (role: AccountRole) => role === 'TEACHER' || role === 'DEPARTMENT_HEAD'
 
 function socketUser(socket: Socket): SocketUser {
   return socket.data.user as SocketUser
@@ -93,6 +92,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
     emitToTeacher: (teacherId, event, payload) => io?.to(teacherRoom(teacherId)).emit(event, payload),
     emitToStudent: (studentId, event, payload) => io?.to(studentRoom(studentId)).emit(event, payload),
     emitToUser: (userId, event, payload) => io?.to(userRoom(userId)).emit(event, payload),
+    leaveAttemptRoom: (attemptId) => { void io?.in(attemptRoom(attemptId)).socketsLeave(attemptRoom(attemptId)) },
   })
 
   io.on('connection', (socket) => {
@@ -112,6 +112,10 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
       }
     })
 
+    socket.on('proctoring:leave_schedule', ({ scheduleId }: { scheduleId: string }) => {
+      if (isTeacherRole(user.role)) void socket.leave(scheduleRoom(scheduleId))
+    })
+
     socket.on('proctoring:join_attempt', async (
       { scheduleId, attemptId }: { scheduleId: string; attemptId: string },
       ack?: (data: unknown) => void,
@@ -119,9 +123,12 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
       try {
         if (user.role !== 'STUDENT') throw new Error('Only students can join attempt rooms')
         await studentTakeExam.requireLiveAttempt(scheduleId, attemptId, user.profileId)
-        await socket.join(attemptRoom(attemptId))
-        await socket.join(scheduleRoom(scheduleId))
+        await joinStudentAttemptRoom(socket, attemptId)
         ack?.({ ok: true })
+        for (const streamType of ['WEBCAM', 'SCREEN'] as const) {
+          const pending = await live.getPendingStudentRequest(attemptId, scheduleId, streamType)
+          if (pending) socket.emit('live:request', pending)
+        }
       } catch (error) {
         ack?.({ ok: false, error: error instanceof Error ? error.message : 'Unable to join attempt' })
       }
@@ -130,6 +137,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
     socket.on('live:request_camera', async ({ attemptId }: { attemptId: string }, ack?: (data: unknown) => void) => {
       try {
         if (!isTeacherRole(user.role)) throw new Error('Only teachers can request live camera')
+        if ((await io?.in(attemptRoom(attemptId)).fetchSockets())?.length === 0) throw new Error('Student is not connected to live proctoring')
         const session = await teacherGrading.requestLiveCamera(user.profileId, attemptId)
         io?.to(attemptRoom(attemptId)).emit('live:request', session)
         ack?.({ ok: true, data: session })
@@ -141,6 +149,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
     socket.on('live:request_screen', async ({ attemptId }: { attemptId: string }, ack?: (data: unknown) => void) => {
       try {
         if (!isTeacherRole(user.role)) throw new Error('Only teachers can request live screen')
+        if ((await io?.in(attemptRoom(attemptId)).fetchSockets())?.length === 0) throw new Error('Student is not connected to live proctoring')
         const session = await teacherGrading.requestLiveScreen(user.profileId, attemptId)
         io?.to(attemptRoom(attemptId)).emit('live:request', session)
         ack?.({ ok: true, data: session })
@@ -214,6 +223,16 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
         ack?.({ ok: true, data: session })
       } catch (error) {
         ack?.({ ok: false, error: error instanceof Error ? error.message : 'Unable to end live session' })
+      }
+    })
+
+    socket.on('live:keepalive', async ({ sessionId }: { sessionId: string }, ack?: (data: unknown) => void) => {
+      try {
+        if (!isTeacherRole(user.role)) throw new Error('Only teachers can keep live sessions active')
+        await teacherGrading.getTeacherLiveSession(user.profileId, sessionId)
+        ack?.({ ok: true })
+      } catch (error) {
+        ack?.({ ok: false, error: error instanceof Error ? error.message : 'Live session has ended' })
       }
     })
   })

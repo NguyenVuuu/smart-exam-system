@@ -1,7 +1,7 @@
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
+import { ConflictError, ForbiddenError, NotFoundError, TooManyRequestsError, ValidationError } from "../../../errors/AppError";
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcrypt'
-import type { Prisma, ScreenShareStatus, SeverityLevel, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
+import type { Prisma, ScreenShareStatus, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
 import { examConfig, minioConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
@@ -24,7 +24,10 @@ import {
   STUDENT_STARTABLE_SCHEDULE_STATUSES,
 } from '../../student-common/exam-visibility.policy'
 import * as live from '../../proctoring-live/proctoring-live.service'
-import { emitAttemptEvent, emitProctoringEvent } from '../../proctoring/proctoring-realtime.events'
+import { emitAttemptEvent, emitProctoringEvent, emitTeacherEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
+import { studentViolationSeverity } from './violation.policy'
+import { normalizeScreenHeartbeat, normalizeWebcamHeartbeat } from './heartbeat.policy'
+import redis from '../../../lib/redis'
 
 /**
  * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
@@ -145,9 +148,29 @@ async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
   await gradeObjectiveAnswers(attemptId, { finalStatus: 'AUTO_SUBMITTED' })
 }
 
+async function closeAttemptProctoring(attemptId: string, scheduleId: string, endedAt: Date) {
+  try {
+    const [sessions, violations] = await Promise.all([
+      live.endAttemptLiveSessions(attemptId, scheduleId),
+      repo.closeOpenAttemptViolations(attemptId, endedAt),
+    ])
+    for (const session of sessions) {
+      emitAttemptEvent(attemptId, 'live:ended', session)
+      emitTeacherEvent(session.teacherId, 'live:ended', session)
+    }
+    for (const violation of violations) emitViolationEnded(scheduleId, violation)
+  } catch (error) {
+    logger.error('Failed to close exam proctoring state', {
+      attemptId, error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
 export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date()): Promise<SubmitExamResult | null> {
   const result = await repo.autoSubmitAttemptWithAudit(attemptId, now)
   if (!result) return null
+
+  await closeAttemptProctoring(attemptId, result.scheduleId, now)
 
   emitProctoringEvent(result.scheduleId, 'student:offline', {
     attemptId,
@@ -155,6 +178,7 @@ export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date
     attemptStatus: 'AUTO_SUBMITTED',
     isOnline: false,
   })
+  leaveAttemptRoom(attemptId)
   await gradeAutoSubmittedAttempt(attemptId)
   logger.info('Exam attempt auto-submitted by timeout', {
     attemptId,
@@ -760,12 +784,14 @@ export async function submitExam(
 
   // ── Update succeeded → return success ─────────────────────────────────────
   if (updated.count > 0) {
+    await closeAttemptProctoring(attemptId, scheduleId, now)
     emitProctoringEvent(scheduleId, 'student:offline', {
       attemptId,
       scheduleId,
       attemptStatus: 'SUBMITTED',
       isOnline: false,
     })
+    leaveAttemptRoom(attemptId)
     await gradeProgrammingAnswers(attemptId)
     await gradeObjectiveAnswers(attemptId)
     return { attemptId, submittedAt: now };
@@ -949,7 +975,7 @@ export async function sendHeartbeat(
   scheduleId: string,
   attemptId: string,
   studentId: string,
-  input: { webcamStatus?: WebcamStatus; screenShareStatus?: ScreenShareStatus } = {},
+  input: { webcamStatus?: WebcamStatus; screenShareStatus?: ScreenShareStatus; visionStatus?: 'READY' | 'RECOVERING' | 'UNAVAILABLE' } = {},
 ): Promise<SendHeartbeatResult> {
   const now = new Date()
 
@@ -977,12 +1003,8 @@ export async function sendHeartbeat(
   }
 
   // ── 4. Update ExamSession.lastHeartbeat atomically ─────────────────────────
-  const webcamStatus = attemptData.examSchedule.enableWebcam
-    ? input.webcamStatus ?? 'DISCONNECTED'
-    : 'NOT_REQUIRED'
-  const screenShareStatus = attemptData.examSchedule.enableScreenMonitoring
-    ? input.screenShareStatus ?? 'STOPPED'
-    : 'NOT_REQUIRED'
+  const webcamStatus = normalizeWebcamHeartbeat(attemptData.examSchedule.enableWebcam, input.webcamStatus)
+  const screenShareStatus = normalizeScreenHeartbeat(attemptData.examSchedule.enableScreenMonitoring, input.screenShareStatus)
 
   await repo.upsertExamSessionHeartbeat(attemptId, now, { webcamStatus, screenShareStatus })
   emitProctoringEvent(scheduleId, 'student:heartbeat', {
@@ -990,6 +1012,7 @@ export async function sendHeartbeat(
     scheduleId,
     webcamStatus,
     screenShareStatus,
+    visionStatus: attemptData.examSchedule.enableWebcam ? input.visionStatus : undefined,
     lastHeartbeatAt: now.toISOString(),
     remainingSeconds: Math.max(
       0,
@@ -1020,9 +1043,7 @@ export async function recordViolation(
   studentId: string,
   input: {
     violationType: string
-    severity: string
     description?: string
-    detectedAt?: string
     metadata?: Prisma.InputJsonObject
   },
   evidenceFiles: Express.Multer.File[] = [],
@@ -1036,17 +1057,21 @@ export async function recordViolation(
   if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
     throw new ConflictError('Exam attempt has ended')
   }
-  if (input.violationType === 'TAB_SWITCH' && !attempt.examSchedule.enableTabLock) {
-    throw new ConflictError('Tab switch monitoring is disabled for this exam schedule')
-  }
+  const severity = studentViolationSeverity(input.violationType as ViolationType, attempt.examSchedule)
   if (input.violationType === 'PHONE_DETECTED' && evidenceFiles.length !== 1) {
     throw new ValidationError('Phone detection requires one evidence image')
   }
+  // Camera status reports may arrive after the browser has frozen on its last
+  // frame. An image from that frame is not evidence of the blocked interval.
+  const evidenceFilesToStore = ['CAMERA_BLOCKED', 'CAMERA_DISCONNECTED', 'CAMERA_PERMISSION_DENIED'].includes(input.violationType)
+    ? []
+    : evidenceFiles
+  const rateKey = `proctoring:violations:${attemptId}`
+  const count = await redis.incr(rateKey)
+  if (count === 1) await redis.expire(rateKey, 60)
+  if (count > 30) throw new TooManyRequestsError('Too many violation reports; retry shortly')
 
-  const detectedAt = input.detectedAt ? new Date(input.detectedAt) : now
-  if (Number.isNaN(detectedAt.getTime())) {
-    throw new ValidationError('Invalid detectedAt')
-  }
+  const detectedAt = now
 
   const source = getViolationSource(input.violationType as ViolationType)
   const evidenceType = getViolationEvidenceType(input.violationType as ViolationType)
@@ -1058,7 +1083,7 @@ export async function recordViolation(
       attemptId,
       violationType: input.violationType,
       detectedAt,
-      files: evidenceFiles,
+      files: evidenceFilesToStore,
       storagePrefix: attempt.examSchedule.proctoringStoragePath,
       violationId,
     })
@@ -1076,14 +1101,14 @@ export async function recordViolation(
       attemptId,
       violationType: input.violationType,
       detectedAt,
-      files: evidenceFiles,
+      files: evidenceFilesToStore,
       storagePrefix: attempt.examSchedule.proctoringStoragePath,
       violationId,
     })
   }
 
   const evidences = evidenceObjectNames.map((objectName, index) => {
-      const file = evidenceFiles[index]
+      const file = evidenceFilesToStore[index]
       return {
         evidenceType,
         bucket: minioConfig.evidenceBucket,
@@ -1101,7 +1126,7 @@ export async function recordViolation(
     attemptId,
     violationType: input.violationType as ViolationType,
     source,
-    severity: input.severity as SeverityLevel,
+    severity,
     description: input.description,
     metadata: input.metadata,
     detectedAt,
@@ -1129,12 +1154,8 @@ export async function endViolation(
   attemptId: string,
   studentId: string,
   violationId: string,
-  endedAtInput?: string,
 ): Promise<RecordViolationResult> {
-  const endedAt = endedAtInput ? new Date(endedAtInput) : new Date()
-  if (Number.isNaN(endedAt.getTime())) {
-    throw new ValidationError('Invalid endedAt')
-  }
+  const endedAt = new Date()
 
   const violation = await repo.endViolation({
     scheduleId,

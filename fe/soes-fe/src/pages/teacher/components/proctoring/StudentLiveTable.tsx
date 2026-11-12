@@ -62,8 +62,8 @@ export default function StudentLiveTable({
           <tr>
             <th className="whitespace-nowrap px-5 py-3">Sinh viên</th>
             <th className="whitespace-nowrap px-5 py-3">Online</th>
-            <th className="whitespace-nowrap px-5 py-3">Camera</th>
-            <th className="whitespace-nowrap px-5 py-3">Màn hình</th>
+            <th className="whitespace-nowrap px-5 py-3" title="Trạng thái do thiết bị sinh viên báo; xem luồng trực tiếp để xác nhận">Camera</th>
+            <th className="whitespace-nowrap px-5 py-3" title="Trạng thái do thiết bị sinh viên báo; xem luồng trực tiếp để xác nhận">Màn hình</th>
             <th className="whitespace-nowrap px-5 py-3">Tiến độ</th>
             <th className="whitespace-nowrap px-5 py-3 text-right">Thao tác</th>
           </tr>
@@ -87,6 +87,7 @@ export default function StudentLiveTable({
                 <AppBadge tone={webcamTone[session.webcamStatus]}>
                   {webcamLabel[session.webcamStatus]}
                 </AppBadge>
+                {session.visionStatus === 'UNAVAILABLE' && <p className="mt-1 text-xs font-medium text-amber-700">Nhận diện tạm ngừng</p>}
               </td>
               <td className="px-5 py-4">
                 <AppBadge tone={screenTone[session.screenShareStatus]}>

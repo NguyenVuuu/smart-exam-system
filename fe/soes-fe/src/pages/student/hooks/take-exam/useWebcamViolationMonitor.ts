@@ -159,10 +159,16 @@ export function useWebcamViolationMonitor(input: {
   const issueStartedAtRef = useRef<Partial<Record<WebcamIssueType, number>>>({})
   const lastCreatedAtRef = useRef<Partial<Record<WebcamIssueType, number>>>({})
   const [visionError, setVisionError] = useState<string | null>(null)
+  const [visionStatus, setVisionStatus] = useState<'RECOVERING' | 'READY' | 'UNAVAILABLE'>('RECOVERING')
   const [uploadError, setUploadError] = useState<string | null>(null)
   const phoneUploadRef = useRef(false)
   const lastPhoneCreatedAtRef = useRef(0)
   const attemptKeyRef = useRef('')
+  const webcamStatusRef = useRef(input.webcamStatus)
+
+  useEffect(() => {
+    webcamStatusRef.current = input.webcamStatus
+  }, [input.webcamStatus])
 
   useEffect(() => {
     if (!input.enabled || !input.scheduleId || !input.attemptId) return
@@ -175,6 +181,11 @@ export function useWebcamViolationMonitor(input: {
     let intervalMs = 250
     let timer: number | undefined
     let watchdog: number | undefined
+    let recoveryTimer: number | undefined
+    let failures = 0
+    let healthySince = 0
+    let unavailable = false
+    let softErrors = 0
     let lastVideoTime = -1
     let observingFace = false
     let lastFaceObservedAt = 0
@@ -200,10 +211,17 @@ export function useWebcamViolationMonitor(input: {
 
     const closeOpenViolation = async (endedAt: string) => {
       const openViolation = openViolationRef.current
-      if (!openViolation) return
-      openViolationRef.current = null
-      forgetOpenViolation(input.scheduleId, input.attemptId, openViolation)
-      await takeExamApi.endViolation(input.scheduleId, input.attemptId, openViolation.id, endedAt).catch(() => undefined)
+      if (!openViolation) return true
+      try {
+        await takeExamApi.endViolation(input.scheduleId, input.attemptId, openViolation.id, endedAt)
+        if (openViolationRef.current?.id === openViolation.id) {
+          openViolationRef.current = null
+          forgetOpenViolation(input.scheduleId, input.attemptId, openViolation)
+        }
+        return true
+      } catch {
+        return false
+      }
     }
 
     const openViolation = async (type: WebcamIssueType, observedAt: number) => {
@@ -213,10 +231,14 @@ export function useWebcamViolationMonitor(input: {
       if (Date.now() - lastCreatedAt < VIOLATION_COOLDOWN_MS) return
 
       if (openViolationRef.current) {
-        await closeOpenViolation(new Date(observedAt).toISOString())
+        if (!await closeOpenViolation(new Date(observedAt).toISOString())) return
       }
 
-      const evidenceFiles = await buildEvidenceFiles(video, input.stream)
+      // A stopped stream can leave its last image in the video element. That image
+      // cannot establish what the camera showed when the status issue occurred.
+      const evidenceFiles = type === 'NO_FACE' || type === 'MULTIPLE_FACES' || type === 'LOOKING_AWAY'
+        ? await buildEvidenceFiles(video, input.stream)
+        : undefined
       if (cancelled) return
       lastCreatedAtRef.current[type] = Date.now()
       const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
@@ -251,7 +273,7 @@ export function useWebcamViolationMonitor(input: {
     }
 
     const schedule = () => {
-      if (!cancelled) timer = window.setTimeout(() => { void tick() }, intervalMs)
+      if (!cancelled && !unavailable) timer = window.setTimeout(() => { void tick() }, intervalMs)
     }
 
     const observeFace = async (type: WebcamIssueType | null, observedAt: number) => {
@@ -285,17 +307,26 @@ export function useWebcamViolationMonitor(input: {
     }
 
     const failWorker = () => {
-      const wasBusy = busy
       ready = false
       busy = false
       window.clearTimeout(watchdog)
       worker?.terminate()
       worker = null
-      if (wasBusy) schedule()
-      if (!cancelled) setVisionError('Nhận diện camera tạm ngừng. Hãy báo giảng viên; chia sẻ camera vẫn hoạt động.')
+      if (cancelled) return
+      failures++
+      if (failures >= 3) {
+        unavailable = true
+        setVisionStatus('UNAVAILABLE')
+        setVisionError('Nhận diện camera tạm ngừng. Giảng viên đã được thông báo; camera vẫn hoạt động.')
+        return
+      }
+      setVisionStatus('RECOVERING')
+      setVisionError('Nhận diện camera gặp lỗi tạm thời; hệ thống đang thử lại.')
+      recoveryTimer = window.setTimeout(() => { startWorker(); schedule() }, 1000 * 2 ** (failures - 1))
     }
 
-    if (video) {
+    function startWorker() {
+      if (cancelled) return
       try {
         worker = new Worker('/mediapipe/vision-worker.js', { name: 'exam-vision' })
         worker.onerror = failWorker
@@ -307,17 +338,24 @@ export function useWebcamViolationMonitor(input: {
           window.clearTimeout(watchdog)
           if (data.type === 'ready') {
             ready = true
+            healthySince = Date.now()
+            setVisionStatus('READY')
             setVisionError(null)
             return
           }
           if (data.type === 'error' && data.fatal) { failWorker(); return }
           try {
             if (data.type === 'error') {
+              if (++softErrors >= 3) { failWorker(); return }
               issueStartedAtRef.current = {}
+              setVisionStatus('RECOVERING')
               setVisionError('Nhận diện camera gặp lỗi tạm thời; hệ thống đang thử lại.')
             } else {
+              softErrors = 0
               intervalMs = data.intervalMs ?? intervalMs
               if (!data.skipped) {
+                if (Date.now() - healthySince > 60_000) failures = 0
+                setVisionStatus('READY')
                 setVisionError(null)
                 if (data.kind === 'face') void observeFace(data.issue ?? null, data.capturedAt ?? Date.now())
                 if (data.evidence) void recordPhone(data.evidence)
@@ -333,9 +371,11 @@ export function useWebcamViolationMonitor(input: {
       } catch { failWorker() }
     }
 
+    if (video) startWorker()
+
     const tick = async () => {
       if (cancelled || busy) return
-      const statusIssue = issueFromWebcamStatus(input.webcamStatus)
+      const statusIssue = issueFromWebcamStatus(webcamStatusRef.current)
       if (statusIssue) {
         void observeFace(statusIssue, Date.now())
         schedule()
@@ -374,10 +414,11 @@ export function useWebcamViolationMonitor(input: {
       void closeOpenViolation(new Date().toISOString())
       window.clearTimeout(timer)
       window.clearTimeout(watchdog)
+      window.clearTimeout(recoveryTimer)
       worker?.terminate()
       video?.pause()
       if (video) video.srcObject = null
     }
-  }, [input.attemptId, input.enabled, input.scheduleId, input.stream, input.webcamStatus])
-  return { visionError: input.enabled ? visionError ?? uploadError : null }
+  }, [input.attemptId, input.enabled, input.scheduleId, input.stream])
+  return { visionError: input.enabled ? visionError ?? uploadError : null, visionStatus }
 }

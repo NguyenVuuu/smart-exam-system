@@ -48,22 +48,31 @@ export async function markStaleExamSessionsOffline(cutoff: Date) {
     select: {
       attemptId: true,
       lastHeartbeat: true,
+      webcamStatus: true,
+      screenShareStatus: true,
       attempt: { select: { examScheduleId: true } },
     },
   })
 
   if (staleSessions.length === 0) return []
 
-  await prisma.examSession.updateMany({
-    where: { attemptId: { in: staleSessions.map((session) => session.attemptId) } },
-    data: { isOnline: false },
-  })
-
-  return staleSessions.map((session) => ({
-    attemptId: session.attemptId,
-    scheduleId: session.attempt.examScheduleId,
-    lastHeartbeatAt: session.lastHeartbeat,
+  const updates = await Promise.all(staleSessions.map(async (session) => {
+    const result = await prisma.examSession.updateMany({
+      where: { attemptId: session.attemptId, isOnline: true, lastHeartbeat: { lt: cutoff }, attempt: { status: 'IN_PROGRESS' } },
+      data: {
+        isOnline: false,
+        webcamStatus: session.webcamStatus === 'NOT_REQUIRED' ? 'NOT_REQUIRED' : 'DISCONNECTED',
+        screenShareStatus: session.screenShareStatus === 'NOT_REQUIRED' ? 'NOT_REQUIRED' : 'STOPPED',
+      },
+    })
+    return result.count ? {
+      attemptId: session.attemptId,
+      scheduleId: session.attempt.examScheduleId,
+      lastHeartbeatAt: session.lastHeartbeat,
+    } : null
   }))
+
+  return updates.filter((session): session is NonNullable<typeof session> => session !== null)
 }
 
 export async function findAttemptForHeartbeat(attemptId: string, scheduleId: string, studentId: string) {

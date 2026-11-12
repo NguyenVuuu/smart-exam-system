@@ -118,6 +118,7 @@ export type ExamSessionScreenShareStatus = 'NOT_REQUIRED' | 'PENDING_PERMISSION'
 export interface SendHeartbeatPayload {
   webcamStatus?: ExamSessionWebcamStatus
   screenShareStatus?: ExamSessionScreenShareStatus
+  visionStatus?: 'READY' | 'RECOVERING' | 'UNAVAILABLE'
 }
 
 export interface RecordViolationPayload {

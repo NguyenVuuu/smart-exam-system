@@ -69,7 +69,8 @@ export const toCourse = (row: CourseOfferingApiDto): CourseOfferingAdmin => ({
   capacity: row.maxCapacity, status: row.status === 'ACTIVE' ? 'OPEN' : 'CLOSED',
 })
 export const toTeacher = (row: UserApiDto): AdminUser => ({
-  id: row.profileId, code: row.code, fullName: row.fullName, email: '', role: 'TEACHER',
+  id: row.profileId, userId: row.id, profileId: row.profileId,
+  code: row.code, fullName: row.fullName, email: row.email ?? '', role: 'TEACHER',
   status: row.status === 'ACTIVE' ? 'ACTIVE' : 'LOCKED',
 })
 

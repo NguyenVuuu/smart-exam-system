@@ -147,6 +147,7 @@ test('teacher log shows phone as pending review and opens evidence on desktop/mo
     }))
   })
   await expect(page.getByText('Phát hiện điện thoại')).toBeVisible()
+  await expect(page.getByText('0s')).toBeVisible()
   await expect(page.getByText(/Cần giảng viên xem xét/)).toBeVisible()
   await expect(page.getByText('Chưa xem')).toBeVisible()
   await page.getByRole('button', { name: 'Xem ảnh' }).click()

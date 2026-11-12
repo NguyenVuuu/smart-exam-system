@@ -122,6 +122,7 @@ export const findAttemptAccessForLiveProctoring = (teacherId: string, attemptId:
     where: {
       id: attemptId,
       status: 'IN_PROGRESS',
+      deadlineAt: { gt: new Date() },
       examSchedule: violationAccess(teacherId),
     },
     select: {
@@ -151,6 +152,8 @@ export function createManualProctorViolation(input: {
       detectedBy: 'PROCTOR',
       detectedById: input.teacherUserId,
       detectedAt: input.detectedAt,
+      endedAt: input.detectedAt,
+      durationSeconds: 0,
       description: input.description ?? null,
     },
       select: {

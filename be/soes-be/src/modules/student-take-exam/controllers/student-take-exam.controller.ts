@@ -190,8 +190,8 @@ export async function recordViolation(req: Request, res: Response, next: NextFun
 export async function endViolation(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { scheduleId, attemptId, violationId } = endViolationParamsSchema.parse(req.params)
-    const { endedAt } = endViolationBodySchema.parse(req.body ?? {})
-    const result = await takeExamService.endViolation(scheduleId, attemptId, req.user!.profileId, violationId, endedAt)
+    endViolationBodySchema.parse(req.body ?? {})
+    const result = await takeExamService.endViolation(scheduleId, attemptId, req.user!.profileId, violationId)
 
     res.status(200).json({
       success: true,
