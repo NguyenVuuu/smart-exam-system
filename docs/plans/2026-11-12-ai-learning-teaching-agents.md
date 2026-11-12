@@ -47,7 +47,7 @@
 **Files:** new `ai-agent/` Python package, Node `ai-agents` module, config and contract tests.
 
 1. Implement private authenticated service-to-service calls with bounded timeout and response schemas.
-2. Add LangGraph state, checkpoints, structured outputs, step budgets and model-provider configuration.
+2. Add a bounded, stateless LangGraph workflow, structured outputs and model-provider configuration. Add durable checkpoints only when a multi-request workflow needs them.
 3. Audit tool names, IDs, model version, latency and status without logging secrets or unreleased content; commit.
 
 ## Task 5: Teacher analysis workflow

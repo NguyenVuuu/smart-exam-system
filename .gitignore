@@ -39,6 +39,11 @@ pnpm-debug.log*
 .cache/
 .vite/
 .eslintcache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+*.egg-info/
 
 # =========================
 # Runtime

@@ -18,6 +18,13 @@ export const appConfig = {
   },
 } as const
 
+export const aiAgentConfig = {
+  get enabled(): boolean { return process.env.AI_AGENT_ENABLED === 'true' },
+  get baseUrl(): string { return process.env.AI_AGENT_URL ?? 'http://127.0.0.1:8001' },
+  get sharedSecret(): string { return process.env.AI_AGENT_SHARED_SECRET ?? '' },
+  get timeoutMs(): number { return boundedInteger(process.env.AI_AGENT_TIMEOUT_MS, 20000, 1000, 60000) },
+} as const
+
 export const corsConfig = {
   get allowedOrigins(): string[] {
     return (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173').split(',')
