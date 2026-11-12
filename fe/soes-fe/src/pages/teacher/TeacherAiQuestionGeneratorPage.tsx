@@ -1,6 +1,6 @@
 import { ArrowLeft, Loader2, Save, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '../../api/errors'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -40,16 +40,20 @@ function loadStoredDraftQuestions() {
 
 export default function TeacherAiQuestionGeneratorPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { subjects } = useTeacherQuestions()
   const subjectOptions = subjects.map((subject) => ({ value: subject.id, label: subject.name }))
   const [sourceMode, setSourceMode] = useState<SourceMode>('COURSE_MATERIAL')
   const [aiMode, setAiMode] = useState<AiMode>('GENERATE_FROM_MATERIAL')
-  const [subjectId, setSubjectId] = useState('')
+  const [subjectId, setSubjectId] = useState(() => searchParams.get('subjectId') || '')
   const [materials, setMaterials] = useState<AiMaterialDto[]>([])
   const [materialsLoading, setMaterialsLoading] = useState(false)
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const [questionCount, setQuestionCount] = useState(5)
+  const [questionCount, setQuestionCount] = useState(() => {
+    const requested = Number(searchParams.get('questionCount'))
+    return Number.isInteger(requested) && requested >= 1 && requested <= 100 ? requested : 5
+  })
   const [desiredDifficulty, setDesiredDifficulty] = useState<DesiredDifficulty>('AUTO')
   const [targetQuestionType, setTargetQuestionType] = useState<TargetQuestionType>('ALL')
   const [promptInput, setPromptInput] = useState('')

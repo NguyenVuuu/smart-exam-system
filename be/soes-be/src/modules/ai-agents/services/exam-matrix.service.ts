@@ -70,13 +70,13 @@ export async function suggestExamMatrix(teacherId: string, input: MatrixRequest)
   const availableEasy = countByDifficulty(rows, 'EASY')
   const availableMedium = countByDifficulty(rows, 'MEDIUM')
   const availableHard = countByDifficulty(rows, 'HARD')
-  if (input.desiredCount > availableEasy + availableMedium + availableHard) {
-    throw new ValidationError('Question bank does not have enough eligible questions')
-  }
+  const inventory = { availableEasy, availableMedium, availableHard }
+  const shortage = Math.max(0, input.desiredCount - availableEasy - availableMedium - availableHard)
+  if (shortage) return { proposal: null, inventory, shortage }
   const proposal = await requestExamMatrixAgent({
     message: input.message, desiredCount: input.desiredCount, format: input.format,
     availableEasy, availableMedium, availableHard,
   })
   validateExamMatrix(proposal, input.desiredCount, input.format, rows)
-  return { proposal, inventory: { availableEasy, availableMedium, availableHard } }
+  return { proposal, inventory, shortage: 0 }
 }

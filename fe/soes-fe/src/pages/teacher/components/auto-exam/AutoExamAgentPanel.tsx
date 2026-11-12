@@ -1,7 +1,8 @@
 import { Sparkles } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '../../../../api/errors'
-import { suggestExamMatrix, type ExamMatrixProposal } from '../../api/teacher-ai-exam.api'
+import { suggestExamMatrix, type ExamMatrixProposal, type ExamMatrixSuggestion } from '../../api/teacher-ai-exam.api'
 
 interface Props {
   subjectId: string
@@ -11,20 +12,22 @@ interface Props {
 }
 
 export default function AutoExamAgentPanel({ subjectId, format, currentCount, onApply }: Props) {
+  const navigate = useNavigate()
   const [message, setMessage] = useState('')
   const [desiredCount, setDesiredCount] = useState(currentCount || 10)
-  const [proposal, setProposal] = useState<ExamMatrixProposal | null>(null)
+  const [suggestion, setSuggestion] = useState<ExamMatrixSuggestion | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const proposal = suggestion?.proposal
 
   const suggest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!subjectId || !message.trim() || loading) return
     setLoading(true)
     setError('')
-    setProposal(null)
+    setSuggestion(null)
     try {
-      setProposal(await suggestExamMatrix({ subjectId, format, desiredCount, message: message.trim() }))
+      setSuggestion(await suggestExamMatrix({ subjectId, format, desiredCount, message: message.trim() }))
     } catch (cause) {
       setError(getApiErrorMessage(cause, 'Không thể đề xuất ma trận. Kiểm tra số câu trong ngân hàng hoặc thử lại.'))
     } finally {
@@ -51,10 +54,15 @@ export default function AutoExamAgentPanel({ subjectId, format, currentCount, on
       </button>
     </form>
     {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+    {suggestion?.shortage ? <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p>Ngân hàng còn thiếu ít nhất {suggestion.shortage} câu phù hợp. Hãy tạo câu hỏi nháp từ tài liệu và duyệt trước khi sinh đề.</p>
+      <button type="button" onClick={() => navigate(`/teacher/question-bank/ai-generator?${new URLSearchParams({ subjectId, questionCount: String(suggestion.shortage) })}`)}
+        className="mt-3 rounded-lg border border-amber-400 px-3 py-2 font-semibold hover:bg-amber-100">Tạo câu hỏi nháp</button>
+    </div> : null}
     {proposal && <div className="mt-4 rounded-lg border border-blue-100 bg-white p-4 text-sm">
       <p className="font-semibold">Dễ {proposal.easyCount} · Trung bình {proposal.mediumCount} · Khó {proposal.hardCount}</p>
       <p className="mt-1 text-slate-600">{proposal.rationale}</p>
-      <button type="button" onClick={() => { onApply(proposal); setProposal(null) }}
+      <button type="button" onClick={() => { onApply(proposal); setSuggestion(null) }}
         className="mt-3 rounded-lg border border-blue-300 px-3 py-2 font-semibold text-blue-700 hover:bg-blue-50">
         Áp dụng vào ma trận
       </button>
