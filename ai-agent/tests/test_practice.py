@@ -27,6 +27,18 @@ def test_practice_requires_exact_material_evidence_and_unique_options():
         validate_draft(draft(), SOURCE, 2)
 
 
+def test_practice_rejects_unsupported_or_ambiguous_answer():
+    unsupported = draft()
+    unsupported.questions[0].correctIndex = 1
+    with pytest.raises(ValueError, match="uniquely supported"):
+        validate_draft(unsupported, SOURCE, 1)
+
+    ambiguous = draft()
+    ambiguous.questions[0].options[1] = "INNER JOIN"
+    with pytest.raises(ValueError, match="uniquely supported"):
+        validate_draft(ambiguous, SOURCE, 1)
+
+
 @pytest.mark.asyncio
 async def test_generation_uses_selected_material_only():
     class Model:
