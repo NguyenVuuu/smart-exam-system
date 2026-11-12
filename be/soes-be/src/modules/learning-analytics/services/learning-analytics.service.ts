@@ -8,6 +8,7 @@ export async function studentInsights(studentId: string, now = new Date()) {
   const found = await repo.findReleasedStudentAttempts(studentId, now)
   const attempts = found.slice(0, 50)
   const observations: TopicObservation[] = []
+  let analyzedAttemptCount = 0
   for (const attempt of attempts) {
     const schedule = attempt.examSchedule
     const released = resolveAttemptResultReason({
@@ -20,6 +21,7 @@ export async function studentInsights(studentId: string, now = new Date()) {
       resultAvailable: released, reviewPolicy: schedule.reviewPolicy,
       scheduleEndTime: schedule.endTime,
     }, now).available) continue
+    analyzedAttemptCount += 1
     const answers = new Map(attempt.studentAnswers.map((answer) => [answer.examQuestionId, answer.score]))
     for (const item of attempt.attemptQuestions) {
       observations.push({
@@ -31,7 +33,7 @@ export async function studentInsights(studentId: string, now = new Date()) {
     }
   }
   return {
-    analyzedAttemptCount: attempts.length,
+    analyzedAttemptCount,
     limitedToRecentAttempts: found.length > attempts.length,
     topics: calculateTopicMastery(observations),
   }
