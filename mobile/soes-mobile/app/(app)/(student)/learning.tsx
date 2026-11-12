@@ -4,6 +4,7 @@ import { BookOpenCheck, Send } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { askLearningAgent, getLearningInsights, getStudyMaterials, type LearningAnswer, type StudentLearningInsights, type StudyMaterial } from '../../../src/api/student-learning.api'
 import StudentLayout from '../../../src/components/student/StudentLayout'
+import StudentPracticeSection from '../../../src/components/student/StudentPracticeSection'
 
 export default function StudentLearningScreen() {
   const { isInitialized, isAuthenticated } = useRequireAuth()
@@ -103,6 +104,7 @@ export default function StudentLearningScreen() {
           <Text style={{ fontSize: 12, color: '#64748b' }}>Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên.</Text>
         </View>}
       </View>
+      <StudentPracticeSection materials={materials} />
     </ScrollView>
   </StudentLayout>
 }

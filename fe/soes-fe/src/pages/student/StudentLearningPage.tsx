@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { askLearningAgent, getLearningInsights, getStudyMaterials, type LearningAnswer, type StudentLearningInsights, type StudyMaterial } from './api/student-learning.api'
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
+import StudentPracticePanel from './components/StudentPracticePanel'
 
 export default function StudentLearningPage() {
   const [insights, setInsights] = useState<StudentLearningInsights | null>(null)
@@ -117,6 +118,7 @@ export default function StudentLearningPage() {
                 <p className="mt-3 text-xs text-slate-500">Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên và tài liệu môn học.</p>
               </div>}
             </section>
+            <StudentPracticePanel materials={materials} />
           </div>
         </main>
       </div>
