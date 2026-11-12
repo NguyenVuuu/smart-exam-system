@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TopicMetric(BaseModel):
@@ -31,7 +31,11 @@ class StudyMaterial(BaseModel):
     contentBase64: str = Field(min_length=1, max_length=4_200_000)
 
 
-class StudentRequest(BaseModel):
+class ModelSelection(BaseModel):
+    model: str | None = Field(default=None, max_length=100, pattern=r"^[A-Za-z0-9._/-]+$")
+
+
+class StudentRequest(ModelSelection):
     message: str = Field(min_length=1, max_length=500)
     analyzedAttemptCount: int = Field(ge=0)
     limitedToRecentAttempts: bool
@@ -39,7 +43,7 @@ class StudentRequest(BaseModel):
     material: StudyMaterial | None = None
 
 
-class TeacherRequest(BaseModel):
+class TeacherRequest(ModelSelection):
     message: str = Field(min_length=1, max_length=500)
     analyzedAttemptCount: int = Field(ge=0)
     limitedToRecentAttempts: bool
@@ -47,7 +51,7 @@ class TeacherRequest(BaseModel):
     topics: list[TopicMetric] = Field(max_length=100)
 
 
-class ExamMatrixRequest(BaseModel):
+class ExamMatrixRequest(ModelSelection):
     message: str = Field(min_length=1, max_length=500)
     desiredCount: int = Field(ge=1, le=100)
     format: Literal["OBJECTIVE", "PROGRAMMING", "MIXED"]
@@ -63,7 +67,7 @@ class ExamMatrixProposal(BaseModel):
     rationale: str = Field(max_length=500)
 
 
-class PracticeDraftRequest(BaseModel):
+class PracticeDraftRequest(ModelSelection):
     material: StudyMaterial
     count: int = Field(ge=1, le=10)
     difficulty: Literal["BASIC", "INTERMEDIATE", "ADVANCED"] = "INTERMEDIATE"
@@ -86,3 +90,34 @@ class AgentAnswer(BaseModel):
     actions: list[Annotated[str, Field(max_length=500)]] = Field(max_length=5)
     evidenceIds: list[Annotated[str, Field(max_length=100)]] = Field(max_length=20)
     caveat: str | None = Field(default=None, max_length=500)
+
+
+class QuestionSourcePart(BaseModel):
+    type: Literal["text", "document", "image"]
+    text: str | None = None
+    data: str | None = None
+    mime_type: Literal["application/pdf", "image/jpeg", "image/png", "image/webp"] | None = None
+
+    @model_validator(mode="after")
+    def valid_content(self):
+        if self.type == "text" and self.text and not self.data and not self.mime_type:
+            return self
+        if self.type != "text" and self.data and self.mime_type and not self.text:
+            return self
+        raise ValueError("Invalid question source part")
+
+
+class QuestionDraftRequest(ModelSelection):
+    model: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9._/-]+$")
+    systemInstruction: str = Field(min_length=1, max_length=5000)
+    prompt: str = Field(min_length=1, max_length=250000)
+    contents: list[QuestionSourcePart] = Field(min_length=1, max_length=50)
+    responseSchema: dict[str, Any]
+    timeoutSeconds: int = Field(ge=10, le=180)
+    maxOutputTokens: int = Field(ge=1024, le=65536)
+
+    @model_validator(mode="after")
+    def bounded_source(self):
+        if sum(len(part.text or part.data or "") for part in self.contents) > 63_000_000:
+            raise ValueError("Question sources exceed the size limit")
+        return self

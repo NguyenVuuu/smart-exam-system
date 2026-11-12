@@ -25,7 +25,7 @@ def test_provider_outage_returns_retryable_status_without_details(monkeypatch):
         raise GoogleAPIError(503, {"error": "provider-internal-detail"})
 
     monkeypatch.setenv("AI_AGENT_SHARED_SECRET", "test-secret")
-    monkeypatch.setattr(main, "get_model", lambda: object())
+    monkeypatch.setattr(main, "get_model", lambda **_kwargs: object())
     monkeypatch.setattr(main, "run_student", unavailable)
     response = TestClient(app).post("/v1/student/insights",
         headers={"authorization": "Bearer test-secret"},
@@ -40,7 +40,7 @@ def test_provider_quota_returns_retryable_status_without_details(monkeypatch):
         raise GoogleRateLimitError("provider-internal-detail")
 
     monkeypatch.setenv("AI_AGENT_SHARED_SECRET", "test-secret")
-    monkeypatch.setattr(main, "get_model", lambda: object())
+    monkeypatch.setattr(main, "get_model", lambda **_kwargs: object())
     monkeypatch.setattr(main, "run_student", exhausted)
     response = TestClient(app).post("/v1/student/insights",
         headers={"authorization": "Bearer test-secret"},
@@ -78,7 +78,7 @@ def test_authorized_practice_response_uses_validated_source(monkeypatch):
             }]}
 
     monkeypatch.setenv("AI_AGENT_SHARED_SECRET", "test-secret")
-    monkeypatch.setattr(main, "get_model", lambda: Model())
+    monkeypatch.setattr(main, "get_model", lambda **_kwargs: Model())
     response = TestClient(app).post("/v1/student/practice-draft",
         headers={"authorization": "Bearer test-secret"},
         json={"count": 1, "material": {
@@ -87,3 +87,21 @@ def test_authorized_practice_response_uses_validated_source(monkeypatch):
         }})
     assert response.status_code == 200
     assert response.json()["questions"][0]["supportQuote"] == quote
+
+
+def test_insight_uses_model_selected_by_backend(monkeypatch):
+    async def answer(_model, _request):
+        return {"summary": "No released results", "actions": [], "evidenceIds": [], "caveat": None}
+
+    def selected_model(**kwargs):
+        assert kwargs["model_name"] == "gemini-3.5-flash-lite"
+        return object()
+
+    monkeypatch.setenv("AI_AGENT_SHARED_SECRET", "test-secret")
+    monkeypatch.setattr(main, "get_model", selected_model)
+    monkeypatch.setattr(main, "run_student", answer)
+    response = TestClient(app).post("/v1/student/insights",
+        headers={"authorization": "Bearer test-secret"},
+        json={"model": "gemini-3.5-flash-lite", "message": "test",
+              "analyzedAttemptCount": 0, "limitedToRecentAttempts": False, "topics": []})
+    assert response.status_code == 200
