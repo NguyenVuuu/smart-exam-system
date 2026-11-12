@@ -42,7 +42,6 @@ def get_model() -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
         model=os.environ.get("AI_AGENT_MODEL", "gemini-3.8-flash"),
         api_key=api_key,
-        temperature=0,
         thinking_level="low",
         timeout=50,
         max_retries=1,
