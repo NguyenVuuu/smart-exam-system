@@ -5,6 +5,7 @@ import path from 'path'
 import { errorHandler } from './middlewares/errorHandler'
 import { authRoutes, authenticate, requireRoles } from './modules/auth'
 import { studentDashboardRoutes } from './modules/student-dashboard'
+import { studentLearningAnalyticsRoutes, teacherLearningAnalyticsRoutes } from './modules/learning-analytics'
 import { studentSubjectsRoutes } from './modules/student-subjects'
 import { studentCourseDetailRoutes } from './modules/student-course-detail'
 import { studentTakeExamRoutes } from './modules/student-take-exam'
@@ -67,6 +68,7 @@ app.use('/api/teacher/notifications', notificationsRoutes)
 app.use('/api/notifications', allRoleNotificationsRoutes)
 app.use('/api/system-settings', publicSystemSettingsRouter)
 app.use('/api/student', studentDashboardRoutes)
+app.use('/api/student', studentLearningAnalyticsRoutes)
 app.use('/api/student', studentSubjectsRoutes)
 app.use('/api/student/course-offerings', studentCourseDetailRoutes)
 app.use('/api/student', studentTakeExamRoutes)
@@ -86,6 +88,7 @@ app.use('/api/admin', adminSystemSettingsRoutes)
 app.use('/api/teacher', teacherCoursesRoutes)
 app.use('/api/teacher', teacherSystemSettingsRouter)
 app.use('/api/teacher', teacherQuestionsRoutes)
+app.use('/api/teacher', teacherLearningAnalyticsRoutes)
 app.use('/api/teacher', learningTopicsRoutes)
 app.use('/api/teacher', teacherExamsRoutes)
 app.use('/api/teacher', reviewGroupRoutes)
