@@ -5,6 +5,15 @@ export const askAgentSchema = z.object({
   materialId: z.string().uuid().optional(),
 })
 export const scheduleParamSchema = z.object({ scheduleId: z.string().uuid() })
+export const programmingReviewSchema = z.object({
+  attemptId: z.string().uuid(), examQuestionId: z.string().uuid(),
+})
+
+export const programmingReviewAnswerSchema = z.object({
+  summary: z.string().min(1).max(800),
+  suggestions: z.array(z.string().min(1).max(400)).max(4),
+  caveat: z.string().min(1).max(300),
+})
 
 export const agentAnswerSchema = z.object({
   summary: z.string().max(1500),

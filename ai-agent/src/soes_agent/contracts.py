@@ -85,6 +85,23 @@ class PracticeDraft(BaseModel):
     questions: list[PracticeQuestion] = Field(min_length=1, max_length=10)
 
 
+class ProgrammingReviewRequest(ModelSelection):
+    questionTitle: str = Field(min_length=1, max_length=300)
+    questionContent: str = Field(min_length=1, max_length=5000)
+    language: Literal["C", "CPP", "JAVA"]
+    sourceCode: str = Field(min_length=1, max_length=20000)
+    submissionStatus: str = Field(min_length=1, max_length=50)
+    passedTestCases: int = Field(ge=0)
+    totalTestCases: int = Field(ge=0)
+    failureStatuses: list[str] = Field(max_length=20)
+
+
+class ProgrammingReview(BaseModel):
+    summary: str = Field(min_length=1, max_length=800)
+    suggestions: list[Annotated[str, Field(min_length=1, max_length=400)]] = Field(max_length=4)
+    caveat: str = Field(min_length=1, max_length=300)
+
+
 class AgentAnswer(BaseModel):
     summary: str = Field(max_length=1500)
     actions: list[Annotated[str, Field(max_length=500)]] = Field(max_length=5)

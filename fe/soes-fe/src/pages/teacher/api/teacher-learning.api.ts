@@ -24,6 +24,12 @@ export interface TeacherLearningAnswer {
   caveat: string | null
 }
 
+export interface ProgrammingReview {
+  summary: string
+  suggestions: string[]
+  caveat: string
+}
+
 interface ApiResponse<T> { data: T }
 
 export async function getTeacherLearningInsights(scheduleId: string): Promise<TeacherLearningInsights> {
@@ -36,4 +42,11 @@ export async function askTeacherLearningAgent(scheduleId: string, message: strin
     `/teacher/learning/schedules/${scheduleId}/ask`, { message },
   )
   return data.data.answer
+}
+
+export async function reviewProgrammingSubmission(attemptId: string, examQuestionId: string): Promise<ProgrammingReview> {
+  const { data } = await apiClient.post<ApiResponse<ProgrammingReview>>(
+    '/teacher/learning/programming-review', { attemptId, examQuestionId }, { timeout: 65000 },
+  )
+  return data.data
 }

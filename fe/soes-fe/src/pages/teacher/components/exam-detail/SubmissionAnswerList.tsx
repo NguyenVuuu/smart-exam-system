@@ -1,5 +1,6 @@
 import { Check, Code, XCircle } from 'lucide-react'
 import type { Exam, ExamSubmission } from '../../types/teacher-exam.types'
+import ProgrammingReviewPanel from './ProgrammingReviewPanel'
 
 interface SubmissionAnswerListProps {
   exam: Exam
@@ -106,6 +107,10 @@ export default function SubmissionAnswerList({ exam, submission }: SubmissionAns
                         </div>
                       ))}
                     </div>
+                  )}
+                  {submission.hasSubmitted && answer?.sourceCode && item.snapshotQuestionId && (
+                    <ProgrammingReviewPanel key={`${submission.attemptId}-${item.snapshotQuestionId}`}
+                      attemptId={submission.attemptId} examQuestionId={item.snapshotQuestionId} />
                   )}
                 </div>
               )}

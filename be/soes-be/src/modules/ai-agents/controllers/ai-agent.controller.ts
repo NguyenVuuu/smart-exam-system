@@ -2,9 +2,10 @@ import type { Request, Response } from 'express'
 import { sendSuccess as send } from '../../../utils/httpResponse'
 import { askStudent, askTeacher } from '../services/ai-agent.service'
 import { suggestExamMatrix } from '../services/exam-matrix.service'
-import { askAgentSchema, createPracticeSchema, examMatrixRequestSchema, practiceParamSchema, scheduleParamSchema, submitPracticeSchema } from '../validators/ai-agent.validator'
+import { askAgentSchema, createPracticeSchema, examMatrixRequestSchema, practiceParamSchema, programmingReviewSchema, scheduleParamSchema, submitPracticeSchema } from '../validators/ai-agent.validator'
 import { getStudentMaterials } from '../services/student-material.service'
 import { createStudentPractice, getStudentPractice, listStudentPractice, submitStudentPractice } from '../services/student-practice.service'
+import { reviewProgrammingSubmission } from '../services/programming-review.service'
 
 export const studentAsk = async (req: Request, res: Response) => {
   const { message, materialId } = askAgentSchema.parse(req.body)
@@ -38,3 +39,8 @@ export const teacherAsk = async (req: Request, res: Response) => send(
 export const teacherExamMatrix = async (req: Request, res: Response) => send(
   res, await suggestExamMatrix(req.user!.profileId, examMatrixRequestSchema.parse(req.body)),
 )
+
+export const teacherProgrammingReview = async (req: Request, res: Response) => {
+  const { attemptId, examQuestionId } = programmingReviewSchema.parse(req.body)
+  return send(res, await reviewProgrammingSubmission(req.user!.profileId, req.user!.id, attemptId, examQuestionId))
+}

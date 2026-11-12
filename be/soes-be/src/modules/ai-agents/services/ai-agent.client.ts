@@ -3,9 +3,9 @@ import { AppError } from '../../../errors/AppError'
 import { logger } from '../../../lib/logger'
 import { getStoredAiSettings } from '../../admin-system-settings/services/ai-settings-reader'
 import { z } from 'zod'
-import { agentAnswerSchema, examMatrixProposalSchema, practiceDraftSchema } from '../validators/ai-agent.validator'
+import { agentAnswerSchema, examMatrixProposalSchema, practiceDraftSchema, programmingReviewAnswerSchema } from '../validators/ai-agent.validator'
 
-type AgentPath = '/v1/student/insights' | '/v1/student/practice-draft' | '/v1/teacher/insights' | '/v1/teacher/exam-matrix' | '/v1/teacher/question-draft'
+type AgentPath = '/v1/student/insights' | '/v1/student/practice-draft' | '/v1/teacher/insights' | '/v1/teacher/exam-matrix' | '/v1/teacher/question-draft' | '/v1/teacher/programming-review'
 
 async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unknown, schema: T, timeoutMs = aiAgentConfig.timeoutMs): Promise<z.infer<T>> {
   if (!aiAgentConfig.enabled || !aiAgentConfig.sharedSecret) {
@@ -52,3 +52,6 @@ export const requestPracticeDraftAgent = (payload: unknown) =>
 
 export const requestQuestionDraftAgent = (payload: unknown, timeoutMs: number) =>
   requestAgent('/v1/teacher/question-draft', payload, z.record(z.string(), z.unknown()), timeoutMs)
+
+export const requestProgrammingReviewAgent = (payload: unknown) =>
+  requestAgent('/v1/teacher/programming-review', payload, programmingReviewAnswerSchema)
