@@ -486,3 +486,15 @@ export async function closeOpenWebcamObservationViolations(attemptIds: string[],
 
   return openViolations.length
 }
+
+export async function closeOpenAttemptViolations(attemptId: string, endedAt: Date) {
+  const open = await prisma.violation.findMany({
+    where: { attemptId, endedAt: null },
+    select: { id: true, detectedAt: true },
+  })
+  return Promise.all(open.map((violation) => prisma.violation.update({
+    where: { id: violation.id },
+    data: { endedAt, durationSeconds: durationSecondsBetween(violation.detectedAt, endedAt) },
+    select: syncedViolationSelect,
+  })))
+}

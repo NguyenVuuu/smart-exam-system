@@ -112,21 +112,21 @@ export async function getPendingStudentRequest(attemptId: string, scheduleId: st
 
 export async function getTeacherLiveSession(sessionId: string, teacherId: string) {
   const session = await readSession(sessionId)
-  if (!session || session.teacherId !== teacherId) return null
+  if (!session || session.teacherId !== teacherId || session.status === 'ENDED') return null
   await writeSession(session)
   return publicSession(session)
 }
 
 export async function getStudentLiveSession(sessionId: string, attemptId: string, scheduleId: string) {
   const session = await readSession(sessionId)
-  if (!session || session.attemptId !== attemptId || session.scheduleId !== scheduleId) return null
+  if (!session || session.attemptId !== attemptId || session.scheduleId !== scheduleId || session.status === 'ENDED') return null
   await writeSession(session)
   return publicSession(session)
 }
 
 export async function submitStudentOffer(input: { sessionId: string; attemptId: string; scheduleId: string; offer: JsonSignal }) {
   const session = await readSession(input.sessionId)
-  if (!session || session.attemptId !== input.attemptId || session.scheduleId !== input.scheduleId) return null
+  if (!session || session.attemptId !== input.attemptId || session.scheduleId !== input.scheduleId || session.status !== 'REQUESTED') return null
   session.offer = input.offer
   session.status = 'OFFERED'
   await writeSession(session)
@@ -135,7 +135,7 @@ export async function submitStudentOffer(input: { sessionId: string; attemptId: 
 
 export async function submitTeacherAnswer(input: { sessionId: string; teacherId: string; answer: JsonSignal }) {
   const session = await readSession(input.sessionId)
-  if (!session || session.teacherId !== input.teacherId) return null
+  if (!session || session.teacherId !== input.teacherId || session.status !== 'OFFERED') return null
   session.answer = input.answer
   session.status = 'CONNECTED'
   await writeSession(session)
@@ -144,7 +144,7 @@ export async function submitTeacherAnswer(input: { sessionId: string; teacherId:
 
 export async function addStudentCandidate(input: { sessionId: string; attemptId: string; scheduleId: string; candidate: JsonSignal }) {
   const session = await readSession(input.sessionId)
-  if (!session || session.attemptId !== input.attemptId || session.scheduleId !== input.scheduleId) return null
+  if (!session || session.attemptId !== input.attemptId || session.scheduleId !== input.scheduleId || session.status === 'ENDED') return null
   session.studentCandidates.push(input.candidate)
   await writeSession(session)
   return { ok: true }
@@ -152,7 +152,7 @@ export async function addStudentCandidate(input: { sessionId: string; attemptId:
 
 export async function addTeacherCandidate(input: { sessionId: string; teacherId: string; candidate: JsonSignal }) {
   const session = await readSession(input.sessionId)
-  if (!session || session.teacherId !== input.teacherId) return null
+  if (!session || session.teacherId !== input.teacherId || session.status === 'ENDED') return null
   session.teacherCandidates.push(input.candidate)
   await writeSession(session)
   return { ok: true }
@@ -160,7 +160,7 @@ export async function addTeacherCandidate(input: { sessionId: string; teacherId:
 
 export async function getStudentCandidates(sessionId: string, teacherId: string, from = 0) {
   const session = await readSession(sessionId)
-  if (!session || session.teacherId !== teacherId) return null
+  if (!session || session.teacherId !== teacherId || session.status === 'ENDED') return null
   await writeSession(session)
   return {
     candidates: session.studentCandidates.slice(from),
@@ -170,7 +170,7 @@ export async function getStudentCandidates(sessionId: string, teacherId: string,
 
 export async function getTeacherCandidates(sessionId: string, attemptId: string, scheduleId: string, from = 0) {
   const session = await readSession(sessionId)
-  if (!session || session.attemptId !== attemptId || session.scheduleId !== scheduleId) return null
+  if (!session || session.attemptId !== attemptId || session.scheduleId !== scheduleId || session.status === 'ENDED') return null
   await writeSession(session)
   return {
     candidates: session.teacherCandidates.slice(from),
@@ -186,4 +186,17 @@ export async function endLiveSession(sessionId: string, actor: { teacherId?: str
   if (!allowedTeacher && !allowedStudent) return null
   await endSession(session)
   return publicSession(session)
+}
+
+export async function endAttemptLiveSessions(attemptId: string, scheduleId: string) {
+  const ended = []
+  for (const streamType of ['WEBCAM', 'SCREEN'] as const) {
+    const sessionId = await redis.get(attemptKey(attemptId, scheduleId, streamType))
+    if (!sessionId) continue
+    const session = await readSession(sessionId)
+    if (!session || session.attemptId !== attemptId || session.scheduleId !== scheduleId || session.status === 'ENDED') continue
+    await endSession(session)
+    ended.push(publicSession(session))
+  }
+  return ended
 }

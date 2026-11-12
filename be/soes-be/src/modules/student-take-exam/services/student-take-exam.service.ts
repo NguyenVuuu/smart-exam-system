@@ -24,7 +24,7 @@ import {
   STUDENT_STARTABLE_SCHEDULE_STATUSES,
 } from '../../student-common/exam-visibility.policy'
 import * as live from '../../proctoring-live/proctoring-live.service'
-import { emitAttemptEvent, emitProctoringEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
+import { emitAttemptEvent, emitProctoringEvent, emitTeacherEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
 import { studentViolationSeverity } from './violation.policy'
 import redis from '../../../lib/redis'
 
@@ -147,9 +147,29 @@ async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
   await gradeObjectiveAnswers(attemptId, { finalStatus: 'AUTO_SUBMITTED' })
 }
 
+async function closeAttemptProctoring(attemptId: string, scheduleId: string, endedAt: Date) {
+  try {
+    const [sessions, violations] = await Promise.all([
+      live.endAttemptLiveSessions(attemptId, scheduleId),
+      repo.closeOpenAttemptViolations(attemptId, endedAt),
+    ])
+    for (const session of sessions) {
+      emitAttemptEvent(attemptId, 'live:ended', session)
+      emitTeacherEvent(session.teacherId, 'live:ended', session)
+    }
+    for (const violation of violations) emitViolationEnded(scheduleId, violation)
+  } catch (error) {
+    logger.error('Failed to close exam proctoring state', {
+      attemptId, error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
 export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date()): Promise<SubmitExamResult | null> {
   const result = await repo.autoSubmitAttemptWithAudit(attemptId, now)
   if (!result) return null
+
+  await closeAttemptProctoring(attemptId, result.scheduleId, now)
 
   emitProctoringEvent(result.scheduleId, 'student:offline', {
     attemptId,
@@ -763,6 +783,7 @@ export async function submitExam(
 
   // ── Update succeeded → return success ─────────────────────────────────────
   if (updated.count > 0) {
+    await closeAttemptProctoring(attemptId, scheduleId, now)
     emitProctoringEvent(scheduleId, 'student:offline', {
       attemptId,
       scheduleId,
