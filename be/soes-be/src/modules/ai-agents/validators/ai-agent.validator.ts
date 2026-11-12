@@ -14,7 +14,7 @@ export const agentAnswerSchema = z.object({
 })
 
 export const examMatrixRequestSchema = z.object({
-  subjectId: z.string().uuid(),
+  subjectId: z.string().trim().min(1).max(100),
   format: z.enum(['OBJECTIVE', 'PROGRAMMING', 'MIXED']),
   desiredCount: z.number().int().min(1).max(100),
   message: z.string().trim().min(1).max(500),
