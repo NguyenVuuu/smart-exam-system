@@ -24,7 +24,7 @@ import {
   STUDENT_STARTABLE_SCHEDULE_STATUSES,
 } from '../../student-common/exam-visibility.policy'
 import * as live from '../../proctoring-live/proctoring-live.service'
-import { emitAttemptEvent, emitProctoringEvent } from '../../proctoring/proctoring-realtime.events'
+import { emitAttemptEvent, emitProctoringEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
 
 /**
  * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
@@ -155,6 +155,7 @@ export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date
     attemptStatus: 'AUTO_SUBMITTED',
     isOnline: false,
   })
+  leaveAttemptRoom(attemptId)
   await gradeAutoSubmittedAttempt(attemptId)
   logger.info('Exam attempt auto-submitted by timeout', {
     attemptId,
@@ -766,6 +767,7 @@ export async function submitExam(
       attemptStatus: 'SUBMITTED',
       isOnline: false,
     })
+    leaveAttemptRoom(attemptId)
     await gradeProgrammingAnswers(attemptId)
     await gradeObjectiveAnswers(attemptId)
     return { attemptId, submittedAt: now };

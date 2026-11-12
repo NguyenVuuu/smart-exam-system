@@ -93,6 +93,7 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
     emitToTeacher: (teacherId, event, payload) => io?.to(teacherRoom(teacherId)).emit(event, payload),
     emitToStudent: (studentId, event, payload) => io?.to(studentRoom(studentId)).emit(event, payload),
     emitToUser: (userId, event, payload) => io?.to(userRoom(userId)).emit(event, payload),
+    leaveAttemptRoom: (attemptId) => { void io?.in(attemptRoom(attemptId)).socketsLeave(attemptRoom(attemptId)) },
   })
 
   io.on('connection', (socket) => {
@@ -120,7 +121,6 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
         if (user.role !== 'STUDENT') throw new Error('Only students can join attempt rooms')
         await studentTakeExam.requireLiveAttempt(scheduleId, attemptId, user.profileId)
         await socket.join(attemptRoom(attemptId))
-        await socket.join(scheduleRoom(scheduleId))
         ack?.({ ok: true })
       } catch (error) {
         ack?.({ ok: false, error: error instanceof Error ? error.message : 'Unable to join attempt' })
