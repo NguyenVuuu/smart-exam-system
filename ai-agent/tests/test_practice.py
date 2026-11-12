@@ -39,6 +39,17 @@ def test_practice_rejects_unsupported_or_ambiguous_answer():
         validate_draft(ambiguous, SOURCE, 1)
 
 
+def test_practice_keeps_only_valid_unique_candidates():
+    rejected = draft()
+    rejected.questions[0].correctIndex = 1
+    valid = draft()
+    result = validate_draft(PracticeDraft(questions=[
+        rejected.questions[0], valid.questions[0], valid.questions[0],
+    ]), SOURCE, 1)
+    assert len(result.questions) == 1
+    assert result.questions[0].correctIndex == 0
+
+
 @pytest.mark.asyncio
 async def test_generation_uses_selected_material_only():
     class Model:

@@ -16,26 +16,35 @@ def appears_in_quote(option: str, quote: str) -> bool:
 
 
 def validate_draft(draft: PracticeDraft, source: str, count: int) -> PracticeDraft:
-    if len(draft.questions) != count:
+    if len(draft.questions) < count:
         raise ValueError("Practice question count mismatch")
     source_text = normalize(source)
     stems = set()
+    accepted = []
+    first_error = None
     for question in draft.questions:
         stem = normalize(question.stem)
         if stem in stems or len({normalize(option) for option in question.options}) != 4:
-            raise ValueError("Duplicate practice content")
+            first_error = first_error or "Duplicate practice content"
+            continue
         if normalize(question.supportQuote) not in source_text:
-            raise ValueError("Practice question lacks a source quote")
-        supported_options = [index for index, option in enumerate(question.options)
-                             if appears_in_quote(option, question.supportQuote)]
-        if supported_options != [question.correctIndex]:
-            raise ValueError("Practice answer is not uniquely supported by its source quote")
+            first_error = first_error or "Practice question lacks a source quote"
+            continue
+        matches = [index for index, option in enumerate(question.options)
+                   if appears_in_quote(option, question.supportQuote)]
+        if matches != [question.correctIndex]:
+            first_error = first_error or "Practice answer is not uniquely supported by its source quote"
+            continue
         stems.add(stem)
-    return draft
+        accepted.append(question)
+    if len(accepted) < count:
+        raise ValueError(first_error or "Not enough valid practice questions")
+    return PracticeDraft(questions=accepted[:count])
 
 
 async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraftRequest) -> PracticeDraft:
     source = extract_material(request.material)
+    candidate_count = min(10, request.count + 2)
     structured = model.with_structured_output(PracticeDraft)
     response = await structured.ainvoke([
         ("system", (
@@ -49,7 +58,8 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
             "có khóa khớp'; lựa chọn đúng 'các hàng có khóa khớp'. "
             "Không suy đoán kiến thức ngoài nguồn. Không sao chép câu hỏi thi chính thức."
         )),
-        ("human", f"Số câu: {request.count}\nMức độ: {request.difficulty}. "
+        ("human", f"Tạo {candidate_count} câu ứng viên để hệ thống chọn {request.count} câu hợp lệ.\n"
+         f"Mức độ: {request.difficulty}. "
          "BASIC = nhận biết trực tiếp; INTERMEDIATE = hiểu quan hệ; "
          "ADVANCED = vận dụng kiến thức được nêu rõ trong tài liệu.\n"
          f"Tài liệu:\n{source}"),
