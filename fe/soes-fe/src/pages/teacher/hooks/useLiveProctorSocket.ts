@@ -82,6 +82,7 @@ export function useLiveProctorSocket({
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const peerRef = useRef<RTCPeerConnection | null>(null)
   const liveSessionIdRef = useRef<string | null>(null)
+  const visionAlertsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     if (!videoRef.current) return
@@ -130,6 +131,7 @@ export function useLiveProctorSocket({
       attemptId: string
       webcamStatus?: ProctoringSessionRecord['webcamStatus']
       screenShareStatus?: ProctoringSessionRecord['screenShareStatus']
+      visionStatus?: ProctoringSessionRecord['visionStatus']
       lastHeartbeatAt?: string
       isOnline?: boolean
     }) => {
@@ -139,9 +141,18 @@ export function useLiveProctorSocket({
             isOnline: payload.isOnline ?? item.isOnline,
             webcamStatus: payload.webcamStatus ?? item.webcamStatus,
             screenShareStatus: payload.screenShareStatus ?? item.screenShareStatus,
+            visionStatus: payload.visionStatus ?? item.visionStatus,
             lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt,
           }
         : item))
+      if (payload.visionStatus === 'UNAVAILABLE' && !visionAlertsRef.current.has(payload.attemptId)) {
+        visionAlertsRef.current.add(payload.attemptId)
+        toast.warning('Nhận diện camera trên máy sinh viên tạm ngừng', {
+          description: 'Vẫn có thể mở camera trực tiếp để kiểm tra trong khi sinh viên tiếp tục làm bài.',
+        })
+      } else if (payload.visionStatus === 'READY') {
+        visionAlertsRef.current.delete(payload.attemptId)
+      }
     }
 
     const handleOffline = (payload: {
@@ -161,6 +172,7 @@ export function useLiveProctorSocket({
           }
         : item))
       if (payload.attemptId === liveAttemptId) stopLive()
+      visionAlertsRef.current.delete(payload.attemptId)
     }
 
     const handleViolationCreated = (payload: ViolationRecord) => {

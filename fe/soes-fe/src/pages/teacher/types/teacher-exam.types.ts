@@ -227,6 +227,7 @@ export interface ProctoringSessionRecord {
   ipAddress: string | null
   webcamStatus: 'NOT_REQUIRED' | 'PENDING_PERMISSION' | 'ACTIVE' | 'DISCONNECTED' | 'PERMISSION_DENIED' | 'BLOCKED'
   screenShareStatus: 'NOT_REQUIRED' | 'PENDING_PERMISSION' | 'ACTIVE' | 'STOPPED' | 'PERMISSION_DENIED'
+  visionStatus?: 'READY' | 'RECOVERING' | 'UNAVAILABLE'
   lastHeartbeatAt: string | null
   lastWebcamHeartbeatAt: string | null
   lastScreenHeartbeatAt: string | null

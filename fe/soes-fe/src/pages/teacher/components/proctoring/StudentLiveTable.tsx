@@ -87,6 +87,7 @@ export default function StudentLiveTable({
                 <AppBadge tone={webcamTone[session.webcamStatus]}>
                   {webcamLabel[session.webcamStatus]}
                 </AppBadge>
+                {session.visionStatus === 'UNAVAILABLE' && <p className="mt-1 text-xs font-medium text-amber-700">Nhận diện tạm ngừng</p>}
               </td>
               <td className="px-5 py-4">
                 <AppBadge tone={screenTone[session.screenShareStatus]}>

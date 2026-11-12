@@ -228,7 +228,7 @@ export default function StudentTakeExamPage() {
     fullscreenViolationStorageKey: scheduleId && attemptId ? `soes:fullscreen-violation:${scheduleId}:${attemptId}` : undefined,
   })
 
-  const { visionError } = useWebcamViolationMonitor({
+  const { visionError, visionStatus } = useWebcamViolationMonitor({
     enabled: phase === 'IN_PROGRESS' && Boolean(session?.integritySettings.enableWebcam),
     scheduleId: scheduleId ?? '',
     attemptId: attemptId ?? '',
@@ -266,15 +266,15 @@ export default function StudentTakeExamPage() {
     const webcamHeartbeatStatus = toSessionWebcamStatus(webcamStatus, webcamStream, session.integritySettings.enableWebcam)
     const screenShareHeartbeatStatus = toSessionScreenShareStatus(screenStatus, screenStream, session.integritySettings.enableScreenMonitoring)
 
-    sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: webcamHeartbeatStatus, screenShareStatus: screenShareHeartbeatStatus } })
+    sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: webcamHeartbeatStatus, screenShareStatus: screenShareHeartbeatStatus, visionStatus } })
     const intervalId = window.setInterval(() => {
       const nextWebcamHeartbeatStatus = toSessionWebcamStatus(webcamStatus, webcamStream, session.integritySettings.enableWebcam)
       const nextScreenShareHeartbeatStatus = toSessionScreenShareStatus(screenStatus, screenStream, session.integritySettings.enableScreenMonitoring)
-      sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: nextWebcamHeartbeatStatus, screenShareStatus: nextScreenShareHeartbeatStatus } })
+      sendHeartbeat({ scheduleId, attemptId, data: { webcamStatus: nextWebcamHeartbeatStatus, screenShareStatus: nextScreenShareHeartbeatStatus, visionStatus } })
     }, 10_000)
 
     return () => window.clearInterval(intervalId)
-  }, [attemptId, phase, scheduleId, screenStatus, screenStream, sendHeartbeat, session, webcamStatus, webcamStream])
+  }, [attemptId, phase, scheduleId, screenStatus, screenStream, sendHeartbeat, session, webcamStatus, webcamStream, visionStatus])
 
   useEffect(() => {
     if (phase !== 'IN_PROGRESS' || !session?.integritySettings.enableWebcam) return

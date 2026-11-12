@@ -77,6 +77,7 @@ export type SendHeartbeatParams = z.infer<typeof sendHeartbeatParamsSchema>
 export const sendHeartbeatBodySchema = z.object({
   webcamStatus: webcamStatusSchema.optional(),
   screenShareStatus: screenShareStatusSchema.optional(),
+  visionStatus: z.enum(['READY', 'RECOVERING', 'UNAVAILABLE']).optional(),
 })
 
 export type SendHeartbeatBody = z.infer<typeof sendHeartbeatBodySchema>

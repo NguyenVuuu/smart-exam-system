@@ -974,7 +974,7 @@ export async function sendHeartbeat(
   scheduleId: string,
   attemptId: string,
   studentId: string,
-  input: { webcamStatus?: WebcamStatus; screenShareStatus?: ScreenShareStatus } = {},
+  input: { webcamStatus?: WebcamStatus; screenShareStatus?: ScreenShareStatus; visionStatus?: 'READY' | 'RECOVERING' | 'UNAVAILABLE' } = {},
 ): Promise<SendHeartbeatResult> {
   const now = new Date()
 
@@ -1015,6 +1015,7 @@ export async function sendHeartbeat(
     scheduleId,
     webcamStatus,
     screenShareStatus,
+    visionStatus: attemptData.examSchedule.enableWebcam ? input.visionStatus : undefined,
     lastHeartbeatAt: now.toISOString(),
     remainingSeconds: Math.max(
       0,

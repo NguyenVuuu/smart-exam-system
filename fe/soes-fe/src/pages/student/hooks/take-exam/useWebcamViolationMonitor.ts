@@ -159,6 +159,7 @@ export function useWebcamViolationMonitor(input: {
   const issueStartedAtRef = useRef<Partial<Record<WebcamIssueType, number>>>({})
   const lastCreatedAtRef = useRef<Partial<Record<WebcamIssueType, number>>>({})
   const [visionError, setVisionError] = useState<string | null>(null)
+  const [visionStatus, setVisionStatus] = useState<'RECOVERING' | 'READY' | 'UNAVAILABLE'>('RECOVERING')
   const [uploadError, setUploadError] = useState<string | null>(null)
   const phoneUploadRef = useRef(false)
   const lastPhoneCreatedAtRef = useRef(0)
@@ -175,6 +176,8 @@ export function useWebcamViolationMonitor(input: {
     let intervalMs = 250
     let timer: number | undefined
     let watchdog: number | undefined
+    let recoveryTimer: number | undefined
+    let failures = 0
     let lastVideoTime = -1
     let observingFace = false
     let lastFaceObservedAt = 0
@@ -285,17 +288,25 @@ export function useWebcamViolationMonitor(input: {
     }
 
     const failWorker = () => {
-      const wasBusy = busy
       ready = false
       busy = false
       window.clearTimeout(watchdog)
       worker?.terminate()
       worker = null
-      if (wasBusy) schedule()
-      if (!cancelled) setVisionError('Nhận diện camera tạm ngừng. Hãy báo giảng viên; chia sẻ camera vẫn hoạt động.')
+      if (cancelled) return
+      failures++
+      if (failures >= 3) {
+        setVisionStatus('UNAVAILABLE')
+        setVisionError('Nhận diện camera tạm ngừng. Giảng viên đã được thông báo; camera vẫn hoạt động.')
+        return
+      }
+      setVisionStatus('RECOVERING')
+      setVisionError('Nhận diện camera gặp lỗi tạm thời; hệ thống đang thử lại.')
+      recoveryTimer = window.setTimeout(() => { startWorker(); schedule() }, 1000 * 2 ** (failures - 1))
     }
 
-    if (video) {
+    function startWorker() {
+      if (cancelled) return
       try {
         worker = new Worker('/mediapipe/vision-worker.js', { name: 'exam-vision' })
         worker.onerror = failWorker
@@ -307,6 +318,8 @@ export function useWebcamViolationMonitor(input: {
           window.clearTimeout(watchdog)
           if (data.type === 'ready') {
             ready = true
+            failures = 0
+            setVisionStatus('READY')
             setVisionError(null)
             return
           }
@@ -314,10 +327,12 @@ export function useWebcamViolationMonitor(input: {
           try {
             if (data.type === 'error') {
               issueStartedAtRef.current = {}
+              setVisionStatus('RECOVERING')
               setVisionError('Nhận diện camera gặp lỗi tạm thời; hệ thống đang thử lại.')
             } else {
               intervalMs = data.intervalMs ?? intervalMs
               if (!data.skipped) {
+                setVisionStatus('READY')
                 setVisionError(null)
                 if (data.kind === 'face') void observeFace(data.issue ?? null, data.capturedAt ?? Date.now())
                 if (data.evidence) void recordPhone(data.evidence)
@@ -332,6 +347,8 @@ export function useWebcamViolationMonitor(input: {
         worker.postMessage({ type: 'init', debug: visionDebug })
       } catch { failWorker() }
     }
+
+    if (video) startWorker()
 
     const tick = async () => {
       if (cancelled || busy) return
@@ -374,10 +391,11 @@ export function useWebcamViolationMonitor(input: {
       void closeOpenViolation(new Date().toISOString())
       window.clearTimeout(timer)
       window.clearTimeout(watchdog)
+      window.clearTimeout(recoveryTimer)
       worker?.terminate()
       video?.pause()
       if (video) video.srcObject = null
     }
   }, [input.attemptId, input.enabled, input.scheduleId, input.stream, input.webcamStatus])
-  return { visionError: input.enabled ? visionError ?? uploadError : null }
+  return { visionError: input.enabled ? visionError ?? uploadError : null, visionStatus }
 }
