@@ -48,6 +48,9 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
             "ba lựa chọn sai không được xuất hiện trong supportQuote. "
             "Không suy đoán kiến thức ngoài nguồn. Không sao chép câu hỏi thi chính thức."
         )),
-        ("human", f"Số câu: {request.count}\nTài liệu:\n{source}"),
+        ("human", f"Số câu: {request.count}\nMức độ: {request.difficulty}. "
+         "BASIC = nhận biết trực tiếp; INTERMEDIATE = hiểu quan hệ; "
+         "ADVANCED = vận dụng kiến thức được nêu rõ trong tài liệu.\n"
+         f"Tài liệu:\n{source}"),
     ])
     return validate_draft(PracticeDraft.model_validate(response), source, request.count)

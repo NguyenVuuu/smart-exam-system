@@ -66,6 +66,7 @@ class ExamMatrixProposal(BaseModel):
 class PracticeDraftRequest(BaseModel):
     material: StudyMaterial
     count: int = Field(ge=1, le=10)
+    difficulty: Literal["BASIC", "INTERMEDIATE", "ADVANCED"] = "INTERMEDIATE"
 
 
 class PracticeQuestion(BaseModel):

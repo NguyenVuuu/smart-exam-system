@@ -6,6 +6,7 @@ import { loadStudentMaterial } from './student-material.service'
 import { practiceDraftSchema, type createPracticeSchema, type submitPracticeSchema } from '../validators/ai-agent.validator'
 import type { z } from 'zod'
 import { gradePractice } from './practice-grading'
+import { choosePracticeDifficulty } from './practice-difficulty'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
 
@@ -26,7 +27,15 @@ export async function createStudentPractice(studentId: string, input: z.infer<ty
   })
   if (recent >= 10) throw new TooManyRequestsError('Daily practice generation limit reached')
   const material = await loadStudentMaterial(studentId, input.materialId)
-  const draft = await requestPracticeDraftAgent({ material, count: input.count })
+  const previous = await prisma.practiceSet.findMany({
+    where: { studentId, subjectId: material.subjectId, completedAt: { not: null } },
+    orderBy: { completedAt: 'desc' }, take: 3,
+    select: { score: true, _count: { select: { items: true } } },
+  })
+  const difficulty = choosePracticeDifficulty(previous.map((set) => ({
+    score: Number(set.score), questionCount: set._count.items,
+  })))
+  const draft = await requestPracticeDraftAgent({ material, count: input.count, difficulty })
   if (draft.questions.length !== input.count) throw new ValidationError('Invalid practice draft')
   await assertOutsideExam(studentId)
   const set = await prisma.$transaction(async (tx) => {

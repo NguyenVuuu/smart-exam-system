@@ -47,9 +47,10 @@ async def test_generation_uses_selected_material_only():
 
         async def ainvoke(self, messages):
             assert SOURCE in messages[1][1]
+            assert "Mức độ: ADVANCED" in messages[1][1]
             return draft().model_dump()
 
-    request = PracticeDraftRequest(count=1, material=StudyMaterial(
+    request = PracticeDraftRequest(count=1, difficulty="ADVANCED", material=StudyMaterial(
         materialId="material-1", title="JOIN", mimeType="text/plain",
         contentBase64=base64.b64encode(SOURCE.encode()).decode(),
     ))
