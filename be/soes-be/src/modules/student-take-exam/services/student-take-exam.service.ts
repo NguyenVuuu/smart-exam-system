@@ -982,10 +982,10 @@ export async function sendHeartbeat(
 
   // ── 4. Update ExamSession.lastHeartbeat atomically ─────────────────────────
   const webcamStatus = attemptData.examSchedule.enableWebcam
-    ? input.webcamStatus ?? 'DISCONNECTED'
+    ? (input.webcamStatus && input.webcamStatus !== 'NOT_REQUIRED' ? input.webcamStatus : 'DISCONNECTED')
     : 'NOT_REQUIRED'
   const screenShareStatus = attemptData.examSchedule.enableScreenMonitoring
-    ? input.screenShareStatus ?? 'STOPPED'
+    ? (input.screenShareStatus && input.screenShareStatus !== 'NOT_REQUIRED' ? input.screenShareStatus : 'STOPPED')
     : 'NOT_REQUIRED'
 
   await repo.upsertExamSessionHeartbeat(attemptId, now, { webcamStatus, screenShareStatus })
