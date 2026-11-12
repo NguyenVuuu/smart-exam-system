@@ -1,9 +1,12 @@
 import { aiAgentConfig } from '../../../config'
 import { AppError } from '../../../errors/AppError'
 import { logger } from '../../../lib/logger'
-import { agentAnswerSchema } from '../validators/ai-agent.validator'
+import type { z } from 'zod'
+import { agentAnswerSchema, examMatrixProposalSchema } from '../validators/ai-agent.validator'
 
-export async function requestAgent(path: '/v1/student/insights' | '/v1/teacher/insights', payload: unknown) {
+type AgentPath = '/v1/student/insights' | '/v1/teacher/insights' | '/v1/teacher/exam-matrix'
+
+async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unknown, schema: T): Promise<z.infer<T>> {
   if (!aiAgentConfig.enabled || !aiAgentConfig.sharedSecret) {
     throw new AppError(503, 'AI assistant is not configured')
   }
@@ -19,7 +22,7 @@ export async function requestAgent(path: '/v1/student/insights' | '/v1/teacher/i
       signal: AbortSignal.timeout(aiAgentConfig.timeoutMs),
     })
     if (!response.ok) throw new Error(`Agent returned ${response.status}`)
-    const answer = agentAnswerSchema.parse(await response.json())
+    const answer = schema.parse(await response.json())
     logger.info('AI agent request completed', { workflow: path, elapsedMs: Date.now() - startedAt })
     return answer
   } catch {
@@ -27,3 +30,9 @@ export async function requestAgent(path: '/v1/student/insights' | '/v1/teacher/i
     throw new AppError(503, 'AI assistant is temporarily unavailable')
   }
 }
+
+export const requestInsightAgent = (path: '/v1/student/insights' | '/v1/teacher/insights', payload: unknown) =>
+  requestAgent(path, payload, agentAnswerSchema)
+
+export const requestExamMatrixAgent = (payload: unknown) =>
+  requestAgent('/v1/teacher/exam-matrix', payload, examMatrixProposalSchema)

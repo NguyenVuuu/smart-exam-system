@@ -9,3 +9,17 @@ export const agentAnswerSchema = z.object({
   evidenceIds: z.array(z.string().max(100)).max(20),
   caveat: z.string().max(500).nullable(),
 })
+
+export const examMatrixRequestSchema = z.object({
+  subjectId: z.string().uuid(),
+  format: z.enum(['OBJECTIVE', 'PROGRAMMING', 'MIXED']),
+  desiredCount: z.number().int().min(1).max(100),
+  message: z.string().trim().min(1).max(500),
+})
+
+export const examMatrixProposalSchema = z.object({
+  easyCount: z.number().int().min(0).max(100),
+  mediumCount: z.number().int().min(0).max(100),
+  hardCount: z.number().int().min(0).max(100),
+  rationale: z.string().max(500),
+})

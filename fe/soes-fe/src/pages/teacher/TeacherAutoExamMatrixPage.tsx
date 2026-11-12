@@ -5,6 +5,8 @@ import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { TeacherTwoColumnLayout, TeacherTwoColumnMain } from './components/TeacherTwoColumnLayout'
 import AutoExamConfigPanel from './components/auto-exam/AutoExamConfigPanel'
+import AutoExamAgentPanel from './components/auto-exam/AutoExamAgentPanel'
+import type { ExamMatrixProposal } from './api/teacher-ai-exam.api'
 import AutoExamPageHeader from './components/auto-exam/AutoExamPageHeader'
 import AutoExamSummarySidebar from './components/auto-exam/AutoExamSummarySidebar'
 import GeneratedExamPreviewModal from './components/auto-exam/results/GeneratedExamPreviewModal'
@@ -124,6 +126,15 @@ export default function TeacherAutoExamMatrixPage() {
     setSelectedQuestionIds((prev) =>
       prev.includes(questionId) ? prev.filter((id) => id !== questionId) : [...prev, questionId],
     )
+  }
+
+  const applyAgentMatrix = (proposal: ExamMatrixProposal) => {
+    setPickMode('AUTO')
+    setEasyCount(proposal.easyCount)
+    setMediumCount(proposal.mediumCount)
+    setHardCount(proposal.hardCount)
+    setGeneratedExams([])
+    setDraftStatus('NOT_GENERATED')
   }
 
   const validateAutoQuestionCount = () => {
@@ -285,6 +296,13 @@ export default function TeacherAutoExamMatrixPage() {
 
           <TeacherTwoColumnLayout>
             <TeacherTwoColumnMain>
+              <AutoExamAgentPanel
+                key={`${selectedSubject}:${examFormat}`}
+                subjectId={selectedSubject}
+                format={examFormat}
+                currentCount={configuredQuestionCount}
+                onApply={applyAgentMatrix}
+              />
               <AutoExamConfigPanel
                 examTitle={examTitle}
                 setExamTitle={setExamTitle}

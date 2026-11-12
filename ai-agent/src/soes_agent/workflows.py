@@ -4,7 +4,7 @@ from typing import Any, TypedDict
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, START, StateGraph
 
-from .contracts import AgentAnswer, StudentRequest, TeacherRequest
+from .contracts import AgentAnswer, ExamMatrixProposal, ExamMatrixRequest, StudentRequest, TeacherRequest
 
 
 class AgentState(TypedDict, total=False):
@@ -72,3 +72,19 @@ async def run_teacher(model: ChatGoogleGenerativeAI, request: TeacherRequest) ->
     graph = create_workflow(model, "giảng viên")
     result = await graph.ainvoke({"request": request.model_dump()})
     return AgentAnswer.model_validate(result["answer"])
+
+
+async def propose_exam_matrix(model: ChatGoogleGenerativeAI, request: ExamMatrixRequest) -> ExamMatrixProposal:
+    structured = model.with_structured_output(ExamMatrixProposal)
+    response = await structured.ainvoke([
+        ("system", (
+            "Bạn đề xuất ma trận số câu cho giảng viên. Chỉ dựa trên số câu hiện có trong ngân hàng. "
+            "Tổng easyCount, mediumCount, hardCount phải bằng desiredCount và từng số không vượt "
+            "quá availableEasy, availableMedium, availableHard tương ứng. "
+            "Nếu yêu cầu của giảng viên không đủ câu, trả phương án khả thi gần nhất; "
+            "backend sẽ kiểm tra lại. Chỉ giải thích ngắn gọn bằng tiếng Việt. "
+            "Không tạo đề, câu hỏi hoặc đáp án."
+        )),
+        ("human", request.model_dump_json()),
+    ])
+    return ExamMatrixProposal.model_validate(response)

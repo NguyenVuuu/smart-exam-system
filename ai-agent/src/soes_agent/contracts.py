@@ -36,6 +36,22 @@ class TeacherRequest(BaseModel):
     topics: list[TopicMetric] = Field(max_length=100)
 
 
+class ExamMatrixRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=500)
+    desiredCount: int = Field(ge=1, le=100)
+    format: Literal["OBJECTIVE", "PROGRAMMING", "MIXED"]
+    availableEasy: int = Field(ge=0)
+    availableMedium: int = Field(ge=0)
+    availableHard: int = Field(ge=0)
+
+
+class ExamMatrixProposal(BaseModel):
+    easyCount: int = Field(ge=0, le=100)
+    mediumCount: int = Field(ge=0, le=100)
+    hardCount: int = Field(ge=0, le=100)
+    rationale: str = Field(max_length=500)
+
+
 class AgentAnswer(BaseModel):
     summary: str = Field(max_length=1500)
     actions: list[Annotated[str, Field(max_length=500)]] = Field(max_length=5)
