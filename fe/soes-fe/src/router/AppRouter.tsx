@@ -23,6 +23,7 @@ import StudentExamsPage from '../pages/student/StudentExamsPage'
 import StudentExamResultPage from '../pages/student/StudentExamResultPage'
 import StudentNotificationsPage from '../pages/student/StudentNotificationsPage'
 import StudentScoresPage from '../pages/student/StudentScoresPage'
+import StudentLearningPage from '../pages/student/StudentLearningPage'
 import StudentSettingsPage from '../pages/student/StudentSettingsPage'
 import StudentPostDetailPage from '../pages/student/StudentPostDetailPage'
 import StudentTakeExamPage from '../pages/student/StudentTakeExamPage'
@@ -391,6 +392,14 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['STUDENT']}>
               <StudentScoresPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/student/learning"
+          element={
+            <RoleRoute allowedRoles={['STUDENT']}>
+              <StudentLearningPage />
             </RoleRoute>
           }
         />
