@@ -13,3 +13,5 @@ python -m uvicorn soes_agent.main:app --host 127.0.0.1 --port 8001
 ```
 
 Set `AI_AGENT_SHARED_SECRET` to the same high-entropy value in the backend and this service. Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` only in the private agent environment. Configure `AI_AGENT_MODEL` to select a supported model. Keep these values out of Git.
+
+The student material flow uses the existing course enrollment access rule. The backend allows a student to select one PDF, DOCX, or UTF-8 TXT file already visible in their enrolled class, up to 3 MiB. The agent reads at most 20,000 characters and requires a valid material citation in its answer. Scanned PDFs without extractable text are unsupported. The teacher's `aiEnabled` material flag remains reserved for teacher question generation. Material-based study suggestions never imply that a hidden exam was graded or analyzed.

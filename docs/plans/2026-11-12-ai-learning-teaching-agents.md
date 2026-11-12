@@ -11,6 +11,7 @@
 ## Invariants
 
 - Student tools use the authenticated student profile and released results only. No official exam question or answer is exposed early.
+- Unreleased or non-reviewable exams never contribute per-question or per-topic performance to student answers. Course material and practice are separate, authorized learning sources.
 - Teacher tools scope data to owned or assigned courses, exams, and schedules.
 - Generated questions and exams remain drafts until existing teacher review and publishing rules pass.
 - Practice attempts never count as official exam attempts or scores.
@@ -79,16 +80,18 @@
 **Files:** Python student graph, authorized backend tools, web/mobile student screens, tests.
 
 1. Explain released personal results and prioritized weak topics with grounded evidence.
-2. Build a revision plan and answer follow-up questions from allowed material.
-3. Provide no agent access during an active exam; commit.
+2. When released review data is unavailable, use only material visible to the student in an enrolled course. The teacher's `aiEnabled` flag controls teacher question generation and must not be reused for student access. Cite the material and location; disclose when no source supports an answer.
+3. Build a revision plan and answer follow-up questions from allowed material. Keep material summaries distinct from exam-performance conclusions.
+4. Provide no agent access during an active exam; commit.
 
 ## Task 9: Adaptive practice and feedback
 
 **Files:** `student-practice` services, Python student graph, web/mobile screens, tests.
 
-1. Select approved questions or validated generated practice drafts.
-2. Grade practice with deterministic rules and adjust future difficulty from practice outcomes.
-3. Suggest programming feedback from Judge data without changing official grades; commit.
+1. Select approved questions or generate practice drafts from authorized course material; never copy hidden official exam content or answer keys.
+2. Validate each draft against cited material and answer consistency before persisting an isolated practice set.
+3. Grade practice with deterministic rules and adjust future difficulty from practice outcomes.
+4. Suggest programming feedback from Judge data without changing official grades; commit.
 
 ## Task 10: Evaluation and operations
 

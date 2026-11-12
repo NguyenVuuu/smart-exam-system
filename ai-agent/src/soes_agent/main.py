@@ -34,7 +34,10 @@ def health() -> dict[str, str]:
 
 @app.post("/v1/student/insights", response_model=AgentAnswer, dependencies=[Depends(require_service)])
 async def student_insights(request: StudentRequest) -> AgentAnswer:
-    return await run_student(get_model(), request)
+    try:
+        return await run_student(get_model(), request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/v1/teacher/insights", response_model=AgentAnswer, dependencies=[Depends(require_service)])

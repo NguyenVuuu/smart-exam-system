@@ -21,11 +21,22 @@ class QuestionMetric(BaseModel):
     signal: Literal["INSUFFICIENT_DATA", "VERY_HARD", "VERY_EASY", "NORMAL"]
 
 
+class StudyMaterial(BaseModel):
+    materialId: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=150)
+    mimeType: Literal[
+        "application/pdf", "text/plain",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ]
+    contentBase64: str = Field(min_length=1, max_length=4_200_000)
+
+
 class StudentRequest(BaseModel):
     message: str = Field(min_length=1, max_length=500)
     analyzedAttemptCount: int = Field(ge=0)
     limitedToRecentAttempts: bool
     topics: list[TopicMetric] = Field(max_length=100)
+    material: StudyMaterial | None = None
 
 
 class TeacherRequest(BaseModel):

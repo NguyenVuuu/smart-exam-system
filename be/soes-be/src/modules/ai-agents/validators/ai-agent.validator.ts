@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
-export const askAgentSchema = z.object({ message: z.string().trim().min(1).max(500) })
+export const askAgentSchema = z.object({
+  message: z.string().trim().min(1).max(500),
+  materialId: z.string().uuid().optional(),
+})
 export const scheduleParamSchema = z.object({ scheduleId: z.string().uuid() })
 
 export const agentAnswerSchema = z.object({
