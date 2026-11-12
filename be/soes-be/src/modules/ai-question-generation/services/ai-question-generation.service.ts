@@ -11,8 +11,10 @@ import * as repo from "../repositories/ai-question-generation.repository";
 import type { SourceDocument } from "./document-reader.service";
 import { toGeminiContent } from "./document-reader.service";
 import { generateWithGemini } from "./gemini-question.service";
+import { generateWithQuestionAgent } from "./gemini-question.service";
+import { aiAgentConfig } from "../../../config";
 import { buildGenerationPrompt } from "../prompts/question-generation.prompt";
-import { getStoredAiSettings } from "../../admin-system-settings/services/admin-system-settings.service";
+import { getStoredAiSettings } from "../../admin-system-settings/services/ai-settings-reader";
 import { assertQuestionCountWithinLimit } from "./ai-question-generation.rules";
 import type { ReportGenerationProgress } from './generation-progress';
 import type {
@@ -229,7 +231,8 @@ export async function generate(
       subject.name,
       sources.sourceNames,
     );
-    const questions = await generateWithGemini({
+    const generateQuestions = aiAgentConfig.enabled ? generateWithQuestionAgent : generateWithGemini;
+    const questions = await generateQuestions({
       contents,
       prompt,
       extraction: input.mode === "EXTRACT_EXISTING_EXAM",

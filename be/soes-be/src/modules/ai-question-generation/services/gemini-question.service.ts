@@ -1,4 +1,5 @@
 import { requireGemini } from '../../../lib/gemini'
+import { requestQuestionDraftAgent } from '../../ai-agents/services/ai-agent.client'
 import { logger } from '../../../lib/logger'
 import { ValidationError } from '../../../errors/AppError'
 import type { GeneratedQuestion } from '../schemas/generated-question.schema'
@@ -19,7 +20,10 @@ interface GeminiGenerationRequest extends GenerationRequirements {
   onProgress?: ReportGenerationProgress
 }
 
-export async function generateWithGemini(request: GeminiGenerationRequest) {
+export const generateWithGemini = (request: GeminiGenerationRequest) => generateReviewedQuestions(request, false)
+export const generateWithQuestionAgent = (request: GeminiGenerationRequest) => generateReviewedQuestions(request, true)
+
+async function generateReviewedQuestions(request: GeminiGenerationRequest, useAgent: boolean) {
   const startedAt = Date.now()
   const deadline = startedAt + request.timeoutMs
   const signal = AbortSignal.timeout(request.timeoutMs)
@@ -38,7 +42,19 @@ export async function generateWithGemini(request: GeminiGenerationRequest) {
       request.onProgress?.({ stage: attempt === 0 ? 'GENERATING' : 'CORRECTING',
         completedCount: previousReview?.slots.filter(Boolean).length ?? 0,
         requestedCount: request.extraction ? previousReview?.slots.length : request.questionCount })
-      const response = await requireGemini().models.generateContent({
+      const response = useAgent ? {
+        text: JSON.stringify(await requestQuestionDraftAgent({
+          model: request.model,
+          systemInstruction: generationSystemInstruction,
+          prompt: attempt === 0 ? request.prompt : buildCorrectionPrompt(request.prompt, previousReview, validationReason),
+          contents: request.contents,
+          responseSchema: buildGenerationResponseSchema(currentRequest),
+          timeoutSeconds: Math.min(180, Math.max(10, Math.ceil(remainingMs / 1000))),
+          maxOutputTokens: generationTokenLimit(currentRequest),
+        }, remainingMs)),
+        candidates: undefined,
+        usageMetadata: undefined,
+      } : await requireGemini().models.generateContent({
         model: request.model,
         contents: [...parts, { text: attempt === 0 ? request.prompt
           : buildCorrectionPrompt(request.prompt, previousReview, validationReason) }],
@@ -100,10 +116,11 @@ export async function generateWithGemini(request: GeminiGenerationRequest) {
     }
     throw new ValidationError('AI chưa tạo được câu hỏi đúng yêu cầu sau khi thử lại.')
   } catch (error) {
-    logger.error('Gemini generation request failed', {
+    logger.error('AI generation request failed', {
       ...geminiErrorDiagnostics(error), model: request.model,
       elapsedMs: Date.now() - startedAt, requestedCount: request.questionCount,
     })
+    if (useAgent) throw error
     throw toGeminiError(error, request.model)
   }
 }
