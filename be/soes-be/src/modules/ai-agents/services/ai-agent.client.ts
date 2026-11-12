@@ -11,7 +11,8 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
   if (!aiAgentConfig.enabled || !aiAgentConfig.sharedSecret) {
     throw new AppError(503, 'AI assistant is not configured')
   }
-  const model = (await getStoredAiSettings()).model
+  const body = z.record(z.string(), z.unknown()).parse(payload)
+  const model = typeof body.model === 'string' ? body.model : (await getStoredAiSettings()).model
   const startedAt = Date.now()
   try {
     const response = await fetch(new URL(path, aiAgentConfig.baseUrl), {
@@ -20,7 +21,7 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
         authorization: `Bearer ${aiAgentConfig.sharedSecret}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ ...z.record(z.string(), z.unknown()).parse(payload), model }),
+      body: JSON.stringify({ ...body, model }),
       signal: AbortSignal.timeout(timeoutMs),
     })
     if (!response.ok) {

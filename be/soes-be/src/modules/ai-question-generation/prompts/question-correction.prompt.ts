@@ -2,7 +2,7 @@ import type { GenerationReview } from '../services/generated-response.review'
 import { reviewError } from '../services/generated-response.review'
 
 export function buildCorrectionPrompt(originalPrompt: string, review?: GenerationReview, reason?: string) {
-  if (!review) return `${originalPrompt}\nSửa lỗi cấu trúc và trả lại danh sách hợp lệ: ${reason}`
+  if (!review) return `${originalPrompt}\nTạo lại toàn bộ danh sách theo ĐÚNG số câu ở yêu cầu ban đầu. Sửa các lỗi sau: ${reason}`
   const count = review.slots.filter(item => item === null).length
   return [
     'ĐÂY LÀ LƯỢT HIỆU CHỈNH. Quy tắc số lượng của lượt này thay thế số lượng ở yêu cầu ban đầu.',

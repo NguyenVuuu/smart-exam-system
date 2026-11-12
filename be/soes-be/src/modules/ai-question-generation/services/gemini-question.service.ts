@@ -92,8 +92,16 @@ async function generateReviewedQuestions(request: GeminiGenerationRequest, useAg
             issues: review.issues.slice(0, 20).map(({ path, code }) => ({ path, code })),
           })
           if (attempt > 0) throw new ValidationError(reviewError(review))
-          previousReview = review
-          currentRequest = { ...request, questionCount: review.slots.filter(item => item === null).length }
+          if (useAgent) {
+            // Function-calling providers may ignore array-size constraints during a partial repair.
+            // Regenerate the full requested set so the retry never conflicts with the original count.
+            validationReason = reviewError(review)
+            previousReview = undefined
+            currentRequest = request
+          } else {
+            previousReview = review
+            currentRequest = { ...request, questionCount: review.slots.filter(item => item === null).length }
+          }
           continue
         }
         const replacements = review.slots.filter((item): item is GeneratedQuestion => item !== null)
