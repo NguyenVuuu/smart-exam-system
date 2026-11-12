@@ -40,6 +40,7 @@ model Student {
   userId              String
   enrollments         Enrollment[]          @relation("StudentEnrollments")
   examAttempts        ExamAttempt[]         @relation("StudentExamAttempts")
+  practiceSets        PracticeSet[]
   targetExamSchedules ExamScheduleStudent[]
   gradeAppeals        GradeAppeal[]         @relation("StudentGradeAppeals")
   faceProfile         StudentFaceProfile?
@@ -234,6 +235,7 @@ model Subject {
   enrollments     Enrollment[]
   questions       Question[]
   learningTopics  LearningTopic[]
+  practiceSets    PracticeSet[]
   questionBank    QuestionBank?
   exams           Exam[]
   aiGenerations   AIGenerationHistory[]
@@ -251,6 +253,7 @@ model LearningTopic {
   subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   questions  QuestionTopic[]
   snapshots  ExamQuestionTopic[]
+  practiceSets PracticeSet[]
 
   @@unique([subjectId, code])
   @@index([subjectId])
@@ -276,6 +279,50 @@ model ExamQuestionTopic {
 
   @@id([examQuestionId, topicId])
   @@index([topicId])
+}
+
+model PracticeSet {
+  id          String         @id @default(uuid())
+  studentId   String
+  subjectId   String
+  topicId     String?
+  createdAt   DateTime       @default(now())
+  completedAt DateTime?
+  score       Decimal?       @db.Decimal(6, 2)
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject     Subject        @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  topic       LearningTopic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  items       PracticeItem[]
+
+  @@index([studentId, createdAt])
+  @@index([subjectId])
+  @@index([topicId])
+}
+
+model PracticeItem {
+  id               String            @id @default(uuid())
+  practiceSetId    String
+  sourceQuestionId String?
+  orderIndex       Int
+  points           Decimal           @db.Decimal(6, 2)
+  snapshot         Json
+  practiceSet      PracticeSet       @relation(fields: [practiceSetId], references: [id], onDelete: Cascade)
+  sourceQuestion   Question?         @relation(fields: [sourceQuestionId], references: [id], onDelete: SetNull)
+  response         PracticeResponse?
+
+  @@unique([practiceSetId, orderIndex])
+  @@unique([practiceSetId, sourceQuestionId])
+  @@index([sourceQuestionId])
+}
+
+model PracticeResponse {
+  id             String       @id @default(uuid())
+  practiceItemId String       @unique
+  answer         Json
+  score          Decimal      @db.Decimal(6, 2)
+  feedback       String?
+  submittedAt    DateTime     @default(now())
+  practiceItem   PracticeItem @relation(fields: [practiceItemId], references: [id], onDelete: Cascade)
 }
 
 model CourseOffering {
@@ -446,6 +493,7 @@ model Question {
   programmingConfig  QuestionProgrammingConfig?
   programmingTests   QuestionProgrammingTestCase[]
   topics             QuestionTopic[]
+  practiceItems      PracticeItem[]
 
   @@index([ownerId])
   @@index([subjectId])
