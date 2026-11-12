@@ -1061,6 +1061,11 @@ export async function recordViolation(
   if (input.violationType === 'PHONE_DETECTED' && evidenceFiles.length !== 1) {
     throw new ValidationError('Phone detection requires one evidence image')
   }
+  // Camera status reports may arrive after the browser has frozen on its last
+  // frame. An image from that frame is not evidence of the blocked interval.
+  const evidenceFilesToStore = ['CAMERA_BLOCKED', 'CAMERA_DISCONNECTED', 'CAMERA_PERMISSION_DENIED'].includes(input.violationType)
+    ? []
+    : evidenceFiles
   const rateKey = `proctoring:violations:${attemptId}`
   const count = await redis.incr(rateKey)
   if (count === 1) await redis.expire(rateKey, 60)
@@ -1078,7 +1083,7 @@ export async function recordViolation(
       attemptId,
       violationType: input.violationType,
       detectedAt,
-      files: evidenceFiles,
+      files: evidenceFilesToStore,
       storagePrefix: attempt.examSchedule.proctoringStoragePath,
       violationId,
     })
@@ -1096,14 +1101,14 @@ export async function recordViolation(
       attemptId,
       violationType: input.violationType,
       detectedAt,
-      files: evidenceFiles,
+      files: evidenceFilesToStore,
       storagePrefix: attempt.examSchedule.proctoringStoragePath,
       violationId,
     })
   }
 
   const evidences = evidenceObjectNames.map((objectName, index) => {
-      const file = evidenceFiles[index]
+      const file = evidenceFilesToStore[index]
       return {
         evidenceType,
         bucket: minioConfig.evidenceBucket,

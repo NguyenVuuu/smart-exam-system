@@ -4,12 +4,14 @@ export interface EvidenceImageModalProps {
   imageUrl: string | null
   onClose: () => void
   title?: string
+  description?: string
 }
 
 export default function EvidenceImageModal({
   imageUrl,
   onClose,
   title = 'Ảnh bằng chứng vi phạm',
+  description,
 }: EvidenceImageModalProps) {
   if (!imageUrl) return null
 
@@ -25,7 +27,10 @@ export default function EvidenceImageModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">{title}</h2>
+            {description && <p className="mt-1 text-sm text-slate-600">{description}</p>}
+          </div>
           <button
             type="button"
             onClick={onClose}

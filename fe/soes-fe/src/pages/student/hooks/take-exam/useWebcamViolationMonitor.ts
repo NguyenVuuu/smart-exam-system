@@ -222,7 +222,11 @@ export function useWebcamViolationMonitor(input: {
         await closeOpenViolation(new Date(observedAt).toISOString())
       }
 
-      const evidenceFiles = await buildEvidenceFiles(video, input.stream)
+      // A stopped stream can leave its last image in the video element. That image
+      // cannot establish what the camera showed when the status issue occurred.
+      const evidenceFiles = type === 'NO_FACE' || type === 'MULTIPLE_FACES' || type === 'LOOKING_AWAY'
+        ? await buildEvidenceFiles(video, input.stream)
+        : undefined
       if (cancelled) return
       lastCreatedAtRef.current[type] = Date.now()
       const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {

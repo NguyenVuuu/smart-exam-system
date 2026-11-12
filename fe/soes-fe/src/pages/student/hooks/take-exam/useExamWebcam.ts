@@ -154,6 +154,14 @@ export function useExamWebcam(required: boolean) {
     let lastCurrentTime = 0
     let cancelled = false
 
+    const handleVisibilityChange = () => {
+      // Browsers may pause video frame callbacks while the exam tab is hidden.
+      // Give the preview time to resume before treating missing frames as a block.
+      lastFrameAt = Date.now()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     video.muted = true
     video.playsInline = true
     video.srcObject = stream
@@ -189,6 +197,11 @@ export function useExamWebcam(required: boolean) {
         markFrame()
       }
 
+      if (document.visibilityState !== 'visible') {
+        lastFrameAt = Date.now()
+        return
+      }
+
       if (Date.now() - lastFrameAt <= FRAME_STALE_MS) return
       setStatus('BLOCKED')
       setErrorMessage('Camera đang bị chặn hoặc không có khung hình mới. Hệ thống đã ghi nhận sự kiện này.')
@@ -200,6 +213,7 @@ export function useExamWebcam(required: boolean) {
         video.cancelVideoFrameCallback(frameCallbackId)
       }
       if (intervalId !== null) window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       video.pause()
       video.srcObject = null
     }
