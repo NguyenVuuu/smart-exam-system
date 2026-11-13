@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native'
 import { Check, Plus, Sparkles, X } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { createLearningTopic, listLearningTopics, suggestQuestionTopic, type TopicSuggestion } from '../../../api/teacher-questions.api'
 import type { LearningTopic } from '../../../types/teacher-questions.types'
+import { scrollToFocusedInput } from '../../../utils/keyboardScroll'
 
 interface Props {
   subjectId: string
@@ -24,6 +25,10 @@ export function QuestionTopicPicker({ subjectId, title, content, initialTopics, 
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const scrollRef = useRef<ScrollViewInstance>(null)
+  const codeRef = useRef<React.ElementRef<typeof TextInput>>(null)
+  const nameRef = useRef<React.ElementRef<typeof TextInput>>(null)
+  const focusInput = (input: React.ElementRef<typeof TextInput> | null) => scrollToFocusedInput(scrollRef.current, { current: input }, 16)
 
   useEffect(() => {
     let active = true
@@ -62,12 +67,12 @@ export function QuestionTopicPicker({ subjectId, title, content, initialTopics, 
   }
 
   return <Modal visible transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
-    <View style={styles.overlay}>
+    <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
         <View style={styles.header}><View style={{ flex: 1 }}><Text style={styles.heading}>Gắn chủ đề câu hỏi</Text>
           <Text numberOfLines={2} style={styles.muted}>{title}</Text></View>
           <Pressable accessibilityLabel="Đóng" onPress={onClose} style={styles.icon}><X size={20} color="#64748b" /></Pressable></View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
+        <ScrollView ref={scrollRef} style={styles.scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
           <Pressable accessibilityRole="button" disabled={busy || loading} onPress={() => void suggest()} style={styles.suggest}>
             <Sparkles size={17} color="#7c3aed" /><Text style={styles.suggestText}>{busy ? 'Đang xử lý...' : 'AI gợi ý chủ đề'}</Text>
           </Pressable>
@@ -88,9 +93,13 @@ export function QuestionTopicPicker({ subjectId, title, content, initialTopics, 
             <View style={{ flex: 1 }}><Text style={styles.topicName}>{topic.name}</Text><Text style={styles.muted}>{topic.code}</Text></View>
           </Pressable>)}
           <Text style={styles.label}>Thêm chủ đề mới</Text>
-          <TextInput value={code} onChangeText={setCode} maxLength={32} placeholder="Mã chủ đề, ví dụ OOP"
+          <TextInput ref={codeRef} onFocus={() => focusInput(codeRef.current)}
+            value={code} onChangeText={setCode} maxLength={32} placeholder="Mã chủ đề, ví dụ OOP"
+            placeholderTextColor="#94a3b8"
             accessibilityLabel="Mã chủ đề" style={styles.input} />
-          <TextInput value={name} onChangeText={setName} maxLength={120} placeholder="Tên chủ đề"
+          <TextInput ref={nameRef} onFocus={() => focusInput(nameRef.current)}
+            value={name} onChangeText={setName} maxLength={120} placeholder="Tên chủ đề"
+            placeholderTextColor="#94a3b8"
             accessibilityLabel="Tên chủ đề" style={styles.input} />
           <Pressable accessibilityRole="button" disabled={busy || code.trim().length < 2 || name.trim().length < 3}
             onPress={() => void add()} style={styles.add}><Plus size={16} color="#2563eb" /><Text style={styles.link}>Thêm chủ đề</Text></Pressable>
@@ -100,7 +109,7 @@ export function QuestionTopicPicker({ subjectId, title, content, initialTopics, 
           <Text style={styles.saveText}>{busy ? 'Đang lưu...' : `Lưu chủ đề (${selected.length})`}</Text>
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   </Modal>
 }
 
@@ -110,6 +119,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   heading: { color: '#0f172a', fontSize: 17, fontWeight: '800' }, muted: { color: '#64748b', fontSize: 12, marginTop: 3 },
   icon: { minWidth: 36, minHeight: 36, alignItems: 'center', justifyContent: 'center' },
+  scroll: { flexGrow: 0, flexShrink: 1 },
   body: { paddingVertical: 16, gap: 10 }, suggest: { alignSelf: 'flex-start', flexDirection: 'row', gap: 7, alignItems: 'center', padding: 10, borderRadius: 10, backgroundColor: '#f5f3ff' },
   suggestText: { color: '#7c3aed', fontWeight: '700' }, suggestion: { padding: 12, borderRadius: 10, backgroundColor: '#f5f3ff', gap: 8 },
   link: { color: '#2563eb', fontWeight: '700', fontSize: 13 }, topic: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0' },

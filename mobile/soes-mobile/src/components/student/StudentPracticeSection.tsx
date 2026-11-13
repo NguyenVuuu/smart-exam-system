@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { createPracticeSet, getLearningAgentError, getPracticeSet, listPracticeSets, submitPracticeSet,
   type PracticeSet, type PracticeSummary, type StudyMaterial, type StudentLearningInsights } from '../../api/student-learning.api'
@@ -6,9 +6,12 @@ import { ChoicePicker } from '../ui/ChoicePicker'
 
 const card = { padding: 16, borderRadius: 16, backgroundColor: '#fff' } as const
 
-export default function StudentPracticeSection({ materials, topics }: {
-  materials: StudyMaterial[]; topics: StudentLearningInsights['topics']
+export default function StudentPracticeSection({ materials, topics, onFocusInput }: {
+  materials: StudyMaterial[]; topics: StudentLearningInsights['topics']; onFocusInput: (input: React.ElementRef<typeof TextInput> | null) => void
 }) {
+  const instructionRef = useRef<React.ElementRef<typeof TextInput>>(null)
+  const countRef = useRef<React.ElementRef<typeof TextInput>>(null)
+  const codeRefs = useRef<Record<string, React.ElementRef<typeof TextInput> | null>>({})
   const [selectedSubject, setSelectedSubject] = useState('')
   const [selectedMaterial, setSelectedMaterial] = useState('')
   const [focusTopicId, setFocusTopicId] = useState('')
@@ -84,13 +87,15 @@ export default function StudentPracticeSection({ materials, topics }: {
       </TouchableOpacity>)}
     </View>}
     <Text style={{ color: '#334155', fontWeight: '700' }}>Bạn muốn luyện nội dung nào? (tùy chọn)</Text>
-    <TextInput value={instruction} onChangeText={setInstruction} multiline maxLength={500}
+    <TextInput ref={instructionRef} value={instruction} onChangeText={setInstruction} multiline maxLength={500}
+      onFocus={() => onFocusInput(instructionRef.current)}
       textAlignVertical="top" placeholder="Ví dụ: Dự đoán kết quả đoạn mã, hoặc viết chương trình Java để Judge chấm."
       placeholderTextColor="#94a3b8" style={{ minHeight: 88, borderWidth: 1, borderColor: '#cbd5e1',
         borderRadius: 10, padding: 12, color: '#0f172a' }} />
     <Text style={{ color: '#64748b', fontSize: 12, textAlign: 'right' }}>{instruction.length}/500 ký tự</Text>
     <Text style={{ color: '#334155', fontWeight: '700' }}>Số câu muốn tạo</Text>
-    <TextInput value={questionCount} onChangeText={setQuestionCount} keyboardType="number-pad" maxLength={2}
+    <TextInput ref={countRef} value={questionCount} onChangeText={setQuestionCount} keyboardType="number-pad" maxLength={2}
+      onFocus={() => onFocusInput(countRef.current)}
       accessibilityLabel="Số câu muốn tạo" style={{ width: 110, borderWidth: 1, borderColor: validCount ? '#cbd5e1' : '#dc2626',
         borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a' }} />
     <Text style={{ color: validCount ? '#64748b' : '#b91c1c', fontSize: 12 }}>Từ 1 đến 20 câu</Text>
@@ -126,7 +131,9 @@ export default function StudentPracticeSection({ materials, topics }: {
         }) : <View style={{ gap: 8 }}>
           <Text style={{ color: '#475569', fontSize: 12 }}>Ví dụ đầu vào: {item.sampleInput}{'\n'}Ví dụ đầu ra: {item.sampleOutput}</Text>
           <Text style={{ color: '#334155', fontWeight: '600' }}>Mã nguồn {item.language}</Text>
-          <TextInput value={item.result?.sourceCode ?? codes[item.id] ?? item.starterCode}
+          <TextInput ref={(input) => { codeRefs.current[item.id] = input }}
+            onFocus={() => onFocusInput(codeRefs.current[item.id])}
+            value={item.result?.sourceCode ?? codes[item.id] ?? item.starterCode}
             onChangeText={(value) => setCodes((previous) => ({ ...previous, [item.id]: value }))}
             editable={!current.completedAt && !busy} multiline textAlignVertical="top" autoCapitalize="none"
             autoCorrect={false} accessibilityLabel={`Mã nguồn câu ${item.orderIndex}`}

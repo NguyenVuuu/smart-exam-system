@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { X } from 'lucide-react-native'
 import {
   View,
@@ -9,15 +9,21 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  type ScrollViewInstance,
 } from 'react-native'
 import { useLogin } from '../../src/hooks/useLogin'
 import { SystemLogo } from '../../src/components/ui/SystemLogo'
+import { scrollToFocusedInput } from '../../src/utils/keyboardScroll'
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const { login, isLoading, error, clearError } = useLogin()
+  const scrollRef = useRef<ScrollViewInstance>(null)
+  const usernameRef = useRef<React.ElementRef<typeof TextInput>>(null)
+  const passwordRef = useRef<React.ElementRef<typeof TextInput>>(null)
+  const focusInput = (input: React.ElementRef<typeof TextInput> | null) => scrollToFocusedInput(scrollRef.current, { current: input }, 16)
 
   async function handleLogin() {
     if (!username.trim() || !password.trim()) return
@@ -26,10 +32,11 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       className="flex-1 bg-white"
     >
       <ScrollView
+        ref={scrollRef}
         contentContainerClassName="flex-grow justify-center px-6 py-12"
         keyboardShouldPersistTaps="handled"
       >
@@ -60,6 +67,8 @@ export default function LoginScreen() {
               Mã tài khoản
             </Text>
             <TextInput
+              ref={usernameRef}
+              onFocus={() => focusInput(usernameRef.current)}
               className="border border-slate-200 rounded-xl px-4 py-3.5 text-slate-800 bg-slate-50 text-base"
               placeholder="Nhập mã tài khoản (vd: US000005)"
               placeholderTextColor="#94a3b8"
@@ -69,6 +78,7 @@ export default function LoginScreen() {
               autoCorrect={false}
               keyboardType="default"
               returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
           </View>
 
@@ -79,6 +89,8 @@ export default function LoginScreen() {
             </Text>
             <View className="flex-row items-center border border-slate-200 rounded-xl bg-slate-50">
               <TextInput
+                ref={passwordRef}
+                onFocus={() => focusInput(passwordRef.current)}
                 className="flex-1 px-4 py-3.5 text-slate-800 text-base"
                 placeholder="Nhập mật khẩu"
                 placeholderTextColor="#94a3b8"

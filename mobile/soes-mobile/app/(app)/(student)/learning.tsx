@@ -1,6 +1,6 @@
 import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View, type ScrollViewInstance } from 'react-native'
 import { BookOpenCheck, Bot, MessageCircle, Send, Target } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { askLearningAgent, getLearningAgentError, getLearningConversation, getLearningInsights, getStudyMaterials, listLearningConversations,
@@ -9,6 +9,7 @@ import StudentLayout from '../../../src/components/student/StudentLayout'
 import { StudentConversationHistory } from '../../../src/components/student/StudentConversationHistory'
 import StudentPracticeSection from '../../../src/components/student/StudentPracticeSection'
 import { ChoicePicker } from '../../../src/components/ui/ChoicePicker'
+import { scrollToFocusedInput } from '../../../src/utils/keyboardScroll'
 
 export default function StudentLearningScreen() {
   const { isInitialized, isAuthenticated } = useRequireAuth()
@@ -25,6 +26,9 @@ export default function StudentLearningScreen() {
   const [loading, setLoading] = useState(true)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
+  const scrollRef = useRef<ScrollViewInstance>(null)
+  const questionRef = useRef<React.ElementRef<typeof TextInput>>(null)
+  const focusInput = (input: React.ElementRef<typeof TextInput> | null) => scrollToFocusedInput(scrollRef.current, { current: input }, 16)
 
   useEffect(() => {
     if (!isInitialized || !isAuthenticated) return
@@ -98,7 +102,9 @@ export default function StudentLearningScreen() {
   const subjectMaterials = materials.filter((item) => item.courseOffering.subject.id === subjectId)
 
   return <StudentLayout activeRoute="learning">
-    <BackToTopScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <BackToTopScrollView ref={scrollRef} keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ padding: 10, borderRadius: 12, backgroundColor: '#eff6ff' }}><Bot size={22} color="#2563eb" /></View>
         <View style={{ flex: 1 }}>
@@ -150,7 +156,8 @@ export default function StudentLearningScreen() {
         {materials.length === 0 && <Text style={{ color: '#64748b' }}>Chưa có tài liệu lớp học phù hợp để hỏi.</Text>}
         {!!materialId && <StudentConversationHistory conversations={conversations} currentId={conversationId}
           turns={turns} material={materials.find((item) => item.id === materialId)} onSelect={(id) => void selectConversation(id)} />}
-        <TextInput value={question} onChangeText={setQuestion} maxLength={500} multiline
+        <TextInput ref={questionRef} value={question} onChangeText={setQuestion} maxLength={500} multiline
+          onFocus={() => focusInput(questionRef.current)}
           placeholder="Ví dụ: Giải thích khái niệm trong tài liệu này." accessibilityLabel="Câu hỏi cho trợ lý học tập"
           style={{ minHeight: 80, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', textAlignVertical: 'top' }} />
         <TouchableOpacity accessibilityRole="button" onPress={() => void ask()} disabled={asking || !question.trim() || !materialId}
@@ -161,7 +168,8 @@ export default function StudentLearningScreen() {
         {!!error && <Text accessibilityRole="alert" style={{ color: '#b91c1c' }}>{error}</Text>}
         {turns.length > 0 && <Text style={{ fontSize: 12, color: '#64748b' }}>Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên.</Text>}
       </View>}
-      {activeTab === 'practice' && <StudentPracticeSection materials={materials} topics={insights?.topics ?? []} />}
+      {activeTab === 'practice' && <StudentPracticeSection materials={materials} topics={insights?.topics ?? []} onFocusInput={focusInput} />}
     </BackToTopScrollView>
+    </KeyboardAvoidingView>
   </StudentLayout>
 }
