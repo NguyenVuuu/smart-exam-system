@@ -9,6 +9,7 @@ import { gradePractice } from './practice-grading'
 import { choosePracticeDifficulty } from './practice-difficulty'
 import { studentInsights } from '../../learning-analytics/services/learning-analytics.service'
 import { selectWeakPracticeTopic } from './practice-focus'
+import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
 
@@ -22,7 +23,7 @@ async function assertOutsideExam(studentId: string) {
   if (active) throw new ForbiddenError('Practice is unavailable during an exam')
 }
 
-export async function createStudentPractice(studentId: string, input: z.infer<typeof createPracticeSchema>) {
+export async function createStudentPractice(studentId: string, userId: string, input: z.infer<typeof createPracticeSchema>) {
   await assertOutsideExam(studentId)
   const recent = await prisma.practiceSet.count({
     where: { studentId, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
@@ -52,6 +53,11 @@ export async function createStudentPractice(studentId: string, input: z.infer<ty
       snapshot: { ...question, materialId: material.materialId, materialTitle: material.title,
         ...(focusTopic && { focusTopicId: focusTopic.topicId }) } as Prisma.InputJsonValue,
     })) })
+    await writeAuditLog(tx, {
+      userId, action: 'CREATE_AI_PRACTICE', entityType: 'PracticeSet', entityId: created.id,
+      metadata: { materialId: input.materialId, questionCount: draft.questions.length,
+        ...(focusTopic && { focusTopicId: focusTopic.topicId }) },
+    })
     return tx.practiceSet.findUniqueOrThrow({ where: { id: created.id },
       select: { id: true, items: { select: { id: true, orderIndex: true, snapshot: true }, orderBy: { orderIndex: 'asc' } } } })
   })

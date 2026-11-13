@@ -9,14 +9,14 @@ import { reviewProgrammingSubmission } from '../services/programming-review.serv
 
 export const studentAsk = async (req: Request, res: Response) => {
   const { message, materialId } = askAgentSchema.parse(req.body)
-  return send(res, await askStudent(req.user!.profileId, message, materialId))
+  return send(res, await askStudent(req.user!.profileId, req.user!.id, message, materialId))
 }
 
 export const studentMaterials = async (req: Request, res: Response) =>
   send(res, await getStudentMaterials(req.user!.profileId))
 
 export const studentPracticeCreate = async (req: Request, res: Response) =>
-  send(res, await createStudentPractice(req.user!.profileId, createPracticeSchema.parse(req.body)))
+  send(res, await createStudentPractice(req.user!.profileId, req.user!.id, createPracticeSchema.parse(req.body)))
 
 export const studentPracticeList = async (req: Request, res: Response) =>
   send(res, await listStudentPractice(req.user!.profileId))
@@ -31,13 +31,14 @@ export const studentPracticeSubmit = async (req: Request, res: Response) =>
 export const teacherAsk = async (req: Request, res: Response) => send(
   res, await askTeacher(
     req.user!.profileId,
+    req.user!.id,
     scheduleParamSchema.parse(req.params).scheduleId,
     askAgentSchema.parse(req.body).message,
   ),
 )
 
 export const teacherExamMatrix = async (req: Request, res: Response) => send(
-  res, await suggestExamMatrix(req.user!.profileId, examMatrixRequestSchema.parse(req.body)),
+  res, await suggestExamMatrix(req.user!.profileId, req.user!.id, examMatrixRequestSchema.parse(req.body)),
 )
 
 export const teacherProgrammingReview = async (req: Request, res: Response) => {

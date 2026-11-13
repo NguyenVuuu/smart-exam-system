@@ -1,6 +1,7 @@
 import type { QuestionDifficulty, QuestionType } from '@prisma/client'
 import { NotFoundError, ValidationError } from '../../../errors/AppError'
 import prisma from '../../../lib/prisma'
+import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { requestExamMatrixAgent } from './ai-agent.client'
 import type { z } from 'zod'
 import type { examMatrixRequestSchema, examMatrixProposalSchema } from '../validators/ai-agent.validator'
@@ -48,7 +49,7 @@ export function validateExamMatrix(
   }
 }
 
-export async function suggestExamMatrix(teacherId: string, input: MatrixRequest) {
+export async function suggestExamMatrix(teacherId: string, userId: string, input: MatrixRequest) {
   const teacher = await prisma.teacher.findFirst({
     where: { id: teacherId, status: 'ACTIVE' }, select: { departmentId: true },
   })
@@ -73,6 +74,10 @@ export async function suggestExamMatrix(teacherId: string, input: MatrixRequest)
   const inventory = { availableEasy, availableMedium, availableHard }
   const shortage = Math.max(0, input.desiredCount - availableEasy - availableMedium - availableHard)
   if (shortage) return { proposal: null, inventory, shortage }
+  await writeAuditLog(prisma, {
+    userId, action: 'REQUEST_AI_EXAM_MATRIX', entityType: 'Subject', entityId: subject.id,
+    metadata: { format: input.format, desiredCount: input.desiredCount },
+  })
   const proposal = await requestExamMatrixAgent({
     message: input.message, desiredCount: input.desiredCount, format: input.format,
     availableEasy, availableMedium, availableHard,
