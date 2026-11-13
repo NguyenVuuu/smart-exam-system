@@ -37,6 +37,16 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
         if (detail === 'Material has no readable text' || detail === 'Material cannot be read') {
           throw new AppError(422, 'AI study material has no readable text')
         }
+        if (detail === 'Practice question count mismatch') {
+          throw new AppError(422, 'AI generated fewer questions than requested')
+        }
+        if (detail === 'Practice question asks about document structure') {
+          throw new AppError(422, 'AI generated questions about document structure instead of subject knowledge')
+        }
+        if (detail === 'Practice question lacks a source quote' ||
+          detail === 'Practice answer is not uniquely supported by its source quote') {
+          throw new AppError(422, 'AI could not verify the answers against the selected material')
+        }
         throw new AppError(422, 'AI could not create enough verified practice questions')
       }
       throw new AppError(503, 'AI assistant is temporarily unavailable')

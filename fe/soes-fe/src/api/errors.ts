@@ -32,6 +32,9 @@ const commonMessageTranslations: Record<string, string> = {
   'AI assistant is not configured': 'Trợ lý AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
   'Weak topic is not available for this material': 'Chủ đề đã chọn không còn phù hợp với tài liệu. Hãy tải lại trang và thử lại.',
   'AI study material has no readable text': 'Tài liệu không có nội dung chữ có thể đọc. Hãy chọn tài liệu PDF có lớp chữ, DOCX hoặc TXT khác.',
+  'AI generated fewer questions than requested': 'AI tạo ít câu hơn số bạn yêu cầu. Hãy giảm số câu rồi thử lại.',
+  'AI generated questions about document structure instead of subject knowledge': 'AI tạo câu hỏi về cấu trúc tài liệu thay vì kiến thức môn học. Hãy mô tả rõ nội dung cần ôn rồi thử lại.',
+  'AI could not verify the answers against the selected material': 'Chưa xác minh được đáp án từ nội dung tài liệu đã chọn. Hãy thử tài liệu khác hoặc chọn phần kiến thức cụ thể hơn.',
   'AI could not create enough verified practice questions': 'Chưa tạo đủ câu hỏi có đáp án được tài liệu chứng minh. Hãy thử tài liệu nhiều nội dung hơn hoặc mô tả yêu cầu cụ thể hơn.',
 }
 

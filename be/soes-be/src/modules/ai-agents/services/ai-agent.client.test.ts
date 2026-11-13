@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { requestInsightAgent } from './ai-agent.client'
+import { requestInsightAgent, requestPracticeDraftAgent } from './ai-agent.client'
 import { getStoredAiSettings } from '../../admin-system-settings/services/ai-settings-reader'
 
 test('rejects an unconfigured agent before making a network request', async () => {
@@ -75,6 +75,29 @@ test('uses the selected system model for agent workflows', async () => {
   try {
     await requestInsightAgent('/v1/student/insights', { message: 'test' })
     assert.equal(sentModel, (await getStoredAiSettings()).model)
+  } finally {
+    globalThis.fetch = previousFetch
+    if (previousEnabled === undefined) delete process.env.AI_AGENT_ENABLED
+    else process.env.AI_AGENT_ENABLED = previousEnabled
+    if (previousSecret === undefined) delete process.env.AI_AGENT_SHARED_SECRET
+    else process.env.AI_AGENT_SHARED_SECRET = previousSecret
+  }
+})
+
+test('reports the specific safe reason when practice answers lack material evidence', async () => {
+  const previousEnabled = process.env.AI_AGENT_ENABLED
+  const previousSecret = process.env.AI_AGENT_SHARED_SECRET
+  const previousFetch = globalThis.fetch
+  process.env.AI_AGENT_ENABLED = 'true'
+  process.env.AI_AGENT_SHARED_SECRET = 'test-secret'
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    detail: 'Practice answer is not uniquely supported by its source quote',
+  }), { status: 422 })
+  try {
+    await assert.rejects(requestPracticeDraftAgent({}), {
+      statusCode: 422,
+      message: 'AI could not verify the answers against the selected material',
+    })
   } finally {
     globalThis.fetch = previousFetch
     if (previousEnabled === undefined) delete process.env.AI_AGENT_ENABLED

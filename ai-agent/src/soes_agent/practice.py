@@ -3,7 +3,7 @@ import unicodedata
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from .contracts import PracticeDraft, PracticeDraftRequest
+from .contracts import PracticeDraft, PracticeDraftRequest, PracticeQuestion
 from .materials import extract_material
 
 
@@ -20,14 +20,14 @@ def is_document_meta_question(stem: str) -> bool:
                      normalize(stem)) is not None
 
 
-def validate_draft(draft: PracticeDraft, source: str, count: int) -> PracticeDraft:
-    if len(draft.questions) < count:
+def validate_questions(questions: list[PracticeQuestion], source: str, count: int) -> PracticeDraft:
+    if len(questions) < count:
         raise ValueError("Practice question count mismatch")
     source_text = normalize(source)
     stems = set()
     accepted = []
     first_error = None
-    for question in draft.questions:
+    for question in questions:
         stem = normalize(question.stem)
         if is_document_meta_question(question.stem):
             first_error = first_error or "Practice question asks about document structure"
@@ -51,6 +51,10 @@ def validate_draft(draft: PracticeDraft, source: str, count: int) -> PracticeDra
     if len(accepted) < count:
         raise ValueError(first_error or "Not enough valid practice questions")
     return PracticeDraft(questions=accepted[:count])
+
+
+def validate_draft(draft: PracticeDraft, source: str, count: int) -> PracticeDraft:
+    return validate_questions(draft.questions, source, count)
 
 
 async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraftRequest) -> PracticeDraft:
@@ -88,13 +92,16 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
          "Nếu tài liệu không hỗ trợ yêu cầu này, chọn nội dung khác có trong tài liệu.\n"
          f"Tài liệu:\n{source}"),
     ]
+    candidates: list[PracticeQuestion] = []
     response = await structured.ainvoke(messages)
+    candidates.extend(PracticeDraft.model_validate(response).questions)
     try:
-        return validate_draft(PracticeDraft.model_validate(response), source, request.count)
+        return validate_questions(candidates, source, request.count)
     except ValueError as exc:
         messages.append(("human", f"Bản nháp trước chưa đạt: {exc}. Hãy tạo lại "
                          f"{candidate_count} câu khác kiểm tra kiến thức thực chất, "
                          "không hỏi cấu trúc tài liệu. Mỗi đáp án đúng phải có duy nhất "
                          "trong trích dẫn nguyên văn từ tài liệu."))
     response = await structured.ainvoke(messages)
-    return validate_draft(PracticeDraft.model_validate(response), source, request.count)
+    candidates.extend(PracticeDraft.model_validate(response).questions)
+    return validate_questions(candidates, source, request.count)

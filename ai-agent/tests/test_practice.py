@@ -119,3 +119,34 @@ async def test_generation_retries_unverified_answer_once():
     result = await generate_practice(model, request)
     assert model.calls == 2
     assert result.questions[0].correctIndex == 0
+
+
+@pytest.mark.asyncio
+async def test_generation_keeps_verified_questions_across_attempts():
+    class Model:
+        calls = 0
+
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            self.calls += 1
+            start = 1 if self.calls == 1 else 4
+            questions = []
+            for number in range(start, start + 3):
+                item = draft().questions[0].model_copy(deep=True)
+                item.stem = f"Câu {number}: INNER JOIN trả loại hàng nào?"
+                questions.append(item)
+            if self.calls == 1:
+                questions[-1].correctIndex = 1
+            return PracticeDraft(questions=questions).model_dump()
+
+    model = Model()
+    request = PracticeDraftRequest(count=5, material=StudyMaterial(
+        materialId="material-1", title="JOIN", mimeType="text/plain",
+        contentBase64=base64.b64encode(SOURCE.encode()).decode(),
+    ))
+    result = await generate_practice(model, request)
+    assert model.calls == 2
+    assert len(result.questions) == 5
+    assert result.questions[0].stem.startswith("Câu 1:")

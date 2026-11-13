@@ -98,7 +98,18 @@ async def student_practice_draft(request: PracticeDraftRequest, http_request: Re
     try:
         return await generate_practice(get_model(model_name=request.model), request)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        reason = str(exc)
+        allowed_reasons = {
+            "Material cannot be read", "Material has no readable text",
+            "Practice question count mismatch", "Practice question asks about document structure",
+            "Practice option contains a placeholder", "Duplicate practice content",
+            "Practice question lacks a source quote",
+            "Practice answer is not uniquely supported by its source quote",
+            "Not enough valid practice questions",
+        }
+        reason = reason if reason in allowed_reasons else "Practice draft validation failed"
+        logger.warning("Practice draft rejected reason=%s", reason)
+        raise HTTPException(status_code=422, detail=reason) from exc
 
 
 @app.post("/v1/teacher/exam-draft", response_model=ExamDraftProposal, dependencies=[Depends(require_service)])
