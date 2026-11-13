@@ -2,6 +2,7 @@ import type { TeacherExamDetailDto } from './teacher-exam-api.types'
 
 export interface GeneratedExamDraft {
   id: string
+  sourceMode: AutoExamPickMode
   easyCount: number
   mediumCount: number
   hardCount: number

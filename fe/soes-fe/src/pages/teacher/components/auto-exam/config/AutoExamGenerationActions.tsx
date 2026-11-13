@@ -1,17 +1,12 @@
 ﻿import { Sparkles } from 'lucide-react'
-import type { AutoExamPickMode } from '../../../types/teacher-auto-exam.types'
 
 export default function AutoExamGenerationActions({
   isGenerating,
   totalQuestions,
-  pickMode,
-  selectedQuestionCount,
   onGenerate,
 }: {
   isGenerating: boolean
   totalQuestions: number
-  pickMode: AutoExamPickMode
-  selectedQuestionCount: number
   onGenerate: () => void
 }) {
   return (
@@ -22,13 +17,7 @@ export default function AutoExamGenerationActions({
         className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold text-sm rounded-xl shadow-xs transition-colors flex items-center gap-2"
       >
         <Sparkles size={18} />
-        {isGenerating
-          ? 'Đang sinh đề...'
-          : pickMode === 'AGENT'
-          ? `Lưu đề nháp từ ${selectedQuestionCount} câu AI đề xuất`
-          : pickMode === 'AUTO'
-          ? 'Sinh đề tự động'
-          : 'Sinh đề tự động'}
+        {isGenerating ? 'Đang sinh đề...' : 'Sinh đề tự động'}
       </button>
     </div>
   )

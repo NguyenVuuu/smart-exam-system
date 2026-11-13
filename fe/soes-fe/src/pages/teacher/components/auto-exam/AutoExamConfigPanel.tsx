@@ -15,13 +15,11 @@ export default function AutoExamConfigPanel(props: AutoExamConfigPanelProps) {
         {props.pickMode === 'AUTO' && <AutoExamDifficultyCountConfig {...props} />}
       </div>
 
-      <AutoExamGenerationActions
+      {props.pickMode === 'AUTO' && <AutoExamGenerationActions
         isGenerating={props.isGenerating}
         totalQuestions={props.totalQuestions}
-        pickMode={props.pickMode}
-        selectedQuestionCount={props.pickMode === 'AGENT' ? props.totalQuestions : 0}
         onGenerate={props.onGenerate}
-      />
+      />}
     </div>
   )
 }

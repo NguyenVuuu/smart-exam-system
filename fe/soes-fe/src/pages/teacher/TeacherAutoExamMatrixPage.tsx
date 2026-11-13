@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import TeacherSidebar from './components/TeacherSidebar'
@@ -75,6 +75,11 @@ export default function TeacherAutoExamMatrixPage() {
   const [previewExamCode, setPreviewExamCode] = useState<GeneratedExamDraft | null>(null)
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const resultsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (generatedExams.length > 0) resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [generatedExams])
 
   const clearFieldError = (field: string) => {
     setFieldErrors((prev) => {
@@ -112,6 +117,11 @@ export default function TeacherAutoExamMatrixPage() {
     setSelectedSubjectId(value)
     setSelectedQuestionIds([])
     setAgentProposal(null)
+    if (pickMode === 'AGENT') {
+      setEasyCount(0)
+      setMediumCount(0)
+      setHardCount(0)
+    }
     setGeneratedExams([])
     setDraftStatus('NOT_GENERATED')
   }
@@ -126,10 +136,17 @@ export default function TeacherAutoExamMatrixPage() {
     setDraftStatus('NOT_GENERATED')
   }
 
-  const handleFormatChange = (value: typeof examFormat) => {
-    setExamFormat(value)
+  const clearAgentProposal = () => {
     setAgentProposal(null)
     setSelectedQuestionIds([])
+    setEasyCount(0)
+    setMediumCount(0)
+    setHardCount(0)
+  }
+
+  const handleFormatChange = (value: typeof examFormat) => {
+    setExamFormat(value)
+    if (pickMode === 'AGENT') clearAgentProposal()
   }
 
   const validateAutoQuestionCount = () => {
@@ -202,6 +219,7 @@ export default function TeacherAutoExamMatrixPage() {
       })
       setGeneratedExams([{
         id: exam.id,
+        sourceMode: pickMode,
         easyCount: exam.questions.filter((question) => question.difficulty === 'EASY').length,
         mediumCount: exam.questions.filter((question) => question.difficulty === 'MEDIUM').length,
         hardCount: exam.questions.filter((question) => question.difficulty === 'HARD').length,
@@ -290,16 +308,6 @@ export default function TeacherAutoExamMatrixPage() {
 
           <TeacherTwoColumnLayout>
             <TeacherTwoColumnMain>
-              {pickMode === 'AGENT' && <AutoExamAgentPanel
-                key={`${selectedSubject}:${examFormat}`}
-                subjectId={selectedSubject}
-                format={examFormat}
-                onApply={applyAgentProposal}
-                onInvalidate={() => { setAgentProposal(null); setSelectedQuestionIds([]) }}
-              />}
-              {pickMode === 'AGENT' && agentProposal && <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                Đã chọn {agentProposal.questionIds.length} câu AI đề xuất. Kiểm tra thông tin đề thi rồi lưu bản nháp bên dưới.
-              </div>}
               <AutoExamConfigPanel
                 examTitle={examTitle}
                 setExamTitle={setExamTitle}
@@ -317,7 +325,7 @@ export default function TeacherAutoExamMatrixPage() {
                 draftStatus={draftStatus}
                 eligibleQuestions={eligibleQuestions}
                 pickMode={pickMode}
-                setPickMode={(value) => { setPickMode(value); setAgentProposal(null); setSelectedQuestionIds([]) }}
+                setPickMode={(value) => { setPickMode(value); clearAgentProposal() }}
                 easyCount={easyCount}
                 setEasyCount={setEasyCount}
                 mediumCount={mediumCount}
@@ -330,6 +338,18 @@ export default function TeacherAutoExamMatrixPage() {
                 fieldErrors={fieldErrors}
                 onFieldChange={clearFieldError}
               />
+              {pickMode === 'AGENT' && <AutoExamAgentPanel
+                key={`${selectedSubject}:${examFormat}`}
+                subjectId={selectedSubject}
+                format={examFormat}
+                proposal={agentProposal}
+                targetTotalPoints={targetTotalPoints}
+                isSaving={isGenerating}
+                isSaved={draftStatus === 'SAVED_DRAFT'}
+                onProposal={applyAgentProposal}
+                onInvalidate={clearAgentProposal}
+                onSaveDraft={() => { void handleGenerateExams() }}
+              />}
             </TeacherTwoColumnMain>
 
             <AutoExamSummarySidebar
@@ -342,16 +362,19 @@ export default function TeacherAutoExamMatrixPage() {
             />
           </TeacherTwoColumnLayout>
 
-          <GeneratedExamResults
-            generatedExams={generatedExams}
-            draftStatus={draftStatus}
-            isGenerating={isGenerating}
-            onSaveDraft={handleSaveDraft}
-            onPublish={handleOpenPublishModal}
-            onPreview={setPreviewExamCode}
-            onRegenerate={handleRegenerateExams}
-            onDeleteDraft={handleDeleteDraft}
-          />
+          <div ref={resultsRef}>
+            <GeneratedExamResults
+              generatedExams={generatedExams}
+              currentPickMode={pickMode}
+              draftStatus={draftStatus}
+              isGenerating={isGenerating}
+              onSaveDraft={handleSaveDraft}
+              onPublish={handleOpenPublishModal}
+              onPreview={setPreviewExamCode}
+              onRegenerate={handleRegenerateExams}
+              onDeleteDraft={handleDeleteDraft}
+            />
+          </div>
         </main>
       </div>
 
@@ -384,10 +407,7 @@ export default function TeacherAutoExamMatrixPage() {
 
       <GeneratedExamPreviewModal
         examCode={previewExamCode}
-        examTitle={examTitle}
-        examCategory={examCategory}
         draftStatus={draftStatus}
-        durationMinutes={Number(durationMinutes) || 60}
         onClose={() => setPreviewExamCode(null)}
       />
     </div>

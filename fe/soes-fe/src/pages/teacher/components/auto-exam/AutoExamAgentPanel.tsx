@@ -1,24 +1,35 @@
 import { Sparkles } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { getApiErrorMessage } from '../../../../api/errors'
 import { getLearningTopics, type LearningTopic } from '../../api/teacher-questions.api'
 import { proposeAgentExamDraft, type AgentExamDraft } from '../../api/teacher-ai-exam.api'
+import AgentExamProposalPreview from './AgentExamProposalPreview'
 
 interface Props {
   subjectId: string
   format: 'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'
-  onApply: (proposal: AgentExamDraft) => void
+  proposal: AgentExamDraft | null
+  targetTotalPoints: number
+  isSaving: boolean
+  isSaved: boolean
+  onProposal: (proposal: AgentExamDraft) => void
   onInvalidate: () => void
+  onSaveDraft: () => void
 }
 
-export default function AutoExamAgentPanel({ subjectId, format, onApply, onInvalidate }: Props) {
+export default function AutoExamAgentPanel({
+  subjectId, format, proposal, targetTotalPoints, isSaving, isSaved,
+  onProposal, onInvalidate, onSaveDraft,
+}: Props) {
   const [message, setMessage] = useState('')
   const [desiredCount, setDesiredCount] = useState(10)
   const [topics, setTopics] = useState<LearningTopic[]>([])
   const [topicTargets, setTopicTargets] = useState<Record<string, number>>({})
-  const [proposal, setProposal] = useState<AgentExamDraft | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const requestVersion = useRef(0)
+
+  useEffect(() => () => { requestVersion.current += 1 }, [])
 
   useEffect(() => {
     if (!subjectId) return
@@ -32,25 +43,33 @@ export default function AutoExamAgentPanel({ subjectId, format, onApply, onInval
   const suggest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!subjectId || !message.trim() || loading) return
+    invalidate()
+    const version = requestVersion.current
     setLoading(true)
-    setError('')
-    setProposal(null)
     try {
-      setProposal(await proposeAgentExamDraft({
+      const next = await proposeAgentExamDraft({
         subjectId, format, desiredCount, message: message.trim(),
         topicTargets: Object.entries(topicTargets).filter(([, count]) => count > 0)
           .map(([topicId, count]) => ({ topicId, count })),
-      }))
+      })
+      if (version === requestVersion.current) onProposal(next)
     } catch (cause) {
-      setError(getApiErrorMessage(cause, 'Không thể đề xuất đề. Kiểm tra ngân hàng câu hỏi hoặc thử lại.'))
+      if (version === requestVersion.current) {
+        setError(getApiErrorMessage(cause, 'Không thể đề xuất đề. Kiểm tra ngân hàng câu hỏi hoặc thử lại.'))
+      }
     } finally {
-      setLoading(false)
+      if (version === requestVersion.current) setLoading(false)
     }
   }
 
-  const invalidate = () => { setProposal(null); onInvalidate() }
+  const invalidate = () => {
+    requestVersion.current += 1
+    setLoading(false)
+    setError('')
+    onInvalidate()
+  }
 
-  return <section className="mb-5 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+  return <section className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5">
     <div className="flex items-center gap-2 text-blue-700"><Sparkles size={19} /><h2 className="font-semibold">Trợ lý sinh đề theo yêu cầu</h2></div>
     <p className="mt-1 text-sm text-slate-600">Mô tả nội dung và mức độ mong muốn. AI chọn câu từ ngân hàng; bạn xem lại trước khi lưu đề nháp.</p>
     <form onSubmit={(event) => void suggest(event)} className="mt-4 space-y-4">
@@ -82,22 +101,7 @@ export default function AutoExamAgentPanel({ subjectId, format, onApply, onInval
       </button>
     </form>
     {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
-    {proposal && <div className="mt-5 rounded-xl border border-blue-100 bg-white p-4 text-sm">
-      <p className="font-semibold text-slate-900">{proposal.questionIds.length} câu · Dễ {proposal.difficultyMatrix.easy} · Trung bình {proposal.difficultyMatrix.medium} · Khó {proposal.difficultyMatrix.hard}</p>
-      <p className="mt-1 text-slate-600">{proposal.rationale}</p>
-      <p className="mt-3 font-semibold">Phân bố chủ đề</p>
-      <p className="mt-1 text-slate-600">{proposal.topicMatrix.length
-        ? proposal.topicMatrix.map((topic) => `${topic.name}: ${topic.count}`).join(' · ')
-        : 'Chưa có câu được gắn chủ đề'}{proposal.unlabeledCount ? ` · Chưa gắn: ${proposal.unlabeledCount}` : ''}</p>
-      <ol className="mt-3 max-h-56 list-decimal space-y-1 overflow-y-auto pl-5 text-slate-700">
-        {proposal.questions.map((question) => <li key={question.id}>{question.title}
-          <span className="ml-2 text-xs text-slate-500">{question.difficulty} · {question.topics.join(', ') || 'Chưa gắn chủ đề'}</span>
-        </li>)}
-      </ol>
-      <button type="button" onClick={() => { onApply(proposal); setProposal(null) }}
-        className="mt-4 rounded-xl border border-blue-300 px-4 py-2 font-semibold text-blue-700 hover:bg-blue-50">
-        Dùng đề xuất này
-      </button>
-    </div>}
+    {proposal && <AgentExamProposalPreview proposal={proposal} targetTotalPoints={targetTotalPoints}
+      isSaving={isSaving} isSaved={isSaved} onSaveDraft={onSaveDraft} />}
   </section>
 }
