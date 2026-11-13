@@ -68,10 +68,13 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
         <div className="rounded-lg bg-slate-50 p-4">
           <h3 className="text-sm font-semibold">Câu cần rà soát</h3>
           {insights.questions.length === 0 && <p className="mt-2 text-sm text-slate-500">Chưa có câu hỏi đã chấm điểm.</p>}
-          {insights.questions.every((item) => item.signal === 'NORMAL') && insights.questions.length > 0 &&
+          {insights.questions.length > 0 && insights.questions.every((item) => item.signal === 'INSUFFICIENT_DATA') &&
+            <p className="mt-2 text-sm text-amber-700">Chưa đủ số lượt và số sinh viên để đánh giá độ khó câu hỏi.</p>}
+          {insights.questions.some((item) => item.signal === 'NORMAL')
+            && insights.questions.every((item) => item.signal === 'NORMAL' || item.signal === 'INSUFFICIENT_DATA') &&
             <p className="mt-2 text-sm text-slate-500">Chưa có câu vượt ngưỡng cần rà soát.</p>}
-          {insights.questions.filter((item) => item.signal !== 'NORMAL').slice(0, 5).map((item) => <p key={item.questionId} className="mt-2 text-sm">
-            {item.title}: {SIGNAL_LABELS[item.signal]} · {item.exposureCount} lượt
+          {insights.questions.filter((item) => item.signal === 'VERY_HARD' || item.signal === 'VERY_EASY').slice(0, 5).map((item) => <p key={item.questionId} className="mt-2 text-sm">
+            {item.title}: {SIGNAL_LABELS[item.signal]} · {item.exposureCount} lượt · {item.respondentCount} sinh viên
           </p>)}
         </div>
       </div>

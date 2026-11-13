@@ -14,6 +14,7 @@ export interface TeacherLearningInsights {
     questionId: string
     title: string
     exposureCount: number
+    respondentCount: number
     averagePercentage: number
     signal: 'INSUFFICIENT_DATA' | 'VERY_HARD' | 'VERY_EASY' | 'NORMAL'
   }>

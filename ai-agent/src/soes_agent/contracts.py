@@ -20,6 +20,7 @@ class QuestionMetric(BaseModel):
     questionId: str = Field(min_length=1, max_length=100)
     title: str | None = Field(default=None, max_length=300)
     exposureCount: int = Field(ge=0)
+    respondentCount: int = Field(ge=0)
     averagePercentage: int = Field(ge=0, le=100)
     signal: Literal["INSUFFICIENT_DATA", "VERY_HARD", "VERY_EASY", "NORMAL"]
 

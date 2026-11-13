@@ -61,7 +61,8 @@ export async function teacherScheduleInsights(teacherId: string, scheduleId: str
     for (const item of attempt.attemptQuestions) {
       const earnedPoints = Number(answers.get(item.examQuestionId) ?? 0)
       const possiblePoints = Number(item.examQuestion.points)
-      outcomes.push({ questionId: item.examQuestionId, title: item.examQuestion.title,
+      outcomes.push({ questionId: item.examQuestionId, studentId: attempt.studentId,
+        title: item.examQuestion.title,
         earnedPoints, possiblePoints })
       const observation = {
         questionId: item.examQuestionId, earnedPoints, possiblePoints,

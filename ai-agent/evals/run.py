@@ -45,7 +45,7 @@ def cases():
             message="Câu nào cần rà soát vì quá khó?", analyzedAttemptCount=30,
             limitedToRecentAttempts=False, topics=[],
             questions=[{
-                "questionId": "question-hard", "exposureCount": 30,
+                "questionId": "question-hard", "exposureCount": 30, "respondentCount": 20,
                 "averagePercentage": 20, "signal": "VERY_HARD",
             }],
         ), {"question-hard"}, "khó", ()),
