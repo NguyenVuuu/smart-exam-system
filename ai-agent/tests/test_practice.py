@@ -4,6 +4,7 @@ import pytest
 
 from soes_agent.contracts import PracticeDraft, PracticeDraftRequest, StudyMaterial
 from soes_agent.practice import generate_practice, parse_candidates, validate_draft, validate_questions
+from soes_agent.practice_evidence import evidence_passages
 
 
 SOURCE = "INNER JOIN chỉ trả các hàng có khóa khớp ở hai bảng."
@@ -39,6 +40,16 @@ def test_practice_requires_exact_material_evidence_and_unique_options():
         validate_draft(draft("Một câu không nằm trong tài liệu."), SOURCE, 1)
     with pytest.raises(ValueError, match="count mismatch"):
         validate_draft(draft(), SOURCE, 2)
+
+
+def test_practice_does_not_use_table_of_contents_as_evidence():
+    contents = "Java và ứng dụng Console................................10"
+    source = f"{contents}\nỨng dụng Console thực thi chương trình qua dòng lệnh."
+    assert evidence_passages(source) == ["Ứng dụng Console thực thi chương trình qua dòng lệnh."]
+
+    candidate = draft(contents)
+    with pytest.raises(ValueError, match="table of contents"):
+        validate_draft(candidate, source, 1)
 
 
 def test_practice_rejects_unsupported_or_ambiguous_answer():

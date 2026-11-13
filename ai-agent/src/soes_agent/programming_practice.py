@@ -5,6 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from .contracts import ProgrammingPracticeDraft, ProgrammingPracticeQuestion, ProgrammingPracticeRequest
 from .materials import extract_material, select_material_excerpt
 from .practice import is_document_meta_question, normalize
+from .practice_evidence import is_table_of_contents_entry
 
 
 def validate_programming_questions(questions: list[ProgrammingPracticeQuestion], source: str,
@@ -18,6 +19,7 @@ def validate_programming_questions(questions: list[ProgrammingPracticeQuestion],
         if (stem in stems or is_document_meta_question(question.stem)
                 or question.language != request.language
                 or normalize(question.supportQuote) not in source_text
+                or is_table_of_contents_entry(question.supportQuote)
                 or len({test.input for test in question.testCases}) != len(question.testCases)):
             raise ValueError("Programming practice draft is invalid")
         stems.add(stem)

@@ -6,6 +6,11 @@ import { ChoicePicker } from '../ui/ChoicePicker'
 
 const card = { padding: 16, borderRadius: 16, backgroundColor: '#fff' } as const
 
+function sourceLabel(quote: string): string {
+  const page = quote.match(/\.{3,}\s*(\d{1,4})\s*$/)?.[1]
+  return page ? `Mục lục dẫn đến trang ${page}; cần đối chiếu nội dung trang này` : `“${quote}”`
+}
+
 export default function StudentPracticeSection({ materials, topics, onFocusInput }: {
   materials: StudyMaterial[]; topics: StudentLearningInsights['topics']; onFocusInput: (input: React.ElementRef<typeof TextInput> | null) => void
 }) {
@@ -16,7 +21,7 @@ export default function StudentPracticeSection({ materials, topics, onFocusInput
   const [selectedMaterial, setSelectedMaterial] = useState('')
   const [focusTopicId, setFocusTopicId] = useState('')
   const [instruction, setInstruction] = useState('')
-  const [questionCount, setQuestionCount] = useState('5')
+  const [questionCount, setQuestionCount] = useState('0')
   const [sets, setSets] = useState<PracticeSummary[]>([])
   const [current, setCurrent] = useState<PracticeSet | null>(null)
   const [choices, setChoices] = useState<Record<string, number>>({})
@@ -94,11 +99,11 @@ export default function StudentPracticeSection({ materials, topics, onFocusInput
         borderRadius: 10, padding: 12, color: '#0f172a' }} />
     <Text style={{ color: '#64748b', fontSize: 12, textAlign: 'right' }}>{instruction.length}/500 ký tự</Text>
     <Text style={{ color: '#334155', fontWeight: '700' }}>Số câu muốn tạo</Text>
-    <TextInput ref={countRef} value={questionCount} onChangeText={setQuestionCount} keyboardType="number-pad" maxLength={2}
+    <TextInput ref={countRef} value={questionCount} onChangeText={setQuestionCount} keyboardType="number-pad" maxLength={2} selectTextOnFocus
       onFocus={() => onFocusInput(countRef.current)}
-      accessibilityLabel="Số câu muốn tạo" style={{ width: 110, borderWidth: 1, borderColor: validCount ? '#cbd5e1' : '#dc2626',
+      accessibilityLabel="Số câu muốn tạo" style={{ width: 110, borderWidth: 1, borderColor: validCount || questionCount === '0' ? '#cbd5e1' : '#dc2626',
         borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: '#0f172a' }} />
-    <Text style={{ color: validCount ? '#64748b' : '#b91c1c', fontSize: 12 }}>Từ 1 đến 20 câu</Text>
+    <Text style={{ color: validCount || questionCount === '0' ? '#64748b' : '#b91c1c', fontSize: 12 }}>Từ 1 đến 20 câu</Text>
     <TouchableOpacity accessibilityRole="button" disabled={!selectedMaterial || !validCount || busy} onPress={() => void create()}
       style={{ padding: 12, borderRadius: 10, backgroundColor: '#2563eb', opacity: !selectedMaterial || !validCount || busy ? 0.5 : 1 }}>
       <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '700' }}>{busy ? 'Đang tạo bài...' : `Tạo ${count} câu ôn tập`}</Text>
@@ -145,7 +150,7 @@ export default function StudentPracticeSection({ materials, topics, onFocusInput
         </View>}
         {item.result && <>
           <Text style={{ color: '#64748b' }}>{item.result.explanation}</Text>
-          <Text style={{ color: '#64748b', fontSize: 12 }}>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'} · “{item.result.supportQuote}”</Text>
+          <Text style={{ color: '#64748b', fontSize: 12 }}>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'} · {sourceLabel(item.result.supportQuote)}</Text>
         </>}
       </View>)}
       {pageCount > 1 && <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

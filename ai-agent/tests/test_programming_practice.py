@@ -43,6 +43,10 @@ def test_programming_practice_requires_matching_language_and_source():
     invalid = question().model_copy(update={"language": "C"})
     with pytest.raises(ValueError, match="invalid"):
         validate_programming_questions([invalid], SOURCE, request())
+    contents = "Vòng lặp for trong Java........................12"
+    invalid = question().model_copy(update={"supportQuote": contents})
+    with pytest.raises(ValueError, match="invalid"):
+        validate_programming_questions([invalid], SOURCE + "\n" + contents, request())
 
 
 @pytest.mark.asyncio

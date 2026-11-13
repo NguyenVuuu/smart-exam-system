@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from .contracts import PracticeDraft, PracticeDraftRequest, PracticeQuestion
 from .materials import extract_material, select_material_excerpt
-from .practice_evidence import batch_evidence, evidence_passages
+from .practice_evidence import batch_evidence, evidence_passages, is_table_of_contents_entry
 from .practice_verification import verify_answers_against_sources
 
 logger = logging.getLogger(__name__)
@@ -117,6 +117,9 @@ def review_questions(questions: list[PracticeQuestion], source: str,
             continue
         if normalize(question.supportQuote) not in source_text:
             issues["Practice question lacks a source quote"] += 1
+            continue
+        if is_table_of_contents_entry(question.supportQuote):
+            issues["Practice question cites a table of contents entry"] += 1
             continue
         if (normalize(question.options[question.correctIndex]) == normalize(question.supportQuote)
                 and re.search(r"[;{}()]", question.supportQuote)):

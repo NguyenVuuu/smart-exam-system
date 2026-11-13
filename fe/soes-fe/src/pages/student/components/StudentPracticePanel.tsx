@@ -8,12 +8,17 @@ import StudentMaterialPicker from './StudentMaterialPicker'
 
 const PracticeCodeEditor = lazy(() => import('./PracticeCodeEditor'))
 
+function sourceLabel(quote: string): string {
+  const page = quote.match(/\.{3,}\s*(\d{1,4})\s*$/)?.[1]
+  return page ? `Mục lục dẫn đến trang ${page}; cần đối chiếu nội dung trang này` : `“${quote}”`
+}
+
 export default function StudentPracticePanel({ materials, topics }: { materials: StudyMaterial[]; topics: TopicInsight[] }) {
   const [subjectId, setSubjectId] = useState('')
   const [materialId, setMaterialId] = useState('')
   const [focusTopicId, setFocusTopicId] = useState('')
   const [instruction, setInstruction] = useState('')
-  const [questionCount, setQuestionCount] = useState('5')
+  const [questionCount, setQuestionCount] = useState('0')
   const [sets, setSets] = useState<PracticeSummary[]>([])
   const [current, setCurrent] = useState<PracticeSet | null>(null)
   const [choices, setChoices] = useState<Record<string, number>>({})
@@ -93,7 +98,8 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
         <div className="space-y-2">
           <label htmlFor="practice-count" className="block text-sm font-semibold text-slate-700">Số câu muốn tạo</label>
           <input id="practice-count" type="number" min={1} max={20} step={1} inputMode="numeric"
-            value={questionCount} onChange={(event) => setQuestionCount(event.target.value)}
+            value={questionCount} onFocus={(event) => event.target.select()}
+            onChange={(event) => setQuestionCount(event.target.value)}
             aria-invalid={!validCount} aria-describedby="practice-count-hint"
             className="h-11 w-32 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
           <p id="practice-count-hint" className="text-xs text-slate-500">Từ 1 đến 20 câu</p>
@@ -134,7 +140,7 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
         </div>}
         {item.result && <div className="space-y-1 text-xs text-slate-600">
           <p>{item.result.explanation}</p>
-          <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'} · “{item.result.supportQuote}”</p>
+          <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'} · {sourceLabel(item.result.supportQuote)}</p>
         </div>}
       </fieldset>)}
       {pageCount > 1 && <nav aria-label="Trang bài luyện" className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
