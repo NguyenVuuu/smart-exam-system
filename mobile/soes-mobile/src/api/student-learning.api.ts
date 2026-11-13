@@ -80,9 +80,10 @@ export async function getPracticeSet(id: string): Promise<PracticeSet> {
   return data.data
 }
 
-export async function createPracticeSet(materialId: string, focusTopicId?: string): Promise<PracticeSet> {
+export async function createPracticeSet(materialId: string, count: number, focusTopicId?: string,
+  instruction?: string): Promise<PracticeSet> {
   const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice',
-    { materialId, count: 5, focusTopicId }, { timeout: 65000 })
+    { materialId, count, focusTopicId, instruction }, { timeout: 65000 })
   return data.data
 }
 

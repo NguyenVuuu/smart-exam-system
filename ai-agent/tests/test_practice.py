@@ -39,6 +39,25 @@ def test_practice_rejects_unsupported_or_ambiguous_answer():
         validate_draft(ambiguous, SOURCE, 1)
 
 
+@pytest.mark.parametrize("stem", [
+    "Trong chương 2 của tài liệu, nội dung nào được đề cập?",
+    "Theo mục 2.6, tài liệu giới thiệu kiến thức nào?",
+    "Giáo trình trình bày INNER JOIN ở trang nào?",
+])
+def test_practice_rejects_questions_about_document_structure(stem):
+    candidate = draft()
+    candidate.questions[0].stem = stem
+    with pytest.raises(ValueError, match="document structure"):
+        validate_draft(candidate, SOURCE, 1)
+
+
+def test_practice_rejects_placeholder_options():
+    candidate = draft()
+    candidate.questions[0].options[1] = "class ... end"
+    with pytest.raises(ValueError, match="placeholder"):
+        validate_draft(candidate, SOURCE, 1)
+
+
 def test_practice_keeps_only_valid_unique_candidates():
     rejected = draft()
     rejected.questions[0].correctIndex = 1
