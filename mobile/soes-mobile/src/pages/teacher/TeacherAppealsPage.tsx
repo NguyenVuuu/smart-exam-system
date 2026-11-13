@@ -38,7 +38,7 @@ export function TeacherAppealsPage() {
   return <View style={styles.root}>
     <FlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.list}
       ListHeaderComponent={<View style={styles.header}>
-        <ScreenHeader showBack title="Phúc khảo điểm" description="Xem yêu cầu, đối chiếu bài làm và lưu kết luận" />
+        <ScreenHeader title="Phúc khảo điểm" description="Xem yêu cầu, đối chiếu bài làm và lưu kết luận" />
         <ChoicePicker label="Trạng thái" placeholder="Tất cả trạng thái" options={statuses}
           selectedValues={[status]} onToggle={(value) => setStatus(value as AppealStatus | 'ALL')} />
       </View>}

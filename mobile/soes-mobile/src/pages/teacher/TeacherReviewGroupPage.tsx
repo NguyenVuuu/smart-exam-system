@@ -63,7 +63,7 @@ export function TeacherReviewGroupPage() {
         automaticallyAdjustKeyboardInsets={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
       >
-        <ScreenHeader showBack title="Nhóm duyệt đề bộ môn" description="Mỗi bộ môn có một nhóm duyệt đề cố định" />
+        <ScreenHeader title="Nhóm duyệt đề bộ môn" description="Mỗi bộ môn có một nhóm duyệt đề cố định" />
         {group ? (
           <>
             <SectionCard title={group.name}>

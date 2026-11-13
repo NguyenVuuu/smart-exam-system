@@ -9,7 +9,7 @@ export function TeacherReviewPage() {
   const selected = tab === 'questions' ? 'questions' : 'exams'
   return <View style={styles.root}>
     <View style={styles.header}>
-      <ScreenHeader showBack title="Duyệt chuyên môn" description="Duyệt đề cuối kỳ và câu hỏi dùng chung" />
+      <ScreenHeader title="Duyệt chuyên môn" description="Duyệt đề cuối kỳ và câu hỏi dùng chung" />
       <View style={styles.tabs}>
         {([['exams', 'Đề thi'], ['questions', 'Câu hỏi']] as const).map(([key, label]) => (
           <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: selected === key }}
