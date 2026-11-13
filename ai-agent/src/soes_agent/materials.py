@@ -111,7 +111,8 @@ def select_material_excerpt(text: str, query: str) -> str:
     if len(text) <= MAX_TEXT_CHARS:
         return text
 
-    requested = list(dict.fromkeys(re.findall(r"chương\s+(\d+)", query.casefold())))
+    chapter_groups = re.findall(r"chương\s+(\d+(?:\s*(?:,|và)\s*\d+)*)", query.casefold())
+    requested = list(dict.fromkeys(number for group in chapter_groups for number in re.findall(r"\d+", group)))
     headings = list(CHAPTER_HEADING.finditer(text))
     sections = []
     for chapter in requested:

@@ -66,6 +66,16 @@ def test_later_chapters_are_available_for_practice():
     assert len(selected) <= 20_000
 
 
+def test_practice_understands_chapter_range_without_repeated_word():
+    text = ("CHƯƠNG 1\n" + "Nền tảng. " * 2500
+            + "\nCHƯƠNG 2\n" + "Vòng lặp for duyệt từng phần tử. " * 100
+            + "\nCHƯƠNG 3\n" + "Lớp đóng gói dữ liệu và phương thức. " * 100)
+    selected = select_material_excerpt(text, "sinh cho tôi các câu ở chương 2 và 3")
+    assert "Vòng lặp for" in selected
+    assert "Lớp đóng gói" in selected
+    assert "Nền tảng" not in selected
+
+
 @pytest.mark.asyncio
 async def test_material_can_support_an_answer_without_released_exam_results():
     class Model:
