@@ -25,6 +25,7 @@ export interface TeacherExamDetailDto extends TeacherExamDto {
     id: string; sourceQuestionId: string | null; sectionId: string | null
     title: string; content: string; explanation: string | null; type: string; difficulty: string
     language: string | null; points: number; orderIndex: number
+    topics: Array<{ id: string; code: string; name: string }>
     options: Array<{ id: string; content: string; isCorrect: boolean }>
     programmingConfig: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number } | null
     testCases: Array<{

@@ -1,4 +1,5 @@
-import { Animated, Platform, ScrollView, StyleSheet, View } from 'react-native'
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
+import { Animated, Platform, StyleSheet, View } from 'react-native'
 import { TeacherPasswordForm } from '../../components/teacher/account/TeacherPasswordForm'
 import { TeacherProfileForm } from '../../components/teacher/account/TeacherProfileForm'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -16,13 +17,13 @@ export function TeacherAccountPage() {
         Platform.OS === 'ios' && { paddingBottom: animatedOffset },
       ]}
     >
-      <ScrollView
+      <BackToTopScrollView
         style={styles.root}
         contentContainerStyle={[styles.content, isKeyboardOpen && styles.contentKeyboardOpen]}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={false}
       >
-        <ScreenHeader showBack title="Tài khoản" description="Thông tin liên hệ và bảo mật tài khoản" />
+        <ScreenHeader title="Tài khoản" description="Thông tin liên hệ và bảo mật tài khoản" />
         <View style={styles.section}>
           <TeacherProfileForm
             user={account.user}
@@ -46,7 +47,7 @@ export function TeacherAccountPage() {
             onSave={() => { void account.changePassword() }}
           />
         </View>
-      </ScrollView>
+      </BackToTopScrollView>
     </Animated.View>
   )
 }

@@ -1,5 +1,6 @@
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
 import { Bell, BookOpen, ClipboardCheck, CalendarDays } from 'lucide-react-native'
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { useAuthStore } from '../../store/authStore'
@@ -17,7 +18,7 @@ export function TeacherDashboardScreen() {
   const allFailed = [courses, assignments, approvals, unread].every((item) => item.failed)
   if (allFailed) return <ScreenState kind="error" message="Không thể tải tổng quan. Kiểm tra kết nối và thử lại." onRetry={() => void refresh()} />
 
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content}
+  return <BackToTopScrollView style={styles.root} contentContainerStyle={styles.content}
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />}>
     <ScreenHeader showBack={false} title={`Xin chào, ${name ?? 'Giảng viên'}`} description="Công việc giảng dạy và khảo thí của bạn" />
     <View style={styles.stats}>
@@ -33,7 +34,7 @@ export function TeacherDashboardScreen() {
     <DashboardSection title="Lịch coi thi" href="/(app)/(teacher)/invigilation" failed={assignments.failed} emptyText="Chưa có ca coi thi."
       rows={assignments.data.items.map((assignment) => ({ id: assignment.id, title: assignment.title, subtitle: formatDateTime(assignment.startTime) }))} />
     {courses.failed || assignments.failed || unread.failed ? <Text style={styles.hint}>Kéo xuống để thử tải lại các mục chưa hiển thị.</Text> : null}
-  </ScrollView>
+  </BackToTopScrollView>
 }
 
 const styles = StyleSheet.create({

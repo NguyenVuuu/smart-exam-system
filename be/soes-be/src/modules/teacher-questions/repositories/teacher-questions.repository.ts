@@ -13,6 +13,7 @@ export const questionInclude = {
   options: { orderBy: { orderIndex: 'asc' as const } },
   programmingConfig: true,
   programmingTests: { orderBy: { orderIndex: 'asc' as const } },
+  topics: { include: { topic: { select: { id: true, code: true, name: true } } } },
   questionBankItem: {
     select: {
       id: true,

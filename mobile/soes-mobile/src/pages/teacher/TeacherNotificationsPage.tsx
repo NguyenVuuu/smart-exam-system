@@ -1,6 +1,7 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { CheckCheck } from 'lucide-react-native'
 import { router } from 'expo-router'
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { TeacherNotificationCard } from '../../components/teacher/notifications/TeacherNotificationCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
@@ -18,14 +19,14 @@ export function TeacherNotificationsPage() {
   }
   return <View style={styles.root}>
     <View style={styles.header}>
-      <ScreenHeader showBack title="Thông báo" description={`${notifications.unreadCount} thông báo chưa đọc`} />
+      <ScreenHeader title="Thông báo" description={`${notifications.unreadCount} thông báo chưa đọc`} />
       <Pressable accessibilityRole="button" disabled={notifications.busy || !notifications.unreadCount}
         onPress={() => { void notifications.markAllRead() }} style={styles.action}>
         <CheckCheck size={17} color="#2563eb" /><Text style={styles.actionText}>Đánh dấu tất cả đã đọc</Text>
       </Pressable>
     </View>
     {notifications.loading && !notifications.items.length ? <ScreenState kind="loading" /> : notifications.error && !notifications.items.length ?
-      <ScreenState kind="error" onRetry={notifications.retry} /> : <FlatList key={notifications.page} data={notifications.items} keyExtractor={(item) => item.id}
+      <ScreenState kind="error" onRetry={notifications.retry} /> : <BackToTopFlatList key={notifications.page} data={notifications.items} keyExtractor={(item) => item.id}
         renderItem={({ item }) => <TeacherNotificationCard item={item} onPress={() => open(item)} hasTarget={Boolean(resolveTeacherNotificationLink(item.link, item.title))} />}
         contentContainerStyle={styles.list} ListEmptyComponent={<ScreenState kind="empty" message="Bạn chưa có thông báo nào." />}
         ListFooterComponent={<>{notifications.error && <Text style={styles.error}>Không thể tải thông báo.</Text>}

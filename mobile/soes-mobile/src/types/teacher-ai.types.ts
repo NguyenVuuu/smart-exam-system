@@ -8,6 +8,7 @@ export interface GeneratedQuestion {
   timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number
   testCases: { input: string; expectedOutput: string; isHidden: boolean }[]
   status: 'PENDING_REVIEW'; subjectId: string; subjectName: string; sourceMaterialName: string
+  topicIds?: string[]
 }
 export interface AiGenerationResult { historyId: string; questions: GeneratedQuestion[] }
 export interface GenerateAiPayload {

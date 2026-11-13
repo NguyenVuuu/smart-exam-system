@@ -14,6 +14,7 @@ export function toTeacherQuestionDto(row: QuestionRow): TeacherQuestionDto {
     type: row.type, difficulty: row.difficulty, aiDifficultyReason: row.aiDifficultyReason,
     source: row.source, language: row.language,
     subject: { id: row.subject.id, code: row.subject.code, name: row.subject.name },
+    topics: row.topics.map(({ topic }) => topic),
     owner: { id: row.owner.id, fullName: row.owner.user.fullName },
     options: row.options.map((option) => {
       const { content, isCorrect } = openExamOption(option)

@@ -8,6 +8,7 @@ export interface TeacherQuestionDto {
   difficulty: 'EASY' | 'MEDIUM' | 'HARD'; aiDifficultyReason: string | null; source: string
   language: 'JAVA' | 'C' | 'CPP' | null
   subject: { id: string; code: string; name: string }
+  topics: Array<{ id: string; code: string; name: string }>
   owner: { id: string; fullName: string }
   options: QuestionOptionDto[]
   programmingConfig: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number } | null

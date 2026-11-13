@@ -1,6 +1,7 @@
+import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
 import { useContext, useState } from 'react'
 import { LogOut, RefreshCw, ScanFace } from 'lucide-react-native'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cancelFaceEnrollmentSession, completeFaceEnrollmentSession, createFaceEnrollmentSession, type FaceEnrollmentSession } from '../../../src/api/student-face.api'
 import { FaceLivenessCamera } from '../../../src/components/student/face/FaceLivenessCamera'
@@ -156,7 +157,7 @@ export default function StudentFaceEnrollmentPage() {
 
   const busy = phase === 'creating' || phase === 'checking'
   return <SafeAreaView style={styles.safe}>
-    <ScrollView contentContainerStyle={styles.content}>
+    <BackToTopScrollView contentContainerStyle={styles.content}>
       <View style={styles.icon}><ScanFace size={30} color="#2563eb" /></View>
       <Text style={styles.title}>Đăng ký khuôn mặt</Text>
       <Text style={styles.description}>
@@ -173,7 +174,7 @@ export default function StudentFaceEnrollmentPage() {
       <Pressable style={styles.logout} onPress={signOut} disabled={busy || isLoggingOut} accessibilityRole="button">
         <LogOut size={18} color="#475569" /><Text style={styles.logoutText}>Đăng xuất</Text>
       </Pressable>
-    </ScrollView>
+    </BackToTopScrollView>
   </SafeAreaView>
 }
 

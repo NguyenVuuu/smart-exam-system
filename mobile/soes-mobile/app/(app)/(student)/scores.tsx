@@ -1,3 +1,4 @@
+import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator,
@@ -94,7 +95,7 @@ export default function ScoresScreen() {
 
   return (
     <StudentLayout activeRoute="scores">
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <BackToTopScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* Title */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -199,7 +200,7 @@ export default function ScoresScreen() {
             ))}
           </View>
         )}
-      </ScrollView>
+      </BackToTopScrollView>
     </StudentLayout>
   )
 }

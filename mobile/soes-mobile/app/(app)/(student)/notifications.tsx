@@ -1,7 +1,6 @@
+import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
-} from 'react-native'
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
 import { Bell, Check, CheckCheck, RefreshCw } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
@@ -136,7 +135,7 @@ export default function NotificationsScreen() {
 
   return (
     <StudentLayout activeRoute="notifications">
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <BackToTopScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
 
           {/* Title */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -227,7 +226,7 @@ export default function NotificationsScreen() {
               ))}
             </View>
           )}
-        </ScrollView>
+        </BackToTopScrollView>
     </StudentLayout>
   )
 }

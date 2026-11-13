@@ -75,6 +75,7 @@ export type TeacherExamQuestionInput = ExamQuestionPlacement & (
   | { source: 'INLINE'; question: {
       title: string; content: string; explanation?: string | null
       type: Question['type']; difficulty: Question['difficulty']
+      topicIds?: string[]
       language?: Question['programmingLanguage'] | null
       options: Array<{ content: string; isCorrect: boolean }>
       programmingConfig?: { timeLimitMs: number; memoryLimitMb: number; maxCodeSizeKb: number } | null

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { QuestionOptionsEditor } from '../question-bank/QuestionOptionsEditor'
 import type { GeneratedQuestion } from '../../../types/teacher-ai.types'
 import type { ObjectiveQuestionPayload } from '../../../types/teacher-questions.types'
+import { Tags } from 'lucide-react-native'
 
 interface Props {
   question: GeneratedQuestion
@@ -12,6 +13,8 @@ interface Props {
   onReject: () => void
   onChange: (question: GeneratedQuestion) => void
   onFocusField?: (relativeY: number) => void
+  onTopics: () => void
+  topicNames: string[]
 }
 
 export function AiReviewCard({
@@ -22,6 +25,8 @@ export function AiReviewCard({
   onReject,
   onChange,
   onFocusField,
+  onTopics,
+  topicNames,
 }: Props) {
   const contentY = useRef(0)
   const optionsY = useRef(0)
@@ -48,6 +53,9 @@ export function AiReviewCard({
           </Pressable>
         </View>
       </View>
+      <Pressable accessibilityRole="button" onPress={onTopics} style={styles.topicButton}>
+        <Tags size={17} color="#2563eb" /><Text style={styles.topicText}>Chủ đề: {topicNames.length ? topicNames.join(', ') : 'Chọn chủ đề'}</Text>
+      </Pressable>
       <View onLayout={(e) => { contentY.current = e.nativeEvent.layout.y }}>
         <Text style={styles.label}>Nội dung câu hỏi</Text>
         <TextInput
@@ -102,4 +110,6 @@ const styles = StyleSheet.create({
   label: { color: '#334155', fontWeight: '700', marginTop: 12, marginBottom: 8 },
   input: { minHeight: 70, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, backgroundColor: '#fff', padding: 10, color: '#0f172a' },
   options: { marginTop: 12 },
+  topicButton: { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 10, marginTop: 12, borderRadius: 10, backgroundColor: '#eff6ff' },
+  topicText: { color: '#1d4ed8', fontWeight: '700', flex: 1 },
 })

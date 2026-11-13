@@ -53,6 +53,22 @@ export async function getQuestionSubjects() {
   return response.data.data
 }
 
+export interface LearningTopic { id: string; code: string; name: string }
+
+export async function getLearningTopics(subjectId: string) {
+  const response = await apiClient.get<ApiResponse<LearningTopic[]>>(`/teacher/subjects/${subjectId}/learning-topics`)
+  return response.data.data
+}
+
+export async function createLearningTopic(subjectId: string, input: { code: string; name: string }) {
+  const response = await apiClient.post<ApiResponse<LearningTopic>>(`/teacher/subjects/${subjectId}/learning-topics`, input)
+  return response.data.data
+}
+
+export async function assignQuestionTopics(questionId: string, topicIds: string[]) {
+  await apiClient.put(`/teacher/questions/${questionId}/learning-topics`, { topicIds })
+}
+
 export async function createQuestion(payload: QuestionPayload) {
   const response = await apiClient.post<ApiResponse<TeacherQuestionDto>>('/teacher/questions', payload)
   return response.data.data
@@ -178,6 +194,7 @@ export async function generateAiQuestions(payload: GenerateAiQuestionsPayload) {
 export async function saveApprovedAiQuestions(questions: Array<{
   generationId: string
   subjectId: string
+  topicIds: string[]
   question: Omit<import('../types/teacher-question-api.types').GeneratedQuestionDto,
     'id' | 'status' | 'subjectId' | 'subjectName' | 'sourceMaterialName'>
 }>) {

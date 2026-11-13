@@ -1,8 +1,10 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { Plus } from 'lucide-react-native'
-import { archiveQuestion, listQuestions, restoreQuestion, shareQuestion } from '../../api/teacher-questions.api'
+import { archiveQuestion, assignQuestionTopics, listQuestions, restoreQuestion, shareQuestion } from '../../api/teacher-questions.api'
 import { QuestionCard } from '../../components/teacher/question-bank/QuestionCard'
+import { QuestionTopicPicker } from '../../components/teacher/question-bank/QuestionTopicPicker'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SearchField } from '../../components/ui/SearchField'
@@ -32,6 +34,7 @@ export function TeacherQuestionBankPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(false)
   const [editing, setEditing] = useState<TeacherQuestion | 'new' | null>(null)
+  const [topicQuestion, setTopicQuestion] = useState<TeacherQuestion | null>(null)
   const [actionId, setActionId] = useState<string | null>(null)
   const requestId = useRef(0)
   const filters = useCallback((nextScope: Scope, query: string, nextType: QuestionType | 'ALL') => ({
@@ -83,7 +86,13 @@ export function TeacherQuestionBankPage() {
   if (editing) return <TeacherQuestionEditorPage initial={editing === 'new' ? null : editing}
     onCancel={() => setEditing(null)} onDone={() => { setEditing(null); setScope('personal'); void load(1, 'personal', keyword, type) }} />
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader showBack title="Ngân hàng câu hỏi" description="Câu hỏi cá nhân và câu hỏi dùng chung" />
+    {topicQuestion && <QuestionTopicPicker key={topicQuestion.id} subjectId={topicQuestion.subject.id}
+      title={topicQuestion.title} content={topicQuestion.content} initialTopics={topicQuestion.topics ?? []}
+      onClose={() => setTopicQuestion(null)} onSave={async (topics) => {
+        await assignQuestionTopics(topicQuestion.id, topics.map((topic) => topic.id))
+        await load(page || 1, scope, keyword, type)
+      }} />}
+    <View style={styles.header}><ScreenHeader title="Ngân hàng câu hỏi" description="Câu hỏi cá nhân và câu hỏi dùng chung" />
       <Pressable accessibilityRole="button" style={styles.create} onPress={() => setEditing('new')}>
         <Plus size={16} color="#fff" /><Text style={styles.createText}>Tạo câu hỏi</Text>
       </Pressable>
@@ -95,10 +104,11 @@ export function TeacherQuestionBankPage() {
         onToggle={(value) => setType(value as QuestionType | 'ALL')} />
     </View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword, type)} /> :
-      <FlatList key={page} data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => {
+      <BackToTopFlatList key={page} data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => {
         const editable = !item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)
         const available = !actionId
         return <QuestionCard question={item}
+          onTopics={scope === 'personal' && !item.archivedAt && available ? () => setTopicQuestion(item) : undefined}
           onEdit={scope === 'personal' && editable && available && item.type !== 'PROGRAMMING' ? () => setEditing(item) : undefined}
           onShare={scope === 'personal' && editable && available ? () => confirmShare(item) : undefined}
           onArchive={scope === 'personal' && editable && available ? () => confirmArchive(item) : undefined}

@@ -1,7 +1,7 @@
-import { Platform, type ScrollView } from 'react-native'
+import { Keyboard, Platform, type ScrollView, type TextInput } from 'react-native'
 
 export type ScrollViewRef = React.ElementRef<typeof ScrollView>
-export type TargetRef = { current: any }
+export type TargetRef = { current: React.ElementRef<typeof TextInput> | null }
 
 /**
  * Cuộn ScrollView đến toạ độ Y của ô input hoặc section (lấy từ onLayout).
@@ -28,41 +28,26 @@ export function scrollToY(
 }
 
 /**
- * Cuộn ScrollView đến ô input đang focus sao cho toàn bộ ô input và label
- * hiển thị trọn vẹn trong khung nhìn, không bị bàn phím che khuất.
+ * Cuộn ô đang focus lên đầu vùng nhìn để thấy cả ô nhập nhiều dòng.
  *
  * @param scrollView Ref instance của ScrollView
- * @param targetRef Ref của TextInput hoặc container chứa TextInput
- * @param extraOffset Khoảng cách đệm từ đỉnh ScrollView xuống ô input (mặc định 60px)
+ * @param targetRef Ref của TextInput
+ * @param extraOffset Khoảng đệm từ đầu vùng cuộn (mặc định 16px)
  */
 export function scrollToFocusedInput(
   scrollView: ScrollViewRef | null,
   targetRef: TargetRef | null,
-  extraOffset = 60,
+  extraOffset = 16,
 ) {
-  if (!scrollView) return
+  if (!scrollView || !targetRef?.current) return
 
-  const delay = Platform.OS === 'ios' ? 120 : 180
+  const delay = Keyboard.isVisible() ? 80 : 350
   setTimeout(() => {
-    if (targetRef?.current?.measureLayout) {
-      try {
-        targetRef.current.measureLayout(
-          scrollView as any,
-          (_left: number, top: number) => {
-            scrollView?.scrollTo({
-              y: Math.max(0, top - extraOffset),
-              animated: true,
-            })
-          },
-          () => {
-            scrollView?.scrollToEnd({ animated: true })
-          },
-        )
-      } catch {
-        scrollView?.scrollToEnd({ animated: true })
-      }
-    } else {
-      scrollView?.scrollToEnd({ animated: true })
-    }
+    const input = targetRef.current
+    const content = scrollView.getInnerViewRef()
+    if (!input?.isFocused() || !content) return
+    input.measureLayout(content, (_left, top) => {
+      if (input.isFocused()) scrollView.scrollTo({ y: Math.max(0, top - extraOffset), animated: true })
+    })
   }, delay)
 }

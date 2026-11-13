@@ -1,4 +1,7 @@
-import { CheckCircle2, Clock3, Code2, FileText, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock3, Code2, FileText, Sparkles, XCircle } from 'lucide-react'
+import { useState } from 'react'
+import { getApiErrorMessage } from '../../../../api/errors'
+import { explainReviewQuestion, type LearningAnswer } from '../../api/student-learning.api'
 import type { AttemptResult, AttemptReviewItem } from '../../api/student-take-exam.api'
 
 function optionTone(item: AttemptReviewItem, optionId: string, isCorrect?: boolean) {
@@ -14,8 +17,27 @@ function statusIcon(isCorrect: boolean | null) {
   return <FileText size={16} className="text-gray-400" />
 }
 
-function ReviewQuestion({ item, showAnswerKey }: { item: AttemptReviewItem; showAnswerKey: boolean }) {
+function ReviewQuestion({ item, showAnswerKey, scheduleId, attemptId }: {
+  item: AttemptReviewItem; showAnswerKey: boolean; scheduleId: string; attemptId: string
+}) {
   const isProgramming = item.type === 'PROGRAMMING'
+  const [question, setQuestion] = useState('Giải thích câu này và cách tránh lỗi tương tự.')
+  const [answer, setAnswer] = useState<LearningAnswer | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const explain = async () => {
+    if (loading || !question.trim()) return
+    setLoading(true)
+    setError('')
+    try {
+      setAnswer(await explainReviewQuestion(scheduleId, attemptId, item.questionId, question.trim()))
+    } catch (cause) {
+      setError(getApiErrorMessage(cause, 'Chưa thể giải thích câu này. Vui lòng thử lại.'))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <article className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -65,11 +87,32 @@ function ReviewQuestion({ item, showAnswerKey }: { item: AttemptReviewItem; show
           {item.explanation}
         </div>
       )}
+      {showAnswerKey && <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+        <div className="flex flex-wrap gap-2">
+          <input value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={500}
+            aria-label={`Câu hỏi cho trợ lý AI về câu ${item.orderIndex}`}
+            className="min-w-48 flex-1 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500" />
+          <button type="button" onClick={() => void explain()} disabled={loading || !question.trim()}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            <Sparkles size={15} /> {loading ? 'Đang giải thích...' : 'Hỏi AI về câu này'}
+          </button>
+        </div>
+        {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+        {answer && <div className="mt-3 text-sm text-slate-800">
+          <p>{answer.summary}</p>
+          {answer.actions.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5">
+            {answer.actions.map((action, index) => <li key={index}>{action}</li>)}
+          </ul>}
+          {answer.caveat && <p className="mt-2 text-slate-600">{answer.caveat}</p>}
+        </div>}
+      </div>}
     </article>
   )
 }
 
-export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
+export default function ExamReviewPanel({ result, scheduleId, attemptId }: {
+  result: AttemptResult; scheduleId: string; attemptId: string
+}) {
   if (!result.available) return null
 
   if (result.reviewPolicy === 'NONE' || result.reviewPolicy === 'SCORE_ONLY') {
@@ -112,7 +155,8 @@ export default function ExamReviewPanel({ result }: { result: AttemptResult }) {
       ) : (
         <div className="space-y-3">
           {result.reviewItems.map((item) => (
-            <ReviewQuestion key={item.questionId} item={item} showAnswerKey={showAnswerKey} />
+            <ReviewQuestion key={item.questionId} item={item} showAnswerKey={showAnswerKey}
+              scheduleId={scheduleId} attemptId={attemptId} />
           ))}
         </div>
       )}

@@ -1,8 +1,9 @@
 import { Eye, FileCheck, RefreshCw, Send, Trash2 } from 'lucide-react'
-import type { AutoExamDraftStatus, GeneratedExamDraft } from '../../../types/teacher-auto-exam.types'
+import type { AutoExamDraftStatus, AutoExamPickMode, GeneratedExamDraft } from '../../../types/teacher-auto-exam.types'
 
 export default function GeneratedExamResults({
   generatedExams,
+  currentPickMode,
   draftStatus,
   isGenerating,
   onSaveDraft,
@@ -12,6 +13,7 @@ export default function GeneratedExamResults({
   onDeleteDraft,
 }: {
   generatedExams: GeneratedExamDraft[]
+  currentPickMode: AutoExamPickMode
   draftStatus: AutoExamDraftStatus
   isGenerating?: boolean
   onSaveDraft: () => void
@@ -33,7 +35,7 @@ export default function GeneratedExamResults({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
           <FileCheck size={20} className="text-blue-600" />
-          Kết Quả Sinh Đề Tự Động
+          Đề thi vừa tạo
         </h2>
 
         <div className="flex items-center gap-2.5">
@@ -62,7 +64,7 @@ export default function GeneratedExamResults({
           <div key={exam.id} className="p-5 border border-gray-100 rounded-2xl bg-gray-50/60 space-y-3">
             <div className="flex items-center justify-between">
               <span className="px-3 py-1 bg-blue-600 text-white font-semibold text-xs rounded-lg shadow-2xs">
-                {generatedExams.length > 1 ? `Đề sinh tự động #${index + 1}` : 'Đề thi sinh tự động'}
+                {exam.sourceMode === 'AGENT' ? 'Đề AI đề xuất' : generatedExams.length > 1 ? `Đề bốc tự động #${index + 1}` : 'Đề bốc tự động'}
               </span>
               <span className="text-sm font-bold text-gray-800">{exam.totalPoints} điểm</span>
             </div>
@@ -83,7 +85,7 @@ export default function GeneratedExamResults({
                 <Eye size={14} /> Xem trước
               </button>
 
-              <button
+              {exam.sourceMode === 'AUTO' && currentPickMode === 'AUTO' && <button
                 onClick={onRegenerate}
                 disabled={isGenerating}
                 className="py-2 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs disabled:opacity-50"
@@ -91,7 +93,7 @@ export default function GeneratedExamResults({
               >
                 <RefreshCw size={14} className={isGenerating ? 'animate-spin' : ''} />
                 {isGenerating ? 'Đang sinh lại...' : 'Sinh lại đề mới'}
-              </button>
+              </button>}
 
               <button
                 onClick={onDeleteDraft}

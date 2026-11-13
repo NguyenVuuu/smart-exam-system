@@ -6,6 +6,7 @@ import TeacherTopBar from './components/TeacherTopBar'
 import GradeAppealsPanel from './components/grade-export/GradeAppealsPanel'
 import GradeReportPanel from './components/grade-export/GradeReportPanel'
 import GradeReportTabs, { type GradeReportTab } from './components/grade-export/GradeReportTabs'
+import TeacherLearningPanel from './components/grade-export/TeacherLearningPanel'
 import TeacherNotificationsPanel from './components/grade-export/TeacherNotificationsPanel'
 import type { TeacherNotification } from './api/teacher-notifications.api'
 import { useTeacherGradeAppeals } from './hooks/useTeacherGradeAppeals'
@@ -93,7 +94,7 @@ export default function TeacherGradeExportPage() {
 
             <div className="pt-5">
               {activeTab === 'reports' && (
-                <GradeReportPanel
+                <><GradeReportPanel
                   exams={report.exams}
                   schedules={report.schedules}
                   selectedExamId={report.selectedExamId}
@@ -106,7 +107,7 @@ export default function TeacherGradeExportPage() {
                   onExamChange={report.selectExam}
                   onScheduleChange={report.selectSchedule}
                   onSearchChange={report.setSearchKeyword}
-                />
+                /><div className="mt-5"><TeacherLearningPanel scheduleId={report.selectedScheduleId} /></div></>
               )}
 
               {activeTab === 'appeals' && (

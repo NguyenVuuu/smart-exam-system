@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native'
+import { BackToTopScrollView } from '../../../../../../src/components/ui/BackToTop'
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { ArrowLeft, CircleAlert, Clock3, Download, FileText, Megaphone, Paperclip, Pencil } from 'lucide-react-native'
@@ -144,7 +145,7 @@ export default function PostDetailScreen() {
 
   return (
     <StudentLayout activeRoute="subjects">
-      <ScrollView
+      <BackToTopScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}
@@ -282,7 +283,7 @@ export default function PostDetailScreen() {
 
           </View>
         )}
-      </ScrollView>
+      </BackToTopScrollView>
     </StudentLayout>
   )
 }

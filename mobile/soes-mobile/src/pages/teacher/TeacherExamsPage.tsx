@@ -1,5 +1,6 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { listExams } from '../../api/teacher-exams.api'
 import { ExamListCard } from '../../components/teacher/exams/ExamListCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -48,14 +49,14 @@ export function TeacherExamsPage() {
   }, [keyword, type, load])
 
   return <View style={styles.root}>
-    <View style={styles.header}><ScreenHeader showBack title="Đề thi" description="Xem nội dung và tình trạng đề thi" />
+    <View style={styles.header}><ScreenHeader title="Đề thi" description="Xem nội dung và tình trạng đề thi" />
       <SearchField value={keyword} onChangeText={setKeyword} placeholder="Tìm tên đề hoặc môn học" />
       <View style={styles.filters}>{filters.map((filter) => <Pressable key={filter.type} accessibilityRole="button"
         onPress={() => setType(filter.type)} style={[styles.filter, type === filter.type && styles.selected]}>
         <Text style={[styles.filterText, type === filter.type && styles.selectedText]}>{filter.label}</Text>
       </Pressable>)}</View></View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, keyword, type)} /> :
-      <FlatList key={page} data={items} keyExtractor={(exam) => exam.id} renderItem={({ item }) => <ExamListCard exam={item} />}
+      <BackToTopFlatList key={page} data={items} keyExtractor={(exam) => exam.id} renderItem={({ item }) => <ExamListCard exam={item} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Chưa có đề thi phù hợp." />}
         ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải đề.</Text>}

@@ -1,9 +1,10 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react-native'
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { listInvigilationMonth } from '../../../api/teacher-invigilation.api'
 import type { InvigilationAssignment } from '../../../types/teacher-invigilation.types'
 import { ScreenState } from '../../ui/ScreenState'
+import { BackToTopScrollView } from '../../ui/BackToTop'
 import { InvigilationCard } from './InvigilationCard'
 
 const weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
@@ -43,7 +44,7 @@ export function InvigilationCalendar() {
     setMonth(next); setSelected(dayKey(next)); setLoading(true)
   }
 
-  return <ScrollView contentContainerStyle={styles.content}>
+  return <BackToTopScrollView contentContainerStyle={styles.content}>
     <View style={styles.calendar}>
       <View style={styles.toolbar}>
         <Pressable accessibilityRole="button" accessibilityLabel="Tháng trước" onPress={() => moveMonth(-1)} style={styles.arrow}><ChevronLeft size={19} color="#334155" /></Pressable>
@@ -66,7 +67,7 @@ export function InvigilationCalendar() {
     {loading ? <ScreenState kind="loading" /> : error ? <ScreenState kind="error" onRetry={() => { setLoading(true); setRetry((value) => value + 1) }} /> :
       dayItems.length ? dayItems.map((item) => <InvigilationCard key={item.id} assignment={item} />) :
         <Text style={styles.empty}>Ngày này chưa có ca coi thi.</Text>}
-  </ScrollView>
+  </BackToTopScrollView>
 }
 
 const styles = StyleSheet.create({

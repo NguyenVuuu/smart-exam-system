@@ -10,10 +10,14 @@ import { downloadBufferFromBucket } from "../../../services/storage.service";
 import * as repo from "../repositories/ai-question-generation.repository";
 import type { SourceDocument } from "./document-reader.service";
 import { toGeminiContent } from "./document-reader.service";
+import { loadCourseMaterialBuffer } from "./course-material-buffer.cache";
 import { generateWithGemini } from "./gemini-question.service";
+import { generateWithQuestionAgent } from "./gemini-question.service";
+import { aiAgentConfig } from "../../../config";
 import { buildGenerationPrompt } from "../prompts/question-generation.prompt";
-import { getStoredAiSettings } from "../../admin-system-settings/services/admin-system-settings.service";
+import { getStoredAiSettings } from "../../admin-system-settings/services/ai-settings-reader";
 import { assertQuestionCountWithinLimit } from "./ai-question-generation.rules";
+import { assertApprovedQuestionTopics } from "./approved-question-topics";
 import type { ReportGenerationProgress } from './generation-progress';
 import type {
   GenerateQuestionsBody,
@@ -131,9 +135,13 @@ async function courseMaterialDocuments(
       async (material): Promise<SourceDocument> => ({
         fileName: material.fileName,
         contentType: material.contentType,
-        buffer: await downloadBufferFromBucket(
-          supabaseBuckets.courseMaterials,
+        buffer: await loadCourseMaterialBuffer(
           material.storagePath,
+          material.checksum,
+          () => downloadBufferFromBucket(
+            supabaseBuckets.courseMaterials,
+            material.storagePath,
+          ),
         ),
       }),
     ),
@@ -229,7 +237,8 @@ export async function generate(
       subject.name,
       sources.sourceNames,
     );
-    const questions = await generateWithGemini({
+    const generateQuestions = aiAgentConfig.enabled ? generateWithQuestionAgent : generateWithGemini;
+    const questions = await generateQuestions({
       contents,
       prompt,
       extraction: input.mode === "EXTRACT_EXISTING_EXAM",
@@ -298,6 +307,10 @@ export async function saveApproved(
     throw new ValidationError(
       "Generated question subject does not match its AI history",
     );
+  }
+  const topicIds = [...new Set(input.questions.flatMap((item) => item.topicIds))];
+  if (topicIds.length) {
+    assertApprovedQuestionTopics(input.questions, await repo.findTopicsByIds(topicIds));
   }
   const saved = await repo.saveApprovedQuestions(teacherId, input);
   return {

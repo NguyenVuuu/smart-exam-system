@@ -8,10 +8,17 @@ import AdminButton from '../AdminButton'
 
 const PRESET_MODELS = [
   {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash-Lite',
+    tag: 'Mặc định',
+    badge: 'Dùng chung cho SOES',
+    description: 'Mô hình nhẹ cho trợ lý học tập và sinh câu hỏi; kết quả vẫn được hệ thống kiểm tra trước khi sử dụng.',
+  },
+  {
     id: 'gemini-3.1-flash-lite',
     name: 'Gemini 3.1 Flash-Lite',
-    tag: 'Khuyên dùng',
-    badge: 'Khuyên dùng cho SOES',
+    tag: 'Tùy chọn',
+    badge: 'Phiên bản trước',
     description: 'Phản hồi cực nhanh, tối ưu chi phí token và rất phù hợp để trích xuất & sinh câu hỏi trắc nghiệm.',
   },
   {
@@ -44,7 +51,7 @@ export default function AiSettingsPanel({
   settings: AdminSystemSettings['ai']
   onUpdated: () => void
 }) {
-  const initialModel = settings.model || 'gemini-3.1-flash-lite'
+  const initialModel = settings.model || 'gemini-3.5-flash-lite'
   const initialModelIsCustom = !PRESET_MODELS.some(({ id }) => id === initialModel)
   const [model, setModel] = useState(initialModel)
   const [customModel, setCustomModel] = useState(initialModelIsCustom ? initialModel : '')
@@ -155,7 +162,7 @@ export default function AiSettingsPanel({
                 type="text"
                 value={customModel}
                 onChange={(e) => setCustomModel(e.target.value)}
-                placeholder="VD: gemini-3.1-flash-lite hoặc gemini-3.6-flash"
+                placeholder="VD: gemini-3.5-flash-lite"
                 className="h-9 flex-1 max-w-sm rounded-xl border border-gray-200 bg-white px-3 text-xs font-mono text-slate-800 outline-none focus:border-blue-500"
               />
             )}

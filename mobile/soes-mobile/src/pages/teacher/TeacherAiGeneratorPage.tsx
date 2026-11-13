@@ -1,12 +1,15 @@
-import { useRef, type ElementRef } from 'react'
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
+import { useEffect, useRef, useState, type ElementRef } from 'react'
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { AiReviewCard } from '../../components/teacher/ai/AiReviewCard'
 import { AiSourceSelector } from '../../components/teacher/ai/AiSourceSelector'
+import { QuestionTopicPicker } from '../../components/teacher/question-bank/QuestionTopicPicker'
+import { listLearningTopics } from '../../api/teacher-questions.api'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { useKeyboardBottomOffset } from '../../hooks/useKeyboardBottomOffset'
 import { useTeacherAiGenerator } from '../../hooks/useTeacherAiGenerator'
-import type { Difficulty } from '../../types/teacher-questions.types'
+import type { Difficulty, LearningTopic } from '../../types/teacher-questions.types'
 import { scrollToY } from '../../utils/keyboardScroll'
 
 const difficulties: { key: 'AUTO' | Difficulty; label: string }[] = [
@@ -23,6 +26,16 @@ export function TeacherAiGeneratorPage() {
   const cardLayouts = useRef<Record<string, number>>({})
 
   const ai = useTeacherAiGenerator()
+  const [topicCache, setTopicCache] = useState<{ subjectId: string; items: LearningTopic[] } | null>(null)
+  const [taggingId, setTaggingId] = useState<string | null>(null)
+  const topics = topicCache?.subjectId === ai.subjectId ? topicCache.items : []
+  useEffect(() => {
+    if (!ai.subjectId) return
+    let active = true
+    listLearningTopics(ai.subjectId).then((items) => { if (active) setTopicCache({ subjectId: ai.subjectId, items }) }).catch(() => {})
+    return () => { active = false }
+  }, [ai.subjectId])
+  const taggingQuestion = ai.questions.find((item) => item.id === taggingId)
   const { animatedOffset, isKeyboardOpen } = useKeyboardBottomOffset({ accountForBottomInset: true })
 
   if (ai.loading) return <ScreenState kind="loading" />
@@ -35,14 +48,21 @@ export function TeacherAiGeneratorPage() {
         Platform.OS === 'ios' && { paddingBottom: animatedOffset },
       ]}
     >
-      <ScrollView
+      {taggingQuestion && <QuestionTopicPicker key={taggingQuestion.id} subjectId={ai.subjectId}
+        title={taggingQuestion.title} content={taggingQuestion.content}
+        initialTopics={topics.filter((topic) => taggingQuestion.topicIds?.includes(topic.id))}
+        onClose={() => setTaggingId(null)} onSave={(selectedTopics) => {
+          setTopicCache({ subjectId: ai.subjectId, items: Array.from(new Map([...topics, ...selectedTopics].map((topic) => [topic.id, topic])).values()) })
+          ai.updateQuestion({ ...taggingQuestion, topicIds: selectedTopics.map((topic) => topic.id) })
+        }} />}
+      <BackToTopScrollView
         ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={[styles.content, isKeyboardOpen && styles.contentKeyboardOpen]}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={false}
       >
-        <ScreenHeader showBack title="Sinh câu hỏi AI" description="Chọn nguồn tài liệu, xem và lưu câu trắc nghiệm đạt yêu cầu" />
+        <ScreenHeader title="Sinh câu hỏi AI" description="Chọn nguồn tài liệu, xem và lưu câu trắc nghiệm đạt yêu cầu" />
         {!ai.generation ? (
           <>
             <Text style={styles.label}>Cách xử lý</Text>
@@ -137,6 +157,8 @@ export function TeacherAiGeneratorPage() {
                   onAccept={() => ai.acceptQuestion(question.id)}
                   onReject={() => ai.rejectQuestion(question.id)}
                   onChange={ai.updateQuestion}
+                  onTopics={() => setTaggingId(question.id)}
+                  topicNames={topics.filter((topic) => question.topicIds?.includes(topic.id)).map((topic) => topic.name)}
                   onFocusField={(fieldOffsetY) => {
                     const cardY = cardLayouts.current[question.id] ?? 0
                     scrollToY(scrollRef.current, cardY + fieldOffsetY, 16)
@@ -149,7 +171,7 @@ export function TeacherAiGeneratorPage() {
             </Pressable>
           </>
         )}
-      </ScrollView>
+      </BackToTopScrollView>
       <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"

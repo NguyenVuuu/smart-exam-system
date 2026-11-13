@@ -1,6 +1,7 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { useState } from 'react'
 import { CalendarDays, List } from 'lucide-react-native'
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { InvigilationCard } from '../../components/teacher/invigilation/InvigilationCard'
 import { InvigilationCalendar } from '../../components/teacher/invigilation/InvigilationCalendar'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -20,7 +21,7 @@ export function TeacherInvigilationPage() {
   const [view, setView] = useState<'list' | 'calendar'>('calendar')
   return <View style={styles.root}>
     <View style={styles.header}>
-      <ScreenHeader showBack title="Lịch coi thi" description="Ca thi bạn tạo hoặc được phân công coi thi" />
+      <ScreenHeader title="Lịch coi thi" description="Ca thi bạn tạo hoặc được phân công coi thi" />
       <View style={styles.switcher}>
         <Pressable accessibilityRole="button" accessibilityState={{ selected: view === 'calendar' }} onPress={() => setView('calendar')} style={[styles.switchButton, view === 'calendar' && styles.switchActive]}>
           <CalendarDays size={16} color={view === 'calendar' ? '#fff' : '#475569'} /><Text style={[styles.switchText, view === 'calendar' && styles.switchTextActive]}>Lịch tháng</Text>
@@ -37,7 +38,7 @@ export function TeacherInvigilationPage() {
       </>}
     </View>
     {view === 'calendar' ? <InvigilationCalendar /> : schedule.loading && !schedule.items.length ? <ScreenState kind="loading" /> : schedule.error && !schedule.items.length ?
-      <ScreenState kind="error" onRetry={schedule.retry} /> : <FlatList key={schedule.page} data={schedule.items} keyExtractor={(item) => item.id}
+      <ScreenState kind="error" onRetry={schedule.retry} /> : <BackToTopFlatList key={schedule.page} data={schedule.items} keyExtractor={(item) => item.id}
         renderItem={({ item }) => <InvigilationCard assignment={item} />} contentContainerStyle={styles.list}
         ListEmptyComponent={<ScreenState kind="empty" message="Không có ca coi thi phù hợp." />}
         ListFooterComponent={<>{schedule.error && <Text style={styles.error}>Không thể tải ca thi.</Text>}

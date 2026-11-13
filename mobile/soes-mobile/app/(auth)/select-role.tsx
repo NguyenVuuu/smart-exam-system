@@ -2,7 +2,8 @@ import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { ArrowLeft, ChevronRight, ClipboardList, GraduationCap, Landmark, Settings, UserRound, UsersRound, type LucideIcon } from 'lucide-react-native'
 import { router } from 'expo-router'
 import { useSelectRole } from '../../src/hooks/useLogin'
-import { ROLE_LABEL } from '../../src/utils/role'
+import { useAuthStore } from '../../src/store/authStore'
+import { ROLE_HOME, ROLE_LABEL } from '../../src/utils/role'
 import type { UserRole } from '../../src/types/auth.types'
 
 const ROLE_ICON: Record<UserRole, LucideIcon> = {
@@ -15,6 +16,8 @@ const ROLE_ICON: Record<UserRole, LucideIcon> = {
 
 export default function SelectRoleScreen() {
   const { selectRole, isLoading, error, pendingRoleSelection } = useSelectRole()
+  const currentRole = useAuthStore((state) => state.user?.role)
+  const setPendingRoleSelection = useAuthStore((state) => state.setPendingRoleSelection)
 
   // Nếu không có pending data thì render null — useSelectRole tự handle redirect
   if (!pendingRoleSelection) return null
@@ -76,13 +79,15 @@ export default function SelectRoleScreen() {
         })}
       </View>
 
-      {/* Back to login */}
       <TouchableOpacity
-        onPress={() => router.replace('/(auth)/login')}
+        onPress={() => {
+          setPendingRoleSelection(null)
+          router.replace(currentRole ? ROLE_HOME[currentRole] as never : '/(auth)/login')
+        }}
         className="mt-8 items-center"
         disabled={isLoading}
       >
-        <View className="flex-row items-center gap-1.5"><ArrowLeft size={15} color="#94a3b8" /><Text className="text-slate-400 text-sm">Quay lại đăng nhập</Text></View>
+        <View className="flex-row items-center gap-1.5"><ArrowLeft size={15} color="#94a3b8" /><Text className="text-slate-400 text-sm">{currentRole ? 'Quay lại' : 'Quay lại đăng nhập'}</Text></View>
       </TouchableOpacity>
     </View>
   )

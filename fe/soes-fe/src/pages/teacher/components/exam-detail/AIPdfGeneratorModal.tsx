@@ -1,9 +1,10 @@
-import { Check, CheckCircle2, ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Sparkles, Trash2, Upload, X, XCircle } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Sparkles, Tags, Trash2, Upload, X, XCircle } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '../../../../api/errors'
 import FileSelectionList from '../FileSelectionList'
 import { QuestionProgrammingEditor } from '../question-bank/editor/QuestionProgrammingEditor'
+import QuestionTopicModal from '../question-bank/QuestionTopicModal'
 import RichTextEditor from '../question-bank/editor/RichTextEditor'
 import { formatPlainTextToHtml } from '../../utils/formatHtml.utils'
 import { mapGeneratedQuestion } from '../../utils/ai-question-mapper'
@@ -83,6 +84,7 @@ export default function AIPdfGeneratorModal({
   const [customPrompt, setCustomPrompt] = useState<string>('')
   const { isGenerating, progress, start, finish } = useAiGenerationProgress()
   const [generatedList, setGeneratedList] = useState<Question[]>(storedGeneratedQuestions)
+  const [topicQuestion, setTopicQuestion] = useState<Question | null>(null)
   const [collapsedQuestionIds, setCollapsedQuestionIds] = useState<string[]>([])
   const [expandedTestCaseIds, setExpandedTestCaseIds] = useState<Record<string, string[]>>({})
   const [materials, setMaterials] = useState<AiMaterialDto[]>([])
@@ -179,6 +181,10 @@ export default function AIPdfGeneratorModal({
   }
 
   const handleConfirmAddAll = () => {
+    if (generatedList.some((question) => !question.topics?.length)) {
+      toast.error('Hãy gắn ít nhất một chủ đề cho mỗi câu hỏi trước khi thêm vào đề.')
+      return
+    }
     const invalidIndex = generatedList.findIndex(
       (question) => validateQuestion(question).length > 0,
     )
@@ -306,6 +312,7 @@ export default function AIPdfGeneratorModal({
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-4 backdrop-blur-xs">
       <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4">
@@ -561,6 +568,14 @@ export default function AIPdfGeneratorModal({
                               {q.title || q.content || 'Chưa có tiêu đề'}
                             </p>
                           )}
+                          <button type="button" onClick={() => setTopicQuestion(q)}
+                            className={`mt-2 inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold ${q.topics?.length
+                              ? 'border-blue-200 bg-blue-50 text-blue-700'
+                              : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                            <Tags size={13} /> {q.topics?.length
+                              ? q.topics.map((topic) => topic.name).join(' · ')
+                              : 'Gắn chủ đề'}
+                          </button>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
                           <button
@@ -707,6 +722,11 @@ export default function AIPdfGeneratorModal({
         </div>
       </div>
     </div>
+    <QuestionTopicModal question={topicQuestion} onClose={() => setTopicQuestion(null)}
+      onDraftSaved={(topics) => {
+        if (topicQuestion) updateGeneratedQuestion(topicQuestion.id, { topics })
+      }} />
+    </>
   )
 }
 

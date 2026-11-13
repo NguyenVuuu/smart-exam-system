@@ -66,6 +66,7 @@ const inlineExamQuestionSchema = z.object({
   explanation: z.string().trim().optional().nullable(),
   type: z.enum(['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE', 'PROGRAMMING']),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']),
+  topicIds: z.array(z.string().uuid()).max(10).refine((ids) => new Set(ids).size === ids.length).default([]),
   language: z.enum(['JAVA', 'C', 'CPP']).optional().nullable(),
   options: z.array(z.object({ content: z.string().trim().min(1), isCorrect: z.boolean() })).max(20).default([]),
   programmingConfig: z.object({

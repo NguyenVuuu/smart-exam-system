@@ -1,3 +1,4 @@
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
 import { useCallback, useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getExam, getExamSchedules, getReviewHistory } from '../../api/teacher-exams.api'
@@ -58,7 +59,7 @@ export function TeacherExamDetailPage({ id }: { id: string }) {
       {tabs.map((entry) => <Pressable key={entry.key} accessibilityRole="button" onPress={() => { setTabError(false); setTab(entry.key) }}
         style={[styles.tab, tab === entry.key && styles.active]}><Text style={[styles.tabText, tab === entry.key && styles.activeText]}>{entry.label}</Text></Pressable>)}
     </ScrollView>
-    <ScrollView contentContainerStyle={styles.content}>
+    <BackToTopScrollView contentContainerStyle={styles.content}>
       {tab === 'overview' && <ExamOverview exam={exam} />}
       {tab === 'questions' && (sortedQuestions.length ? sortedQuestions.map((question, index) =>
         <ExamQuestionCard key={question.id} question={question} number={index + 1} />) : <ScreenState kind="empty" message="Đề chưa có câu hỏi." />)}
@@ -69,7 +70,7 @@ export function TeacherExamDetailPage({ id }: { id: string }) {
         <Text style={styles.line}>Trạng thái: {round.status}</Text><Text style={styles.line}>Gửi lúc: {formatDateTime(round.submittedAt)}</Text>
         {round.decision?.reason ? <Text style={styles.line}>Lý do: {round.decision.reason}</Text> : null}
       </SectionCard>) : <ScreenState kind="empty" message="Chưa có lịch sử duyệt." /> : <ScreenState kind={tabError ? 'error' : 'loading'} onRetry={() => { setTabError(false); void getReviewHistory(id).then(setHistory).catch(() => setTabError(true)) }} />)}
-    </ScrollView>
+    </BackToTopScrollView>
   </View>
 }
 

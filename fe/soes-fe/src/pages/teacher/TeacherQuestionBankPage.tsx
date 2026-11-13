@@ -13,6 +13,7 @@ import QuestionBankTable from './components/question-bank/QuestionBankTable'
 import QuestionBankToolbar from './components/question-bank/QuestionBankToolbar'
 import QuestionDetailModal from './components/question-bank/QuestionDetailModal'
 import QuestionEditorModal from './components/question-bank/QuestionEditorModal'
+import QuestionTopicModal from './components/question-bank/QuestionTopicModal'
 import RemoveSharedQuestionDialog from './components/question-bank/RemoveSharedQuestionDialog'
 import { useTeacherQuestions } from './hooks/useTeacherQuestions'
 import type { Question } from './types/teacher-question-bank.types'
@@ -33,10 +34,12 @@ export default function TeacherQuestionBankPage() {
   const [selectedType, setSelectedType] = useState('ALL')
   const [selectedDifficulty, setSelectedDifficulty] = useState('ALL')
   const [selectedStatus, setSelectedStatus] = useState('ALL')
+  const [showUntaggedOnly, setShowUntaggedOnly] = useState(false)
 
   // Modals state
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
+  const [taggingQuestion, setTaggingQuestion] = useState<Question | null>(null)
   const [viewingQuestion, setViewingQuestion] = useState<Question | null>(null)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [removingSharedQuestion, setRemovingSharedQuestion] = useState<Question | null>(null)
@@ -50,12 +53,14 @@ export default function TeacherQuestionBankPage() {
     setSelectedType('ALL')
     setSelectedDifficulty('ALL')
     setSelectedStatus('ALL')
+    setShowUntaggedOnly(false)
   }
 
   const filteredQuestions = questions.filter((q) => {
     const isArchived = Boolean(q.archivedAt)
 
     if (activeTab === 'SHARED' && q.reviewStatus !== 'APPROVED') return false
+    if (activeTab === 'PERSONAL' && showUntaggedOnly && q.topics?.length) return false
 
     if (selectedStatus === 'ARCHIVED') {
       if (!isArchived) return false
@@ -201,6 +206,13 @@ export default function TeacherQuestionBankPage() {
           </div>
 
           <TeacherTablePanel>
+            {activeTab === 'PERSONAL' && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 text-sm">
+              <span className="text-slate-600">{questions.filter((q) => q.bankScope === 'PERSONAL' && !q.archivedAt && !q.topics?.length).length} câu cá nhân chưa gắn chủ đề</span>
+              <label className="flex cursor-pointer items-center gap-2 font-medium text-slate-700">
+                <input type="checkbox" checked={showUntaggedOnly} onChange={(event) => setShowUntaggedOnly(event.target.checked)} className="accent-blue-600" />
+                Chỉ xem câu chưa gắn chủ đề
+              </label>
+            </div>}
             <QuestionBankToolbar
               subjects={subjects}
               searchQuery={searchQuery}
@@ -226,6 +238,7 @@ export default function TeacherQuestionBankPage() {
                 setEditingQuestion(q)
                 setIsEditorOpen(true)
               }}
+              onEditTopics={setTaggingQuestion}
               onArchive={setArchivingQuestion}
               onRestore={async (q) => {
                 try {
@@ -259,6 +272,8 @@ export default function TeacherQuestionBankPage() {
         question={viewingQuestion}
         onClose={() => setViewingQuestion(null)}
       />
+
+      <QuestionTopicModal question={taggingQuestion} onClose={() => setTaggingQuestion(null)} onSaved={questionApi.retry} />
 
       <AIGenerationHistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} />
 

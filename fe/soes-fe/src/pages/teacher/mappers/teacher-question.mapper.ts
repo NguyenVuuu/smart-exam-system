@@ -13,6 +13,7 @@ export const toQuestion = (dto: TeacherQuestionDto): Question => ({
   id: dto.id,
   subjectId: dto.subject.id,
   subjectName: dto.subject.name,
+  topics: dto.topics,
   teacherId: dto.owner.id,
   teacherName: dto.owner.fullName,
   bankScope: dto.sharedBank?.status === 'APPROVED' && !dto.sharedBank.removedAt ? 'SHARED' : 'PERSONAL',

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { generatedQuestionSchema } from "../schemas/generated-question.schema";
 import { AI_GENERATION_LIMITS } from "../constants/ai-question-generation.constants";
+import { assignTopicsSchema } from "../../learning-topics/validators/learning-topics.validator";
 
 const id = z.string().trim().min(1);
 
@@ -64,6 +65,7 @@ export const saveGeneratedQuestionsSchema = z.object({
       z.object({
         generationId: id,
         subjectId: id,
+        topicIds: assignTopicsSchema.shape.topicIds.refine((ids) => ids.length > 0, 'Choose at least one topic'),
         question: generatedQuestionSchema,
       }),
     )

@@ -205,11 +205,6 @@ export async function updateExamDefaultsSettings(
   return updated.examDefaults
 }
 
-export async function getStoredAiSettings(): Promise<AiSettingsDto> {
-  const fileConfig = await readSystemSettingsFile()
-  return fileConfig.ai
-}
-
 export async function updateAiSettings(
   userId: string,
   payload: UpdateAiSettingsDto,

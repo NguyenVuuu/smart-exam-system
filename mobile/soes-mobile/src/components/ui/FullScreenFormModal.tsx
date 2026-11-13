@@ -4,6 +4,7 @@ import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, Vie
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { useKeyboardBottomOffset } from '../../hooks/useKeyboardBottomOffset'
 import { scrollToY as scrollToLayoutY } from '../../utils/keyboardScroll'
+import { BackToTopScrollView } from './BackToTop'
 
 interface ModalScrollContextType {
   scrollToY: (y: number, extraOffset?: number) => void
@@ -51,7 +52,7 @@ function ModalInner({ title, onClose, children, footer, closeDisabled }: Omit<Pr
           </Pressable>
         </View>
         <ModalScrollContext.Provider value={{ scrollToY, scrollRef }}>
-          <ScrollView
+          <BackToTopScrollView
             ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={[styles.content, isKeyboardOpen && styles.contentKeyboardOpen]}
@@ -59,7 +60,7 @@ function ModalInner({ title, onClose, children, footer, closeDisabled }: Omit<Pr
             automaticallyAdjustKeyboardInsets={false}
           >
             {children}
-          </ScrollView>
+          </BackToTopScrollView>
         </ModalScrollContext.Provider>
         {footer && <View style={styles.footer}>{footer}</View>}
       </Animated.View>

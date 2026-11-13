@@ -2,21 +2,14 @@ import { CheckCircle2, Code, Eye, EyeOff, X } from 'lucide-react'
 import HtmlContent from '../../../../../components/common/HtmlContent'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../../constants/programmingLanguages'
 import type { AutoExamDraftStatus, GeneratedExamDraft } from '../../../types/teacher-auto-exam.types'
-import type { ExamCategory } from '../../../types/teacher-exam.types'
 
 export default function GeneratedExamPreviewModal({
   examCode,
-  examTitle,
-  examCategory,
   draftStatus,
-  durationMinutes,
   onClose,
 }: {
   examCode: GeneratedExamDraft | null
-  examTitle: string
-  examCategory: ExamCategory
   draftStatus: AutoExamDraftStatus
-  durationMinutes: number
   onClose: () => void
 }) {
   if (!examCode) return null
@@ -34,9 +27,9 @@ export default function GeneratedExamPreviewModal({
       <div className="bg-white rounded-2xl w-full max-w-6xl h-[92vh] shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-base font-bold text-gray-900">Xem trước đề thi tự động</h2>
+            <h2 className="text-base font-bold text-gray-900">{examCode.sourceMode === 'AGENT' ? 'Xem trước đề AI đề xuất' : 'Xem trước đề thi tự động'}</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              {examTitle || exam.title} • {examCategory} • {draftStatus === 'SAVED_DRAFT' ? 'Bản nháp đã lưu' : 'Bản sinh thử chưa lưu'}
+              {exam.title} • {exam.type} • {draftStatus === 'SAVED_DRAFT' ? 'Bản nháp đã lưu' : 'Bản sinh thử chưa lưu'}
             </p>
           </div>
           <button
@@ -49,7 +42,7 @@ export default function GeneratedExamPreviewModal({
 
         <div className="p-6 space-y-5 overflow-hidden flex flex-col min-h-0 flex-1">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs shrink-0">
-            <PreviewStat label="Thời lượng làm bài" value={`${durationMinutes} phút`} />
+            <PreviewStat label="Thời lượng làm bài" value={`${exam.defaultDurationMinutes} phút`} />
             <PreviewStat label="Tổng điểm mục tiêu" value={`${examCode.totalPoints.toFixed(1)} điểm`} />
             <PreviewStat label="Số lượng câu hỏi" value={`${exam.questions.length} câu`} />
             <PreviewStat label="Định dạng bài thi" value={formatLabel} />

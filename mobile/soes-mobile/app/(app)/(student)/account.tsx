@@ -1,7 +1,5 @@
-import {
-  View, Text, ScrollView, TouchableOpacity, TextInput,
-  ActivityIndicator, Platform, Animated,
-} from 'react-native'
+import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Platform, Animated } from 'react-native'
 import { ContactRound, Eye, EyeOff, GraduationCap, IdCard, KeyRound, LockKeyhole, LogOut, Mail, Phone, Save, ShieldCheck, TriangleAlert, UserRound, type LucideIcon } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { useStudentAccount } from '../../../src/hooks/useStudentAccount'
@@ -142,7 +140,7 @@ export default function StudentAccountScreen() {
   return (
     <StudentLayout activeRoute="account">
       <Animated.View style={{ flex: 1, paddingBottom: Platform.OS === 'ios' ? animatedOffset : 0 }}>
-        <ScrollView
+        <BackToTopScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 20, paddingBottom: isKeyboardOpen ? 220 : 48 }}
           keyboardShouldPersistTaps="handled"
@@ -266,7 +264,7 @@ export default function StudentAccountScreen() {
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#dc2626' }}>Đăng xuất</Text>
           </TouchableOpacity>
 
-        </ScrollView>
+        </BackToTopScrollView>
       </Animated.View>
     </StudentLayout>
   )

@@ -24,6 +24,7 @@ export interface Question {
   id: string
   subjectId: string
   subjectName: string
+  topics?: Array<{ id: string; code: string; name: string }>
   teacherId: string
   teacherName: string
   bankScope?: QuestionBankScope

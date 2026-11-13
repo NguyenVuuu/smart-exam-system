@@ -1,10 +1,12 @@
 export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'PROGRAMMING'
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
+export interface LearningTopic { id: string; code: string; name: string }
 export interface TeacherQuestion {
   id: string; title: string; content: string; explanation: string | null
   type: QuestionType; difficulty: Difficulty; language: 'JAVA' | 'C' | 'CPP' | null
   subject: { id: string; code: string; name: string }
   options: { id: string; content: string; isCorrect: boolean }[]
+  topics: LearningTopic[]
   sharedBank: { itemId: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; rejectionReason: string | null; removedAt: string | null } | null
   createdAt: string; archivedAt: string | null
 }

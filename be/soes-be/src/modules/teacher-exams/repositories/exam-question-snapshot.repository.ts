@@ -18,6 +18,7 @@ export interface SnapshotSource {
     isSample: boolean
     isHidden: boolean
   }>
+  topics?: Array<{ id: string; code: string; name: string }>
 }
 
 export interface SnapshotInput {
@@ -34,6 +35,7 @@ export async function deleteExamQuestions(tx: Prisma.TransactionClient, examId: 
   await tx.examQuestionOption.deleteMany({ where: { examQuestionId: { in: ids } } })
   await tx.programmingTestCase.deleteMany({ where: { examQuestionId: { in: ids } } })
   await tx.programmingQuestionConfig.deleteMany({ where: { examQuestionId: { in: ids } } })
+  await tx.examQuestionTopic.deleteMany({ where: { examQuestionId: { in: ids } } })
   await tx.examQuestion.deleteMany({ where: { examId } })
 }
 
@@ -52,6 +54,7 @@ export function createExamQuestion(tx: Prisma.TransactionClient, examId: string,
       type: source.type,
       difficulty: source.difficulty,
       language: source.language,
+      topics: { create: (source.topics ?? []).map((topic) => ({ topicId: topic.id, code: topic.code, name: topic.name })) },
       options: {
         create: source.options.map(({ content, isCorrect, orderIndex }, index) => ({
           ...sealExamOption(content, isCorrect),

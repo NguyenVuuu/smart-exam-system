@@ -23,6 +23,10 @@ export const findSubjectForTeacher = (
     select: { id: true, name: true },
   });
 
+export const findTopicsByIds = (topicIds: string[]) => prisma.learningTopic.findMany({
+  where: { id: { in: topicIds } }, select: { id: true, subjectId: true },
+});
+
 export const listAvailableMaterials = (teacherId: string, subjectId: string) =>
   prisma.material.findMany({
     where: {
@@ -158,6 +162,7 @@ function questionCreateData(
   generationId: string,
   subjectId: string,
   question: GeneratedQuestion,
+  topicIds: string[],
 ): Prisma.QuestionCreateInput {
   const programming = question.type === "PROGRAMMING";
   return {
@@ -172,6 +177,7 @@ function questionCreateData(
     type: question.type,
     difficulty: question.difficulty,
     aiDifficultyReason: question.difficultyReason,
+    topics: { create: topicIds.map((topicId) => ({ topic: { connect: { id: topicId } } })) },
     language: programming ? question.language : null,
     options: {
       create: question.options.map((option, orderIndex) => ({
@@ -205,9 +211,9 @@ export function saveApprovedQuestions(
   input: SaveGeneratedQuestionsBody,
 ) {
   return prisma.$transaction(
-    input.questions.map(({ generationId, subjectId, question }) =>
+    input.questions.map(({ generationId, subjectId, question, topicIds }) =>
       prisma.question.create({
-        data: questionCreateData(teacherId, generationId, subjectId, question),
+        data: questionCreateData(teacherId, generationId, subjectId, question, topicIds),
         select: { id: true },
       }),
     ),

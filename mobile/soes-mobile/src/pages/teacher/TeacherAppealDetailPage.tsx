@@ -1,6 +1,7 @@
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
 import { router } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { findAppealSubmission, getTeacherAppeal, gradeAppeal, updateTeacherAppeal } from '../../api/teacher-appeals.api'
 import { getExam } from '../../api/teacher-exams.api'
 import { AppealAnswerCard } from '../../components/teacher/appeals/AppealAnswerCard'
@@ -76,7 +77,7 @@ export function TeacherAppealDetailPage({ id }: { id: string }) {
   if (!appeal || !exam || !submission) return <ScreenState kind="empty" />
   const editable = appeal.status === 'PENDING' || appeal.status === 'IN_REVIEW'
 
-  return <ScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
+  return <BackToTopScrollView style={styles.root} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
     automaticallyAdjustKeyboardInsets>
     <ScreenHeader showBack title="Phúc khảo điểm" description={`${appeal.student.fullName} · ${appeal.student.studentCode}`} />
     <SectionCard title={appeal.exam.title}>
@@ -106,7 +107,7 @@ export function TeacherAppealDetailPage({ id }: { id: string }) {
         </View>
       </> : <Text style={styles.line}>Yêu cầu đã hoàn tất và được lưu trong lịch sử.</Text>}
     </SectionCard>
-  </ScrollView>
+  </BackToTopScrollView>
 }
 
 function Action({ label, disabled, secondary = false, onPress }: { label: string; disabled: boolean; secondary?: boolean; onPress: () => void }) {

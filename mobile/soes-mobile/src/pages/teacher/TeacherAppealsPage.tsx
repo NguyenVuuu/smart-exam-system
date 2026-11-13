@@ -1,6 +1,7 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { listTeacherAppeals } from '../../api/teacher-appeals.api'
 import { AppealCard } from '../../components/teacher/appeals/AppealCard'
 import { ChoicePicker } from '../../components/ui/ChoicePicker'
@@ -36,9 +37,9 @@ export function TeacherAppealsPage() {
   useFocusEffect(useCallback(() => { void load(1, status) }, [load, status]))
 
   return <View style={styles.root}>
-    <FlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.list}
+    <BackToTopFlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.list}
       ListHeaderComponent={<View style={styles.header}>
-        <ScreenHeader showBack title="Phúc khảo điểm" description="Xem yêu cầu, đối chiếu bài làm và lưu kết luận" />
+        <ScreenHeader title="Phúc khảo điểm" description="Xem yêu cầu, đối chiếu bài làm và lưu kết luận" />
         <ChoicePicker label="Trạng thái" placeholder="Tất cả trạng thái" options={statuses}
           selectedValues={[status]} onToggle={(value) => setStatus(value as AppealStatus | 'ALL')} />
       </View>}

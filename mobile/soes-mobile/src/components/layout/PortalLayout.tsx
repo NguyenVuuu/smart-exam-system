@@ -15,6 +15,8 @@ interface Props {
   notificationsHref: Href
 }
 
+export const PORTAL_BACKGROUND_COLOR = '#f8fafc'
+
 export function PortalLayout({ children, groups, activeRoute, portalLabel, notificationsHref }: Props) {
   const sidebarOpen = useUIStore((state) => state.sidebarOpen)
   const closeSidebar = useUIStore((state) => state.setSidebarOpen)
@@ -47,7 +49,7 @@ export function PortalLayout({ children, groups, activeRoute, portalLabel, notif
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f8fafc' },
+  safe: { flex: 1, backgroundColor: PORTAL_BACKGROUND_COLOR },
   content: { flex: 1, minHeight: 0 },
   drawerLayer: { ...StyleSheet.absoluteFill, flexDirection: 'row', zIndex: 20 },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(15, 23, 42, 0.35)' },

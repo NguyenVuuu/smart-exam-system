@@ -1,7 +1,6 @@
 ﻿import AutoExamBaseConfig from './config/AutoExamBaseConfig'
 import AutoExamDifficultyCountConfig from './config/AutoExamDifficultyCountConfig'
 import AutoExamGenerationActions from './config/AutoExamGenerationActions'
-import AutoExamManualQuestionPicker from './config/AutoExamManualQuestionPicker'
 import AutoExamQuestionPickModeConfig from './config/AutoExamQuestionPickModeConfig'
 import AutoExamQuestionSourceConfig from './config/AutoExamQuestionSourceConfig'
 import type { AutoExamConfigPanelProps } from '../../types/auto-exam-config.types'
@@ -13,17 +12,14 @@ export default function AutoExamConfigPanel(props: AutoExamConfigPanelProps) {
         <AutoExamBaseConfig {...props} />
         <AutoExamQuestionSourceConfig {...props} />
         <AutoExamQuestionPickModeConfig {...props} />
-        {props.pickMode === 'MANUAL' && <AutoExamManualQuestionPicker {...props} />}
         {props.pickMode === 'AUTO' && <AutoExamDifficultyCountConfig {...props} />}
       </div>
 
-      <AutoExamGenerationActions
+      {props.pickMode === 'AUTO' && <AutoExamGenerationActions
         isGenerating={props.isGenerating}
         totalQuestions={props.totalQuestions}
-        pickMode={props.pickMode}
-        selectedQuestionCount={props.selectedQuestions.length}
         onGenerate={props.onGenerate}
-      />
+      />}
     </div>
   )
 }

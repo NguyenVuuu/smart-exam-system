@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, ArchiveRestore, CloudUpload, Pencil } from 'lucide-react-native'
+import { Archive, ArchiveRestore, CloudUpload, Pencil, Tags } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { RichContent } from '../../ui/RichContent'
 import { SectionCard } from '../../ui/SectionCard'
@@ -15,15 +15,17 @@ interface Props {
   onShare?: () => void
   onArchive?: () => void
   onRestore?: () => void
+  onTopics?: () => void
 }
 
-export function QuestionCard({ question, onEdit, onShare, onArchive, onRestore }: Props) {
+export function QuestionCard({ question, onEdit, onShare, onArchive, onRestore, onTopics }: Props) {
   const [expanded, setExpanded] = useState(false)
   return <SectionCard>
     <Pressable accessibilityRole="button" accessibilityLabel={`Xem câu hỏi ${question.title}`} onPress={() => setExpanded((value) => !value)}>
       <View style={styles.badges}><StatusBadge label={types[question.type]} /><StatusBadge label={difficulties[question.difficulty]} tone="warning" /></View>
       <Text style={styles.title}>{question.title}</Text>
       <Text style={styles.meta}>{question.subject.code} · {question.subject.name}</Text>
+      <Text style={styles.meta}>Chủ đề: {question.topics?.length ? question.topics.map((topic) => topic.name).join(', ') : 'Chưa gắn nhãn'}</Text>
       {question.sharedBank ? <Text style={styles.meta}>Ngân hàng chung: {question.sharedBank.removedAt ? 'Đã gỡ' : question.sharedBank.status === 'APPROVED' ? 'Đã duyệt' : question.sharedBank.status === 'PENDING' ? 'Chờ duyệt' : 'Cần sửa'}</Text> : null}
       <Text style={styles.link}>{expanded ? 'Thu gọn' : 'Xem nội dung'}</Text>
     </Pressable>
@@ -35,7 +37,8 @@ export function QuestionCard({ question, onEdit, onShare, onArchive, onRestore }
       {question.explanation ? <View style={styles.explanation}><Text style={styles.meta}>Giải thích</Text><RichContent content={question.explanation} /></View> : null}
       {question.sharedBank?.rejectionReason ? <Text style={styles.reject}>Góp ý: {question.sharedBank.rejectionReason}</Text> : null}
     </View>}
-    {(onEdit || onShare || onArchive || onRestore) && <View style={styles.actions}>
+    {(onEdit || onShare || onArchive || onRestore || onTopics) && <View style={styles.actions}>
+      {onTopics && <Pressable accessibilityRole="button" accessibilityLabel="Gắn chủ đề câu hỏi" onPress={onTopics} style={styles.iconButton}><Tags size={19} color="#7c3aed" /></Pressable>}
       {onShare && <Pressable accessibilityRole="button" accessibilityLabel="Gửi duyệt ngân hàng chung" onPress={onShare} style={styles.iconButton}><CloudUpload size={19} color="#059669" /></Pressable>}
       {onEdit && <Pressable accessibilityRole="button" accessibilityLabel="Chỉnh sửa câu hỏi" onPress={onEdit} style={styles.iconButton}><Pencil size={19} color="#2563eb" /></Pressable>}
       {onArchive && <Pressable accessibilityRole="button" accessibilityLabel="Lưu trữ câu hỏi" onPress={onArchive} style={styles.iconButton}><Archive size={19} color="#475569" /></Pressable>}
