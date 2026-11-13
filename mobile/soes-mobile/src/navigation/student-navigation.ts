@@ -1,11 +1,11 @@
-import { Bell, BookOpen, BookOpenCheck, ChartNoAxesColumn, House, UserCircle } from 'lucide-react-native'
+import { Bell, BookOpen, Bot, ChartNoAxesColumn, House, UserCircle } from 'lucide-react-native'
 import type { NavigationGroup } from './navigation.types'
 
 export const studentNavigation: NavigationGroup[] = [
   { title: 'Tổng quan', items: [{ key: 'dashboard', label: 'Trang chủ', href: '/(app)/(student)/dashboard', icon: House }] },
   { title: 'Học tập', items: [
     { key: 'subjects', label: 'Lớp học phần', href: '/(app)/(student)/subjects', icon: BookOpen },
-    { key: 'learning', label: 'Trợ lý học tập', href: '/(app)/(student)/learning', icon: BookOpenCheck },
+    { key: 'learning', label: 'Trợ lý học tập', href: '/(app)/(student)/learning', icon: Bot },
   ]},
   { title: 'Kết quả', items: [{ key: 'scores', label: 'Điểm số', href: '/(app)/(student)/scores', icon: ChartNoAxesColumn }] },
   { title: 'Thông tin', items: [

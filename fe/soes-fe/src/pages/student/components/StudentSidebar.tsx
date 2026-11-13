@@ -1,7 +1,7 @@
 import {
   Bell,
   BookOpen,
-  BookOpenCheck,
+  Bot,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -44,7 +44,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Lớp học phần', icon: <BookOpen size={19} />, path: '/student/subjects' },
       { label: 'Bài thi', icon: <ClipboardList size={19} />, path: '/student/exams' },
-      { label: 'Trợ lý học tập', icon: <BookOpenCheck size={19} />, path: '/student/learning' },
+      { label: 'Trợ lý học tập', icon: <Bot size={19} />, path: '/student/learning' },
     ],
   },
   {

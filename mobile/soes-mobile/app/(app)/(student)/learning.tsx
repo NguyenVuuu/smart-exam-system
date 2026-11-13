@@ -1,19 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { BookOpenCheck, Send } from 'lucide-react-native'
+import { BookOpenCheck, Bot, MessageCircle, Send, Target } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
-import { askLearningAgent, getLearningAgentError, getLearningInsights, getStudyMaterials, type LearningAnswer, type StudentLearningInsights, type StudyMaterial } from '../../../src/api/student-learning.api'
+import { askLearningAgent, getLearningAgentError, getLearningConversation, getLearningInsights, getStudyMaterials, listLearningConversations,
+  type LearningConversationSummary, type LearningConversationTurn, type StudentLearningInsights, type StudyMaterial } from '../../../src/api/student-learning.api'
 import StudentLayout from '../../../src/components/student/StudentLayout'
+import { StudentConversationHistory } from '../../../src/components/student/StudentConversationHistory'
 import StudentPracticeSection from '../../../src/components/student/StudentPracticeSection'
+import { ChoicePicker } from '../../../src/components/ui/ChoicePicker'
 
 export default function StudentLearningScreen() {
   const { isInitialized, isAuthenticated } = useRequireAuth()
+  const [activeTab, setActiveTab] = useState<'ask' | 'practice' | 'topics'>('ask')
   const [insights, setInsights] = useState<StudentLearningInsights | null>(null)
-  const [answer, setAnswer] = useState<LearningAnswer | null>(null)
+  const [conversationId, setConversationId] = useState('')
+  const [conversations, setConversations] = useState<LearningConversationSummary[]>([])
+  const [turns, setTurns] = useState<LearningConversationTurn[]>([])
+  const conversationRequest = useRef(0)
   const [question, setQuestion] = useState('')
   const [materials, setMaterials] = useState<StudyMaterial[]>([])
   const [materialId, setMaterialId] = useState('')
-  const [answeredFromMaterial, setAnsweredFromMaterial] = useState('')
+  const [subjectId, setSubjectId] = useState('')
   const [loading, setLoading] = useState(true)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
@@ -29,33 +36,91 @@ export default function StudentLearningScreen() {
     return () => { active = false }
   }, [isAuthenticated, isInitialized])
 
+  useEffect(() => {
+    if (!materialId) return
+    let active = true
+    listLearningConversations(materialId)
+      .then((items) => { if (active) setConversations(items) })
+      .catch(() => { if (active) setError('Không thể tải lịch sử hội thoại.') })
+    return () => { active = false }
+  }, [materialId])
+
+  const changeMaterial = (value: string) => {
+    conversationRequest.current += 1
+    setMaterialId(value)
+    setConversationId('')
+    setConversations([])
+    setTurns([])
+    setError('')
+  }
+
+  const selectConversation = async (id: string) => {
+    const request = ++conversationRequest.current
+    setConversationId(id)
+    setTurns([])
+    setError('')
+    if (!id) return
+    try {
+      const history = await getLearningConversation(id, materialId)
+      if (request === conversationRequest.current) setTurns(history)
+    } catch (cause) {
+      if (request === conversationRequest.current) {
+        setConversationId('')
+        setError(getLearningAgentError(cause, 'Không thể mở hội thoại.'))
+      }
+    }
+  }
+
   const ask = async () => {
     const message = question.trim()
-    if (!message || asking) return
+    if (!message || asking || !materialId) return
     setAsking(true)
     setError('')
+    const request = conversationRequest.current
     try {
-      setAnswer(await askLearningAgent(message, materialId || undefined))
-      setAnsweredFromMaterial(materialId)
+      const result = await askLearningAgent(message, materialId, conversationId || undefined)
+      if (request !== conversationRequest.current) return
+      setConversationId(result.conversationId)
+      setTurns((current) => [...current, { id: `${Date.now()}-${current.length}`, message,
+        answer: result.answer, createdAt: new Date().toISOString() }])
       setQuestion('')
+      void listLearningConversations(materialId).then((items) => {
+        if (request === conversationRequest.current) setConversations(items)
+      }).catch(() => {})
     } catch (cause) {
-      setError(getLearningAgentError(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
+      if (request === conversationRequest.current) setError(getLearningAgentError(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
     } finally {
       setAsking(false)
     }
   }
+  const subjects = Array.from(new Map(materials.map((item) => [item.courseOffering.subject.id, item.courseOffering.subject])).values())
+  const subjectMaterials = materials.filter((item) => item.courseOffering.subject.id === subjectId)
 
   return <StudentLayout activeRoute="learning">
     <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ padding: 10, borderRadius: 12, backgroundColor: '#eff6ff' }}><BookOpenCheck size={22} color="#2563eb" /></View>
+        <View style={{ padding: 10, borderRadius: 12, backgroundColor: '#eff6ff' }}><Bot size={22} color="#2563eb" /></View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>Trợ lý học tập</Text>
-          <Text style={{ fontSize: 13, color: '#64748b' }}>Gợi ý ôn tập từ kết quả đã công bố</Text>
+          <Text style={{ fontSize: 13, color: '#64748b' }}>Hỏi về tài liệu lớp học, luyện tập và xem chủ đề cần ôn.</Text>
         </View>
       </View>
 
-      <View style={{ padding: 16, borderRadius: 16, backgroundColor: '#fff', gap: 8 }}>
+      <View accessibilityRole="tablist" style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' }}>
+        {([
+          ['ask', 'Hỏi trợ lý', MessageCircle],
+          ['practice', 'Bài luyện', BookOpenCheck],
+          ['topics', 'Chủ đề', Target],
+        ] as const).map(([key, label, Icon]) => <TouchableOpacity key={key} accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === key }} onPress={() => setActiveTab(key)}
+          style={{ flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+            borderBottomWidth: 2, borderBottomColor: activeTab === key ? '#2563eb' : 'transparent' }}>
+          <Icon size={16} color={activeTab === key ? '#1d4ed8' : '#64748b'} />
+          <Text style={{ fontSize: 12, fontWeight: '700', color: activeTab === key ? '#1d4ed8' : '#64748b' }}>{label}</Text>
+        </TouchableOpacity>)}
+      </View>
+
+      {activeTab === 'topics' && <View style={{ padding: 16, borderRadius: 16, backgroundColor: '#fff', gap: 8 }}>
         <Text style={{ fontSize: 16, fontWeight: '700', color: '#0f172a' }}>Chủ đề cần chú ý</Text>
         {loading && <ActivityIndicator color="#2563eb" />}
         {insights && <>
@@ -70,41 +135,32 @@ export default function StudentLearningScreen() {
             </Text>
           </View>)}
         </>}
-      </View>
+      </View>}
 
-      <View style={{ padding: 16, borderRadius: 16, backgroundColor: '#fff', gap: 10 }}>
+      {activeTab === 'ask' && <View style={{ padding: 16, borderRadius: 16, backgroundColor: '#fff', gap: 10 }}>
         <Text style={{ fontSize: 16, fontWeight: '700', color: '#0f172a' }}>Hỏi trợ lý</Text>
         <Text style={{ color: '#64748b' }}>Chọn tài liệu lớp học để hỏi về nội dung ôn tập.</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          <TouchableOpacity onPress={() => setMaterialId('')} accessibilityRole="button"
-            style={{ padding: 10, borderRadius: 10, backgroundColor: materialId ? '#f1f5f9' : '#dbeafe' }}>
-            <Text>Chỉ kết quả thi</Text>
-          </TouchableOpacity>
-          {materials.map((material) => <TouchableOpacity key={material.id} onPress={() => setMaterialId(material.id)}
-            accessibilityRole="button" style={{ padding: 10, borderRadius: 10, backgroundColor: materialId === material.id ? '#dbeafe' : '#f1f5f9' }}>
-            <Text>{material.title || material.fileName}</Text>
-          </TouchableOpacity>)}
-        </ScrollView>
+        <ChoicePicker label="Môn học" placeholder="Chọn môn học" options={subjects.map((subject) => ({ value: subject.id, label: subject.name }))}
+          selectedValues={subjectId ? [subjectId] : []} onToggle={(value) => { setSubjectId(value); changeMaterial('') }} />
+        <ChoicePicker label="Tài liệu lớp học" placeholder={subjectId ? 'Chọn tài liệu' : 'Chọn môn học trước'}
+          options={subjectMaterials.map((material) => ({ value: material.id, label: material.title || material.fileName,
+            description: material.fileName }))} selectedValues={materialId ? [materialId] : []}
+          onToggle={changeMaterial} disabled={!subjectId} />
+        {materials.length === 0 && <Text style={{ color: '#64748b' }}>Chưa có tài liệu lớp học phù hợp để hỏi.</Text>}
+        {!!materialId && <StudentConversationHistory conversations={conversations} currentId={conversationId}
+          turns={turns} material={materials.find((item) => item.id === materialId)} onSelect={(id) => void selectConversation(id)} />}
         <TextInput value={question} onChangeText={setQuestion} maxLength={500} multiline
-          placeholder="Ví dụ: Tôi nên ôn chủ đề nào trước?" accessibilityLabel="Câu hỏi cho trợ lý học tập"
+          placeholder="Ví dụ: Giải thích khái niệm trong tài liệu này." accessibilityLabel="Câu hỏi cho trợ lý học tập"
           style={{ minHeight: 80, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', textAlignVertical: 'top' }} />
-        <TouchableOpacity accessibilityRole="button" onPress={() => void ask()} disabled={asking || !question.trim()}
-          style={{ minHeight: 46, borderRadius: 10, backgroundColor: '#2563eb', opacity: asking || !question.trim() ? 0.5 : 1,
+        <TouchableOpacity accessibilityRole="button" onPress={() => void ask()} disabled={asking || !question.trim() || !materialId}
+          style={{ minHeight: 46, borderRadius: 10, backgroundColor: '#2563eb', opacity: asking || !question.trim() || !materialId ? 0.5 : 1,
             flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <Send size={16} color="#fff" /><Text style={{ color: '#fff', fontWeight: '700' }}>{asking ? 'Đang phân tích...' : 'Gửi'}</Text>
         </TouchableOpacity>
         {!!error && <Text accessibilityRole="alert" style={{ color: '#b91c1c' }}>{error}</Text>}
-        {answer && <View style={{ padding: 14, borderRadius: 12, backgroundColor: '#eff6ff', gap: 8 }}>
-          <Text style={{ color: '#0f172a', fontWeight: '600' }}>{answer.summary}</Text>
-          {answer.actions.map((action, index) => <Text key={index} style={{ color: '#334155' }}>• {action}</Text>)}
-          {!!answer.caveat && <Text style={{ color: '#64748b' }}>{answer.caveat}</Text>}
-          {!!answeredFromMaterial && answer.evidenceIds.includes(answeredFromMaterial) && <Text style={{ color: '#1d4ed8', fontSize: 12 }}>
-            Nguồn: {materials.find((item) => item.id === answeredFromMaterial)?.title || materials.find((item) => item.id === answeredFromMaterial)?.fileName}
-          </Text>}
-          <Text style={{ fontSize: 12, color: '#64748b' }}>Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên.</Text>
-        </View>}
-      </View>
-      <StudentPracticeSection materials={materials} topics={insights?.topics ?? []} />
+        {turns.length > 0 && <Text style={{ fontSize: 12, color: '#64748b' }}>Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên.</Text>}
+      </View>}
+      {activeTab === 'practice' && <StudentPracticeSection materials={materials} topics={insights?.topics ?? []} />}
     </ScrollView>
   </StudentLayout>
 }
