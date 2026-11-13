@@ -3,7 +3,7 @@ import base64
 import pytest
 
 from soes_agent.contracts import PracticeDraft, PracticeDraftRequest, StudyMaterial
-from soes_agent.practice import generate_practice, parse_candidates, validate_draft, validate_questions
+from soes_agent.practice import generate_practice, parse_candidates, review_questions, validate_draft, validate_questions
 from soes_agent.practice_evidence import evidence_passages
 
 
@@ -50,6 +50,24 @@ def test_practice_does_not_use_table_of_contents_as_evidence():
     candidate = draft(contents)
     with pytest.raises(ValueError, match="table of contents"):
         validate_draft(candidate, source, 1)
+
+
+def test_practice_does_not_cite_a_short_section_heading():
+    heading = "Khai báo chồng phương thức (overloading method)"
+    source = (heading + "\nCác phương thức cùng tên có thể khác số lượng hoặc kiểu tham số. ")
+    assert evidence_passages(source) == ["Các phương thức cùng tên có thể khác số lượng hoặc kiểu tham số."]
+    candidate = draft(heading).questions[0]
+    with pytest.raises(ValueError, match="heading"):
+        validate_questions([candidate], source, 1, {id(candidate)})
+
+
+def test_practice_uses_distinct_citations_when_source_has_enough_passages():
+    first = draft().questions[0]
+    second = first.model_copy(deep=True)
+    second.stem = "Khi nối hai bảng bằng INNER JOIN, điều kiện nào quyết định các hàng được giữ?"
+    accepted, issues = review_questions([first, second], SOURCE, unique_sources=True)
+    assert len(accepted) == 1
+    assert issues["Duplicate practice source"] == 1
 
 
 def test_practice_rejects_unsupported_or_ambiguous_answer():

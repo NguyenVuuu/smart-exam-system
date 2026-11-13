@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from .contracts import PracticeDraft, PracticeDraftRequest, PracticeQuestion
 from .materials import extract_material, select_material_excerpt, source_location
-from .practice_evidence import batch_evidence, evidence_passages, is_table_of_contents_entry
+from .practice_evidence import batch_evidence, evidence_passages, is_heading_only, is_table_of_contents_entry
 from .practice_verification import verify_answers_against_sources
 
 logger = logging.getLogger(__name__)
@@ -83,10 +83,12 @@ def lacks_code_context(stem: str) -> bool:
 
 
 def review_questions(questions: list[PracticeQuestion], source: str,
-                     independently_verified: set[int] | None = None) -> tuple[list[PracticeQuestion], Counter]:
+                     independently_verified: set[int] | None = None,
+                     unique_sources: bool = False) -> tuple[list[PracticeQuestion], Counter]:
     source_text = normalize(source)
     stems = set()
     concepts = set()
+    cited_sources = set()
     accepted_questions: list[tuple[str, str]] = []
     accepted = []
     issues: Counter = Counter()
@@ -109,6 +111,10 @@ def review_questions(questions: list[PracticeQuestion], source: str,
         if len(question.explanation.strip()) < 70:
             issues["Practice explanation is too short"] += 1
             continue
+        citation = normalize(question.supportQuote)
+        if unique_sources and citation in cited_sources:
+            issues["Duplicate practice source"] += 1
+            continue
         concept = (normalize(question.supportQuote), normalize(question.options[question.correctIndex]))
         if (stem in stems or concept in concepts
                 or repeats_question(stem, canonical_answer(question.options[question.correctIndex]), accepted_questions)
@@ -121,6 +127,9 @@ def review_questions(questions: list[PracticeQuestion], source: str,
         if is_table_of_contents_entry(question.supportQuote):
             issues["Practice question cites a table of contents entry"] += 1
             continue
+        if is_heading_only(question.supportQuote):
+            issues["Practice question cites a heading"] += 1
+            continue
         if (normalize(question.options[question.correctIndex]) == normalize(question.supportQuote)
                 and re.search(r"[;{}()]", question.supportQuote)):
             issues["Practice question copies a code example"] += 1
@@ -132,6 +141,7 @@ def review_questions(questions: list[PracticeQuestion], source: str,
             continue
         stems.add(stem)
         concepts.add(concept)
+        cited_sources.add(citation)
         accepted_questions.append((stem, canonical_answer(question.options[question.correctIndex])))
         accepted.append(question.model_copy(update={"explanation": re.sub(
             r"\bEVIDENCE_\d{4}\b", "đã cho", question.explanation, flags=re.IGNORECASE), "options": [
@@ -196,7 +206,8 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
         "Kiểm tra ý nghĩa thật của mã, không nhầm in ra chuỗi ký tự với so sánh biến. "
         "Được diễn đạt lại câu hỏi và đáp án nhưng nội dung phải suy ra được từ đúng một "
         "đoạn nguồn. Ghi ID của đoạn nguồn vào supportQuote, ví dụ EVIDENCE_0001; "
-        "không tự chép hay bịa đoạn trích. Nếu đoạn nguồn không đủ chứng minh đáp án, "
+        "không tự chép hay bịa đoạn trích. Không dùng tiêu đề làm dẫn chứng; "
+        "mỗi câu dùng đoạn nguồn khác nhau nếu có đủ đoạn phù hợp. Nếu đoạn nguồn không đủ chứng minh đáp án, "
         "hãy chọn kiến thức khác. Giải thích 2-4 câu: vì sao đáp án đúng, vì sao các đáp "
         "án khác sai. Viết hoa chữ đầu của lựa chọn thông thường; giữ nguyên mã nguồn "
         "và tên hàm. Không nhắc ID EVIDENCE trong câu hỏi hay giải thích. "
@@ -248,7 +259,8 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
     batches = await asyncio.gather(*(generate_batch(index, batch_size) for index in range(batch_count)))
     candidates = [question for batch in batches for question in batch]
     for attempt in range(3):
-        accepted, issues = review_questions(candidates, source, verified_answers)
+        accepted, issues = review_questions(candidates, source, verified_answers,
+                                            unique_sources=len(passages) >= request.count)
         missing = request.count - len(accepted)
         if missing <= 0:
             return PracticeDraft(questions=[question.model_copy(update={

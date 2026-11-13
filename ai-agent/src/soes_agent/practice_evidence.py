@@ -5,6 +5,11 @@ def is_table_of_contents_entry(text: str) -> bool:
     return re.search(r"(?:\.{3,}|…{2,})\s*\d{1,4}\s*$", text.strip()) is not None
 
 
+def is_heading_only(text: str) -> bool:
+    value = text.strip()
+    return len(value.split()) <= 9 and not value.endswith((".", "!", "?", ";")) and not re.search(r"[=;{}]", value)
+
+
 def evidence_passages(source: str) -> list[str]:
     """Keep short, literal passages so the model only selects evidence IDs."""
     passages = []
@@ -22,10 +27,11 @@ def evidence_passages(source: str) -> list[str]:
             key = re.sub(r"\s+", " ", piece).casefold()
             if (len(piece) >= 30 and key not in seen
                     and not re.match(r"^(?:mục lục|chương \d+\b)", key)
-                    and not is_table_of_contents_entry(piece)):
+                    and not is_table_of_contents_entry(piece)
+                    and not is_heading_only(piece)):
                 passages.append(piece)
                 seen.add(key)
-    if not passages and len(source.strip()) >= 10 and not is_table_of_contents_entry(source):
+    if not passages and len(source.strip()) >= 10 and not is_table_of_contents_entry(source) and not is_heading_only(source):
         passages = [source.strip()[:300]]
     return passages
 
