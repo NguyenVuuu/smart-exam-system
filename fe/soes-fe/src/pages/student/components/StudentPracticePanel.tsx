@@ -62,7 +62,7 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
 
   return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
-      <span className="rounded-xl bg-violet-50 p-2.5 text-violet-600"><BookOpen size={20} /></span>
+      <span className="rounded-xl bg-blue-50 p-2.5 text-blue-600"><BookOpen size={20} /></span>
       <div>
         <h2 className="font-bold text-slate-950">Bài luyện từ tài liệu lớp học</h2>
         <p className="mt-1 text-sm text-slate-500">Chọn tài liệu, mô tả nội dung muốn luyện và số câu phù hợp.</p>

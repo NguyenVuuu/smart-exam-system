@@ -1,4 +1,5 @@
 import AppSelect from './AppSelect'
+import AgentAnswerMarkdown from './AgentAnswerMarkdown'
 
 export interface AgentConversationSummary {
   id: string
@@ -36,7 +37,7 @@ export default function AgentConversationHistory<TAnswer extends { summary: stri
       {turns.map((turn) => <div key={turn.id} className="space-y-2 text-sm">
         <p className="ml-auto w-fit max-w-[90%] rounded-xl bg-blue-600 px-3 py-2 text-white">{turn.message}</p>
         <div className="max-w-[95%] rounded-xl border border-slate-200 bg-white p-3 text-slate-800">
-          <p className="font-medium">{turn.answer.summary}</p>
+          <AgentAnswerMarkdown text={turn.answer.summary} />
           {turn.answer.actions.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5">
             {turn.answer.actions.map((action, index) => <li key={index}>{action}</li>)}
           </ul>}

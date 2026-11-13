@@ -122,7 +122,7 @@ export default function StudentLearningPage() {
                 id={`learning-tab-${tab}`} role="tab" aria-selected={activeTab === tab}
                 aria-controls={`learning-panel-${tab}`} onClick={() => setActiveTab(tab)}
                 className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition ${activeTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
-                <Icon size={17} />{label}
+                <Icon size={17} className="text-blue-600" />{label}
               </button>)}
             </nav>
 
@@ -132,7 +132,10 @@ export default function StudentLearningPage() {
 
             <section id="learning-panel-topics" role="tabpanel" aria-labelledby="learning-tab-topics"
               className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${activeTab === 'topics' ? '' : 'hidden'}`}>
-              <h2 className="font-semibold text-slate-950">Chủ đề cần chú ý</h2>
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl bg-blue-50 p-2.5 text-blue-600"><Target size={20} /></span>
+                <h2 className="font-semibold text-slate-950">Chủ đề cần chú ý</h2>
+              </div>
               {loading && <p className="mt-3 text-sm text-slate-500">Đang tải dữ liệu...</p>}
               {insightsError && <p role="alert" className="mt-3 text-sm text-red-600">Không thể tải dữ liệu kết quả học tập.</p>}
               {!loading && insights && (
@@ -162,7 +165,7 @@ export default function StudentLearningPage() {
             <section id="learning-panel-ask" role="tabpanel" aria-labelledby="learning-tab-ask"
               className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ${activeTab === 'ask' ? '' : 'hidden'}`}>
               <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
-                <span className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><MessageCircle size={20} /></span>
+                <span className="rounded-xl bg-blue-50 p-2.5 text-blue-600"><MessageCircle size={20} /></span>
                 <div>
                   <h2 className="font-bold text-slate-950">Hỏi trợ lý</h2>
                   <p className="mt-1 text-sm text-slate-500">Đặt câu hỏi dựa trên tài liệu lớp học đã chọn.</p>
