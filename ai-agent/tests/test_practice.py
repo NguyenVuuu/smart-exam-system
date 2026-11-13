@@ -1,4 +1,5 @@
 import base64
+import re
 
 import pytest
 
@@ -223,14 +224,25 @@ def test_candidate_parser_skips_malformed_items_without_losing_valid_answers():
     assert result[0].correctIndex == 0
 
 
+class VerifiedFixtureModel:
+    """Fixture knowledge has answer zero; generated drafts may deliberately disagree."""
+    def with_structured_output(self, schema, *, method):
+        assert method == "json_schema"
+        if "verdicts" in schema.get("properties", {}):
+            return self.Verifier()
+        return self
+
+    class Verifier:
+        async def ainvoke(self, messages):
+            indexes = re.findall(r"^Câu (\d+):", messages[1][1], re.MULTILINE)
+            return {"verdicts": [{"itemIndex": int(index), "answerIndex": 0,
+                                  "qualityAccepted": True} for index in indexes]}
+
+
 @pytest.mark.asyncio
 async def test_generation_recovers_when_model_returns_malformed_candidate():
-    class Model:
+    class Model(VerifiedFixtureModel):
         calls = 0
-
-        def with_structured_output(self, _schema, *, method):
-            assert method == 'json_schema'
-            return self
 
         async def ainvoke(self, _messages):
             self.calls += 1
@@ -248,11 +260,7 @@ async def test_generation_recovers_when_model_returns_malformed_candidate():
 
 @pytest.mark.asyncio
 async def test_generation_uses_selected_material_only():
-    class Model:
-        def with_structured_output(self, _schema, *, method):
-            assert method == "json_schema"
-            return self
-
+    class Model(VerifiedFixtureModel):
         async def ainvoke(self, messages):
             assert SOURCE in messages[1][1]
             assert "Mục tiêu toàn bài là 1 câu" in messages[1][1]
@@ -274,11 +282,8 @@ async def test_generation_uses_selected_material_only():
 
 @pytest.mark.asyncio
 async def test_generation_retries_unverified_answer_once():
-    class Model:
+    class Model(VerifiedFixtureModel):
         calls = 0
-
-        def with_structured_output(self, _schema, *, method):
-            return self
 
         async def ainvoke(self, messages):
             self.calls += 1
@@ -301,11 +306,8 @@ async def test_generation_retries_unverified_answer_once():
 
 @pytest.mark.asyncio
 async def test_generation_keeps_verified_questions_across_attempts():
-    class Model:
+    class Model(VerifiedFixtureModel):
         calls = 0
-
-        def with_structured_output(self, _schema, *, method):
-            return self
 
         async def ainvoke(self, _messages):
             self.calls += 1
@@ -328,11 +330,8 @@ async def test_generation_keeps_verified_questions_across_attempts():
 
 @pytest.mark.asyncio
 async def test_generation_replenishes_large_draft_with_verified_questions():
-    class Model:
+    class Model(VerifiedFixtureModel):
         calls = 0
-
-        def with_structured_output(self, _schema, *, method):
-            return self
 
         async def ainvoke(self, _messages):
             self.calls += 1
@@ -356,12 +355,9 @@ async def test_generation_replenishes_large_draft_with_verified_questions():
 
 @pytest.mark.asyncio
 async def test_generation_replaces_document_meta_questions_with_new_concepts():
-    class Model:
+    class Model(VerifiedFixtureModel):
         calls = 0
         repair_prompt = ""
-
-        def with_structured_output(self, _schema, *, method):
-            return self
 
         async def ainvoke(self, messages):
             self.calls += 1
@@ -393,7 +389,8 @@ async def test_generation_replaces_document_meta_questions_with_new_concepts():
 
 
 @pytest.mark.asyncio
-async def test_generation_accepts_paraphrased_answer_only_after_independent_check():
+@pytest.mark.parametrize("literal_quote", [False, True])
+async def test_generation_accepts_paraphrased_answer_only_after_independent_check(literal_quote):
     class Model:
         schema = ""
         verified = False
@@ -401,6 +398,8 @@ async def test_generation_accepts_paraphrased_answer_only_after_independent_chec
         def with_structured_output(self, schema, *, method):
             assert method == "json_schema"
             self.schema = "verdicts" if "verdicts" in schema.get("properties", {}) else "questions"
+            if self.schema == "questions":
+                assert schema["$defs"]["PracticeQuestion"]["properties"]["supportQuote"]["enum"] == ["EVIDENCE_0001"]
             return self
 
         async def ainvoke(self, messages):
@@ -410,7 +409,7 @@ async def test_generation_accepts_paraphrased_answer_only_after_independent_chec
                 return {"verdicts": [{"itemIndex": 0, "answerIndex": 0, "qualityAccepted": True}]}
             item = draft().questions[0].model_copy(deep=True)
             item.options[0] = "Chỉ các bản ghi có giá trị liên kết trùng nhau"
-            item.supportQuote = "EVIDENCE_0001"
+            item.supportQuote = SOURCE if literal_quote else "EVIDENCE_0001"
             return PracticeDraft(questions=[item]).model_dump()
 
     model = Model()
@@ -425,11 +424,12 @@ async def test_generation_accepts_paraphrased_answer_only_after_independent_chec
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("literal_quote", [False, True])
 @pytest.mark.parametrize("paraphrase, quality_accepted, answer_index", [
     (False, True, 1), (True, True, 1), (False, False, 0),
 ])
 async def test_generation_rejects_answer_when_independent_check_disagrees(
-    paraphrase, quality_accepted, answer_index,
+    paraphrase, quality_accepted, answer_index, literal_quote,
 ):
     class Model:
         schema = ""
@@ -445,7 +445,7 @@ async def test_generation_rejects_answer_when_independent_check_disagrees(
             item = draft().questions[0].model_copy(deep=True)
             if paraphrase:
                 item.options[0] = "Chỉ các bản ghi có giá trị liên kết trùng nhau"
-            item.supportQuote = "EVIDENCE_0001"
+            item.supportQuote = SOURCE if literal_quote else "EVIDENCE_0001"
             return PracticeDraft(questions=[item]).model_dump()
 
     request = PracticeDraftRequest(count=1, material=StudyMaterial(

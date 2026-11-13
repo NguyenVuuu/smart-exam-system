@@ -66,9 +66,12 @@ def test_authorized_practice_response_uses_validated_source(monkeypatch):
     class Model:
         def with_structured_output(self, _schema, *, method):
             assert method == "json_schema"
+            self.verifying = "verdicts" in _schema.get("properties", {})
             return self
 
         async def ainvoke(self, _messages):
+            if self.verifying:
+                return {"verdicts": [{"itemIndex": 0, "answerIndex": 0, "qualityAccepted": True}]}
             return {"questions": [{
                 "stem": "INNER JOIN trả loại hàng nào?",
                 "options": ["Các hàng có khóa khớp", "Hàng bên trái", "Hàng bên phải", "Không hàng nào"],

@@ -88,21 +88,29 @@ def source_location(text: str, quote: str, mime_type: str) -> str | None:
         return None
     before = text[:match.start()]
     chapter = [item for item in _body_chapter_headings(text) if item.start() < match.start()]
-    sections = [item for item in SECTION_HEADING.finditer(before)
-                if not is_table_of_contents_entry(_source_line(text, item.start()))]
     labels = []
     pages = list(PAGE_MARKER.finditer(before)) if mime_type == "application/pdf" else []
     toc_pages = _toc_chapter_pages(text) if pages else {}
     body_chapter = chapter[-1] if chapter else None
+    chapter_number = body_chapter.group(1) if body_chapter else None
+    chapter_start = body_chapter.start() if body_chapter else 0
     if toc_pages and pages:
         page_number = int(pages[-1].group(1))
         chapter_from_page = max(((start, number) for number, start in toc_pages.items()
                                  if start <= page_number), default=None)
-        if chapter_from_page and not body_chapter:
-            labels.append(f"Chương {chapter_from_page[1]}")
-    if body_chapter and not labels:
-        labels.append(f"Chương {body_chapter.group(1)}")
-    if sections and (not chapter or sections[-1].start() > chapter[-1].start()):
+        if chapter_from_page:
+            page_start = next((page.start() for page in pages
+                               if int(page.group(1)) == chapter_from_page[0]), 0)
+            if not body_chapter or page_start > chapter_start:
+                chapter_number = chapter_from_page[1]
+                chapter_start = page_start
+    if chapter_number:
+        labels.append(f"Chương {chapter_number}")
+    sections = [item for item in SECTION_HEADING.finditer(before)
+                if item.start() >= chapter_start
+                and (not chapter_number or item.group(1).startswith(f"{chapter_number}."))
+                and not is_table_of_contents_entry(_source_line(text, item.start()))]
+    if sections:
         labels.append(f"Mục {sections[-1].group(1)}")
     if pages:
         labels.append(f"Trang {pages[-1].group(1)}")

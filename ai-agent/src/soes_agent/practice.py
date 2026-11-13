@@ -187,9 +187,9 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
     source = select_material_excerpt(
         full_source, " ".join(filter(None, [request.instruction, request.focusTopic.name if request.focusTopic else None])),
     )
-    structured = model.with_structured_output(PracticeDraft.model_json_schema(), method="json_schema")
 
     passages = evidence_passages(source)
+    source_text = normalize(source)
     if not passages:
         raise ValueError("Material has no usable evidence")
     system_message = (
@@ -235,6 +235,12 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
     async def generate_batch(index: int, size: int, extra: str = "",
                              excluded: set[str] | None = None) -> list[PracticeQuestion]:
         evidence = batch_evidence(passages, index % batch_count, batch_count, excluded)
+        schema = PracticeDraft.model_json_schema()
+        schema["$defs"]["PracticeQuestion"]["properties"]["supportQuote"] = {
+            "type": "string", "enum": list(evidence),
+            "description": "ID của đoạn nguồn hỗ trợ đáp án, không chép nội dung đoạn nguồn.",
+        }
+        structured = model.with_structured_output(schema, method="json_schema")
         source_message = "\n".join(f"{key}: {value}" for key, value in evidence.items())
         async with model_slots:
             response = await structured.ainvoke([
@@ -248,6 +254,7 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
                 passage = evidence.get(evidence_id) if re.fullmatch(r"EVIDENCE_\d{4}", evidence_id) else None
                 if passage:
                     question = question.model_copy(update={"supportQuote": passage})
+                if normalize(question.supportQuote) in source_text:
                     needs_verification.append(question)
                 normalized.append(question)
             verified = await verify_answers_against_sources(model, needs_verification)

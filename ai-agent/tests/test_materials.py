@@ -39,6 +39,17 @@ def test_citation_location_does_not_use_table_of_contents_page():
     assert source_location(text, "Ứng dụng Console chạy trên dòng lệnh.", "application/pdf") == "Trang 10"
 
 
+@pytest.mark.parametrize("previous_heading", ["", "[Trang 47] CHƯƠNG 3: ĐỐI TƯỢNG\n"])
+def test_citation_does_not_carry_section_across_garbled_chapter_heading(previous_heading):
+    text = ("[Trang 1] MỤC LỤC\nChương 3: ĐỐI TƯỢNG........47\nChương 4: GIAO DIỆN........82\n"
+            + previous_heading +
+            "[Trang 72] 3.3.3.5. Khởi tạo đối tượng\nNội dung chương trước.\n"
+            "[Trang 82] CChhưươơnngg 44:: GIAO DIỆN\n"
+            "[Trang 83] Label và Button là các thành phần giao diện.")
+    assert source_location(text, "Label và Button là các thành phần giao diện.",
+                           "application/pdf") == "Chương 4 · Trang 83"
+
+
 def test_reads_docx_tables_after_paragraphs():
     document = Document()
     document.add_paragraph("CHƯƠNG 1")
@@ -150,10 +161,13 @@ async def test_practice_uses_requested_later_chapter():
 
     class Model:
         def with_structured_output(self, _schema, *, method):
+            self.verifying = "verdicts" in _schema.get("properties", {})
             return self
 
         async def ainvoke(self, messages):
             assert quote in messages[1][1]
+            if self.verifying:
+                return {"verdicts": [{"itemIndex": 0, "answerIndex": 0, "qualityAccepted": True}]}
             return {"questions": [{
                 "stem": "INNER JOIN trả loại hàng nào?",
                 "options": ["các hàng có khóa khớp", "tất cả hàng trái", "tất cả hàng phải", "không hàng nào"],
