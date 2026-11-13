@@ -5,6 +5,12 @@ export const askAgentSchema = z.object({
   materialId: z.string().uuid().optional(),
 })
 export const scheduleParamSchema = z.object({ scheduleId: z.string().uuid() })
+export const reviewExplanationParamsSchema = z.object({
+  attemptId: z.string().uuid(), questionId: z.string().uuid(),
+})
+export const reviewExplanationSchema = z.object({
+  scheduleId: z.string().uuid(), message: z.string().trim().min(1).max(500),
+})
 export const programmingReviewSchema = z.object({
   attemptId: z.string().uuid(), examQuestionId: z.string().uuid(),
 })

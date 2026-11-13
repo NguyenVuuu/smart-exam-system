@@ -175,7 +175,7 @@ export default function StudentExamResultPage() {
                 </div>
               )}
               {result && <ExamScorePanel result={result} />}
-              {result && <ExamReviewPanel result={result} />}
+              {result && scheduleId && attemptId && <ExamReviewPanel result={result} scheduleId={scheduleId} attemptId={attemptId} />}
               {result?.available && (
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
                   <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">

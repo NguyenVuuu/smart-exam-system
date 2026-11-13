@@ -72,6 +72,16 @@ export async function askLearningAgent(message: string, materialId?: string): Pr
   return data.data.answer
 }
 
+export async function explainReviewQuestion(
+  scheduleId: string, attemptId: string, questionId: string, message: string,
+): Promise<LearningAnswer> {
+  const { data } = await apiClient.post<ApiResponse<{ answer: LearningAnswer }>>(
+    `/student/learning/attempts/${attemptId}/questions/${questionId}/explain`,
+    { scheduleId, message }, { timeout: 65000 },
+  )
+  return data.data.answer
+}
+
 export async function listPracticeSets(): Promise<PracticeSummary[]> {
   const { data } = await apiClient.get<ApiResponse<PracticeSummary[]>>('/student/learning/practice')
   return data.data
