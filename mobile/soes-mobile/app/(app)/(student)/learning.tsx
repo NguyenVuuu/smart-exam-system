@@ -66,7 +66,7 @@ export default function StudentLearningScreen() {
           {insights.topics.map((topic) => <View key={topic.topicId} style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
             <Text style={{ fontWeight: '700', color: '#0f172a' }}>{topic.name} · {topic.percentage}%</Text>
             <Text style={{ fontSize: 12, color: topic.sufficientData ? '#64748b' : '#b45309' }}>
-              {topic.questionCount} câu · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}
+              {topic.questionCount} lượt trả lời · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}
             </Text>
           </View>)}
         </>}

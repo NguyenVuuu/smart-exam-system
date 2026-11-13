@@ -77,7 +77,7 @@ export default function StudentLearningPage() {
                             <p className="font-semibold text-slate-900">{topic.name}</p>
                             <span className="text-sm font-bold text-blue-700">{topic.percentage}%</span>
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">{topic.questionCount} câu · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}</p>
+                          <p className="mt-1 text-xs text-slate-500">{topic.questionCount} lượt trả lời · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}</p>
                         </div>
                       ))}
                     </div>

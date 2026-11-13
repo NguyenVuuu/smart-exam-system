@@ -63,7 +63,7 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
         className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
         <option value="">Ôn tập chung</option>
         {weakTopics.map((topic) => <option key={topic.topicId} value={topic.topicId}>
-          Ưu tiên {topic.name} · {topic.percentage}% qua {topic.questionCount} câu
+          Ưu tiên {topic.name} · {topic.percentage}% qua {topic.questionCount} lượt trả lời
         </option>)}
       </select>}
       <button type="button" disabled={!materialId || busy} onClick={() => void create()}

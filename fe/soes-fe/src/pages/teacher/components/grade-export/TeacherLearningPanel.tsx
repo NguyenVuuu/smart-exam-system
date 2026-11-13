@@ -61,7 +61,7 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
           <h3 className="text-sm font-semibold">Chủ đề</h3>
           {insights.topics.length === 0 && <p className="mt-2 text-sm text-slate-500">Chưa có câu hỏi được gắn chủ đề.</p>}
           {insights.topics.slice(0, 5).map((topic) => <p key={topic.topicId} className="mt-2 text-sm">
-            {topic.name}: {topic.percentage}% · {topic.questionCount} câu
+            {topic.name}: {topic.percentage}% · {topic.questionCount} lượt trả lời
             {!topic.sufficientData && <span className="text-amber-700"> · chưa đủ dữ liệu</span>}
           </p>)}
         </div>
@@ -88,7 +88,7 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
               {!group.sufficientData ? <p className="mt-1 text-amber-700">Chưa đủ dữ liệu để kết luận về lớp.</p>
                 : topics.length === 0 ? <p className="mt-1 text-slate-500">Chưa có chủ đề đủ dữ liệu.</p>
                   : topics.slice(0, 3).map((topic) =>
-                    <p key={topic.topicId} className="mt-1 text-slate-600">{topic.name}: {topic.percentage}% · {topic.questionCount} câu</p>)}
+                    <p key={topic.topicId} className="mt-1 text-slate-600">{topic.name}: {topic.percentage}% · {topic.questionCount} lượt trả lời</p>)}
             </div>
           })}
         </div>
