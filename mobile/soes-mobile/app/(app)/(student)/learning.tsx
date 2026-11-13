@@ -104,7 +104,7 @@ export default function StudentLearningScreen() {
           <Text style={{ fontSize: 12, color: '#64748b' }}>Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên.</Text>
         </View>}
       </View>
-      <StudentPracticeSection materials={materials} />
+      <StudentPracticeSection materials={materials} topics={insights?.topics ?? []} />
     </ScrollView>
   </StudentLayout>
 }

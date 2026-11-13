@@ -62,6 +62,9 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
          f"Mức độ: {request.difficulty}. "
          "BASIC = nhận biết trực tiếp; INTERMEDIATE = hiểu quan hệ; "
          "ADVANCED = vận dụng kiến thức được nêu rõ trong tài liệu.\n"
+         f"Chủ đề cần ưu tiên: {request.focusTopic.name if request.focusTopic else 'không chọn'}. "
+         "Chỉ hỏi về chủ đề đó nếu tài liệu thực sự có nội dung hỗ trợ; "
+         "không tạo kiến thức ngoài tài liệu.\n"
          f"Tài liệu:\n{source}"),
     ])
     return validate_draft(PracticeDraft.model_validate(response), source, request.count)

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class TopicMetric(BaseModel):
     topicId: str = Field(min_length=1, max_length=100)
+    subjectId: str | None = Field(default=None, max_length=100)
     code: str = Field(min_length=1, max_length=50)
     name: str = Field(min_length=1, max_length=150)
     questionCount: int = Field(ge=0)
@@ -12,6 +13,7 @@ class TopicMetric(BaseModel):
     possiblePoints: float = Field(ge=0)
     percentage: int = Field(ge=0, le=100)
     sufficientData: bool
+    needsPractice: bool = False
 
 
 class QuestionMetric(BaseModel):
@@ -67,10 +69,16 @@ class ExamMatrixProposal(BaseModel):
     rationale: str = Field(max_length=500)
 
 
+class PracticeFocusTopic(BaseModel):
+    code: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1, max_length=150)
+
+
 class PracticeDraftRequest(ModelSelection):
     material: StudyMaterial
     count: int = Field(ge=1, le=10)
     difficulty: Literal["BASIC", "INTERMEDIATE", "ADVANCED"] = "INTERMEDIATE"
+    focusTopic: PracticeFocusTopic | None = None
 
 
 class PracticeQuestion(BaseModel):

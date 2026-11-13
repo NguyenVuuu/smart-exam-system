@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Text, TouchableOpacity, View } from 'react-native'
 import { createPracticeSet, getLearningAgentError, getPracticeSet, listPracticeSets, submitPracticeSet,
-  type PracticeSet, type PracticeSummary, type StudyMaterial } from '../../api/student-learning.api'
+  type PracticeSet, type PracticeSummary, type StudyMaterial, type StudentLearningInsights } from '../../api/student-learning.api'
 
 const card = { padding: 16, borderRadius: 16, backgroundColor: '#fff' } as const
 
-export default function StudentPracticeSection({ materials }: { materials: StudyMaterial[] }) {
+export default function StudentPracticeSection({ materials, topics }: {
+  materials: StudyMaterial[]; topics: StudentLearningInsights['topics']
+}) {
   const [selectedMaterial, setSelectedMaterial] = useState('')
+  const [focusTopicId, setFocusTopicId] = useState('')
   const [sets, setSets] = useState<PracticeSummary[]>([])
   const [current, setCurrent] = useState<PracticeSet | null>(null)
   const [choices, setChoices] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const subjectId = materials.find((item) => item.id === selectedMaterial)?.courseOffering.subject.id
+  const weakTopics = topics.filter((topic) => topic.subjectId === subjectId && topic.needsPractice)
 
   useEffect(() => { listPracticeSets().then(setSets).catch(() => {}) }, [])
 
@@ -19,7 +24,7 @@ export default function StudentPracticeSection({ materials }: { materials: Study
     if (!selectedMaterial || busy) return
     setBusy(true); setError('')
     try {
-      setCurrent(await createPracticeSet(selectedMaterial)); setChoices({})
+      setCurrent(await createPracticeSet(selectedMaterial, focusTopicId || undefined)); setChoices({})
       setSets(await listPracticeSets())
     } catch (cause) { setError(getLearningAgentError(cause, 'Chưa thể tạo bài luyện. Vui lòng thử lại sau.')) }
     finally { setBusy(false) }
@@ -47,10 +52,22 @@ export default function StudentPracticeSection({ materials }: { materials: Study
     <Text style={{ fontSize: 16, fontWeight: '700', color: '#0f172a' }}>Bài luyện từ tài liệu lớp học</Text>
     <Text style={{ color: '#64748b' }}>Bài luyện tách khỏi điểm thi. Câu hỏi do AI tạo nên hãy đối chiếu với tài liệu.</Text>
     {materials.map((material) => <TouchableOpacity key={material.id} accessibilityRole="button"
-      onPress={() => setSelectedMaterial(material.id)} style={{ padding: 10, borderRadius: 10,
+      onPress={() => { setSelectedMaterial(material.id); setFocusTopicId('') }} style={{ padding: 10, borderRadius: 10,
         backgroundColor: selectedMaterial === material.id ? '#dbeafe' : '#f1f5f9' }}>
       <Text>{material.title || material.fileName}</Text>
     </TouchableOpacity>)}
+    {weakTopics.length > 0 && <View style={{ gap: 8 }}>
+      <Text style={{ fontWeight: '600', color: '#334155' }}>Chủ đề ưu tiên</Text>
+      <TouchableOpacity accessibilityRole="button" onPress={() => setFocusTopicId('')}
+        style={{ padding: 10, borderRadius: 10, backgroundColor: focusTopicId ? '#f1f5f9' : '#dbeafe' }}>
+        <Text>Ôn tập chung</Text>
+      </TouchableOpacity>
+      {weakTopics.map((topic) => <TouchableOpacity key={topic.topicId} accessibilityRole="button"
+        onPress={() => setFocusTopicId(topic.topicId)} style={{ padding: 10, borderRadius: 10,
+          backgroundColor: focusTopicId === topic.topicId ? '#dbeafe' : '#f1f5f9' }}>
+        <Text>{topic.name} · {topic.percentage}% qua {topic.questionCount} câu</Text>
+      </TouchableOpacity>)}
+    </View>}
     <TouchableOpacity accessibilityRole="button" disabled={!selectedMaterial || busy} onPress={() => void create()}
       style={{ padding: 12, borderRadius: 10, backgroundColor: '#2563eb', opacity: !selectedMaterial || busy ? 0.5 : 1 }}>
       <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '700' }}>Tạo 5 câu ôn tập</Text>

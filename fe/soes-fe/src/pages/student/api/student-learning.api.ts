@@ -2,11 +2,13 @@ import { apiClient } from '../../../api/axios'
 
 export interface TopicInsight {
   topicId: string
+  subjectId: string
   code: string
   name: string
   questionCount: number
   percentage: number
   sufficientData: boolean
+  needsPractice: boolean
 }
 
 export interface StudentLearningInsights {
@@ -26,7 +28,7 @@ export interface StudyMaterial {
   id: string
   title: string | null
   fileName: string
-  courseOffering: { id: string; code: string; subject: { name: string } }
+  courseOffering: { id: string; code: string; subject: { id: string; name: string } }
 }
 
 export interface PracticeItem {
@@ -80,8 +82,9 @@ export async function getPracticeSet(id: string): Promise<PracticeSet> {
   return data.data
 }
 
-export async function createPracticeSet(materialId: string, count = 5): Promise<PracticeSet> {
-  const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice', { materialId, count }, { timeout: 65000 })
+export async function createPracticeSet(materialId: string, count = 5, focusTopicId?: string): Promise<PracticeSet> {
+  const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice',
+    { materialId, count, focusTopicId }, { timeout: 65000 })
   return data.data
 }
 

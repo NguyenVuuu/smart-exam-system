@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
 import { getApiErrorMessage } from '../../../api/errors'
 import { createPracticeSet, getPracticeSet, listPracticeSets, submitPracticeSet,
-  type PracticeSet, type PracticeSummary, type StudyMaterial } from '../api/student-learning.api'
+  type PracticeSet, type PracticeSummary, type StudyMaterial, type TopicInsight } from '../api/student-learning.api'
 
-export default function StudentPracticePanel({ materials }: { materials: StudyMaterial[] }) {
+export default function StudentPracticePanel({ materials, topics }: { materials: StudyMaterial[]; topics: TopicInsight[] }) {
   const [materialId, setMaterialId] = useState('')
+  const [focusTopicId, setFocusTopicId] = useState('')
   const [sets, setSets] = useState<PracticeSummary[]>([])
   const [current, setCurrent] = useState<PracticeSet | null>(null)
   const [choices, setChoices] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const subjectId = materials.find((item) => item.id === materialId)?.courseOffering.subject.id
+  const weakTopics = topics.filter((topic) => topic.subjectId === subjectId && topic.needsPractice)
 
   useEffect(() => { listPracticeSets().then(setSets).catch(() => {}) }, [])
 
@@ -24,7 +27,7 @@ export default function StudentPracticePanel({ materials }: { materials: StudyMa
     if (!materialId) return
     setBusy(true); setError('')
     try {
-      const next = await createPracticeSet(materialId)
+      const next = await createPracticeSet(materialId, 5, focusTopicId || undefined)
       setCurrent(next); setChoices({})
       setSets(await listPracticeSets())
     } catch (cause) { setError(getApiErrorMessage(cause, 'Chưa thể tạo bài luyện. Vui lòng thử lại sau.')) }
@@ -48,11 +51,21 @@ export default function StudentPracticePanel({ materials }: { materials: StudyMa
       <p className="mt-1 text-sm text-slate-500">Bài luyện này tách khỏi điểm và lượt thi chính thức. Câu hỏi do AI tạo nên hãy kiểm tra lại với tài liệu.</p>
     </div>
     <div className="flex flex-wrap gap-2">
-      <select aria-label="Tài liệu tạo bài luyện" value={materialId} onChange={(event) => setMaterialId(event.target.value)}
+      <select aria-label="Tài liệu tạo bài luyện" value={materialId} onChange={(event) => {
+        setMaterialId(event.target.value); setFocusTopicId('')
+      }}
         className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
         <option value="">Chọn tài liệu</option>
         {materials.map((material) => <option key={material.id} value={material.id}>{material.title || material.fileName}</option>)}
       </select>
+      {materialId && weakTopics.length > 0 && <select aria-label="Chủ đề yếu cần ưu tiên"
+        value={focusTopicId} onChange={(event) => setFocusTopicId(event.target.value)}
+        className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+        <option value="">Ôn tập chung</option>
+        {weakTopics.map((topic) => <option key={topic.topicId} value={topic.topicId}>
+          Ưu tiên {topic.name} · {topic.percentage}% qua {topic.questionCount} câu
+        </option>)}
+      </select>}
       <button type="button" disabled={!materialId || busy} onClick={() => void create()}
         className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Tạo 5 câu ôn tập</button>
     </div>

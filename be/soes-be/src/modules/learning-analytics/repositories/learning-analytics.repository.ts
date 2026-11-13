@@ -23,6 +23,7 @@ export function findReleasedStudentAttempts(studentId: string, now: Date) {
         examQuestionId: true,
         examQuestion: { select: {
           points: true,
+          exam: { select: { subjectId: true } },
           topics: { select: { topicId: true, code: true, name: true } },
         } },
       } },
@@ -51,7 +52,8 @@ export const findTeacherScheduleAttempts = (teacherId: string, scheduleId: strin
   select: {
     attemptQuestions: { select: {
       examQuestionId: true,
-      examQuestion: { select: { points: true, topics: { select: { topicId: true, code: true, name: true } } } },
+      examQuestion: { select: { points: true, exam: { select: { subjectId: true } },
+        topics: { select: { topicId: true, code: true, name: true } } } },
     } },
     studentAnswers: { select: { examQuestionId: true, score: true } },
   },

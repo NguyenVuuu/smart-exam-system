@@ -61,9 +61,11 @@ async def test_generation_uses_selected_material_only():
             assert SOURCE in messages[1][1]
             assert "Tạo 1 câu ứng viên" in messages[1][1]
             assert "Mức độ: ADVANCED" in messages[1][1]
+            assert "Chủ đề cần ưu tiên: SQL JOIN" in messages[1][1]
             return draft().model_dump()
 
-    request = PracticeDraftRequest(count=1, difficulty="ADVANCED", material=StudyMaterial(
+    request = PracticeDraftRequest(count=1, difficulty="ADVANCED",
+        focusTopic={"code": "JOIN", "name": "SQL JOIN"}, material=StudyMaterial(
         materialId="material-1", title="JOIN", mimeType="text/plain",
         contentBase64=base64.b64encode(SOURCE.encode()).decode(),
     ))

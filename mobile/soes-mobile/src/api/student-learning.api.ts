@@ -13,10 +13,12 @@ export interface StudentLearningInsights {
   limitedToRecentAttempts: boolean
   topics: {
     topicId: string
+    subjectId: string
     name: string
     questionCount: number
     percentage: number
     sufficientData: boolean
+    needsPractice: boolean
   }[]
 }
 
@@ -31,7 +33,7 @@ export interface StudyMaterial {
   id: string
   title: string | null
   fileName: string
-  courseOffering: { subject: { name: string } }
+  courseOffering: { subject: { id: string; name: string } }
 }
 
 export interface PracticeSet {
@@ -78,9 +80,9 @@ export async function getPracticeSet(id: string): Promise<PracticeSet> {
   return data.data
 }
 
-export async function createPracticeSet(materialId: string): Promise<PracticeSet> {
+export async function createPracticeSet(materialId: string, focusTopicId?: string): Promise<PracticeSet> {
   const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice',
-    { materialId, count: 5 }, { timeout: 65000 })
+    { materialId, count: 5, focusTopicId }, { timeout: 65000 })
   return data.data
 }
 

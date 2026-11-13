@@ -46,6 +46,7 @@ export const practiceDraftSchema = z.object({ questions: z.array(z.object({
 
 export const createPracticeSchema = z.object({
   materialId: z.string().uuid(), count: z.number().int().min(3).max(10).default(5),
+  focusTopicId: z.string().uuid().optional(),
 })
 
 export const practiceParamSchema = z.object({ practiceSetId: z.string().uuid() })

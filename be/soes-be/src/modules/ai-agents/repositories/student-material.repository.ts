@@ -9,7 +9,7 @@ export const listStudentMaterials = (studentId: string) => prisma.material.findM
   where: accessibleMaterial(studentId),
   select: {
     id: true, title: true, fileName: true, fileSize: true,
-    courseOffering: { select: { id: true, code: true, subject: { select: { name: true } } } },
+    courseOffering: { select: { id: true, code: true, subject: { select: { id: true, name: true } } } },
   },
   orderBy: { createdAt: 'desc' },
   take: 100,

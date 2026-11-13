@@ -119,7 +119,7 @@ export default function StudentLearningPage() {
                 <p className="mt-3 text-xs text-slate-500">Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên và tài liệu môn học.</p>
               </div>}
             </section>
-            <StudentPracticePanel materials={materials} />
+            <StudentPracticePanel materials={materials} topics={insights?.topics ?? []} />
           </div>
         </main>
       </div>

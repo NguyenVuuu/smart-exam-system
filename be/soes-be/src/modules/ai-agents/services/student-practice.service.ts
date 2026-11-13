@@ -7,6 +7,8 @@ import { practiceDraftSchema, type createPracticeSchema, type submitPracticeSche
 import type { z } from 'zod'
 import { gradePractice } from './practice-grading'
 import { choosePracticeDifficulty } from './practice-difficulty'
+import { studentInsights } from '../../learning-analytics/services/learning-analytics.service'
+import { selectWeakPracticeTopic } from './practice-focus'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
 
@@ -27,6 +29,10 @@ export async function createStudentPractice(studentId: string, input: z.infer<ty
   })
   if (recent >= 10) throw new TooManyRequestsError('Daily practice generation limit reached')
   const material = await loadStudentMaterial(studentId, input.materialId)
+  const focusTopic = input.focusTopicId
+    ? selectWeakPracticeTopic((await studentInsights(studentId)).topics, input.focusTopicId, material.subjectId)
+    : undefined
+  if (input.focusTopicId && !focusTopic) throw new ValidationError('Weak topic is not available for this material')
   const previous = await prisma.practiceSet.findMany({
     where: { studentId, subjectId: material.subjectId, completedAt: { not: null } },
     orderBy: { completedAt: 'desc' }, take: 3,
@@ -35,14 +41,16 @@ export async function createStudentPractice(studentId: string, input: z.infer<ty
   const difficulty = choosePracticeDifficulty(previous.map((set) => ({
     score: Number(set.score), questionCount: set._count.items,
   })))
-  const draft = await requestPracticeDraftAgent({ material, count: input.count, difficulty })
+  const draft = await requestPracticeDraftAgent({ material, count: input.count, difficulty,
+    ...(focusTopic && { focusTopic: { code: focusTopic.code, name: focusTopic.name } }) })
   if (draft.questions.length !== input.count) throw new ValidationError('Invalid practice draft')
   await assertOutsideExam(studentId)
   const set = await prisma.$transaction(async (tx) => {
     const created = await tx.practiceSet.create({ data: { studentId, subjectId: material.subjectId }, select: { id: true } })
     await tx.practiceItem.createMany({ data: draft.questions.map((question: PracticeQuestion, index: number) => ({
       practiceSetId: created.id, sourceQuestionId: null, orderIndex: index + 1, points: 1,
-      snapshot: { ...question, materialId: material.materialId, materialTitle: material.title } as Prisma.InputJsonValue,
+      snapshot: { ...question, materialId: material.materialId, materialTitle: material.title,
+        ...(focusTopic && { focusTopicId: focusTopic.topicId }) } as Prisma.InputJsonValue,
     })) })
     return tx.practiceSet.findUniqueOrThrow({ where: { id: created.id },
       select: { id: true, items: { select: { id: true, orderIndex: true, snapshot: true }, orderBy: { orderIndex: 'asc' } } } })

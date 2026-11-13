@@ -30,6 +30,7 @@ const commonMessageTranslations: Record<string, string> = {
   'AI provider rate limit reached': 'Dịch vụ AI đã đạt giới hạn lượt dùng. Vui lòng thử lại sau.',
   'AI assistant is temporarily unavailable': 'Trợ lý AI tạm thời không phản hồi. Vui lòng thử lại sau.',
   'AI assistant is not configured': 'Trợ lý AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
+  'Weak topic is not available for this material': 'Chủ đề đã chọn không còn phù hợp với tài liệu. Hãy tải lại trang và thử lại.',
 }
 
 const examMessageTranslations: Record<string, string> = {
