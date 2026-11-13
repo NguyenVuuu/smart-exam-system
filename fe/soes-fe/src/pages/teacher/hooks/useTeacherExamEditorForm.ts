@@ -44,6 +44,7 @@ const toExamQuestionInput = (item: ExamQuestionItem): TeacherExamQuestionInput =
       explanation: question.explanation ?? null,
       type: question.type,
       difficulty: question.difficulty,
+      topicIds: question.topics?.map((topic) => topic.id) ?? [],
       language: question.programmingLanguage ?? null,
       options: (question.options ?? []).map(({ content, isCorrect }) => ({ content, isCorrect })),
       programmingConfig:

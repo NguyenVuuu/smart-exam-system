@@ -14,6 +14,7 @@ import {
   type TargetQuestionType,
 } from './components/ai-generator/AiGeneratorConfigPanel'
 import { AiDraftQuestionsPanel } from './components/ai-generator/AiDraftQuestionsPanel'
+import QuestionTopicModal from './components/question-bank/QuestionTopicModal'
 import { mapGeneratedQuestion, toApprovedAiPayload } from './utils/ai-question-mapper'
 import { useAiGenerationProgress } from './hooks/useAiGenerationProgress'
 import {
@@ -60,6 +61,7 @@ export default function TeacherAiQuestionGeneratorPage() {
   const { isGenerating, progress, start, finish } = useAiGenerationProgress()
   const [isSaving, setIsSaving] = useState(false)
   const [draftQuestions, setDraftQuestions] = useState<AIDraftQuestion[]>(loadStoredDraftQuestions)
+  const [draftTopicQuestion, setDraftTopicQuestion] = useState<AIDraftQuestion | null>(null)
   const [collapsedDraftQuestionIds, setCollapsedDraftQuestionIds] = useState<string[]>([])
   const [expandedDraftTestCaseIds, setExpandedDraftTestCaseIds] = useState<Record<string, string[]>>({})
   const configSectionRef = useRef<HTMLElement>(null)
@@ -279,6 +281,10 @@ export default function TeacherAiQuestionGeneratorPage() {
       toast.error('Vui lòng duyệt ít nhất một câu hỏi trước khi lưu.')
       return
     }
+    if (approved.some((item) => !item.topics?.length)) {
+      toast.error('Hãy gắn ít nhất một chủ đề cho mỗi câu được duyệt trước khi lưu.')
+      return
+    }
     setIsSaving(true)
     try {
       const result = await saveApprovedAiQuestions(approved.map(toApprovedAiPayload))
@@ -376,10 +382,15 @@ export default function TeacherAiQuestionGeneratorPage() {
               onUpdateDraftOptionCorrect={updateDraftOptionCorrect}
               onUpdateDraftTestCases={updateDraftTestCases}
               onUpdateDraftStatus={updateDraftStatus}
+              onEditDraftTopics={setDraftTopicQuestion}
             />
           </div>
         </main>
       </div>
+      <QuestionTopicModal question={draftTopicQuestion} onClose={() => setDraftTopicQuestion(null)}
+        onDraftSaved={(topics) => {
+          if (draftTopicQuestion) updateDraftField(draftTopicQuestion.id, 'topics', topics)
+        }} />
     </div>
   )
 }

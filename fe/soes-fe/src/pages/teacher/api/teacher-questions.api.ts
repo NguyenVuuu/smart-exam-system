@@ -194,6 +194,7 @@ export async function generateAiQuestions(payload: GenerateAiQuestionsPayload) {
 export async function saveApprovedAiQuestions(questions: Array<{
   generationId: string
   subjectId: string
+  topicIds: string[]
   question: Omit<import('../types/teacher-question-api.types').GeneratedQuestionDto,
     'id' | 'status' | 'subjectId' | 'subjectName' | 'sourceMaterialName'>
 }>) {

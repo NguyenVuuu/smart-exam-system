@@ -20,6 +20,7 @@ export function mapGeneratedQuestion(question: GeneratedQuestionDto): Question {
 export function toApprovedAiPayload(item: AIDraftQuestion) {
   return {
     generationId: item.generationId!, subjectId: item.subjectId,
+    topicIds: item.topics?.map((topic) => topic.id) ?? [],
     question: {
       title: item.type === 'PROGRAMMING' ? item.title : item.content,
       content: item.type === 'PROGRAMMING' ? formatPlainTextToHtml(item.content) : item.content,

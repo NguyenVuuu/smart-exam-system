@@ -7,35 +7,32 @@ import type { Question } from '../../types/teacher-question-bank.types'
 interface Props {
   question: Question | null
   onClose: () => void
-  onSaved: () => Promise<unknown>
+  onSaved?: () => Promise<unknown>
+  onDraftSaved?: (topics: LearningTopic[]) => void
 }
 
-export default function QuestionTopicModal({ question, onClose, onSaved }: Props) {
+export default function QuestionTopicModal(props: Props) {
+  if (!props.question) return null
+  return <QuestionTopicModalContent key={props.question.id} {...props} question={props.question} />
+}
+
+function QuestionTopicModalContent({ question, onClose, onSaved, onDraftSaved }: Props & { question: Question }) {
   const [topics, setTopics] = useState<LearningTopic[]>([])
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => question.topics?.map((topic) => topic.id) ?? [])
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!question) return
     let active = true
-    setSelectedIds(question.topics?.map((topic) => topic.id) ?? [])
-    setTopics([])
-    setCode('')
-    setName('')
-    setError('')
-    setLoading(true)
     getLearningTopics(question.subjectId)
       .then((items) => { if (active) setTopics(items) })
       .catch((cause) => { if (active) setError(getApiErrorMessage(cause, 'Không thể tải danh sách chủ đề.')) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [question])
-
-  if (!question) return null
+  }, [question.subjectId])
 
   const toggle = (id: string) => setSelectedIds((current) =>
     current.includes(id) ? current.filter((value) => value !== id) : [...current, id])
@@ -62,8 +59,11 @@ export default function QuestionTopicModal({ question, onClose, onSaved }: Props
     setSaving(true)
     setError('')
     try {
-      await assignQuestionTopics(question.id, selectedIds)
-      await onSaved()
+      if (onDraftSaved) onDraftSaved(topics.filter((topic) => selectedIds.includes(topic.id)))
+      else {
+        await assignQuestionTopics(question.id, selectedIds)
+        await onSaved?.()
+      }
       onClose()
     } catch (cause) {
       setError(getApiErrorMessage(cause, 'Không thể gắn chủ đề cho câu hỏi.'))
@@ -72,7 +72,7 @@ export default function QuestionTopicModal({ question, onClose, onSaved }: Props
     }
   }
 
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation">
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4" role="presentation">
     <section role="dialog" aria-modal="true" aria-labelledby="question-topic-title"
       className="w-full max-w-xl rounded-2xl bg-white shadow-xl">
       <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
@@ -86,7 +86,9 @@ export default function QuestionTopicModal({ question, onClose, onSaved }: Props
       <div className="max-h-[70vh] space-y-5 overflow-y-auto p-5">
         <div>
           <p className="text-sm font-semibold text-slate-900">{question.subjectName}</p>
-          <p className="mt-1 text-xs text-slate-500">Chủ đề mới áp dụng khi thêm câu hỏi vào đề sau lần lưu này; dữ liệu đề cũ không đổi.</p>
+          <p className="mt-1 text-xs text-slate-500">{onDraftSaved
+            ? 'Chủ đề sẽ được lưu cùng câu hỏi sau khi bạn duyệt bản nháp.'
+            : 'Chủ đề mới áp dụng khi thêm câu hỏi vào đề sau lần lưu này; dữ liệu đề cũ không đổi.'}</p>
           {loading && <p className="mt-3 text-sm text-slate-500">Đang tải chủ đề...</p>}
           {!loading && topics.length === 0 && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Môn học chưa có chủ đề. Hãy thêm chủ đề ở bên dưới.</p>}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">

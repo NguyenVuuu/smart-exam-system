@@ -28,6 +28,7 @@ interface AiDraftQuestionsPanelProps {
     testCases: NonNullable<AIDraftQuestion['testCases']>,
   ) => void
   onUpdateDraftStatus: (id: string, status: AIDraftQuestion['status']) => void
+  onEditDraftTopics: (question: AIDraftQuestion) => void
 }
 
 export const AiDraftQuestionsPanel: React.FC<AiDraftQuestionsPanelProps> = ({
@@ -46,6 +47,7 @@ export const AiDraftQuestionsPanel: React.FC<AiDraftQuestionsPanelProps> = ({
   onUpdateDraftOptionCorrect,
   onUpdateDraftTestCases,
   onUpdateDraftStatus,
+  onEditDraftTopics,
 }) => {
   return (
     <section
@@ -115,6 +117,7 @@ export const AiDraftQuestionsPanel: React.FC<AiDraftQuestionsPanelProps> = ({
               onUpdateOptionCorrect={onUpdateDraftOptionCorrect}
               onUpdateTestCases={onUpdateDraftTestCases}
               onUpdateStatus={onUpdateDraftStatus}
+              onEditTopics={onEditDraftTopics}
             />
           ))}
         </div>

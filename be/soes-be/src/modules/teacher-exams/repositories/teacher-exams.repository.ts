@@ -104,6 +104,11 @@ export const findAvailableQuestions = (teacherId: string, subjectId: string, ids
   include: { options: true, programmingConfig: true, programmingTests: true, topics: { include: { topic: true } } },
 })
 
+export const findExamTopics = (subjectId: string, ids: string[]) => prisma.learningTopic.findMany({
+  where: { subjectId, id: { in: ids } },
+  select: { id: true, code: true, name: true },
+})
+
 const questionTypesByExamFormat: Record<AutoGenerateExamBody['format'], QuestionType[]> = {
   OBJECTIVE: ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE'],
   PROGRAMMING: ['PROGRAMMING'],

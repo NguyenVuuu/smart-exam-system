@@ -4,31 +4,32 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Tags,
   XCircle,
 } from 'lucide-react'
 import { QuestionProgrammingEditor } from '../question-bank/editor/QuestionProgrammingEditor'
 import RichTextEditor from '../question-bank/editor/RichTextEditor'
 import type { AIDraftQuestion, DifficultyLevel } from '../../types/teacher-question-bank.types'
 
-export const difficultyLabel: Record<DifficultyLevel, string> = {
+const difficultyLabel: Record<DifficultyLevel, string> = {
   EASY: 'Dễ',
   MEDIUM: 'Trung bình',
   HARD: 'Khó',
 }
 
-export const difficultyTone: Record<DifficultyLevel, string> = {
+const difficultyTone: Record<DifficultyLevel, string> = {
   EASY: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   MEDIUM: 'border-amber-200 bg-amber-50 text-amber-700',
   HARD: 'border-rose-200 bg-rose-50 text-rose-700',
 }
 
-export const statusLabel: Record<AIDraftQuestion['status'], string> = {
+const statusLabel: Record<AIDraftQuestion['status'], string> = {
   PENDING_REVIEW: 'Chờ duyệt',
   APPROVED: 'Đã chấp nhận',
   REJECTED: 'Đã từ chối',
 }
 
-export const questionTypeLabel: Record<string, string> = {
+const questionTypeLabel: Record<string, string> = {
   SINGLE_CHOICE: 'Một đáp án',
   MULTIPLE_CHOICE: 'Nhiều đáp án',
   TRUE_FALSE: 'Đúng / Sai',
@@ -54,6 +55,7 @@ interface AiDraftQuestionCardProps {
     testCases: NonNullable<AIDraftQuestion['testCases']>,
   ) => void
   onUpdateStatus: (id: string, status: AIDraftQuestion['status']) => void
+  onEditTopics: (question: AIDraftQuestion) => void
 }
 
 export const AiDraftQuestionCard: React.FC<AiDraftQuestionCardProps> = ({
@@ -68,6 +70,7 @@ export const AiDraftQuestionCard: React.FC<AiDraftQuestionCardProps> = ({
   onUpdateOptionCorrect,
   onUpdateTestCases,
   onUpdateStatus,
+  onEditTopics,
 }) => {
   return (
     <article className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
@@ -89,6 +92,14 @@ export const AiDraftQuestionCard: React.FC<AiDraftQuestionCardProps> = ({
               {question.title || question.content || 'Chưa có tiêu đề'}
             </p>
           )}
+          <button type="button" onClick={() => onEditTopics(question)}
+            className={`mt-2 inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold ${question.topics?.length
+              ? 'border-blue-200 bg-blue-50 text-blue-700'
+              : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+            <Tags size={13} /> {question.topics?.length
+              ? question.topics.map((topic) => topic.name).join(' · ')
+              : 'Gắn chủ đề'}
+          </button>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span

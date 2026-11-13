@@ -16,6 +16,7 @@ import { aiAgentConfig } from "../../../config";
 import { buildGenerationPrompt } from "../prompts/question-generation.prompt";
 import { getStoredAiSettings } from "../../admin-system-settings/services/ai-settings-reader";
 import { assertQuestionCountWithinLimit } from "./ai-question-generation.rules";
+import { assertApprovedQuestionTopics } from "./approved-question-topics";
 import type { ReportGenerationProgress } from './generation-progress';
 import type {
   GenerateQuestionsBody,
@@ -301,6 +302,10 @@ export async function saveApproved(
     throw new ValidationError(
       "Generated question subject does not match its AI history",
     );
+  }
+  const topicIds = [...new Set(input.questions.flatMap((item) => item.topicIds))];
+  if (topicIds.length) {
+    assertApprovedQuestionTopics(input.questions, await repo.findTopicsByIds(topicIds));
   }
   const saved = await repo.saveApprovedQuestions(teacherId, input);
   return {

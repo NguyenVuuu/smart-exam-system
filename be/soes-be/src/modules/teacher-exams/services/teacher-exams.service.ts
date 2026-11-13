@@ -166,7 +166,11 @@ function applyExamFormatRules(
   return balanceMixedAutoQuestions(picked, pool);
 }
 
-function toInlineSnapshot(question: InlineExamQuestion, index: number): SnapshotSource {
+function toInlineSnapshot(
+  question: InlineExamQuestion,
+  index: number,
+  topics: NonNullable<SnapshotSource['topics']>,
+): SnapshotSource {
   return {
     id: `inline-${index + 1}`,
     title: question.title,
@@ -174,6 +178,7 @@ function toInlineSnapshot(question: InlineExamQuestion, index: number): Snapshot
     explanation: question.explanation ?? null,
     type: question.type,
     difficulty: question.difficulty,
+    topics,
     language: question.language ?? null,
     options: question.options.map((option, optionIndex) => ({
       ...option,
@@ -371,6 +376,12 @@ export async function replaceQuestions(
   );
   if (questions.length !== bankItems.length)
     throw new ValidationError("One or more questions are unavailable");
+  const topicIds = [...new Set(items.flatMap((item) =>
+    item.source === 'INLINE' ? item.question.topicIds : []))];
+  const topics = topicIds.length ? await repo.findExamTopics(exam.subjectId, topicIds) : [];
+  if (topics.length !== topicIds.length)
+    throw new ValidationError("One or more question topics do not belong to the exam subject");
+  const topicsById = new Map(topics.map((topic) => [topic.id, topic]));
   const total = sumPointCents(items.map((item) => item.points));
   if (!arePointTotalsEqual(fromPointCents(total), Number(exam.totalPoints)))
     throw new ValidationError("Question points must equal exam total points");
@@ -387,7 +398,11 @@ export async function replaceQuestions(
       };
     }
     return {
-      question: toInlineSnapshot(item.question, index),
+      question: toInlineSnapshot(
+        item.question,
+        index,
+        item.question.topicIds.map((id) => topicsById.get(id)!),
+      ),
       sourceQuestionId: null,
       points: normalizePoint(item.points),
       sectionId: item.sectionId,
