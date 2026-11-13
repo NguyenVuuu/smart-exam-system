@@ -5,7 +5,7 @@ import pytest
 from docx import Document
 
 from soes_agent.contracts import PracticeDraftRequest, StudentRequest, StudyMaterial
-from soes_agent.materials import extract_material, select_material_excerpt
+from soes_agent.materials import extract_material, select_material_excerpt, source_location
 from soes_agent.practice import generate_practice
 from soes_agent.workflows import run_student
 
@@ -21,6 +21,22 @@ def test_reads_plain_text_and_rejects_empty_material():
     assert extract_material(material("INNER JOIN kết hợp các hàng khớp.")) == "INNER JOIN kết hợp các hàng khớp."
     with pytest.raises(ValueError, match="no readable text"):
         extract_material(material("  "))
+
+
+def test_citation_location_uses_real_page_and_section_markers():
+    text = ("[Trang 1] Mục lục\nChương 3........................12\n"
+            "[Trang 12] CHƯƠNG 3: Lập trình Java\n"
+            "[Trang 13] 3.2. Vòng lặp\nVòng lặp for duyệt các phần tử theo chỉ số.")
+    quote = "Vòng lặp for duyệt các phần tử theo chỉ số."
+    assert source_location(text, quote, "application/pdf") == "Chương 3 · Mục 3.2 · Trang 13"
+    assert source_location(text, quote, "text/plain") == "Chương 3 · Mục 3.2"
+    assert source_location(text, "Không có trong tài liệu", "application/pdf") is None
+
+
+def test_citation_location_does_not_use_table_of_contents_page():
+    text = "Java và ứng dụng Console........................10\n[Trang 10] Ứng dụng Console chạy trên dòng lệnh."
+    assert source_location(text, "Java và ứng dụng Console", "application/pdf") is None
+    assert source_location(text, "Ứng dụng Console chạy trên dòng lệnh.", "application/pdf") == "Trang 10"
 
 
 def test_reads_docx_tables_after_paragraphs():
@@ -109,12 +125,14 @@ async def test_practice_uses_requested_later_chapter():
                 "options": ["các hàng có khóa khớp", "tất cả hàng trái", "tất cả hàng phải", "không hàng nào"],
                 "correctIndex": 0, "explanation": "INNER JOIN chỉ trả các hàng có khóa khớp giữa hai bảng. Các lựa chọn còn lại mô tả những hàng không được đoạn trích xác nhận.",
                 "supportQuote": quote,
+                "sourceLocation": "Trang 999",
             }]}
 
     draft = await generate_practice(Model(), PracticeDraftRequest(
         count=1, instruction="ôn chương 3", material=material(text),
     ))
     assert len(draft.questions) == 1
+    assert draft.questions[0].sourceLocation == "Chương 3"
 
 
 @pytest.mark.asyncio

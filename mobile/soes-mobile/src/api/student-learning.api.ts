@@ -62,12 +62,12 @@ export interface StudyMaterial {
 
 type PracticeItem = ({
   id: string; orderIndex: number; stem: string; kind: 'CHOICE'; options: string[]
-  result?: { selectedIndex: number; correctIndex: number; explanation: string; supportQuote: string; materialTitle?: string }
+  result?: { selectedIndex: number; correctIndex: number; explanation: string; supportQuote: string; materialTitle?: string; sourceLocation?: string | null }
 } | {
   id: string; orderIndex: number; stem: string; kind: 'PROGRAMMING'; language: 'C' | 'CPP' | 'JAVA'
   starterCode: string; sampleInput: string; sampleOutput: string
   result?: { sourceCode: string; passedTestCases: number; totalTestCases: number;
-    explanation: string; supportQuote: string; materialTitle?: string }
+    explanation: string; supportQuote: string; materialTitle?: string; sourceLocation?: string | null }
 })
 
 export interface PracticeSet {
