@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+const subjectIdSchema = z.string().trim().min(1).max(100)
+
 export const askAgentSchema = z.object({
   message: z.string().trim().min(1).max(500),
   materialId: z.string().uuid().optional(),
@@ -32,7 +34,7 @@ export const agentAnswerSchema = z.object({
 })
 
 export const examDraftRequestSchema = z.object({
-  subjectId: z.string().uuid(),
+  subjectId: subjectIdSchema,
   format: z.enum(['OBJECTIVE', 'PROGRAMMING', 'MIXED']),
   desiredCount: z.number().int().min(1).max(100),
   message: z.string().trim().min(1).max(1000),
@@ -48,7 +50,7 @@ export const examDraftProposalSchema = z.object({
 
 export const topicSuggestionRequestSchema = z.object({
   questionId: z.string().uuid().optional(),
-  subjectId: z.string().uuid(),
+  subjectId: subjectIdSchema,
   title: z.string().trim().min(1).max(300),
   content: z.string().trim().min(1).max(3000),
 })

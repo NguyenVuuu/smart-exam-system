@@ -1,16 +1,23 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createPracticeSchema, examDraftRequestSchema } from './ai-agent.validator'
+import { createPracticeSchema, examDraftRequestSchema, topicSuggestionRequestSchema } from './ai-agent.validator'
 
 const request = {
-  subjectId: '61c6c0d6-35d0-4fdc-a779-a855461f0567',
+  subjectId: 'subj-java',
   format: 'OBJECTIVE',
   desiredCount: 10,
   message: 'Ưu tiên câu trung bình',
 }
 
-test('accepts a subject ID for an AI exam draft', () => {
+test('accepts a seeded subject ID for an AI exam draft', () => {
   assert.equal(examDraftRequestSchema.parse(request).subjectId, request.subjectId)
+})
+
+test('accepts a seeded subject ID for topic suggestions', () => {
+  const result = topicSuggestionRequestSchema.parse({
+    subjectId: 'subj-java', title: 'Java', content: 'Nội dung về lập trình Java',
+  })
+  assert.equal(result.subjectId, 'subj-java')
 })
 
 test('rejects missing or invalid subject IDs', () => {
