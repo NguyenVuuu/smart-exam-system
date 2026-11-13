@@ -1,6 +1,7 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { useState } from 'react'
 import { CalendarDays, List } from 'lucide-react-native'
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { InvigilationCard } from '../../components/teacher/invigilation/InvigilationCard'
 import { InvigilationCalendar } from '../../components/teacher/invigilation/InvigilationCalendar'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -37,7 +38,7 @@ export function TeacherInvigilationPage() {
       </>}
     </View>
     {view === 'calendar' ? <InvigilationCalendar /> : schedule.loading && !schedule.items.length ? <ScreenState kind="loading" /> : schedule.error && !schedule.items.length ?
-      <ScreenState kind="error" onRetry={schedule.retry} /> : <FlatList key={schedule.page} data={schedule.items} keyExtractor={(item) => item.id}
+      <ScreenState kind="error" onRetry={schedule.retry} /> : <BackToTopFlatList key={schedule.page} data={schedule.items} keyExtractor={(item) => item.id}
         renderItem={({ item }) => <InvigilationCard assignment={item} />} contentContainerStyle={styles.list}
         ListEmptyComponent={<ScreenState kind="empty" message="Không có ca coi thi phù hợp." />}
         ListFooterComponent={<>{schedule.error && <Text style={styles.error}>Không thể tải ca thi.</Text>}

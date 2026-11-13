@@ -1,3 +1,4 @@
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
 import { useEffect, useState } from 'react'
 import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -45,11 +46,11 @@ export function CourseDetailScreen({ id }: { id: string }) {
       </Pressable>)}
     </ScrollView>
     {tab === 'students' || tab === 'exams' ? <CoursePagedTab key={tab} courseId={id} kind={tab} /> :
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+      <BackToTopScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {tab === 'overview' && <SectionCard title="Thông tin lớp"><Text style={styles.line}>Trạng thái: {course.status === 'ACTIVE' ? 'Đang mở' : 'Đã đóng'}</Text><Text style={styles.line}>Sinh viên: {course.enrollmentCount}</Text><Text style={styles.line}>Ca thi: {course.scheduleCount}</Text></SectionCard>}
         {tab === 'materials' && <CourseMaterialsSection courseId={id} materials={course.materials} onChanged={reload} />}
         {tab === 'posts' && <CoursePostsSection courseId={id} posts={course.posts} onChanged={reload} />}
-      </ScrollView>}
+      </BackToTopScrollView>}
   </View>
 }
 

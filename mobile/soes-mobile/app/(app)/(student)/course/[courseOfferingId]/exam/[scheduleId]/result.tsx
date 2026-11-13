@@ -1,8 +1,6 @@
+import { BackToTopScrollView } from '../../../../../../../src/components/ui/BackToTop'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
-  TextInput, Modal, Alert,
-} from 'react-native'
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Modal, Alert } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { ArrowLeft, ArrowRight, CircleCheck, CircleX, Eye, FileText, Hourglass, Lightbulb, LockKeyhole, Ban, X } from 'lucide-react-native'
 import { useRequireAuth } from '../../../../../../../src/hooks/useRequireAuth'
@@ -199,7 +197,7 @@ export default function ExamResultScreen() {
 
   return (
     <StudentLayout activeRoute="scores">
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+      <BackToTopScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
 
           {/* Back */}
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
@@ -353,7 +351,7 @@ export default function ExamResultScreen() {
               )}
             </>
           )}
-        </ScrollView>
+        </BackToTopScrollView>
 
       {/* Score Adjustments Modal */}
       <Modal visible={showAdjModal} animationType="slide" transparent onRequestClose={() => setShowAdjModal(false)}>
@@ -365,7 +363,7 @@ export default function ExamResultScreen() {
                 <X size={20} color="#94a3b8" />
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <BackToTopScrollView showsVerticalScrollIndicator={false}>
               {result?.scoreAdjustments.map(adj => (
                 <View key={adj.id} style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -381,7 +379,7 @@ export default function ExamResultScreen() {
                   <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Bởi: {adj.adjustedBy}</Text>
                 </View>
               ))}
-            </ScrollView>
+            </BackToTopScrollView>
           </View>
         </View>
       </Modal>

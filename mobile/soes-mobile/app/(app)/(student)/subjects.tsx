@@ -1,7 +1,5 @@
-import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  FlatList, ActivityIndicator,
-} from 'react-native'
+import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
 import { ArrowRight, BookOpen, BookOpenText, ChevronLeft, ChevronRight, ClipboardList, FileText, GraduationCap, Search, Star, X } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
@@ -114,7 +112,7 @@ export default function SubjectsScreen() {
 
   return (
     <StudentLayout activeRoute="subjects">
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        <BackToTopScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
           {/* Page title */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 }}>
             <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' }}>
@@ -198,7 +196,7 @@ export default function SubjectsScreen() {
               <Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={setPage} />
             </>
           )}
-        </ScrollView>
+        </BackToTopScrollView>
     </StudentLayout>
   )
 }

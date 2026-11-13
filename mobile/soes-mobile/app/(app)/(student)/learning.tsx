@@ -1,5 +1,6 @@
+import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { BookOpenCheck, Bot, MessageCircle, Send, Target } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { askLearningAgent, getLearningAgentError, getLearningConversation, getLearningInsights, getStudyMaterials, listLearningConversations,
@@ -97,7 +98,7 @@ export default function StudentLearningScreen() {
   const subjectMaterials = materials.filter((item) => item.courseOffering.subject.id === subjectId)
 
   return <StudentLayout activeRoute="learning">
-    <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
+    <BackToTopScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ padding: 10, borderRadius: 12, backgroundColor: '#eff6ff' }}><Bot size={22} color="#2563eb" /></View>
         <View style={{ flex: 1 }}>
@@ -161,6 +162,6 @@ export default function StudentLearningScreen() {
         {turns.length > 0 && <Text style={{ fontSize: 12, color: '#64748b' }}>Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên.</Text>}
       </View>}
       {activeTab === 'practice' && <StudentPracticeSection materials={materials} topics={insights?.topics ?? []} />}
-    </ScrollView>
+    </BackToTopScrollView>
   </StudentLayout>
 }

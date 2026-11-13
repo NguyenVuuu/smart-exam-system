@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
+import { BackToTopScrollView } from '../../../../../../src/components/ui/BackToTop'
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { ArrowLeft, Camera, CircleCheck, CircleDot, ClipboardList, Clock3, Globe, KeyRound, Maximize, Monitor, RefreshCw, Timer, TriangleAlert, type LucideIcon } from 'lucide-react-native'
 import { useRequireAuth } from '../../../../../../src/hooks/useRequireAuth'
@@ -42,7 +43,7 @@ export default function ExamDetailScreen() {
 
   return (
     <StudentLayout activeRoute="subjects">
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        <BackToTopScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
 
           {/* Back */}
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
@@ -140,7 +141,7 @@ export default function ExamDetailScreen() {
               </View>
             </>
           )}
-        </ScrollView>
+        </BackToTopScrollView>
     </StudentLayout>
   )
 }

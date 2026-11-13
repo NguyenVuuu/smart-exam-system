@@ -1,5 +1,6 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
 import { SearchField } from '../../components/ui/SearchField'
@@ -40,7 +41,7 @@ export function TeacherCoursesScreen() {
   return <View style={styles.root}>
     <View style={styles.header}><ScreenHeader title="Lớp học phần" description="Các lớp bạn đang phụ trách" /><SearchField value={keyword} onChangeText={setKeyword} placeholder="Tìm lớp hoặc môn học" /></View>
     {loading && courses.length === 0 ? <ScreenState kind="loading" /> : error && courses.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, keyword)} /> :
-      <FlatList key={page} data={courses} keyExtractor={(course) => course.id} renderItem={({ item }) => <CourseCard course={item} />}
+      <BackToTopFlatList key={page} data={courses} keyExtractor={(course) => course.id} renderItem={({ item }) => <CourseCard course={item} />}
         contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={<ScreenState kind="empty" message="Không tìm thấy lớp học phần." />}
         ListFooterComponent={<>{error && <Text style={styles.error}>Không thể tải lớp.</Text>}

@@ -1,5 +1,6 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { Plus } from 'lucide-react-native'
 import { archiveQuestion, assignQuestionTopics, listQuestions, restoreQuestion, shareQuestion } from '../../api/teacher-questions.api'
 import { QuestionCard } from '../../components/teacher/question-bank/QuestionCard'
@@ -103,7 +104,7 @@ export function TeacherQuestionBankPage() {
         onToggle={(value) => setType(value as QuestionType | 'ALL')} />
     </View>
     {loading && items.length === 0 ? <ScreenState kind="loading" /> : error && items.length === 0 ? <ScreenState kind="error" onRetry={() => void load(1, scope, keyword, type)} /> :
-      <FlatList key={page} data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => {
+      <BackToTopFlatList key={page} data={items} keyExtractor={(question) => question.id} renderItem={({ item }) => {
         const editable = !item.sharedBank || item.sharedBank.status === 'REJECTED' || Boolean(item.sharedBank.removedAt)
         const available = !actionId
         return <QuestionCard question={item}

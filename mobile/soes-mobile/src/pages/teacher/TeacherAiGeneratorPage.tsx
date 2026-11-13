@@ -1,3 +1,4 @@
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
 import { useEffect, useRef, useState, type ElementRef } from 'react'
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { AiReviewCard } from '../../components/teacher/ai/AiReviewCard'
@@ -54,7 +55,7 @@ export function TeacherAiGeneratorPage() {
           setTopicCache({ subjectId: ai.subjectId, items: Array.from(new Map([...topics, ...selectedTopics].map((topic) => [topic.id, topic])).values()) })
           ai.updateQuestion({ ...taggingQuestion, topicIds: selectedTopics.map((topic) => topic.id) })
         }} />}
-      <ScrollView
+      <BackToTopScrollView
         ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={[styles.content, isKeyboardOpen && styles.contentKeyboardOpen]}
@@ -170,7 +171,7 @@ export function TeacherAiGeneratorPage() {
             </Pressable>
           </>
         )}
-      </ScrollView>
+      </BackToTopScrollView>
       <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"

@@ -1,6 +1,7 @@
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
 import { router } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { approveExam, getExamApproval, requestExamRevision } from '../../api/teacher-approvals.api'
 import { ApprovalQuestionCard } from '../../components/teacher/approvals/ApprovalQuestionCard'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -77,7 +78,7 @@ export function TeacherApprovalDetailPage({ id }: { id: string }) {
         Platform.OS === 'ios' && { paddingBottom: animatedOffset },
       ]}
     >
-      <ScrollView
+      <BackToTopScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, isKeyboardOpen && styles.contentKeyboardOpen]}
         keyboardShouldPersistTaps="handled"
@@ -98,7 +99,7 @@ export function TeacherApprovalDetailPage({ id }: { id: string }) {
             onNoteChange={(note) => setNotes((previous) => ({ ...previous, [question.id]: note }))}
           />
         ))}
-      </ScrollView>
+      </BackToTopScrollView>
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"

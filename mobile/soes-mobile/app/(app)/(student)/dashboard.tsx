@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native'
+import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
+import { View, Text, TouchableOpacity } from 'react-native'
 import { Hand } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { useStudentDashboard } from '../../../src/hooks/useStudentDashboard'
@@ -18,7 +19,7 @@ export default function StudentDashboard() {
 
   return (
     <StudentLayout activeRoute="dashboard">
-      <ScrollView
+      <BackToTopScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
@@ -51,7 +52,7 @@ export default function StudentDashboard() {
             </View>
           </>
         )}
-      </ScrollView>
+      </BackToTopScrollView>
     </StudentLayout>
   )
 }

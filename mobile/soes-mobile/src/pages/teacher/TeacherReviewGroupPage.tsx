@@ -1,6 +1,7 @@
+import { BackToTopScrollView } from '../../components/ui/BackToTop'
 import { isAxiosError } from 'axios'
 import { useCallback, useEffect, useState } from 'react'
-import { Animated, Platform, RefreshControl, ScrollView, StyleSheet, Text } from 'react-native'
+import { Animated, Platform, RefreshControl, StyleSheet, Text } from 'react-native'
 import { getReviewGroup, listReviewGroupCandidates } from '../../api/teacher-review-group.api'
 import { ReviewGroupManager, ReviewGroupMembers } from '../../components/teacher/review-group/ReviewGroupManager'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
@@ -56,7 +57,7 @@ export function TeacherReviewGroupPage() {
         Platform.OS === 'ios' && { paddingBottom: animatedOffset },
       ]}
     >
-      <ScrollView
+      <BackToTopScrollView
         style={styles.root}
         contentContainerStyle={[styles.content, isKeyboardOpen && styles.contentKeyboardOpen]}
         keyboardShouldPersistTaps="handled"
@@ -75,7 +76,7 @@ export function TeacherReviewGroupPage() {
         ) : null}
         {isHead ? <ReviewGroupManager key={group ? `${group.id}-${group.name}` : 'new'} group={group} candidates={candidates} onChanged={load} /> : null}
         {!group && !isHead ? <ScreenState kind="empty" message="Bộ môn chưa có nhóm duyệt đề." /> : null}
-      </ScrollView>
+      </BackToTopScrollView>
     </Animated.View>
   )
 }

@@ -1,3 +1,4 @@
+import { BackToTopScrollView } from '../../../../src/components/ui/BackToTop'
 import { useState } from 'react'
 import {
   View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert,
@@ -328,7 +329,7 @@ export default function CourseDetailScreen() {
 
   return (
     <StudentLayout activeRoute="subjects">
-        <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:20,paddingBottom:40 }}>
+        <BackToTopScrollView style={{ flex:1 }} contentContainerStyle={{ padding:20,paddingBottom:40 }}>
           {/* Back */}
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection:'row',alignItems:'center',gap:6,marginBottom:16 }}>
             <ArrowLeft size={16} color="#64748b" />
@@ -385,7 +386,7 @@ export default function CourseDetailScreen() {
               {activeTab === 'scores' && <ScoresTab courseOfferingId={courseOfferingId??''} />}
             </>
           )}
-        </ScrollView>
+        </BackToTopScrollView>
     </StudentLayout>
   )
 }

@@ -1,5 +1,6 @@
+import { BackToTopFlatList } from '../../components/ui/BackToTop'
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Animated, FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Alert, Animated, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { approveQuestion, listPendingQuestionApprovals, rejectQuestion } from '../../api/teacher-question-approvals.api'
 import { QuestionApprovalCard } from '../../components/teacher/question-approvals/QuestionApprovalCard'
 import { PaginationControls } from '../../components/ui/PaginationControls'
@@ -86,7 +87,7 @@ export function TeacherQuestionApprovalsPage({ showHeader = true }: { showHeader
       ) : error && items.length === 0 ? (
         <ScreenState kind="error" onRetry={() => void load(1)} />
       ) : (
-        <FlatList
+        <BackToTopFlatList
           key={page}
           data={items}
           keyExtractor={(item) => item.id}
