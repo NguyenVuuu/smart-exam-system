@@ -108,12 +108,9 @@ async def student_practice_draft(request: PracticeDraftRequest, http_request: Re
         reason = str(exc)
         allowed_reasons = {
             "Material cannot be read", "Material has no readable text",
-            "Material has no usable evidence", "Material text exceeds the size limit",
             "Practice question count mismatch", "Practice question asks about document structure",
-            "Practice question is missing Vietnamese diacritics", "Practice question lacks context",
             "Practice option contains a placeholder", "Duplicate practice content",
             "Practice question lacks a source quote",
-            "Practice question cites a table of contents entry", "Practice question copies a code example",
             "Practice answer is not uniquely supported by its source quote",
             "Not enough valid practice questions",
             "Practice explanation is too short",
