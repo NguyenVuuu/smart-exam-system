@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { router } from 'expo-router'
+import { Alert } from 'react-native'
 import { apiClient } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import { ROLE_HOME } from '../utils/role'
@@ -101,9 +102,14 @@ export function useSelectRole() {
       setPendingRoleSelection(null)
       router.replace(ROLE_HOME[user.role] as never)
     } catch (err: unknown) {
-      setError(extractErrorMessage(err))
+      const message = extractErrorMessage(err)
+      setError(message)
       setPendingRoleSelection(null)
-      router.replace('/(auth)/login')
+      const currentUser = useAuthStore.getState().user
+      if (currentUser) {
+        Alert.alert('Không thể chuyển vai trò', message)
+        router.replace(ROLE_HOME[currentUser.role] as never)
+      } else router.replace('/(auth)/login')
     } finally {
       setIsLoading(false)
     }
