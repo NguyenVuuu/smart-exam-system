@@ -205,6 +205,7 @@ async def test_generation_uses_selected_material_only():
 
         async def ainvoke(self, messages):
             assert SOURCE in messages[1][1]
+            assert "Mục tiêu toàn bài là 1 câu" in messages[1][1]
             assert "Tạo 1 câu ứng viên" in messages[1][1]
             assert "Mức độ: ADVANCED" in messages[1][1]
             assert "Chủ đề cần ưu tiên: SQL JOIN" in messages[1][1]

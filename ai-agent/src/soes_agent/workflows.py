@@ -17,11 +17,15 @@ class AgentState(TypedDict, total=False):
 
 
 def percentages_are_grounded(answer: AgentAnswer, evidence: dict[str, Any]) -> bool:
-    allowed = {float(topic["percentage"]) for topic in evidence["topics"]}
-    allowed.update(float(question["averagePercentage"]) for question in evidence["questions"])
+    cited = set(answer.evidenceIds)
+    allowed = {float(topic["percentage"]) for topic in evidence["topics"]
+               if topic["topicId"] in cited}
+    allowed.update(float(question["averagePercentage"]) for question in evidence["questions"]
+                   if question["questionId"] in cited)
     for group in evidence["classes"]:
-        allowed.update(float(topic["percentage"]) for topic in group["topics"])
-    if evidence["material"]:
+        if group["courseOfferingId"] in cited:
+            allowed.update(float(topic["percentage"]) for topic in group["topics"])
+    if evidence["material"] and evidence["material"]["materialId"] in cited:
         allowed.update(float(value.replace(",", ".")) for value in re.findall(
             r"(?<!\d)(\d{1,3}(?:[.,]\d+)?)\s*%", evidence["material"]["content"]
         ))
@@ -88,7 +92,7 @@ def create_workflow(model: ChatGoogleGenerativeAI, role: str):
         ):
             material = state["evidence"]["material"]
             return {"answer": AgentAnswer(
-                summary="Để tạo câu hỏi ôn tập có đáp án và lưu kết quả, hãy mở tab Bài luyện, chọn tài liệu, nhập nội dung muốn ôn và số câu cần tạo (tối đa 10).",
+                summary="Để tạo câu hỏi ôn tập có đáp án và lưu kết quả, hãy mở tab Bài luyện, chọn tài liệu, nhập nội dung muốn ôn và số câu cần tạo (tối đa 20).",
                 actions=[], evidenceIds=[material["materialId"]] if material else [],
             ).model_dump()}
         messages = [
@@ -106,7 +110,9 @@ def create_workflow(model: ChatGoogleGenerativeAI, role: str):
                 "Nếu có material, chỉ dùng nội dung đó để tóm tắt, trả lời hoặc gợi ý ôn tập. "
                 "Không suy luận rằng sinh viên yếu chủ đề nào từ tài liệu nếu không có thống kê bài thi được phép xem. "
                 "Nếu tài liệu không hỗ trợ câu hỏi, nói rõ không đủ căn cứ. "
-                "Đề xuất hành động ngắn, cụ thể bằng tiếng Việt. "
+                "Trả lời đúng trọng tâm câu hỏi bằng tiếng Việt có dấu, giải thích đủ ý; "
+                "nếu tài liệu hỗ trợ thì đưa một ví dụ ngắn, đúng với nguồn. "
+                "Đề xuất hành động cụ thể, ưu tiên theo dữ liệu. "
                 "Giữ summary dưới 1500 ký tự, tối đa 5 actions và mỗi action dưới 500 ký tự. "
                 "Nếu người dùng muốn tạo bài luyện, hướng dẫn dùng tab Bài luyện thay vì liệt kê câu hỏi ở đây. "
                 f"Vai trò hiện tại: {role}."

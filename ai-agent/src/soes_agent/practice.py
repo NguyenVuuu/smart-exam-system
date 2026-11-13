@@ -206,7 +206,7 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
         "về kiến thức giữa các câu; viết lại câu chưa đạt. Không suy đoán ngoài nguồn."
     )
     request_message = (
-        f"Tạo {request.count if request.count <= 10 else 'tối đa 10'} câu ứng viên theo yêu cầu.\n"
+        f"Mục tiêu toàn bài là {request.count} câu khác nhau; mỗi lượt chỉ tạo số câu được yêu cầu bên dưới.\n"
         f"Mức độ: {request.difficulty}. BASIC = nhận biết; INTERMEDIATE = hiểu quan hệ; "
         "ADVANCED = vận dụng kiến thức trong nguồn.\n"
         f"Chủ đề cần ưu tiên: {request.focusTopic.name if request.focusTopic else 'không chọn'}. "
@@ -230,8 +230,8 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
             normalized = []
             needs_verification = []
             for question in parse_candidates(response):
-                evidence_id = re.match(r"EVIDENCE_\d{4}\b", question.supportQuote.strip().upper())
-                passage = evidence.get(evidence_id.group() if evidence_id else "")
+                evidence_id = question.supportQuote.strip().upper()
+                passage = evidence.get(evidence_id) if re.fullmatch(r"EVIDENCE_\d{4}", evidence_id) else None
                 if passage:
                     question = question.model_copy(update={"supportQuote": passage})
                     needs_verification.append(question)

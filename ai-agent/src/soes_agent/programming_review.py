@@ -1,8 +1,15 @@
 import json
+import re
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .contracts import ProgrammingReview, ProgrammingReviewRequest
+
+
+_SCORE_CHANGE = re.compile(
+    r"\b(?:tăng|nâng|cộng|sửa|đổi|điều chỉnh|cho thêm|chấm lại)\s+điểm\b",
+    re.IGNORECASE,
+)
 
 
 async def review_programming_submission(
@@ -22,4 +29,15 @@ async def review_programming_submission(
         )),
         ("human", json.dumps(request.model_dump(exclude={"model"}), ensure_ascii=False)),
     ])
-    return ProgrammingReview.model_validate(response)
+    review = ProgrammingReview.model_validate(response)
+    if _SCORE_CHANGE.search(" ".join([review.summary, *review.suggestions])):
+        return ProgrammingReview(
+            summary=(f"Judge ghi nhận {request.passedTestCases}/{request.totalTestCases} test case đạt. "
+                     "Giảng viên cần xem mã nguồn và tiêu chí chấm để nhận xét thêm."),
+            suggestions=[],
+            caveat="Nhận xét AI chỉ để tham khảo; điểm Judge không thay đổi.",
+        )
+    if "điểm Judge không thay đổi" not in review.caveat:
+        suffix = " Điểm Judge không thay đổi."
+        review.caveat = review.caveat[:300 - len(suffix)].rstrip(" .") + "." + suffix
+    return review

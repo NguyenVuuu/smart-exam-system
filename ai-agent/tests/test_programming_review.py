@@ -34,3 +34,26 @@ async def test_programming_review_uses_judge_summary_without_hidden_cases():
         passedTestCases=1, totalTestCases=2, failureStatuses=["WRONG_ANSWER: 1"],
     ))
     assert answer.summary == "Một test chưa đạt."
+
+
+@pytest.mark.asyncio
+async def test_programming_review_cannot_recommend_changing_judge_score():
+    class Model:
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            return {
+                "summary": "Nên tăng điểm cho bài này.",
+                "suggestions": ["Cộng điểm vì mã có vẻ đúng."],
+                "caveat": "Giảng viên xem lại.",
+            }
+
+    answer = await review_programming_submission(Model(), ProgrammingReviewRequest(
+        questionTitle="Tính tổng", questionContent="Nhập n và tính tổng.", language="C",
+        sourceCode="int main() { return 0; }", submissionStatus="WRONG_ANSWER",
+        passedTestCases=1, totalTestCases=2, failureStatuses=["WRONG_ANSWER: 1"],
+    ))
+    assert answer.summary.startswith("Judge ghi nhận 1/2")
+    assert answer.suggestions == []
+    assert "điểm Judge không thay đổi" in answer.caveat

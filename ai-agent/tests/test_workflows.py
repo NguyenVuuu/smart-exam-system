@@ -54,6 +54,19 @@ def test_rejects_percentages_not_supported_by_the_evidence():
     assert not percentages_are_grounded(answer.model_copy(update={"summary": "JOIN đạt 80%"}), evidence)
 
 
+def test_percentage_must_come_from_cited_evidence():
+    evidence = {
+        "topics": [
+            {"topicId": "join", "percentage": 20},
+            {"topicId": "index", "percentage": 80},
+        ],
+        "questions": [], "classes": [], "material": None,
+    }
+    answer = AgentAnswer(summary="JOIN đạt 80%", actions=[], evidenceIds=["join"])
+    assert not percentages_are_grounded(answer, evidence)
+    assert percentages_are_grounded(answer.model_copy(update={"summary": "JOIN đạt 20%"}), evidence)
+
+
 def test_teacher_class_answer_includes_verified_sample_size():
     evidence = {
         "limitedToRecentAttempts": True,
@@ -170,6 +183,7 @@ async def test_student_exercise_request_uses_practice_flow_without_calling_model
         history=[{"message": "Giải thích chương 3", "summary": "Chương 3 nói về OOP."}],
     ))
     assert "Bài luyện" in answer.summary
+    assert "20" in answer.summary
     assert answer.evidenceIds == ["material-1"]
 
 

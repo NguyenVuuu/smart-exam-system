@@ -28,15 +28,15 @@ logger = logging.getLogger(__name__)
 
 @app.exception_handler(GoogleRateLimitError)
 async def model_rate_limited(_request: Request, _error: GoogleRateLimitError) -> JSONResponse:
-    logger.warning("AI provider rate limited category=%s code=%s message=%s",
-                   type(_error).__name__, getattr(_error, "code", ""), str(_error))
+    logger.warning("AI provider rate limited category=%s code=%s",
+                   type(_error).__name__, getattr(_error, "code", ""))
     return JSONResponse(status_code=429, content={"detail": "AI model rate limit reached"})
 
 
 @app.exception_handler(GoogleAPIError)
 async def model_unavailable(_request: Request, _error: GoogleAPIError) -> JSONResponse:
-    logger.warning("AI provider unavailable category=%s code=%s message=%s",
-                   type(_error).__name__, getattr(_error, "code", ""), str(_error))
+    logger.warning("AI provider unavailable category=%s code=%s",
+                   type(_error).__name__, getattr(_error, "code", ""))
     return JSONResponse(status_code=503, content={"detail": "AI model is temporarily unavailable"})
 
 
