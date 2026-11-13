@@ -104,7 +104,10 @@ async def student_practice_draft(request: PracticeDraftRequest, http_request: Re
 @app.post("/v1/teacher/exam-draft", response_model=ExamDraftProposal, dependencies=[Depends(require_service)])
 async def teacher_exam_draft(request: ExamDraftRequest, http_request: Request) -> ExamDraftProposal:
     http_request.state.model = request.model or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
-    return await propose_exam_draft(get_model(model_name=request.model), request)
+    try:
+        return await propose_exam_draft(get_model(model_name=request.model), request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="AI could not select enough valid exam questions") from exc
 
 
 @app.post("/v1/teacher/topic-suggestion", response_model=TopicSuggestion, dependencies=[Depends(require_service)])

@@ -28,6 +28,9 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
       logger.warn('AI agent returned an error', { workflow: path, status: response.status, elapsedMs: Date.now() - startedAt })
       if (response.status === 429) throw new AppError(429, 'AI provider rate limit reached')
       if (response.status === 503) throw new AppError(503, 'AI provider is temporarily unavailable')
+      if (response.status === 422 && path === '/v1/teacher/exam-draft') {
+        throw new AppError(422, 'Trợ lý chưa chọn được đủ câu hỏi phù hợp. Hãy giảm số câu hoặc điều chỉnh yêu cầu và thử lại.')
+      }
       if (response.status === 422 && path === '/v1/student/practice-draft') {
         const error = await response.json().catch(() => null) as { detail?: unknown } | null
         const detail = typeof error?.detail === 'string' ? error.detail : ''
