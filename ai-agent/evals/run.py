@@ -49,6 +49,19 @@ def cases():
                 "averagePercentage": 20, "signal": "VERY_HARD",
             }],
         ), {"question-hard"}, "khó", ()),
+        ("teacher-class-sample", "teacher", TeacherRequest(
+            message="Lớp SE01 cần ôn chủ đề nào? Nêu cỡ mẫu.",
+            analyzedAttemptCount=8, limitedToRecentAttempts=False,
+            questions=[], topics=[], classes=[{
+                "courseOfferingId": "class-se01", "code": "SE01",
+                "studentCount": 8, "sufficientData": True,
+                "topics": [{
+                    "topicId": "topic-join", "code": "JOIN", "name": "SQL JOIN",
+                    "questionCount": 8, "earnedPoints": 3, "possiblePoints": 10,
+                    "percentage": 30, "sufficientData": True,
+                }],
+            }],
+        ), {"class-se01"}, "8 sinh viên", ()),
     ]
 
 
@@ -74,6 +87,8 @@ async def evaluate(selected_case: str | None = None) -> int:
             allowed_percentages = {item.percentage for item in request.topics}
             if role == "teacher":
                 allowed_percentages.update(item.averagePercentage for item in request.questions)
+                for group in request.classes:
+                    allowed_percentages.update(topic.percentage for topic in group.topics if topic.sufficientData)
             claimed_percentages = {int(value) for value in re.findall(r"\b(\d{1,3})\s*%", text)}
             checks = {
                 "evidence": expected_ids.issubset(set(answer.evidenceIds)),

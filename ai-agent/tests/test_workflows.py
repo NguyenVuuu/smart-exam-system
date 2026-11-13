@@ -1,7 +1,7 @@
 import pytest
 
-from soes_agent.contracts import ExamMatrixRequest, StudentRequest
-from soes_agent.workflows import build_evidence, propose_exam_matrix, run_student
+from soes_agent.contracts import AgentAnswer, ExamMatrixRequest, StudentRequest
+from soes_agent.workflows import build_evidence, percentages_are_grounded, propose_exam_matrix, run_student
 
 
 def test_evidence_contains_only_numeric_metrics():
@@ -36,6 +36,41 @@ def test_teacher_evidence_requires_enough_students_and_topic_responses():
     )
     evidence = build_evidence({"request": request.model_dump()})["evidence"]
     assert evidence["classes"] == []
+
+
+def test_rejects_percentages_not_supported_by_the_evidence():
+    evidence = build_evidence({"request": StudentRequest(
+        message="Tôi yếu gì?", analyzedAttemptCount=1, limitedToRecentAttempts=False,
+        topics=[{
+            "topicId": "join", "code": "JOIN", "name": "SQL JOIN",
+            "questionCount": 5, "earnedPoints": 3, "possiblePoints": 10,
+            "percentage": 30, "sufficientData": True,
+        }],
+    ).model_dump()})["evidence"]
+    answer = AgentAnswer(summary="JOIN đạt 30%", actions=[], evidenceIds=["join"])
+    assert percentages_are_grounded(answer, evidence)
+    assert not percentages_are_grounded(answer.model_copy(update={"summary": "JOIN đạt 80%"}), evidence)
+
+
+@pytest.mark.asyncio
+async def test_model_percentage_without_evidence_is_not_shown():
+    class Model:
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            return {"summary": "JOIN đạt 80%", "actions": [], "evidenceIds": ["join"]}
+
+    answer = await run_student(Model(), StudentRequest(
+        message="Tôi yếu gì?", analyzedAttemptCount=1, limitedToRecentAttempts=False,
+        topics=[{
+            "topicId": "join", "code": "JOIN", "name": "SQL JOIN",
+            "questionCount": 5, "earnedPoints": 3, "possiblePoints": 10,
+            "percentage": 30, "sufficientData": True,
+        }],
+    ))
+    assert "80%" not in answer.summary
+    assert answer.evidenceIds == []
 
 
 @pytest.mark.asyncio

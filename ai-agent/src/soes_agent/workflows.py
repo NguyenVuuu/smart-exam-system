@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, TypedDict
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -12,6 +13,22 @@ class AgentState(TypedDict, total=False):
     request: dict[str, Any]
     evidence: dict[str, Any]
     answer: dict[str, Any]
+
+
+def percentages_are_grounded(answer: AgentAnswer, evidence: dict[str, Any]) -> bool:
+    allowed = {float(topic["percentage"]) for topic in evidence["topics"]}
+    allowed.update(float(question["averagePercentage"]) for question in evidence["questions"])
+    for group in evidence["classes"]:
+        allowed.update(float(topic["percentage"]) for topic in group["topics"])
+    if evidence["material"]:
+        allowed.update(float(value.replace(",", ".")) for value in re.findall(
+            r"(?<!\d)(\d{1,3}(?:[.,]\d+)?)\s*%", evidence["material"]["content"]
+        ))
+    response_text = " ".join([answer.summary, *answer.actions, answer.caveat or ""])
+    claimed = {float(value.replace(",", ".")) for value in re.findall(
+        r"(?<!\d)(\d{1,3}(?:[.,]\d+)?)\s*%", response_text
+    )}
+    return claimed.issubset(allowed)
 
 
 def build_evidence(state: AgentState) -> AgentState:
@@ -79,6 +96,11 @@ def create_workflow(model: ChatGoogleGenerativeAI, role: str):
             return {"answer": AgentAnswer(
                 summary="Chưa đủ căn cứ từ dữ liệu được phép sử dụng để trả lời chắc chắn.",
                 actions=[], evidenceIds=[], caveat="Hãy chọn tài liệu phù hợp hoặc hỏi giảng viên.",
+            ).model_dump()}
+        if not percentages_are_grounded(answer, state["evidence"]):
+            return {"answer": AgentAnswer(
+                summary="Chưa thể kiểm chứng tỷ lệ trong phân tích. Vui lòng hỏi lại hoặc xem số liệu thống kê hiển thị.",
+                actions=[], evidenceIds=[], caveat="Trợ lý chỉ hiển thị tỷ lệ có trong dữ liệu được phép sử dụng.",
             ).model_dump()}
         return {"answer": answer.model_dump()}
 
