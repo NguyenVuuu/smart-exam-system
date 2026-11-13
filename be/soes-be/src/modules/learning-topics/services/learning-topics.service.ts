@@ -28,14 +28,13 @@ export async function create(teacherId: string, subjectId: string, input: Create
   }
 }
 
-export async function assign(teacherId: string, questionId: string, topicIds: string[]) {
+export async function assign(teacherId: string, userId: string, questionId: string, topicIds: string[]) {
   const teacher = await repo.findTeacher(teacherId)
   if (teacher?.status !== 'ACTIVE' || teacher.user.status !== 'ACTIVE') {
     throw new ForbiddenError('Active teacher required')
   }
-  const result = await repo.assignQuestionTopics(questionId, teacherId, topicIds)
+  const result = await repo.assignQuestionTopics(questionId, teacherId, userId, topicIds)
   if (result.status === 'NOT_FOUND') throw new NotFoundError('Question not found')
-  if (result.status === 'LOCKED') throw new ConflictError('Shared question cannot be edited')
   if (result.status === 'INVALID') throw new ValidationError('Topics must belong to question subject')
   return { topicIds: result.topicIds }
 }

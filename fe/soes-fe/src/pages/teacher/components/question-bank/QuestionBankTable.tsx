@@ -171,12 +171,12 @@ export default function QuestionBankTable({
 
             {activeTab === 'PERSONAL' && !isArchived && (
               <>
-                {!lockedInSharedBank && <button
+                <button
                   onClick={(e) => { e.stopPropagation(); onEditTopics(q) }}
                   className="rounded-lg p-1.5 transition-colors hover:bg-blue-50 hover:text-blue-600"
                   title="Gắn chủ đề câu hỏi" aria-label={`Gắn chủ đề cho ${q.title}`}>
                   <Tags size={16} />
-                </button>}
+                </button>
                 {canShareQuestion && (
                   <button
                     onClick={(e) => {

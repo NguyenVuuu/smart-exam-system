@@ -10,5 +10,6 @@ export const create = async (req: Request, res: Response) => send(
   res, await service.create(req.user!.profileId, subjectParamSchema.parse(req.params).subjectId, createTopicSchema.parse(req.body)), 201,
 )
 export const assign = async (req: Request, res: Response) => send(
-  res, await service.assign(req.user!.profileId, questionParamSchema.parse(req.params).questionId, assignTopicsSchema.parse(req.body).topicIds),
+  res, await service.assign(req.user!.profileId, req.user!.id,
+    questionParamSchema.parse(req.params).questionId, assignTopicsSchema.parse(req.body).topicIds),
 )

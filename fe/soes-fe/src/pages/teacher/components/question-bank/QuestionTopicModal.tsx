@@ -86,7 +86,7 @@ export default function QuestionTopicModal({ question, onClose, onSaved }: Props
       <div className="max-h-[70vh] space-y-5 overflow-y-auto p-5">
         <div>
           <p className="text-sm font-semibold text-slate-900">{question.subjectName}</p>
-          <p className="mt-1 text-xs text-slate-500">Chọn chủ đề để phân tích kết quả học tập sau khi đề được công bố.</p>
+          <p className="mt-1 text-xs text-slate-500">Chủ đề mới áp dụng khi thêm câu hỏi vào đề sau lần lưu này; dữ liệu đề cũ không đổi.</p>
           {loading && <p className="mt-3 text-sm text-slate-500">Đang tải chủ đề...</p>}
           {!loading && topics.length === 0 && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Môn học chưa có chủ đề. Hãy thêm chủ đề ở bên dưới.</p>}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
