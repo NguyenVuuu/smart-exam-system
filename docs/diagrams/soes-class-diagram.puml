@@ -1,0 +1,1195 @@
+@startuml SOES_ClassDiagram
+
+top to bottom direction
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 8
+skinparam defaultFontColor #000000
+skinparam arrowColor #000000
+skinparam arrowThickness 1
+skinparam classAttributeIconSize 0
+skinparam nodesep 15
+skinparam ranksep 20
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #000000
+  FontColor #000000
+  AttributeFontColor #000000
+  StereotypeFontColor #000000
+  BorderThickness 1
+  FontSize 8
+  AttributeFontSize 8
+  HeaderBackgroundColor #FFFFFF
+}
+
+skinparam enum {
+  BackgroundColor #FFFFFF
+  BorderColor #000000
+  FontColor #000000
+  FontSize 8
+  AttributeFontSize 8
+}
+
+hide circle
+hide empty members
+
+class User {
+  +id: String
+  +username: String?
+  +email: String?
+  +phoneNumber: String?
+  +fullName: String
+  +avatarUrl: String?
+  +password: String
+  +status: AccountStatus
+  +roles: UserRole[]
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class Student {
+  +id: String
+  +studentCode: String
+  +status: AccountStatus
+  +userId: String
+}
+
+class Teacher {
+  +id: String
+  +teacherCode: String
+  +status: AccountStatus
+  +position: TeacherPosition
+  +departmentId: String?
+  +userId: String
+}
+
+class Admin {
+  +id: String
+  +adminCode: String
+  +status: AccountStatus
+  +role: BackofficeRole
+  +userId: String
+}
+
+class AdminPermissionOverride {
+  +id: String
+  +adminId: String
+  +permission: String
+  +allowed: Boolean
+  +updatedAt: DateTime
+}
+
+class BackofficeRolePermission {
+  +role: BackofficeRole
+  +permission: String
+  +createdAt: DateTime
+}
+
+class Department {
+  +id: String
+  +code: String
+  +name: String
+  +description: String?
+  +status: DepartmentStatus
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class Semester {
+  +id: String
+  +code: String
+  +name: String
+  +academicYear: String
+  +term: SemesterTerm
+  +startDate: DateTime
+  +endDate: DateTime
+  +status: SemesterStatus
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class Subject {
+  +id: String
+  +code: String
+  +name: String
+  +description: String?
+  +credits: Int
+  +status: SubjectStatus
+  +departmentId: String
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class CourseOffering {
+  +id: String
+  +code: String
+  +status: CourseOfferingStatus
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +semesterId: String
+  +subjectId: String
+  +teacherId: String
+  +maxCapacity: Int
+}
+
+class Enrollment {
+  +id: String
+  +enrolledAt: DateTime
+  +courseOfferingId: String
+  +studentId: String
+  +semesterId: String
+  +subjectId: String
+}
+
+class Post {
+  +id: String
+  +title: String
+  +content: String
+  +status: PostStatus
+  +isPinned: Boolean
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +publishedAt: DateTime?
+  +courseOfferingId: String
+  +createdById: String
+}
+
+class PostAttachment {
+  +id: String
+  +fileName: String
+  +objectName: String
+  +fileSize: Int
+  +contentType: String
+  +storagePath: String
+  +createdAt: DateTime
+  +updatedAt: DateTime
++postId: String
+}
+
+class Material {
+  +id: String
+  +title: String?
+  +fileName: String
+  +objectName: String
+  +fileSize: Int
+  +contentType: String
+  +storagePath: String
+  +checksum: String?
+  +storageProvider: FileStorageProvider
+  +aiEnabled: Boolean
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +courseOfferingId: String
+  +uploaderId: String
+}
+
+class DepartmentReviewGroup {
+  +id: String
+  +departmentId: String
+  +name: String
+  +status: ReviewGroupStatus
+  +createdById: String
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class DepartmentReviewMember {
+  +id: String
+  +groupId: String
+  +teacherId: String
+  +status: ReviewGroupMemberStatus
+  +joinedAt: DateTime
+  +leftAt: DateTime?
+}
+
+class ExamReviewRound {
+  +id: String
+  +examId: String
+  +groupId: String
+  +version: Int
+  +status: ExamReviewRoundStatus
+  +snapshot: Json
+  +submittedById: String
+  +submittedAt: DateTime
+  +decidedAt: DateTime?
+  +updatedAt: DateTime
+}
+
+class ExamReviewDecision {
+  +id: String
+  +roundId: String
+  +reviewerId: String
+  +type: ExamReviewDecisionType
+  +reason: String?
+  +questionFeedback: Json?
+  +createdAt: DateTime
+}
+
+class QuestionBank {
+  +id: String
+  +subjectId: String
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class QuestionBankItem {
+  +id: String
+  +questionBankId: String
+  +questionId: String
+  +status: QuestionBankItemStatus
+  +reviewedAt: DateTime?
+  +reviewedById: String?
+  +reviewedByTeacherId: String?
+  +rejectionReason: String?
+  +addedAt: DateTime
+  +removedAt: DateTime?
+  +removedByTeacherId: String?
+  +removedByAdminId: String?
+  +removalReason: String?
+}
+
+class Question {
+  +id: String
+  +title: String
+  +content: String
+  +explanation: String?
+  +type: QuestionType
+  +difficulty: QuestionDifficulty
+  +aiDifficultyReason: String?
+  +source: QuestionSource
+  +language: ProgrammingLanguage?
+  +aiReviewStatus: AIReviewStatus?
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +archivedAt: DateTime?
+  +ownerId: String
+  +subjectId: String
+  +aiGenerationId: String?
+}
+
+class QuestionOption {
+  +id: String
+  +content: String
+  +isCorrect: Boolean
+  +orderIndex: Int
+  +questionId: String
+}
+
+class QuestionProgrammingConfig {
+  +id: String
+  +timeLimitMs: Int
+  +memoryLimitKb: Int
+  +maxCodeSizeKb: Int
+  +questionId: String
+}
+
+class QuestionProgrammingTestCase {
+  +id: String
+  +input: String
+  +expectedOutput: String
+  +isSample: Boolean
+  +isHidden: Boolean
+  +orderIndex: Int
+  +questionId: String
+}
+
+class AIGenerationHistory {
+  +id: String
+  +teacherId: String
+  +subjectId: String
+  +courseOfferingId: String?
+  +examId: String?
+  +prompt: String
+  +aiModel: String
+  +mode: AIGenerationMode
+  +sourceType: AIGenerationSourceType
+  +sourceFileName: String?
+  +sourceFilePath: String?
+  +sourceFileSize: Int?
+  +sourceMimeType: String?
+  +sourceFiles: Json?
+  +questionCount: Int
+  +status: AIGenerationStatus
+  +errorMessage: String?
+  +createdAt: DateTime
+  +completedAt: DateTime?
+}
+
+class AIGenerationMaterial {
+  +id: String
++historyId: String
+  +materialId: String
+}
+
+class Exam {
+  +id: String
+  +title: String
+  +description: String?
+  +subjectId: String
+  +semesterId: String
+  +defaultDurationMinutes: Int
+  +totalPoints: Decimal
+  +format: ExamFormat
+  +status: ExamStatus
+  +studentVisibility: ExamStudentVisibility
+  +approvalStatus: ExamApprovalStatus
+  +reviewedAt: DateTime?
+  +reviewedById: String?
+  +rejectionReason: String?
+  +creationMethod: ExamCreationMethod
+  +type: ExamType
+  +contentHash: String?
+  +blockchainTxHash: String?
+  +blockchainAnchoredAt: DateTime?
+  +anchorRequestedAt: DateTime?
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +createdById: String
+}
+
+class ExamSection {
+  +id: String
+  +title: String
+  +description: String?
+  +type: ExamSectionType
+  +targetPoints: Decimal
+  +orderIndex: Int
+  +examId: String
+}
+
+class ExamQuestion {
+  +id: String
+  +orderIndex: Int
+  +points: Decimal
+  +title: String
+  +content: String
+  +explanation: String?
+  +type: QuestionType
+  +difficulty: QuestionDifficulty
+  +language: ProgrammingLanguage?
+  +sourceQuestionId: String?
+  +examId: String
+  +sectionId: String?
+}
+
+class ExamQuestionOption {
+  +id: String
+  +content: String
+  +isCorrect: Boolean
+  +orderIndex: Int
+  +examQuestionId: String
+}
+
+class ExamSchedule {
+  +id: String
+  +title: String
+  +examId: String
+  +startTime: DateTime
+  +endTime: DateTime
+  +durationMinutes: Int
+  +maxAttempts: Int
+  +passwordHash: String?
+  +enableTabLock: Boolean
+  +maxTabSwitches: Int?
+  +requireFullscreen: Boolean
+  +enableWebcam: Boolean
+  +enableScreenMonitoring: Boolean
+  +blockCopyPaste: Boolean
+  +blockRightClick: Boolean
+  +proctoringStoragePath: String?
+  +locationMode: ExamLocationMode
+  +allowedIpRanges: String[]
+  +distributionMode: ExamDistributionMode
+  +randomQuestionCount: Int?
+  +resultReleaseMode: ResultReleaseMode
+  +resultReleaseAt: DateTime?
+  +resultsPublishedAt: DateTime?
+  +reviewPolicy: ReviewPolicy
+  +reviewStartAt: DateTime?
+  +reviewEndAt: DateTime?
+  +status: ExamScheduleStatus
+  +publishedAt: DateTime?
+  +cancelledAt: DateTime?
+  +cancellationReason: String?
+  +makeupOfScheduleId: String?
+  +createdById: String
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class ExamScheduleStudent {
+  +id: String
+  +examScheduleId: String
+  +studentId: String
+  +createdAt: DateTime
+}
+
+class ExamScheduleCourse {
+  +id: String
+  +examScheduleId: String
+  +courseOfferingId: String
+  +createdAt: DateTime
+}
+
+class ExamScheduleProctor {
+  +id: String
+  +examScheduleCourseId: String
+  +teacherId: String
+  +createdAt: DateTime
+}
+
+class ExamAttempt {
+  +id: String
+  +attemptNo: Int
+  +startedAt: DateTime
+  +deadlineAt: DateTime
+  +submittedAt: DateTime?
+  +lastSavedAt: DateTime?
+  +endedBy: AttemptEndedBy?
+  +status: AttemptStatus
+  +totalScore: Decimal?
+  +autoScore: Decimal?
+  +manualScore: Decimal?
+  +violationsViewedAt: DateTime?
+  +violationsViewedById: String?
+  +invalidatedAt: DateTime?
+  +invalidatedById: String?
+  +invalidationReason: String?
++version: Int
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +examScheduleId: String
+  +courseOfferingId: String
+  +studentId: String
+}
+
+class StudentFaceProfile {
+  +id: String
+  +studentId: String
+  +providerUserId: String
+  +providerFaceId: String?
+  +collectionId: String
+  +status: FaceEnrollmentStatus
+  +failedAttemptsSinceSuccess: Int
+  +cooldownUntil: DateTime?
+  +requiresManualReview: Boolean
+  +enrolledAt: DateTime?
+  +revokedAt: DateTime?
+  +referenceImageCiphertext: Bytes?
+  +referenceImageMimeType: String?
+  +referenceImageCapturedAt: DateTime?
+  +imageConsentAt: DateTime?
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class FaceVerificationSession {
+  +id: String
+  +studentId: String
+  +examScheduleId: String?
+  +attemptId: String?
+  +providerSessionId: String?
+  +purpose: FaceVerificationPurpose
+  +method: FaceVerificationMethod
+  +status: FaceVerificationStatus
+  +livenessConfidence: Decimal?
+  +similarity: Decimal?
+  +failureCode: String?
+  +imageConsentAt: DateTime?
+  +grantExpiresAt: DateTime?
+  +consumedAt: DateTime?
+  +contentAccessedAt: DateTime?
+  +expiresAt: DateTime
+  +completedAt: DateTime?
+  +approvedById: String?
+  +manualReason: String?
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class FaceReviewCapture {
+  +id: String
+  +studentId: String
+  +examScheduleId: String
+  +sourceSessionId: String
+  +imageCiphertext: Bytes
+  +imageMimeType: String
+  +capturedAt: DateTime
+  +expiresAt: DateTime
+}
+
+class ExamAttemptQuestion {
+  +id: String
+  +displayOrder: Int
+  +attemptId: String
+  +examQuestionId: String
+  +shuffledOptionIds: String[]
+}
+
+class ExamSession {
+  +id: String
+  +socketId: String?
+  +ipAddress: String
+  +deviceInfo: String
+  +lastHeartbeat: DateTime
+  +isOnline: Boolean
+  +webcamStatus: WebcamStatus
+  +screenShareStatus: ScreenShareStatus
+  +lastWebcamHeartbeatAt: DateTime?
+  +lastScreenHeartbeatAt: DateTime?
+  +createdAt: DateTime
+  +attemptId: String
+}
+
+class StudentAnswer {
+  +id: String
+  +selectedOptionIds: String[]
+  +draftSourceCode: String?
+  +score: Decimal?
+  +isCorrect: Boolean?
+  +attemptId: String
+  +examQuestionId: String
+}
+
+class ProgrammingSubmission {
+  +id: String
+  +clientRequestId: String
+  +submissionNo: Int
+  +sourceCode: String
+  +language: ProgrammingLanguage
+  +status: ProgrammingSubmissionStatus
+  +score: Decimal?
+  +passedTestCases: Int
+  +totalTestCases: Int
+  +executionTimeMs: Int?
+  +memoryUsedKb: Int?
+  +compilerOutput: String?
+  +runtimeError: String?
+  +submittedAt: DateTime
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +attemptId: String
+  +examQuestionId: String
+}
+
+class ProgrammingSubmissionTestResult {
+  +id: String
+  +status: ProgrammingTestResultStatus
+  +actualOutput: String?
+  +executionTimeMs: Int?
+  +memoryUsedKb: Int?
+  +errorMessage: String?
+  +judge0Token: String?
+  +submissionId: String
+  +testCaseId: String
+}
+
+class ProgrammingTestCase {
+  +id: String
+  +input: String
+  +expectedOutput: String
+  +isSample: Boolean
+  +isHidden: Boolean
+  +examQuestionId: String
+}
+
+class ProgrammingQuestionConfig {
+  +id: String
+  +timeLimitMs: Int
+  +memoryLimitKb: Int
+  +maxCodeSizeKb: Int
+  +examQuestionId: String
+}
+
+class Violation {
+  +id: String
+  +violationType: ViolationType
+  +source: ViolationSource
+  +severity: SeverityLevel
+  +detectedBy: ViolationDetectedBy
+  +reviewStatus: ViolationReviewStatus
+  +evidenceUrls: Json?
+  +metadata: Json?
+  +description: String?
+  +detectedAt: DateTime
+  +endedAt: DateTime?
+  +durationSeconds: Int?
+  +reviewedAt: DateTime?
+  +reviewNote: String?
+  +attemptId: String
+  +detectedById: String?
+  +reviewedById: String?
+}
+
+class ViolationEvidence {
+  +id: String
+  +evidenceType: ViolationEvidenceType
+  +storageProvider: FileStorageProvider
+  +bucket: String
+  +objectName: String
+  +storagePath: String
+  +fileName: String
+  +contentType: String
+  +fileSize: Int?
+  +capturedAt: DateTime
+  +violationId: String
+  +capturedById: String?
+}
+
+class GradeAppeal {
+  +id: String
+  +reason: String
+  +status: GradeAppealStatus
+  +teacherReply: String?
+  +handledAt: DateTime?
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +attemptId: String
+  +studentId: String
+  +handledById: String?
+}
+
+class ScoreAdjustment {
+  +id: String
+  +attemptId: String
+  +adjustedById: String
+  +adjustmentType: ScoreAdjustmentType
+  +previousScore: Decimal
++newScore: Decimal
+  +reason: String
+  +evidenceUrls: String[]
+  +violationIds: String[]
+  +createdAt: DateTime
+}
+
+class CodeGenerationSetting {
+  +id: String
+  +studentPrefix: String
+  +studentDigits: Int
+  +teacherPrefix: String
+  +teacherDigits: Int
+  +adminPrefix: String
+  +adminDigits: Int
+  +createdAt: DateTime
+  +updatedAt: DateTime
+}
+
+class Notification {
+  +id: String
+  +title: String
+  +content: String
+  +link: String?
+  +isRead: Boolean
+  +createdAt: DateTime
+  +updatedAt: DateTime
+  +userId: String
+}
+
+class AuditLog {
+  +id: String
+  +action: String
+  +entityType: String
+  +entityId: String
+  +metadata: Json?
+  +createdAt: DateTime
+  +userId: String
+  +ipAddress: String?
+  +userAgent: String?
+}
+
+enum UserRole {
+  ADMIN
+  EDUCATION_OFFICER
+  TEACHER
+  DEPARTMENT_HEAD
+  STUDENT
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BackofficeRole {
+  ADMIN
+  EDUCATION_OFFICER
+}
+
+enum TeacherPosition {
+  LECTURER
+  DEPARTMENT_HEAD
+}
+
+enum DepartmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+}
+
+enum ExamType {
+  QUIZ
+  MIDTERM
+  FINAL
+}
+
+enum ExamCreationMethod {
+  MANUAL
+  QUESTION_BANK
+  AI_GENERATED
+  MIXED
+}
+
+enum SemesterStatus {
+  UPCOMING
+  ACTIVE
+  CLOSED
+}
+
+enum SemesterTerm {
+  TERM_1
+  TERM_2
+  TERM_3
+}
+
+enum SubjectStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum QuestionBankItemStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  PROGRAMMING
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionSource {
+  MANUAL
+  AI_GENERATED
+  IMPORTED
+}
+
+enum AIReviewStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum AIGenerationMode {
+  GENERATE_FROM_MATERIAL
+  EXTRACT_EXISTING_EXAM
+}
+
+enum AIGenerationSourceType {
+  COURSE_MATERIAL
+  UPLOAD_FILE
+}
+
+enum AIGenerationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum FileStorageProvider {
+  LOCAL
+  SUPABASE
+  MINIO
+}
+
+enum ProgrammingLanguage {
+  JAVA
+  C
+  CPP
+}
+
+enum ProgrammingSubmissionStatus {
+  PENDING
+  COMPILING
+  COMPILE_ERROR
+  RUNNING
+  ACCEPTED
+  WRONG_ANSWER
+  RUNTIME_ERROR
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  SYSTEM_ERROR
+}
+
+enum ProgrammingTestResultStatus {
+  PASSED
+  WRONG_ANSWER
+  RUNTIME_ERROR
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  SYSTEM_ERROR
+}
+
+enum ExamStatus {
+  DRAFT
+  READY
+  LOCKED
+  ARCHIVED
+}
+
+enum ExamStudentVisibility {
+  VISIBLE
+  HIDDEN
+}
+
+enum ExamFormat {
+  OBJECTIVE
+  PROGRAMMING
+  MIXED
+}
+
+enum ExamSectionType {
+  OBJECTIVE
+  PROGRAMMING
+}
+
+enum ExamApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReviewGroupStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ReviewGroupMemberStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ExamReviewRoundStatus {
+  WAITING_FOR_REVIEWERS
+  PENDING
+  APPROVED
+  REVISION_REQUESTED
+}
+
+enum ExamReviewDecisionType {
+  APPROVE
+  REQUEST_REVISION
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  AUTO_SUBMITTED
+  GRADING
+  GRADED
+  PUBLISHED
+  INVALIDATED
+}
+
+enum AttemptEndedBy {
+  STUDENT
+  TIMEOUT
+SYSTEM
+  PROCTOR
+}
+
+enum ExamDistributionMode {
+  FIXED_ORDER
+  SHUFFLE_QUESTIONS
+  SHUFFLE_OPTIONS
+  SHUFFLE_QUESTIONS_AND_OPTIONS
+  RANDOM_SUBSET
+}
+
+enum ResultReleaseMode {
+  IMMEDIATE
+  MANUAL
+  SCHEDULED
+  NEVER
+}
+
+enum ReviewPolicy {
+  NONE
+  SCORE_ONLY
+  ANSWERS_NO_KEY
+  FULL_AFTER_RELEASE
+}
+
+enum ExamLocationMode {
+  ONLINE
+  CAMPUS
+}
+
+enum ExamScheduleStatus {
+  DRAFT
+  SCHEDULED
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum ViolationType {
+  TAB_SWITCH
+  FULLSCREEN_EXIT
+  NO_FACE
+  MULTIPLE_FACES
+  INACTIVITY
+  LOOKING_AWAY
+  PHONE_DETECTED
+  COPY_PASTE
+  RIGHT_CLICK
+  CAMERA_BLOCKED
+  CAMERA_DISCONNECTED
+  CAMERA_PERMISSION_DENIED
+  SCREEN_SHARE_STOPPED
+  SCREEN_PERMISSION_DENIED
+  PROCTOR_WEBCAM_CAPTURE
+  PROCTOR_SCREEN_CAPTURE
+}
+
+enum SeverityLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CourseOfferingStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum WebcamStatus {
+  NOT_REQUIRED
+  PENDING_PERMISSION
+  ACTIVE
+  DISCONNECTED
+  PERMISSION_DENIED
+  BLOCKED
+}
+
+enum ScreenShareStatus {
+  NOT_REQUIRED
+  PENDING_PERMISSION
+  ACTIVE
+  STOPPED
+  PERMISSION_DENIED
+}
+
+enum ViolationSource {
+  WEBCAM
+  SCREEN
+  BROWSER
+  PROCTOR
+}
+
+enum ViolationDetectedBy {
+  SYSTEM
+  PROCTOR
+}
+
+enum ViolationReviewStatus {
+  PENDING
+  REVIEWED
+  CONFIRMED
+  DISMISSED
+  WARNED
+  FORCE_SUBMITTED
+  INVALIDATED
+}
+
+enum GradeAppealStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum ScoreAdjustmentType {
+  SYSTEM_ERROR
+  VIOLATION
+  MANUAL_REVIEW
+  GRADE_APPEAL
+  OTHER
+}
+
+enum ViolationEvidenceType {
+  WEBCAM_IMAGE
+  SCREEN_IMAGE
+}
+
+enum FaceEnrollmentStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum FaceVerificationPurpose {
+  ENROLLMENT
+  EXAM_ENTRY
+}
+
+enum FaceVerificationMethod {
+  AWS_REKOGNITION
+  MANUAL_OVERRIDE
+}
+
+enum FaceVerificationStatus {
+  CREATED
+  PROCESSING
+  PASSED
+  FAILED
+  EXPIRED
+  CONSUMED
+  MANUAL_APPROVED
+}
+
+User "1" -- "0..*" Student : user
+User "1" -- "0..*" Teacher : user
+User "1" -- "0..*" Admin : user
+Admin "1" -- "0..*" AdminPermissionOverride : admin
+
+Department "0..1" -- "0..*" Teacher : department
+Department "1" -- "0..*" Subject : department
+Department "1" -- "0..1" DepartmentReviewGroup : department
+
+Teacher "1" -- "0..*" DepartmentReviewGroup : createdBy
+DepartmentReviewGroup "1" -- "0..*" DepartmentReviewMember : group
+Teacher "1" -- "0..*" DepartmentReviewMember : teacher
+
+Exam "1" -- "0..*" ExamReviewRound : exam
+DepartmentReviewGroup "1" -- "0..*" ExamReviewRound : group
+Teacher "1" -- "0..*" ExamReviewRound : submittedBy
+ExamReviewRound "1" -- "0..1" ExamReviewDecision : decision
+Teacher "1" -- "0..*" ExamReviewDecision : reviewer
+
+Semester "1" -- "0..*" CourseOffering : semester
+Subject "1" -- "0..*" CourseOffering : subject
+Teacher "1" -- "0..*" CourseOffering : teacher
+
+CourseOffering "1" -- "0..*" Enrollment : courseOffering
+Student "1" -- "0..*" Enrollment : student
+Semester "1" -- "0..*" Enrollment : semester
+Subject "1" -- "0..*" Enrollment : subject
+
+CourseOffering "1" -- "0..*" Post : courseOffering
+Teacher "1" -- "0..*" Post : createdBy
+Post "1" -- "0..*" PostAttachment : post
+
+CourseOffering "1" -- "0..*" Material : courseOffering
+Teacher "1" -- "0..*" Material : uploader
+
+Subject "1" -- "0..1" QuestionBank : subject
+QuestionBank "1" -- "0..*" QuestionBankItem : questionBank
+Question "1" -- "0..1" QuestionBankItem : question
+Teacher "0..1" -- "0..*" QuestionBankItem : reviewedByTeacher
+Admin "0..1" -- "0..*" QuestionBankItem : removedByAdmin
+Teacher "0..1" -- "0..*" QuestionBankItem : removedByTeacher
+
+Teacher "1" -- "0..*" Question : owner
+Subject "1" -- "0..*" Question : subject
+AIGenerationHistory "0..1" -- "0..*" Question : aiGeneration
+
+Question "1" -- "0..*" QuestionOption : options
+Question "1" -- "0..1" QuestionProgrammingConfig : programmingConfig
+Question "1" -- "0..*" QuestionProgrammingTestCase : programmingTests
+
+Teacher "1" -- "0..*" AIGenerationHistory : teacher
+Subject "1" -- "0..*" AIGenerationHistory : subject
+CourseOffering "0..1" -- "0..*" AIGenerationHistory : courseOffering
+Exam "0..1" -- "0..*" AIGenerationHistory : exam
+AIGenerationHistory "1" -- "0..*" AIGenerationMaterial : history
+Material "1" -- "0..*" AIGenerationMaterial : material
+
+Subject "1" -- "0..*" Exam : subject
+Semester "1" -- "0..*" Exam : semester
+Teacher "1" -- "0..*" Exam : createdBy
+Teacher "0..1" -- "0..*" Exam : reviewedBy
+
+Exam "1" -- "0..*" ExamSection : sections
+Exam "1" -- "0..*" ExamQuestion : examQuestions
+ExamSection "0..1" -- "0..*" ExamQuestion : section
+Question "0..1" -- "0..*" ExamQuestion : sourceQuestion
+ExamQuestion "1" -- "0..*" ExamQuestionOption : options
+
+Exam "1" -- "0..*" ExamSchedule : schedules
+ExamSchedule "0..1" -- "0..*" ExamSchedule : makeupOfSchedule
+User "1" -- "0..*" ExamSchedule : createdBy
+
+ExamSchedule "1" -- "0..*" ExamScheduleStudent : targetStudents
+Student "1" -- "0..*" ExamScheduleStudent : student
+
+ExamSchedule "1" -- "0..*" ExamScheduleCourse : scheduleCourses
+CourseOffering "1" -- "0..*" ExamScheduleCourse : courseOffering
+
+ExamScheduleCourse "1" -- "0..*" ExamScheduleProctor : proctors
+Teacher "1" -- "0..*" ExamScheduleProctor : teacher
+
+ExamSchedule "1" -- "0..*" ExamAttempt : attempts
+CourseOffering "1" -- "0..*" ExamAttempt : courseOffering
+Student "1" -- "0..*" ExamAttempt : student
+User "0..1" -- "0..*" ExamAttempt : invalidatedBy
+User "0..1" -- "0..*" ExamAttempt : violationsViewedBy
+
+Student "1" -- "0..1" StudentFaceProfile : faceProfile
+Student "1" -- "0..*" FaceVerificationSession : faceVerifications
+ExamSchedule "0..1" -- "0..*" FaceVerificationSession : examSchedule
+ExamAttempt "0..1" -- "0..*" FaceVerificationSession : attempt
+User "0..1" -- "0..*" FaceVerificationSession : approvedBy
+Student "1" -- "0..*" FaceReviewCapture : faceReviewCaptures
+ExamSchedule "1" -- "0..*" FaceReviewCapture : examSchedule
+
+ExamAttempt "1" -- "0..*" ExamAttemptQuestion : attemptQuestions
+ExamQuestion "1" -- "0..*" ExamAttemptQuestion : examQuestion
+ExamAttempt "1" -- "0..1" ExamSession : examSession
+
+ExamAttempt "1" -- "0..*" StudentAnswer : studentAnswers
+ExamQuestion "1" -- "0..*" StudentAnswer : examQuestion
+
+ExamAttempt "1" -- "0..*" ProgrammingSubmission : submissions
+ExamQuestion "1" -- "0..*" ProgrammingSubmission : examQuestion
+ProgrammingSubmission "1" -- "0..*" ProgrammingSubmissionTestResult : testResults
+ProgrammingTestCase "1" -- "0..*" ProgrammingSubmissionTestResult : testCase
+
+ExamQuestion "1" -- "0..*" ProgrammingTestCase : programmingTests
+ExamQuestion "1" -- "0..1" ProgrammingQuestionConfig : programmingConfig
+
+ExamAttempt "1" -- "0..*" Violation : violations
+User "0..1" -- "0..*" Violation : detector
+User "0..1" -- "0..*" Violation : reviewer
+Violation "1" -- "0..*" ViolationEvidence : evidences
+User "0..1" -- "0..*" ViolationEvidence : capturedBy
+
+ExamAttempt "1" -- "0..1" GradeAppeal : gradeAppeal
+Student "1" -- "0..*" GradeAppeal : gradeAppeals
+Teacher "0..1" -- "0..*" GradeAppeal : handledBy
+
+ExamAttempt "1" -- "0..*" ScoreAdjustment : scoreAdjustments
+Teacher "1" -- "0..*" ScoreAdjustment : adjustedBy
+
+User "1" -- "0..*" Notification : notifications
+User "1" -- "0..*" AuditLog : auditLogs
+
+@enduml
