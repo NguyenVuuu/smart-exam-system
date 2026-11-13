@@ -10,6 +10,7 @@ import { downloadBufferFromBucket } from "../../../services/storage.service";
 import * as repo from "../repositories/ai-question-generation.repository";
 import type { SourceDocument } from "./document-reader.service";
 import { toGeminiContent } from "./document-reader.service";
+import { loadCourseMaterialBuffer } from "./course-material-buffer.cache";
 import { generateWithGemini } from "./gemini-question.service";
 import { generateWithQuestionAgent } from "./gemini-question.service";
 import { aiAgentConfig } from "../../../config";
@@ -134,9 +135,13 @@ async function courseMaterialDocuments(
       async (material): Promise<SourceDocument> => ({
         fileName: material.fileName,
         contentType: material.contentType,
-        buffer: await downloadBufferFromBucket(
-          supabaseBuckets.courseMaterials,
+        buffer: await loadCourseMaterialBuffer(
           material.storagePath,
+          material.checksum,
+          () => downloadBufferFromBucket(
+            supabaseBuckets.courseMaterials,
+            material.storagePath,
+          ),
         ),
       }),
     ),

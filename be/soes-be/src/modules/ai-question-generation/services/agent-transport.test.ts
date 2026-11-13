@@ -50,10 +50,10 @@ test('agent draft is reviewed and corrected before it reaches the teacher', asyn
   assert.equal(payloads[0].model, request.model)
   assert.equal(payloads[0].contents[0].text, request.contents[0].text)
   assert.deepEqual(payloads[0].responseSchema.properties.questions.items.properties.difficulty.enum, ['HARD'])
-  assert.match(payloads[1].prompt, /Tạo lại toàn bộ danh sách/)
+  assert.match(payloads[1].prompt, /Chỉ trả ĐÚNG 1 câu thay thế/)
 })
 
-test('agent regenerates the selected question count when one question needs correction', async () => {
+test('agent keeps accepted questions and only regenerates rejected questions', async () => {
   process.env.AI_AGENT_ENABLED = 'true'
   process.env.AI_AGENT_SHARED_SECRET = 'test-secret'
   const payloads: Array<{ responseSchema: ReturnType<typeof buildGenerationResponseSchema>; prompt: string }> = []
@@ -65,15 +65,16 @@ test('agent regenerates the selected question count when one question needs corr
         { ...question, title: 'Question 2', content: 'Question 2' },
         { ...question, title: 'Question 3', content: 'Question 3', difficulty: 'EASY' },
       ]
-      : [1, 2, 3].map(index => ({ ...question, title: `Revised ${index}`, content: `Revised ${index}` }))
+      : [{ ...question, title: 'Revised 3', content: 'Revised 3' }]
     return new Response(JSON.stringify({ questions }), { status: 200 })
   })
 
   const result = await generateWithQuestionAgent({ ...request, questionCount: 3 })
   assert.equal(result.length, 3)
+  assert.deepEqual(result.map(item => item.title), ['Question 1', 'Question 2', 'Revised 3'])
   assert.equal(payloads.length, 2)
-  assert.equal(payloads[1].responseSchema.properties.questions.maxItems, 3)
-  assert.match(payloads[1].prompt, /Tạo lại toàn bộ danh sách/)
+  assert.equal(payloads[1].responseSchema.properties.questions.maxItems, 1)
+  assert.match(payloads[1].prompt, /Chỉ trả ĐÚNG 1 câu thay thế/)
 })
 
 test('agent failure is returned without silently calling direct Gemini', async () => {
