@@ -19,7 +19,7 @@ export const generateAiQuestions = async (payload: GenerateAiPayload) =>
 
 export async function saveAiQuestions(historyId: string, subjectId: string, questions: GeneratedQuestion[]) {
   const approved = questions.map(({ id: _id, status: _status, subjectId: _subjectId, subjectName: _subjectName,
-    sourceMaterialName: _sourceMaterialName, ...question }) => ({ generationId: historyId, subjectId, question }))
+    sourceMaterialName: _sourceMaterialName, topicIds = [], ...question }) => ({ generationId: historyId, subjectId, topicIds, question }))
   const { data } = await apiClient.post<ApiResponse<{ count: number; questionIds: string[] }>>(
     '/teacher/ai-question-generations/questions', { questions: approved }, { timeout: 60000 })
   return data.data

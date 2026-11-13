@@ -95,6 +95,9 @@ export function useTeacherAiGenerator() {
   async function save() {
     const chosen = questions.filter((question) => selected.includes(question.id))
     if (!generation || !chosen.length || busy) return
+    if (chosen.some((question) => !question.topicIds?.length)) {
+      Alert.alert('Chưa gắn chủ đề', 'Hãy gắn ít nhất một chủ đề cho mỗi câu được chọn trước khi lưu.'); return
+    }
     if (chosen.some((question) => {
       const options = question.options.map((option) => option.content.trim().toLocaleLowerCase('vi'))
       const correctCount = question.options.filter((option) => option.isCorrect).length
