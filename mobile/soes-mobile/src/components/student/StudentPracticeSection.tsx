@@ -109,11 +109,21 @@ export default function StudentPracticeSection({ materials, topics }: {
       {!!current.completedAt && <Text style={{ color: '#1d4ed8', fontWeight: '700' }}>Kết quả: {current.score}/{current.items.length}</Text>}
       {current.items.slice(page * 5, (page + 1) * 5).map((item) => <View key={item.id} style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', gap: 8 }}>
         <Text style={{ fontWeight: '700', color: '#0f172a' }}>Câu {item.orderIndex}: {item.stem}</Text>
-        {item.kind === 'CHOICE' ? item.options.map((option, index) => <TouchableOpacity key={index} accessibilityRole="button"
-          disabled={!!current.completedAt || busy} onPress={() => setChoices((previous) => ({ ...previous, [item.id]: index }))}
-          style={{ padding: 9, borderRadius: 8, backgroundColor: (item.result?.selectedIndex ?? choices[item.id]) === index ? '#dbeafe' : '#f8fafc' }}>
-          <Text>{option}{item.result?.correctIndex === index ? ' ✓' : ''}</Text>
-        </TouchableOpacity>) : <View style={{ gap: 8 }}>
+        {item.kind === 'CHOICE' ? item.options.map((option, index) => {
+          const correct = item.result?.correctIndex === index
+          const wrong = !!item.result && item.result.selectedIndex === index && !correct
+          const selected = !item.result && choices[item.id] === index
+          return <TouchableOpacity key={index} accessibilityRole="button"
+            accessibilityLabel={`${option}${correct ? ', đáp án đúng' : wrong ? ', bạn chọn sai' : ''}`}
+            disabled={!!current.completedAt || busy} onPress={() => setChoices((previous) => ({ ...previous, [item.id]: index }))}
+            style={{ padding: 9, borderRadius: 8, borderWidth: 1,
+              borderColor: correct ? '#86efac' : wrong ? '#fca5a5' : selected ? '#93c5fd' : '#e2e8f0',
+              backgroundColor: correct ? '#dcfce7' : wrong ? '#fee2e2' : selected ? '#dbeafe' : '#f8fafc' }}>
+            <Text style={{ color: correct ? '#166534' : wrong ? '#991b1b' : '#0f172a', fontWeight: correct || wrong ? '700' : '400' }}>
+              {option}{correct ? ' ✓' : wrong ? ' ✕' : ''}
+            </Text>
+          </TouchableOpacity>
+        }) : <View style={{ gap: 8 }}>
           <Text style={{ color: '#475569', fontSize: 12 }}>Ví dụ đầu vào: {item.sampleInput}{'\n'}Ví dụ đầu ra: {item.sampleOutput}</Text>
           <Text style={{ color: '#334155', fontWeight: '600' }}>Mã nguồn {item.language}</Text>
           <TextInput value={item.result?.sourceCode ?? codes[item.id] ?? item.starterCode}
