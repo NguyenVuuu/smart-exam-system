@@ -62,12 +62,41 @@ async def test_generation_uses_selected_material_only():
             assert "Tạo 1 câu ứng viên" in messages[1][1]
             assert "Mức độ: ADVANCED" in messages[1][1]
             assert "Chủ đề cần ưu tiên: SQL JOIN" in messages[1][1]
+            assert "Yêu cầu ôn tập của sinh viên: tập trung vào INNER JOIN" in messages[1][1]
             return draft().model_dump()
 
     request = PracticeDraftRequest(count=1, difficulty="ADVANCED",
-        focusTopic={"code": "JOIN", "name": "SQL JOIN"}, material=StudyMaterial(
+        focusTopic={"code": "JOIN", "name": "SQL JOIN"},
+        instruction="tập trung vào INNER JOIN", material=StudyMaterial(
         materialId="material-1", title="JOIN", mimeType="text/plain",
         contentBase64=base64.b64encode(SOURCE.encode()).decode(),
     ))
     result = await generate_practice(Model(), request)
     assert len(result.questions) == 1
+
+
+@pytest.mark.asyncio
+async def test_generation_retries_unverified_answer_once():
+    class Model:
+        calls = 0
+
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                bad = draft()
+                bad.questions[0].correctIndex = 1
+                return bad.model_dump()
+            assert "Bản nháp trước chưa đạt" in messages[-1][1]
+            return draft().model_dump()
+
+    model = Model()
+    request = PracticeDraftRequest(count=1, material=StudyMaterial(
+        materialId="material-1", title="JOIN", mimeType="text/plain",
+        contentBase64=base64.b64encode(SOURCE.encode()).decode(),
+    ))
+    result = await generate_practice(model, request)
+    assert model.calls == 2
+    assert result.questions[0].correctIndex == 0

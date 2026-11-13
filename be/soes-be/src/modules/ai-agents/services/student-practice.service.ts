@@ -43,7 +43,8 @@ export async function createStudentPractice(studentId: string, userId: string, i
     score: Number(set.score), questionCount: set._count.items,
   })))
   const draft = await requestPracticeDraftAgent({ material, count: input.count, difficulty,
-    ...(focusTopic && { focusTopic: { code: focusTopic.code, name: focusTopic.name } }) })
+    ...(focusTopic && { focusTopic: { code: focusTopic.code, name: focusTopic.name } }),
+    ...(input.instruction && { instruction: input.instruction }) })
   if (draft.questions.length !== input.count) throw new ValidationError('Invalid practice draft')
   await assertOutsideExam(studentId)
   const set = await prisma.$transaction(async (tx) => {

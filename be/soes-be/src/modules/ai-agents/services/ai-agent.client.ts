@@ -28,6 +28,14 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
       logger.warn('AI agent returned an error', { workflow: path, status: response.status, elapsedMs: Date.now() - startedAt })
       if (response.status === 429) throw new AppError(429, 'AI provider rate limit reached')
       if (response.status === 503) throw new AppError(503, 'AI provider is temporarily unavailable')
+      if (response.status === 422 && path === '/v1/student/practice-draft') {
+        const error = await response.json().catch(() => null) as { detail?: unknown } | null
+        const detail = typeof error?.detail === 'string' ? error.detail : ''
+        if (detail === 'Material has no readable text' || detail === 'Material cannot be read') {
+          throw new AppError(422, 'AI study material has no readable text')
+        }
+        throw new AppError(422, 'AI could not create enough verified practice questions')
+      }
       throw new AppError(503, 'AI assistant is temporarily unavailable')
     }
     const answer = schema.parse(await response.json())

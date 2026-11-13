@@ -90,6 +90,7 @@ class PracticeDraftRequest(ModelSelection):
     count: int = Field(ge=1, le=10)
     difficulty: Literal["BASIC", "INTERMEDIATE", "ADVANCED"] = "INTERMEDIATE"
     focusTopic: PracticeFocusTopic | None = None
+    instruction: str | None = Field(default=None, max_length=500)
 
 
 class PracticeQuestion(BaseModel):
