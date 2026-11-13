@@ -47,12 +47,18 @@ class ModelSelection(BaseModel):
     model: str | None = Field(default=None, max_length=100, pattern=r"^[A-Za-z0-9._/-]+$")
 
 
+class ConversationTurn(BaseModel):
+    message: str = Field(min_length=1, max_length=500)
+    summary: str = Field(max_length=1500)
+
+
 class StudentRequest(ModelSelection):
     message: str = Field(min_length=1, max_length=500)
     analyzedAttemptCount: int = Field(ge=0)
     limitedToRecentAttempts: bool
     topics: list[TopicMetric] = Field(max_length=100)
     material: StudyMaterial | None = None
+    history: list[ConversationTurn] = Field(default_factory=list, max_length=6)
 
 
 class TeacherRequest(ModelSelection):
@@ -62,6 +68,7 @@ class TeacherRequest(ModelSelection):
     questions: list[QuestionMetric] = Field(max_length=500)
     topics: list[TopicMetric] = Field(max_length=100)
     classes: list[ClassMetric] = Field(default_factory=list, max_length=50)
+    history: list[ConversationTurn] = Field(default_factory=list, max_length=6)
 
 
 class ExamMatrixRequest(ModelSelection):
@@ -80,9 +87,44 @@ class ExamMatrixProposal(BaseModel):
     rationale: str = Field(max_length=500)
 
 
+class ExamCandidate(BaseModel):
+    id: str = Field(min_length=1, max_length=100)
+    title: str = Field(max_length=180)
+    content: str = Field(max_length=300)
+    type: Literal["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "PROGRAMMING"]
+    difficulty: Literal["EASY", "MEDIUM", "HARD"]
+    topics: list[str] = Field(max_length=10)
+
+
+class ExamDraftRequest(ModelSelection):
+    message: str = Field(min_length=1, max_length=1000)
+    desiredCount: int = Field(ge=1, le=100)
+    format: Literal["OBJECTIVE", "PROGRAMMING", "MIXED"]
+    candidates: list[ExamCandidate] = Field(min_length=1, max_length=500)
+    topicTargets: dict[str, int] = Field(default_factory=dict, max_length=30)
+
+
+class ExamDraftProposal(BaseModel):
+    questionIds: list[str] = Field(min_length=1, max_length=100)
+    rationale: str = Field(min_length=1, max_length=600)
+
+
 class PracticeFocusTopic(BaseModel):
     code: str = Field(min_length=1, max_length=50)
     name: str = Field(min_length=1, max_length=150)
+
+
+class TopicSuggestionRequest(ModelSelection):
+    title: str = Field(min_length=1, max_length=300)
+    content: str = Field(min_length=1, max_length=3000)
+    existingTopics: list[PracticeFocusTopic] = Field(max_length=100)
+
+
+class TopicSuggestion(BaseModel):
+    existingCodes: list[str] = Field(max_length=3)
+    newCode: str | None = Field(default=None, max_length=50)
+    newName: str | None = Field(default=None, max_length=150)
+    rationale: str = Field(max_length=400)
 
 
 class PracticeDraftRequest(ModelSelection):

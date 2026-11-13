@@ -3,7 +3,10 @@ import { z } from 'zod'
 export const askAgentSchema = z.object({
   message: z.string().trim().min(1).max(500),
   materialId: z.string().uuid().optional(),
+  conversationId: z.string().uuid().optional(),
 })
+export const conversationQuerySchema = z.object({ materialId: z.string().uuid().optional() })
+export const conversationParamSchema = z.object({ conversationId: z.string().uuid() })
 export const scheduleParamSchema = z.object({ scheduleId: z.string().uuid() })
 export const reviewExplanationParamsSchema = z.object({
   attemptId: z.string().uuid(), questionId: z.string().uuid(),
@@ -40,6 +43,35 @@ export const examMatrixProposalSchema = z.object({
   mediumCount: z.number().int().min(0).max(100),
   hardCount: z.number().int().min(0).max(100),
   rationale: z.string().max(500),
+})
+
+export const examDraftRequestSchema = z.object({
+  subjectId: z.string().uuid(),
+  format: z.enum(['OBJECTIVE', 'PROGRAMMING', 'MIXED']),
+  desiredCount: z.number().int().min(1).max(100),
+  message: z.string().trim().min(1).max(1000),
+  topicTargets: z.array(z.object({ topicId: z.string().uuid(), count: z.number().int().min(1).max(100) }))
+    .max(30).default([]),
+}).refine((input) => new Set(input.topicTargets.map((item) => item.topicId)).size === input.topicTargets.length,
+  { path: ['topicTargets'], message: 'Topic targets must be unique' })
+
+export const examDraftProposalSchema = z.object({
+  questionIds: z.array(z.string().uuid()).min(1).max(100),
+  rationale: z.string().min(1).max(600),
+})
+
+export const topicSuggestionRequestSchema = z.object({
+  questionId: z.string().uuid().optional(),
+  subjectId: z.string().uuid(),
+  title: z.string().trim().min(1).max(300),
+  content: z.string().trim().min(1).max(3000),
+})
+
+export const topicSuggestionSchema = z.object({
+  existingCodes: z.array(z.string().max(50)).max(3),
+  newCode: z.string().max(50).nullable(),
+  newName: z.string().max(150).nullable(),
+  rationale: z.string().max(400),
 })
 
 export const practiceDraftSchema = z.object({ questions: z.array(z.object({

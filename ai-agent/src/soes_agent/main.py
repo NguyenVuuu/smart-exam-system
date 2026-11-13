@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
 
-from .contracts import AgentAnswer, ExamMatrixProposal, ExamMatrixRequest, PracticeDraft, PracticeDraftRequest, ProgrammingReview, ProgrammingReviewRequest, QuestionDraftRequest, StudentRequest, TeacherRequest
+from .contracts import AgentAnswer, ExamDraftProposal, ExamDraftRequest, ExamMatrixProposal, ExamMatrixRequest, PracticeDraft, PracticeDraftRequest, ProgrammingReview, ProgrammingReviewRequest, QuestionDraftRequest, StudentRequest, TeacherRequest, TopicSuggestion, TopicSuggestionRequest
+from .exam_draft import propose_exam_draft, suggest_topic
 from .practice import generate_practice
 from .programming_review import review_programming_submission
 from .question_generation import generate_question_draft
@@ -104,6 +105,18 @@ async def student_practice_draft(request: PracticeDraftRequest, http_request: Re
 async def teacher_exam_matrix(request: ExamMatrixRequest, http_request: Request) -> ExamMatrixProposal:
     http_request.state.model = request.model or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
     return await propose_exam_matrix(get_model(model_name=request.model), request)
+
+
+@app.post("/v1/teacher/exam-draft", response_model=ExamDraftProposal, dependencies=[Depends(require_service)])
+async def teacher_exam_draft(request: ExamDraftRequest, http_request: Request) -> ExamDraftProposal:
+    http_request.state.model = request.model or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
+    return await propose_exam_draft(get_model(model_name=request.model), request)
+
+
+@app.post("/v1/teacher/topic-suggestion", response_model=TopicSuggestion, dependencies=[Depends(require_service)])
+async def teacher_topic_suggestion(request: TopicSuggestionRequest, http_request: Request) -> TopicSuggestion:
+    http_request.state.model = request.model or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
+    return await suggest_topic(get_model(model_name=request.model), request)
 
 
 @app.post("/v1/teacher/programming-review", response_model=ProgrammingReview, dependencies=[Depends(require_service)])
