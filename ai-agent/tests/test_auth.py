@@ -105,3 +105,16 @@ def test_insight_uses_model_selected_by_backend(monkeypatch):
         json={"model": "gemini-3.5-flash-lite", "message": "test",
               "analyzedAttemptCount": 0, "limitedToRecentAttempts": False, "topics": []})
     assert response.status_code == 200
+
+
+def test_model_factory_keeps_requested_model(monkeypatch):
+    selected = {}
+
+    def fake_model(**kwargs):
+        selected.update(kwargs)
+        return object()
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(main, "ChatGoogleGenerativeAI", fake_model)
+    main.get_model(model_name="gemini-3.1-flash-lite")
+    assert selected["model"] == "gemini-3.1-flash-lite"

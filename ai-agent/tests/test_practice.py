@@ -19,6 +19,20 @@ def draft(quote: str = SOURCE) -> PracticeDraft:
     }])
 
 
+def numbered_quote(number: int) -> str:
+    return f"Phép tính loại {number} trả giá trị {number} khi dữ liệu hợp lệ."
+
+
+def numbered_question(number: int):
+    item = draft().questions[0].model_copy(deep=True)
+    item.stem = f"Phép tính loại {number} trả kết quả nào khi dữ liệu hợp lệ?"
+    item.options = [f"Giá trị {number}", "Không có kết quả", "Luôn trả lỗi", "Trả toàn bộ đầu vào"]
+    item.explanation = (f"Phép tính loại {number} trả giá trị {number} khi dữ liệu đầu vào hợp lệ. "
+                        "Các phương án không có kết quả, báo lỗi hoặc trả toàn bộ đầu vào đều trái với quy tắc này.")
+    item.supportQuote = numbered_quote(number)
+    return item
+
+
 def test_practice_requires_exact_material_evidence_and_unique_options():
     assert validate_draft(draft(), SOURCE, 1).questions[0].correctIndex == 0
     with pytest.raises(ValueError, match="source quote"):
@@ -67,6 +81,39 @@ def test_practice_keeps_only_valid_unique_candidates():
     ]), SOURCE, 1)
     assert len(result.questions) == 1
     assert result.questions[0].correctIndex == 0
+
+
+def test_practice_rejects_reworded_duplicate_from_same_evidence():
+    first = draft().questions[0]
+    second = first.model_copy(deep=True)
+    second.stem = "Những hàng nào được INNER JOIN giữ lại?"
+    with pytest.raises(ValueError, match="Duplicate practice content"):
+        validate_draft(PracticeDraft(questions=[first, second]), SOURCE, 2)
+
+
+def test_practice_rejects_missing_code_context_and_copied_code_option():
+    array_source = "int nums[] = {99, -10, 100123, 18, -978};"
+    array_question = numbered_question(1)
+    array_question.stem = "Trong đoạn mã khai báo mảng số nguyên, phần tử đầu tiên của mảng nums có giá trị là bao nhiêu?"
+    array_question.options = ["99", "-10", "18", "-978"]
+    array_question.supportQuote = array_source
+    with pytest.raises(ValueError, match="lacks context"):
+        validate_draft(PracticeDraft(questions=[array_question]), array_source, 1)
+
+    print_source = 'System.out.println("str1 != str2");'
+    copied = numbered_question(1)
+    copied.stem = "Đoạn mã Java nào in thông báo về hai chuỗi?"
+    copied.options = [print_source, "System.out.println(str1);", "System.out.println(str2);", "System.out.println(true);"]
+    copied.supportQuote = print_source
+    with pytest.raises(ValueError, match="copies a code example"):
+        validate_draft(PracticeDraft(questions=[copied]), print_source, 1)
+
+
+def test_practice_removes_internal_evidence_id_from_explanation():
+    candidate = draft()
+    candidate.questions[0].explanation += " Đoạn nguồn EVIDENCE_0007 cho thấy điều này."
+    result = validate_draft(candidate, SOURCE, 1)
+    assert "EVIDENCE_" not in result.questions[0].explanation
 
 
 def test_candidate_parser_skips_malformed_items_without_losing_valid_answers():
@@ -160,22 +207,110 @@ async def test_generation_keeps_verified_questions_across_attempts():
 
         async def ainvoke(self, _messages):
             self.calls += 1
-            start = 1 if self.calls == 1 else 4
-            questions = []
-            for number in range(start, start + 3):
-                item = draft().questions[0].model_copy(deep=True)
-                item.stem = f"Câu {number}: INNER JOIN trả loại hàng nào?"
-                questions.append(item)
-            if self.calls == 1:
+            start = (self.calls - 1) * 3 + 1
+            questions = [numbered_question(number) for number in range(start, start + 3)]
+            if self.calls <= 2:
                 questions[-1].correctIndex = 1
             return PracticeDraft(questions=questions).model_dump()
 
     model = Model()
     request = PracticeDraftRequest(count=5, material=StudyMaterial(
         materialId="material-1", title="JOIN", mimeType="text/plain",
+        contentBase64=base64.b64encode("\n".join(numbered_quote(n) for n in range(1, 10)).encode()).decode(),
+    ))
+    result = await generate_practice(model, request)
+    assert model.calls == 3
+    assert len(result.questions) == 5
+    assert result.questions[0].stem.startswith("Phép tính loại 1")
+
+
+@pytest.mark.asyncio
+async def test_generation_replenishes_large_draft_with_verified_questions():
+    class Model:
+        calls = 0
+
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            self.calls += 1
+            questions = []
+            for number in range((self.calls - 1) * 10 + 1, self.calls * 10 + 1):
+                item = numbered_question(number)
+                if self.calls <= 4 and number % 3 != 0:
+                    item.correctIndex = 1
+                questions.append(item)
+            return PracticeDraft(questions=questions).model_dump()
+
+    model = Model()
+    request = PracticeDraftRequest(count=20, material=StudyMaterial(
+        materialId='material-1', title='JOIN', mimeType='text/plain',
+        contentBase64=base64.b64encode("\n".join(numbered_quote(n) for n in range(1, 61)).encode()).decode(),
+    ))
+    result = await generate_practice(model, request)
+    assert len(result.questions) == 20
+    assert model.calls == 6
+
+
+@pytest.mark.asyncio
+async def test_generation_accepts_paraphrased_answer_only_after_independent_check():
+    class Model:
+        schema = ""
+        verified = False
+
+        def with_structured_output(self, schema, *, method):
+            assert method == "json_schema"
+            self.schema = "verdicts" if "verdicts" in schema.get("properties", {}) else "questions"
+            return self
+
+        async def ainvoke(self, messages):
+            if self.schema == "verdicts":
+                self.verified = True
+                assert "correctIndex" not in str(messages)
+                return {"verdicts": [{"itemIndex": 0, "answerIndex": 0, "qualityAccepted": True}]}
+            item = draft().questions[0].model_copy(deep=True)
+            item.options[0] = "Chỉ các bản ghi có giá trị liên kết trùng nhau"
+            item.supportQuote = "EVIDENCE_0001"
+            return PracticeDraft(questions=[item]).model_dump()
+
+    model = Model()
+    request = PracticeDraftRequest(count=1, material=StudyMaterial(
+        materialId="material-1", title="JOIN", mimeType="text/plain",
         contentBase64=base64.b64encode(SOURCE.encode()).decode(),
     ))
     result = await generate_practice(model, request)
-    assert model.calls == 2
-    assert len(result.questions) == 5
-    assert result.questions[0].stem.startswith("Câu 1:")
+    assert model.verified
+    assert result.questions[0].supportQuote == SOURCE
+    assert result.questions[0].options[0] == "Chỉ các bản ghi có giá trị liên kết trùng nhau"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("paraphrase, quality_accepted, answer_index", [
+    (False, True, 1), (True, True, 1), (False, False, 0),
+])
+async def test_generation_rejects_answer_when_independent_check_disagrees(
+    paraphrase, quality_accepted, answer_index,
+):
+    class Model:
+        schema = ""
+
+        def with_structured_output(self, schema, *, method):
+            self.schema = "verdicts" if "verdicts" in schema.get("properties", {}) else "questions"
+            return self
+
+        async def ainvoke(self, _messages):
+            if self.schema == "verdicts":
+                return {"verdicts": [{"itemIndex": 0, "answerIndex": answer_index,
+                                      "qualityAccepted": quality_accepted}]}
+            item = draft().questions[0].model_copy(deep=True)
+            if paraphrase:
+                item.options[0] = "Chỉ các bản ghi có giá trị liên kết trùng nhau"
+            item.supportQuote = "EVIDENCE_0001"
+            return PracticeDraft(questions=[item]).model_dump()
+
+    request = PracticeDraftRequest(count=1, material=StudyMaterial(
+        materialId="material-1", title="JOIN", mimeType="text/plain",
+        contentBase64=base64.b64encode(SOURCE.encode()).decode(),
+    ))
+    with pytest.raises(ValueError, match="count mismatch"):
+        await generate_practice(Model(), request)

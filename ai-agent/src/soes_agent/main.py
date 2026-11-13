@@ -67,10 +67,7 @@ def get_model(timeout_seconds: int = 60, max_output_tokens: int | None = None,
     if not api_key:
         raise HTTPException(status_code=503, detail="Model is not configured")
 
-    # Nếu client truyền model gemini-3.1-flash-lite đang bị quá tải từ Google, tự động dùng 3.5-flash-lite
     selected_model = model_name or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
-    if selected_model == "gemini-3.1-flash-lite":
-        selected_model = "gemini-3.5-flash-lite"
 
     return ChatGoogleGenerativeAI(
         model=selected_model,
