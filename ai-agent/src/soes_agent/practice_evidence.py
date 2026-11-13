@@ -7,7 +7,12 @@ def is_table_of_contents_entry(text: str) -> bool:
 
 def is_heading_only(text: str) -> bool:
     value = text.strip()
-    return len(value.split()) <= 9 and not value.endswith((".", "!", "?", ";")) and not re.search(r"[=;{}]", value)
+    if len(value.split()) > 9 or value.endswith((".", "!", "?", ";")) or re.search(r"[=;{}]", value):
+        return False
+    is_statement = len(value.split()) >= 7 and re.search(
+        r"\b(?:là|có|được|giúp|gồm|kế thừa|phân biệt|trả về|cho phép)\b", value.casefold()
+    )
+    return not is_statement
 
 
 def evidence_passages(source: str) -> list[str]:
@@ -31,8 +36,34 @@ def evidence_passages(source: str) -> list[str]:
                     and not is_heading_only(piece)):
                 passages.append(piece)
                 seen.add(key)
-    if not passages and len(source.strip()) >= 10 and not is_table_of_contents_entry(source) and not is_heading_only(source):
-        passages = [source.strip()[:300]]
+    return passages or _wrapped_line_passages(source)
+
+
+def _wrapped_line_passages(source: str) -> list[str]:
+    """Recover prose split into short PDF lines without sentence punctuation."""
+    passages = []
+    lines: list[str] = []
+
+    def flush() -> None:
+        piece = "\n".join(lines).strip()
+        if len(piece) >= 50 and not is_heading_only(piece):
+            passages.append(piece)
+        lines.clear()
+
+    for raw_line in source.splitlines():
+        if re.match(r"^\s*\[Trang \d+\]", raw_line):
+            flush()
+        line = re.sub(r"^\s*\[Trang \d+\]\s*", "", raw_line).strip()
+        if (not line or line == "[...]" or is_table_of_contents_entry(line)
+                or re.match(r"^(?:mục lục|chương \d+\b)", line.casefold())):
+            flush()
+            continue
+        if lines and len("\n".join(lines)) + len(line) > 300:
+            flush()
+        lines.append(line)
+        if len("\n".join(lines)) >= 160 or line.endswith((".", "!", "?", ";")):
+            flush()
+    flush()
     return passages
 
 

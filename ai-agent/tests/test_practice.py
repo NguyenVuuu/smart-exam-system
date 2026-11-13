@@ -4,7 +4,7 @@ import pytest
 
 from soes_agent.contracts import PracticeDraft, PracticeDraftRequest, StudyMaterial
 from soes_agent.practice import generate_practice, parse_candidates, review_questions, validate_draft, validate_questions
-from soes_agent.practice_evidence import evidence_passages
+from soes_agent.practice_evidence import evidence_passages, is_heading_only
 
 
 SOURCE = "INNER JOIN chỉ trả các hàng có khóa khớp ở hai bảng."
@@ -59,6 +59,27 @@ def test_practice_does_not_cite_a_short_section_heading():
     candidate = draft(heading).questions[0]
     with pytest.raises(ValueError, match="heading"):
         validate_questions([candidate], source, 1, {id(candidate)})
+
+
+def test_practice_keeps_wrapped_pdf_prose_without_sentence_punctuation():
+    source = ("[Trang 12] CHƯƠNG 3\n"
+              "Khai báo chồng phương thức\n"
+              "Các phương thức cùng tên có thể nhận\n"
+              "số lượng hoặc kiểu tham số khác nhau\n"
+              "Trình biên dịch phân biệt các phương thức\n"
+              "dựa vào danh sách tham số riêng\n"
+              "Chương 4........................15")
+    passages = evidence_passages(source)
+    assert passages
+    assert any("Trình biên dịch" in passage for passage in passages)
+    assert "Khai báo chồng phương thức" not in passages
+    assert all("Chương 4........................15" not in passage for passage in passages)
+
+
+def test_short_factual_line_is_not_mistaken_for_a_heading():
+    statement = "Lớp con kế thừa thuộc tính của lớp cha"
+    assert not is_heading_only(statement)
+    assert evidence_passages(statement) == [statement]
 
 
 def test_practice_uses_distinct_citations_when_source_has_enough_passages():
