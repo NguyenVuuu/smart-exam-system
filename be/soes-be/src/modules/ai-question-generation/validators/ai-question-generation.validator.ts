@@ -65,7 +65,7 @@ export const saveGeneratedQuestionsSchema = z.object({
       z.object({
         generationId: id,
         subjectId: id,
-        topicIds: assignTopicsSchema.shape.topicIds.default([]),
+        topicIds: assignTopicsSchema.shape.topicIds.refine((ids) => ids.length > 0, 'Choose at least one topic'),
         question: generatedQuestionSchema,
       }),
     )
