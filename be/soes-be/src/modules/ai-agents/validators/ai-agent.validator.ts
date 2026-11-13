@@ -68,15 +68,27 @@ export const practiceDraftSchema = z.object({ questions: z.array(z.object({
   correctIndex: z.number().int().min(0).max(3),
   explanation: z.string().min(10).max(500),
   supportQuote: z.string().min(10).max(300),
-})).min(1).max(10) })
+})).min(1).max(20) })
+
+export const programmingPracticeQuestionSchema = z.object({
+  stem: z.string().min(80).max(2000),
+  language: z.enum(['C', 'CPP', 'JAVA']),
+  starterCode: z.string().max(2000),
+  referenceSolution: z.string().min(20).max(10000),
+  testCases: z.array(z.object({ input: z.string().max(1000), expectedOutput: z.string().min(1).max(1000) })).min(2).max(3),
+  explanation: z.string().min(70).max(1000),
+  supportQuote: z.string().min(10).max(300),
+})
+export const programmingPracticeDraftSchema = z.object({ questions: z.array(programmingPracticeQuestionSchema).min(1).max(20) })
 
 export const createPracticeSchema = z.object({
-  materialId: z.string().uuid(), count: z.number().int().min(1).max(10).default(5),
+  materialId: z.string().uuid(), count: z.number().int().min(1).max(20).default(5),
   focusTopicId: z.string().uuid().optional(),
   instruction: z.string().trim().max(500).optional(),
 })
 
 export const practiceParamSchema = z.object({ practiceSetId: z.string().uuid() })
-export const submitPracticeSchema = z.object({ answers: z.array(z.object({
-  itemId: z.string().uuid(), selectedIndex: z.number().int().min(0).max(3),
-})).min(1).max(10) })
+export const submitPracticeSchema = z.object({ answers: z.array(z.union([
+  z.object({ itemId: z.string().uuid(), selectedIndex: z.number().int().min(0).max(3) }),
+  z.object({ itemId: z.string().uuid(), sourceCode: z.string().min(1).max(20000) }),
+])).min(1).max(20) })

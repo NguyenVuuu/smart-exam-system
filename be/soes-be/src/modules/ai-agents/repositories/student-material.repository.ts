@@ -19,6 +19,6 @@ export const findStudentMaterial = (studentId: string, materialId: string) => pr
   where: { id: materialId, ...accessibleMaterial(studentId) },
   select: {
     id: true, title: true, fileName: true, fileSize: true, storagePath: true,
-    courseOffering: { select: { subjectId: true } },
+    courseOffering: { select: { subjectId: true, subject: { select: { name: true } } } },
   },
 })

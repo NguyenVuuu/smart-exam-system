@@ -113,7 +113,7 @@ class TopicSuggestion(BaseModel):
 
 class PracticeDraftRequest(ModelSelection):
     material: StudyMaterial
-    count: int = Field(ge=1, le=10)
+    count: int = Field(ge=1, le=20)
     difficulty: Literal["BASIC", "INTERMEDIATE", "ADVANCED"] = "INTERMEDIATE"
     focusTopic: PracticeFocusTopic | None = None
     instruction: str | None = Field(default=None, max_length=500)
@@ -128,7 +128,30 @@ class PracticeQuestion(BaseModel):
 
 
 class PracticeDraft(BaseModel):
-    questions: list[PracticeQuestion] = Field(min_length=1, max_length=10)
+    questions: list[PracticeQuestion] = Field(min_length=1, max_length=20)
+
+
+class ProgrammingPracticeRequest(PracticeDraftRequest):
+    language: Literal["C", "CPP", "JAVA"]
+
+
+class ProgrammingPracticeTest(BaseModel):
+    input: str = Field(max_length=1000)
+    expectedOutput: str = Field(min_length=1, max_length=1000)
+
+
+class ProgrammingPracticeQuestion(BaseModel):
+    stem: str = Field(min_length=80, max_length=2000)
+    language: Literal["C", "CPP", "JAVA"]
+    starterCode: str = Field(max_length=2000)
+    referenceSolution: str = Field(min_length=20, max_length=10000)
+    testCases: list[ProgrammingPracticeTest] = Field(min_length=2, max_length=3)
+    explanation: str = Field(min_length=70, max_length=1000)
+    supportQuote: str = Field(min_length=10, max_length=300)
+
+
+class ProgrammingPracticeDraft(BaseModel):
+    questions: list[ProgrammingPracticeQuestion] = Field(min_length=1, max_length=20)
 
 
 class ProgrammingReviewRequest(ModelSelection):

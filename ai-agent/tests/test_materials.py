@@ -107,7 +107,7 @@ async def test_practice_uses_requested_later_chapter():
             return {"questions": [{
                 "stem": "INNER JOIN trả loại hàng nào?",
                 "options": ["các hàng có khóa khớp", "tất cả hàng trái", "tất cả hàng phải", "không hàng nào"],
-                "correctIndex": 0, "explanation": "Đoạn trích nêu rõ loại hàng được trả về.",
+                "correctIndex": 0, "explanation": "INNER JOIN chỉ trả các hàng có khóa khớp giữa hai bảng. Các lựa chọn còn lại mô tả những hàng không được đoạn trích xác nhận.",
                 "supportQuote": quote,
             }]}
 

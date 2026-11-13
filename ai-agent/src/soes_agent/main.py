@@ -10,9 +10,13 @@ from fastapi.responses import JSONResponse
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
 
-from .contracts import AgentAnswer, ExamDraftProposal, ExamDraftRequest, PracticeDraft, PracticeDraftRequest, ProgrammingReview, ProgrammingReviewRequest, QuestionDraftRequest, StudentRequest, TeacherRequest, TopicSuggestion, TopicSuggestionRequest
+# Ẩn cảnh báo vô hại của Google GenAI về schema $defs
+logging.getLogger("langchain_google_genai._function_utils").setLevel(logging.ERROR)
+
+from .contracts import AgentAnswer, ExamDraftProposal, ExamDraftRequest, PracticeDraft, PracticeDraftRequest, ProgrammingPracticeDraft, ProgrammingPracticeRequest, ProgrammingReview, ProgrammingReviewRequest, QuestionDraftRequest, StudentRequest, TeacherRequest, TopicSuggestion, TopicSuggestionRequest
 from .exam_draft import propose_exam_draft, suggest_topic
 from .practice import generate_practice
+from .programming_practice import generate_programming_practice
 from .programming_review import review_programming_submission
 from .question_generation import generate_question_draft
 from .workflows import run_student, run_teacher
@@ -24,15 +28,15 @@ logger = logging.getLogger(__name__)
 
 @app.exception_handler(GoogleRateLimitError)
 async def model_rate_limited(_request: Request, _error: GoogleRateLimitError) -> JSONResponse:
-    logger.warning("AI provider rate limited category=%s code=%s",
-                   type(_error).__name__, getattr(_error, "code", ""))
+    logger.warning("AI provider rate limited category=%s code=%s message=%s",
+                   type(_error).__name__, getattr(_error, "code", ""), str(_error))
     return JSONResponse(status_code=429, content={"detail": "AI model rate limit reached"})
 
 
 @app.exception_handler(GoogleAPIError)
 async def model_unavailable(_request: Request, _error: GoogleAPIError) -> JSONResponse:
-    logger.warning("AI provider unavailable category=%s code=%s",
-                   type(_error).__name__, getattr(_error, "code", ""))
+    logger.warning("AI provider unavailable category=%s code=%s message=%s",
+                   type(_error).__name__, getattr(_error, "code", ""), str(_error))
     return JSONResponse(status_code=503, content={"detail": "AI model is temporarily unavailable"})
 
 
@@ -57,17 +61,23 @@ def require_service(authorization: str = Header(default="")) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-def get_model(timeout_seconds: int = 50, max_output_tokens: int | None = None,
+def get_model(timeout_seconds: int = 60, max_output_tokens: int | None = None,
               model_name: str | None = None) -> ChatGoogleGenerativeAI:
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=503, detail="Model is not configured")
+
+    # Nếu client truyền model gemini-3.1-flash-lite đang bị quá tải từ Google, tự động dùng 3.5-flash-lite
+    selected_model = model_name or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
+    if selected_model == "gemini-3.1-flash-lite":
+        selected_model = "gemini-3.5-flash-lite"
+
     return ChatGoogleGenerativeAI(
-        model=model_name or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite"),
+        model=selected_model,
         api_key=api_key,
         thinking_level="low",
         timeout=timeout_seconds,
-        max_retries=1,
+        max_retries=3,
         max_output_tokens=max_output_tokens,
     )
 
@@ -106,10 +116,23 @@ async def student_practice_draft(request: PracticeDraftRequest, http_request: Re
             "Practice question lacks a source quote",
             "Practice answer is not uniquely supported by its source quote",
             "Not enough valid practice questions",
+            "Practice explanation is too short",
         }
         reason = reason if reason in allowed_reasons else "Practice draft validation failed"
-        logger.warning("Practice draft rejected reason=%s", reason)
+        logger.warning("Practice draft rejected reason=%s error_type=%s", reason, type(exc).__name__)
         raise HTTPException(status_code=422, detail=reason) from exc
+
+
+@app.post("/v1/student/programming-practice-draft", response_model=ProgrammingPracticeDraft,
+          dependencies=[Depends(require_service)])
+async def student_programming_practice_draft(request: ProgrammingPracticeRequest,
+                                             http_request: Request) -> ProgrammingPracticeDraft:
+    http_request.state.model = request.model or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
+    try:
+        return await generate_programming_practice(get_model(model_name=request.model), request)
+    except ValueError as exc:
+        logger.warning("Programming practice draft rejected reason=%s", str(exc))
+        raise HTTPException(status_code=422, detail="Could not create verified programming practice") from exc
 
 
 @app.post("/v1/teacher/exam-draft", response_model=ExamDraftProposal, dependencies=[Depends(require_service)])

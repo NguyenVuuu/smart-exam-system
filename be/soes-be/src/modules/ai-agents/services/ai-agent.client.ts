@@ -3,9 +3,9 @@ import { AppError } from '../../../errors/AppError'
 import { logger } from '../../../lib/logger'
 import { getStoredAiSettings } from '../../admin-system-settings/services/ai-settings-reader'
 import { z } from 'zod'
-import { agentAnswerSchema, examDraftProposalSchema, practiceDraftSchema, programmingReviewAnswerSchema, topicSuggestionSchema } from '../validators/ai-agent.validator'
+import { agentAnswerSchema, examDraftProposalSchema, practiceDraftSchema, programmingPracticeDraftSchema, programmingReviewAnswerSchema, topicSuggestionSchema } from '../validators/ai-agent.validator'
 
-type AgentPath = '/v1/student/insights' | '/v1/student/practice-draft' | '/v1/teacher/insights' | '/v1/teacher/exam-draft' | '/v1/teacher/topic-suggestion' | '/v1/teacher/question-draft' | '/v1/teacher/programming-review'
+type AgentPath = '/v1/student/insights' | '/v1/student/practice-draft' | '/v1/student/programming-practice-draft' | '/v1/teacher/insights' | '/v1/teacher/exam-draft' | '/v1/teacher/topic-suggestion' | '/v1/teacher/question-draft' | '/v1/teacher/programming-review'
 
 async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unknown, schema: T, timeoutMs = aiAgentConfig.timeoutMs): Promise<z.infer<T>> {
   if (!aiAgentConfig.enabled || !aiAgentConfig.sharedSecret) {
@@ -30,6 +30,9 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
       if (response.status === 503) throw new AppError(503, 'AI provider is temporarily unavailable')
       if (response.status === 422 && path === '/v1/teacher/exam-draft') {
         throw new AppError(422, 'Trợ lý chưa chọn được đủ câu hỏi phù hợp. Hãy giảm số câu hoặc điều chỉnh yêu cầu và thử lại.')
+      }
+      if (response.status === 422 && path === '/v1/student/programming-practice-draft') {
+        throw new AppError(422, 'AI chưa tạo được bài lập trình có test case hợp lệ từ tài liệu này')
       }
       if (response.status === 422 && path === '/v1/student/practice-draft') {
         const error = await response.json().catch(() => null) as { detail?: unknown } | null
@@ -72,7 +75,10 @@ export const requestTopicSuggestionAgent = (payload: unknown) =>
   requestAgent('/v1/teacher/topic-suggestion', payload, topicSuggestionSchema)
 
 export const requestPracticeDraftAgent = (payload: unknown) =>
-  requestAgent('/v1/student/practice-draft', payload, practiceDraftSchema)
+  requestAgent('/v1/student/practice-draft', payload, practiceDraftSchema, 130000)
+
+export const requestProgrammingPracticeDraftAgent = (payload: unknown) =>
+  requestAgent('/v1/student/programming-practice-draft', payload, programmingPracticeDraftSchema, 180000)
 
 export const requestQuestionDraftAgent = (payload: unknown, timeoutMs: number) =>
   requestAgent('/v1/teacher/question-draft', payload, z.record(z.string(), z.unknown()), timeoutMs)

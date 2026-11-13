@@ -32,13 +32,29 @@ export interface StudyMaterial {
   courseOffering: { id: string; code: string; subject: { id: string; name: string } }
 }
 
-export interface PracticeItem {
+interface PracticeBaseItem {
   id: string
   orderIndex: number
   stem: string
+}
+
+export interface ChoicePracticeItem extends PracticeBaseItem {
+  kind: 'CHOICE'
   options: string[]
   result?: { selectedIndex: number; correctIndex: number; explanation: string; supportQuote: string; materialTitle?: string }
 }
+
+export interface ProgrammingPracticeItem extends PracticeBaseItem {
+  kind: 'PROGRAMMING'
+  language: 'C' | 'CPP' | 'JAVA'
+  starterCode: string
+  sampleInput: string
+  sampleOutput: string
+  result?: { sourceCode: string; passedTestCases: number; totalTestCases: number;
+    explanation: string; supportQuote: string; materialTitle?: string }
+}
+
+export type PracticeItem = ChoicePracticeItem | ProgrammingPracticeItem
 
 export interface PracticeSet {
   id: string
@@ -109,11 +125,11 @@ export async function getPracticeSet(id: string): Promise<PracticeSet> {
 export async function createPracticeSet(materialId: string, count = 5, focusTopicId?: string,
   instruction?: string): Promise<PracticeSet> {
   const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice',
-    { materialId, count, focusTopicId, instruction }, { timeout: 65000 })
+    { materialId, count, focusTopicId, instruction }, { timeout: 240000 })
   return data.data
 }
 
-export async function submitPracticeSet(id: string, answers: { itemId: string; selectedIndex: number }[]): Promise<PracticeSet> {
-  const { data } = await apiClient.post<ApiResponse<PracticeSet>>(`/student/learning/practice/${id}/submit`, { answers })
+export async function submitPracticeSet(id: string, answers: ({ itemId: string; selectedIndex: number } | { itemId: string; sourceCode: string })[]): Promise<PracticeSet> {
+  const { data } = await apiClient.post<ApiResponse<PracticeSet>>(`/student/learning/practice/${id}/submit`, { answers }, { timeout: 240000 })
   return data.data
 }

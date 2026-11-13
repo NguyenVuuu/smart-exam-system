@@ -1,21 +1,30 @@
 import { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import { ConflictError, ForbiddenError, NotFoundError, TooManyRequestsError, ValidationError } from '../../../errors/AppError'
-import { requestPracticeDraftAgent } from './ai-agent.client'
+import { requestPracticeDraftAgent, requestProgrammingPracticeDraftAgent } from './ai-agent.client'
 import { loadStudentMaterial } from './student-material.service'
-import { practiceDraftSchema, type createPracticeSchema, type submitPracticeSchema } from '../validators/ai-agent.validator'
+import { practiceDraftSchema, programmingPracticeQuestionSchema, type createPracticeSchema, type submitPracticeSchema } from '../validators/ai-agent.validator'
 import type { z } from 'zod'
 import { gradePractice } from './practice-grading'
 import { choosePracticeDifficulty } from './practice-difficulty'
 import { studentInsights } from '../../learning-analytics/services/learning-analytics.service'
 import { selectWeakPracticeTopic } from './practice-focus'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
+import { gradeProgrammingPractice, practiceLanguage, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
+type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
 
 function publicItem(item: { id: string; orderIndex: number; snapshot: Prisma.JsonValue }) {
+  if ((item.snapshot as { kind?: string }).kind === 'PROGRAMMING') {
+    const question = programmingPracticeQuestionSchema.parse(item.snapshot)
+    return { id: item.id, orderIndex: item.orderIndex, kind: 'PROGRAMMING' as const,
+      stem: question.stem, language: question.language, starterCode: question.starterCode,
+      sampleInput: question.testCases[0].input, sampleOutput: question.testCases[0].expectedOutput }
+  }
   const question = practiceDraftSchema.shape.questions.element.parse(item.snapshot)
-  return { id: item.id, orderIndex: item.orderIndex, stem: question.stem, options: question.options }
+  return { id: item.id, orderIndex: item.orderIndex, kind: 'CHOICE' as const,
+    stem: question.stem, options: question.options }
 }
 
 async function assertOutsideExam(studentId: string) {
@@ -42,21 +51,32 @@ export async function createStudentPractice(studentId: string, userId: string, i
   const difficulty = choosePracticeDifficulty(previous.map((set) => ({
     score: Number(set.score), questionCount: set._count.items,
   })))
-  const draft = await requestPracticeDraftAgent({ material, count: input.count, difficulty,
+  const request = { material, count: input.count, difficulty,
     ...(focusTopic && { focusTopic: { code: focusTopic.code, name: focusTopic.name } }),
-    ...(input.instruction && { instruction: input.instruction }) })
-  if (draft.questions.length !== input.count) throw new ValidationError('Invalid practice draft')
+    ...(input.instruction && { instruction: input.instruction }) }
+  const programming = wantsProgrammingPractice(input.instruction)
+  let questions: Array<PracticeQuestion | ProgrammingQuestion>
+  if (programming) {
+    const language = practiceLanguage(input.instruction, material.subjectName)
+    const draft = await requestProgrammingPracticeDraftAgent({ ...request, language })
+    await verifyProgrammingDraft(draft.questions, language)
+    questions = draft.questions
+  } else {
+    questions = (await requestPracticeDraftAgent(request)).questions
+  }
+  if (questions.length !== input.count) throw new ValidationError('Invalid practice draft')
   await assertOutsideExam(studentId)
   const set = await prisma.$transaction(async (tx) => {
     const created = await tx.practiceSet.create({ data: { studentId, subjectId: material.subjectId }, select: { id: true } })
-    await tx.practiceItem.createMany({ data: draft.questions.map((question: PracticeQuestion, index: number) => ({
+    await tx.practiceItem.createMany({ data: questions.map((question, index: number) => ({
       practiceSetId: created.id, sourceQuestionId: null, orderIndex: index + 1, points: 1,
-      snapshot: { ...question, materialId: material.materialId, materialTitle: material.title,
+      snapshot: { ...question, kind: programming ? 'PROGRAMMING' : 'CHOICE',
+        materialId: material.materialId, materialTitle: material.title,
         ...(focusTopic && { focusTopicId: focusTopic.topicId }) } as Prisma.InputJsonValue,
     })) })
     await writeAuditLog(tx, {
       userId, action: 'CREATE_AI_PRACTICE', entityType: 'PracticeSet', entityId: created.id,
-      metadata: { materialId: input.materialId, questionCount: draft.questions.length,
+      metadata: { materialId: input.materialId, questionCount: questions.length, kind: programming ? 'PROGRAMMING' : 'CHOICE',
         ...(focusTopic && { focusTopicId: focusTopic.topicId }) },
     })
     return tx.practiceSet.findUniqueOrThrow({ where: { id: created.id },
@@ -78,8 +98,16 @@ export async function getStudentPractice(studentId: string, practiceSetId: strin
   return {
     id: set.id, completedAt: set.completedAt, score: set.score === null ? null : Number(set.score),
     items: set.items.map((item) => {
-      const question = practiceDraftSchema.shape.questions.element.parse(item.snapshot)
       const source = item.snapshot as { materialTitle?: string }
+      if (source && (source as { kind?: string }).kind === 'PROGRAMMING') {
+        const question = programmingPracticeQuestionSchema.parse(item.snapshot)
+        const answer = item.response?.answer as { sourceCode: string; passedTestCases: number; totalTestCases: number } | undefined
+        return { ...publicItem(item), ...(set.completedAt && answer && { result: {
+          ...answer, explanation: question.explanation, supportQuote: question.supportQuote,
+          materialTitle: source.materialTitle,
+        } }) }
+      }
+      const question = practiceDraftSchema.shape.questions.element.parse(item.snapshot)
       const answer = item.response?.answer as { selectedIndex: number } | undefined
       return { ...publicItem(item), ...(set.completedAt && answer && { result: {
         selectedIndex: answer.selectedIndex, correctIndex: question.correctIndex,
@@ -111,7 +139,29 @@ export async function submitStudentPractice(studentId: string, practiceSetId: st
   })
   if (!set) throw new NotFoundError('Practice set not found')
   if (set.completedAt) throw new ConflictError('Practice set already submitted')
-  const scored = gradePractice(set.items, input.answers)
+  const ids = new Set(input.answers.map((answer) => answer.itemId))
+  if (ids.size !== set.items.length || input.answers.length !== set.items.length
+      || set.items.some((item) => !ids.has(item.id))) throw new ValidationError('Submit one answer for every question')
+  const programming = (set.items[0].snapshot as { kind?: string }).kind === 'PROGRAMMING'
+  const scored: Array<{ itemId: string; score: number; answer: Prisma.InputJsonValue }> = []
+  if (programming) {
+    const answers = new Map(input.answers.map((answer) => [answer.itemId, answer]))
+    for (let start = 0; start < set.items.length; start += 3) {
+      scored.push(...await Promise.all(set.items.slice(start, start + 3).map(async (item) => {
+        const answer = answers.get(item.id)
+        if (!answer || !('sourceCode' in answer)) throw new ValidationError('Source code is required')
+        const question = programmingPracticeQuestionSchema.parse(item.snapshot)
+        const result = await gradeProgrammingPractice(answer.sourceCode, question)
+        return { itemId: item.id, score: result.score, answer: { sourceCode: answer.sourceCode,
+          passedTestCases: result.passedTestCases, totalTestCases: result.totalTestCases } }
+      })))
+    }
+  } else {
+    if (input.answers.some((answer) => !('selectedIndex' in answer))) throw new ValidationError('Choice answer is required')
+    scored.push(...gradePractice(set.items, input.answers as Array<{ itemId: string; selectedIndex: number }>).map((item) => ({
+      itemId: item.itemId, score: item.score, answer: { selectedIndex: item.selectedIndex },
+    })))
+  }
   const score = scored.reduce((total, item) => total + item.score, 0)
   await prisma.$transaction(async (tx) => {
     const claim = await tx.practiceSet.updateMany({
@@ -120,7 +170,7 @@ export async function submitStudentPractice(studentId: string, practiceSetId: st
     })
     if (claim.count !== 1) throw new ConflictError('Practice set already submitted')
     await tx.practiceResponse.createMany({ data: scored.map((item) => ({
-      practiceItemId: item.itemId, answer: { selectedIndex: item.selectedIndex }, score: item.score,
+      practiceItemId: item.itemId, answer: item.answer, score: item.score,
     })) })
   })
   return getStudentPractice(studentId, practiceSetId)

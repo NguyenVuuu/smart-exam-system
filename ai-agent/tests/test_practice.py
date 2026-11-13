@@ -3,7 +3,7 @@ import base64
 import pytest
 
 from soes_agent.contracts import PracticeDraft, PracticeDraftRequest, StudyMaterial
-from soes_agent.practice import generate_practice, validate_draft
+from soes_agent.practice import generate_practice, parse_candidates, validate_draft
 
 
 SOURCE = "INNER JOIN chỉ trả các hàng có khóa khớp ở hai bảng."
@@ -14,7 +14,7 @@ def draft(quote: str = SOURCE) -> PracticeDraft:
         "stem": "INNER JOIN trả loại hàng nào?",
         "options": ["Các hàng có khóa khớp", "Tất cả hàng bên trái", "Tất cả hàng bên phải", "Không hàng nào"],
         "correctIndex": 0,
-        "explanation": "Tài liệu nêu INNER JOIN chỉ trả các hàng có khóa khớp.",
+        "explanation": "INNER JOIN chỉ lấy các hàng có khóa khớp ở cả hai bảng, nên lựa chọn này đúng. Các lựa chọn lấy toàn bộ một phía hoặc không có hàng nào không phù hợp với điều kiện nối.",
         "supportQuote": quote,
     }])
 
@@ -69,11 +69,40 @@ def test_practice_keeps_only_valid_unique_candidates():
     assert result.questions[0].correctIndex == 0
 
 
+def test_candidate_parser_skips_malformed_items_without_losing_valid_answers():
+    result = parse_candidates({'questions': [{'stem': 'short'}, draft().questions[0].model_dump()]})
+    assert len(result) == 1
+    assert result[0].correctIndex == 0
+
+
+@pytest.mark.asyncio
+async def test_generation_recovers_when_model_returns_malformed_candidate():
+    class Model:
+        calls = 0
+
+        def with_structured_output(self, _schema, *, method):
+            assert method == 'json_schema'
+            return self
+
+        async def ainvoke(self, _messages):
+            self.calls += 1
+            return {'questions': [{'stem': 'short'}]} if self.calls == 1 else draft().model_dump()
+
+    model = Model()
+    request = PracticeDraftRequest(count=1, material=StudyMaterial(
+        materialId='material-1', title='JOIN', mimeType='text/plain',
+        contentBase64=base64.b64encode(SOURCE.encode()).decode(),
+    ))
+    result = await generate_practice(model, request)
+    assert model.calls == 2
+    assert len(result.questions) == 1
+
+
 @pytest.mark.asyncio
 async def test_generation_uses_selected_material_only():
     class Model:
         def with_structured_output(self, _schema, *, method):
-            assert method == "function_calling"
+            assert method == "json_schema"
             return self
 
         async def ainvoke(self, messages):
@@ -108,7 +137,7 @@ async def test_generation_retries_unverified_answer_once():
                 bad = draft()
                 bad.questions[0].correctIndex = 1
                 return bad.model_dump()
-            assert "Bản nháp trước chưa đạt" in messages[-1][1]
+            assert any("Bản nháp trước chưa đạt" in content for _, content in messages)
             return draft().model_dump()
 
     model = Model()

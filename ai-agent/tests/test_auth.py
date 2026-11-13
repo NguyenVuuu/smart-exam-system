@@ -65,7 +65,7 @@ def test_authorized_practice_response_uses_validated_source(monkeypatch):
 
     class Model:
         def with_structured_output(self, _schema, *, method):
-            assert method == "function_calling"
+            assert method == "json_schema"
             return self
 
         async def ainvoke(self, _messages):
@@ -73,7 +73,7 @@ def test_authorized_practice_response_uses_validated_source(monkeypatch):
                 "stem": "INNER JOIN trả loại hàng nào?",
                 "options": ["Các hàng có khóa khớp", "Hàng bên trái", "Hàng bên phải", "Không hàng nào"],
                 "correctIndex": 0,
-                "explanation": "Tài liệu mô tả các hàng có khóa khớp.",
+                "explanation": "INNER JOIN chỉ trả những hàng mà khóa nối của hai bảng khớp nhau. Vì vậy đáp án nói về hàng có khóa khớp phù hợp với đoạn tài liệu.",
                 "supportQuote": quote,
             }]}
 
