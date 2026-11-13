@@ -60,6 +60,38 @@ async def test_exam_draft_rejects_repeated_empty_model_selection():
 
 
 @pytest.mark.asyncio
+async def test_exam_draft_completes_short_selection_with_matching_difficulty():
+    model = FakeModel({"questionIds": ["q1", "q2"], "rationale": "Ưu tiên câu dễ"})
+    result = await propose_exam_draft(model, ExamDraftRequest(
+        message="Chỉ chọn câu dễ và trung bình", desiredCount=3, format="OBJECTIVE",
+        candidates=[
+            {"id": "q1", "title": "Câu 1", "content": "Nội dung 1", "type": "SINGLE_CHOICE", "difficulty": "EASY", "topics": []},
+            {"id": "q2", "title": "Câu 2", "content": "Nội dung 2", "type": "SINGLE_CHOICE", "difficulty": "MEDIUM", "topics": []},
+            {"id": "q3", "title": "Câu 3", "content": "Nội dung 3", "type": "SINGLE_CHOICE", "difficulty": "HARD", "topics": []},
+            {"id": "q4", "title": "Câu 4", "content": "Nội dung 4", "type": "SINGLE_CHOICE", "difficulty": "EASY", "topics": []},
+        ],
+    ))
+    assert result.questionIds == ["q1", "q2", "q4"]
+    assert "bổ sung 1 câu" in result.rationale
+
+
+@pytest.mark.asyncio
+async def test_exam_draft_completion_preserves_mixed_format_and_topic_target():
+    model = FakeModel({"questionIds": ["q1", "q2"], "rationale": "Câu phù hợp"})
+    result = await propose_exam_draft(model, ExamDraftRequest(
+        message="Đề hỗn hợp về vòng lặp", desiredCount=3, format="MIXED",
+        topicTargets={"LOOP": 1},
+        candidates=[
+            {"id": "q1", "title": "Câu 1", "content": "Nội dung 1", "type": "SINGLE_CHOICE", "difficulty": "EASY", "topics": []},
+            {"id": "q2", "title": "Câu 2", "content": "Nội dung 2", "type": "SINGLE_CHOICE", "difficulty": "MEDIUM", "topics": []},
+            {"id": "q3", "title": "Câu 3", "content": "Nội dung 3", "type": "PROGRAMMING", "difficulty": "MEDIUM", "topics": ["LOOP"]},
+            {"id": "q4", "title": "Câu 4", "content": "Nội dung 4", "type": "PROGRAMMING", "difficulty": "HARD", "topics": []},
+        ],
+    ))
+    assert result.questionIds == ["q1", "q2", "q3"]
+
+
+@pytest.mark.asyncio
 async def test_topic_suggestion_uses_existing_taxonomy():
     model = FakeModel({"existingCodes": ["LOOP"], "newCode": None,
                        "newName": None, "rationale": "Câu hỏi về vòng lặp"})

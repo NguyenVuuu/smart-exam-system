@@ -11,12 +11,33 @@ def valid_exam_selection(response: object, request: ExamDraftRequest) -> ExamDra
         proposal = ExamDraftProposal.model_validate(response)
     except ValidationError:
         return None
-    selected_ids = proposal.questionIds
     candidates = {candidate.id: candidate for candidate in request.candidates}
-    if len(selected_ids) != request.desiredCount or len(set(selected_ids)) != len(selected_ids):
+    selected_ids = list(dict.fromkeys(
+        question_id for question_id in proposal.questionIds if question_id in candidates
+    ))[:request.desiredCount]
+    if not selected_ids or len(selected_ids) * 2 < request.desiredCount:
         return None
-    if any(question_id not in candidates for question_id in selected_ids):
-        return None
+    ai_count = len(selected_ids)
+    preferred_difficulties = {candidates[question_id].difficulty for question_id in selected_ids}
+
+    while len(selected_ids) < request.desiredCount:
+        selected = [candidates[question_id] for question_id in selected_ids]
+        missing_topics = {
+            topic for topic, count in request.topicTargets.items()
+            if sum(topic in question.topics for question in selected) < count
+        }
+        needs_programming = request.format == "MIXED" and not any(q.type == "PROGRAMMING" for q in selected)
+        needs_objective = request.format == "MIXED" and not any(q.type != "PROGRAMMING" for q in selected)
+        remaining = [candidate for candidate in request.candidates if candidate.id not in selected_ids]
+        if not remaining:
+            return None
+        next_question = max(remaining, key=lambda candidate: (
+            sum(topic in candidate.topics for topic in missing_topics),
+            (needs_programming and candidate.type == "PROGRAMMING")
+            or (needs_objective and candidate.type != "PROGRAMMING"),
+            candidate.difficulty in preferred_difficulties,
+        ))
+        selected_ids.append(next_question.id)
     selected = [candidates[question_id] for question_id in selected_ids]
     if request.format == "MIXED" and (not any(q.type == "PROGRAMMING" for q in selected)
                                       or not any(q.type != "PROGRAMMING" for q in selected)):
@@ -24,7 +45,13 @@ def valid_exam_selection(response: object, request: ExamDraftRequest) -> ExamDra
     if any(sum(topic in q.topics for q in selected) < count
            for topic, count in request.topicTargets.items()):
         return None
-    return proposal
+    if ai_count == len(selected_ids):
+        return proposal.model_copy(update={"questionIds": selected_ids})
+    return proposal.model_copy(update={
+        "questionIds": selected_ids,
+        "rationale": (proposal.rationale[:480] +
+                      f" Hệ thống bổ sung {len(selected_ids) - ai_count} câu hợp lệ; giảng viên cần xem lại trước khi lưu.")[:600],
+    })
 
 
 async def propose_exam_draft(model: ChatGoogleGenerativeAI, request: ExamDraftRequest) -> ExamDraftProposal:

@@ -26,15 +26,6 @@ export function candidateRequiresReview(question: Candidate) {
   }).some(({ severity }) => severity === 'HIGH')
 }
 
-export function defaultTopicTargets(pool: Candidate[], desiredCount: number) {
-  const counts = new Map<string, number>()
-  for (const question of pool) for (const { topicId } of question.topics) {
-    counts.set(topicId, (counts.get(topicId) ?? 0) + 1)
-  }
-  return [...counts].sort((left, right) => left[1] - right[1])
-    .slice(0, Math.min(desiredCount, 5)).map(([topicId]) => ({ topicId, count: 1 }))
-}
-
 export function validateExamDraftSelection(
   selectedIds: string[], pool: Candidate[], input: Pick<DraftRequest, 'desiredCount' | 'format' | 'topicTargets'>,
 ) {
@@ -81,7 +72,7 @@ export async function proposeExamDraft(teacherId: string, userId: string, input:
   if (eligiblePool.length < input.desiredCount) {
     throw new ValidationError('Question bank does not have enough questions that passed the required checks')
   }
-  const topicTargets = input.topicTargets.length ? input.topicTargets : defaultTopicTargets(eligiblePool, input.desiredCount)
+  const topicTargets = input.topicTargets
   for (const target of topicTargets) {
     if (eligiblePool.filter((question) => question.topics.some(({ topicId }) => topicId === target.topicId)).length < target.count) {
       throw new ValidationError(`Not enough questions for topic ${topicById.get(target.topicId)!.name}`)

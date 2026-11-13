@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { candidateRequiresReview, defaultTopicTargets, validateExamDraftSelection } from './exam-draft.service'
+import { candidateRequiresReview, validateExamDraftSelection } from './exam-draft.service'
 
 type Candidate = Parameters<typeof validateExamDraftSelection>[1][number]
 const topicId = '155087df-c2bb-401e-a409-5920b5f6ea01'
@@ -22,10 +22,6 @@ test('checks mixed format and topic targets against actual questions', () => {
   assert.throws(() => validateExamDraftSelection(['1', '3'], pool, request))
   assert.throws(() => validateExamDraftSelection(['2', '3'], pool, request))
   assert.equal(validateExamDraftSelection(['1', '2'], pool, request).length, 2)
-})
-
-test('default topic matrix covers labeled questions before unlabeled ones', () => {
-  assert.deepEqual(defaultTopicTargets(pool, 2), [{ topicId, count: 1 }])
 })
 
 test('excludes questions with a required audit finding from AI selection', () => {
