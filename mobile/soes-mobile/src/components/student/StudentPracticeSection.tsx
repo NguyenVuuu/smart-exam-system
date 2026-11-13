@@ -150,7 +150,7 @@ export default function StudentPracticeSection({ materials, topics, onFocusInput
         </View>}
         {item.result && <>
           <Text style={{ color: '#64748b' }}>{item.result.explanation}</Text>
-          <Text style={{ color: '#64748b', fontSize: 12 }}>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}{item.result.sourceLocation ? ` · ${item.result.sourceLocation}` : ''} · {sourceLabel(item.result.supportQuote)}</Text>
+          <Text style={{ color: '#64748b', fontSize: 12 }}>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'} · {sourceLabel(item.result.supportQuote)}</Text>
         </>}
       </View>)}
       {pageCount > 1 && <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

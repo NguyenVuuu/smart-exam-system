@@ -10,14 +10,11 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from .contracts import StudyMaterial
-from .practice_evidence import is_table_of_contents_entry
 
 MAX_TEXT_CHARS = 20_000
 MAX_EXTRACTED_CHARS = 4_000_000
 CHUNK_CHARS = 2_400
 CHAPTER_HEADING = re.compile(r"(?im)^[ \t]*(?:\[Trang \d+\][ \t]*)?chương[ \t]+(\d+)\b")
-SECTION_HEADING = re.compile(r"(?im)^[ \t]*(?:\[Trang \d+\][ \t]*)?(?:mục[ \t]+)?(\d+(?:\.\d+){1,3})\.?[ \t]+[^\n]{3,100}$")
-PAGE_MARKER = re.compile(r"\[Trang (\d+)\]")
 
 
 class MaterialTextTooLarge(Exception):
@@ -73,38 +70,6 @@ def extract_material(material: StudyMaterial) -> str:
     if len(text) > MAX_EXTRACTED_CHARS:
         raise ValueError("Material text exceeds the size limit")
     return text
-
-
-def source_location(text: str, quote: str, mime_type: str) -> str | None:
-    """Locate a literal citation in extracted text; never infer a page from the model."""
-    words = quote.split()
-    if not words:
-        return None
-
-    def source_line(position: int) -> str:
-        start = text.rfind("\n", 0, position) + 1
-        end = text.find("\n", position)
-        return text[start:end if end != -1 else len(text)]
-
-    match = next((candidate for candidate in re.finditer(r"\s+".join(map(re.escape, words)), text)
-                  if not is_table_of_contents_entry(source_line(candidate.start()))), None)
-    if not match:
-        return None
-    before = text[:match.start()]
-    chapter = [item for item in CHAPTER_HEADING.finditer(before)
-               if not is_table_of_contents_entry(source_line(item.start()))]
-    sections = [item for item in SECTION_HEADING.finditer(before)
-                if not is_table_of_contents_entry(source_line(item.start()))]
-    labels = []
-    if chapter:
-        labels.append(f"Chương {chapter[-1].group(1)}")
-    if sections and (not chapter or sections[-1].start() > chapter[-1].start()):
-        labels.append(f"Mục {sections[-1].group(1)}")
-    if mime_type == "application/pdf":
-        pages = list(PAGE_MARKER.finditer(before))
-        if pages:
-            labels.append(f"Trang {pages[-1].group(1)}")
-    return " · ".join(labels) or None
 
 
 def select_material_excerpt(text: str, query: str) -> str:

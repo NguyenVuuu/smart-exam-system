@@ -68,7 +68,6 @@ export const practiceDraftSchema = z.object({ questions: z.array(z.object({
   correctIndex: z.number().int().min(0).max(3),
   explanation: z.string().min(10).max(500),
   supportQuote: z.string().min(10).max(300),
-  sourceLocation: z.string().max(100).nullable().optional(),
 })).min(1).max(20) })
 
 export const programmingPracticeQuestionSchema = z.object({
@@ -79,7 +78,6 @@ export const programmingPracticeQuestionSchema = z.object({
   testCases: z.array(z.object({ input: z.string().max(1000), expectedOutput: z.string().min(1).max(1000) })).min(2).max(3),
   explanation: z.string().min(70).max(1000),
   supportQuote: z.string().min(10).max(300),
-  sourceLocation: z.string().max(100).nullable().optional(),
 })
 export const programmingPracticeDraftSchema = z.object({ questions: z.array(programmingPracticeQuestionSchema).min(1).max(20) })
 

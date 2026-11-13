@@ -8,7 +8,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import ValidationError
 
 from .contracts import PracticeDraft, PracticeDraftRequest, PracticeQuestion
-from .materials import extract_material, select_material_excerpt, source_location
+from .materials import extract_material, select_material_excerpt
 from .practice_evidence import batch_evidence, evidence_passages, is_table_of_contents_entry
 from .practice_verification import verify_answers_against_sources
 
@@ -251,9 +251,7 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
         accepted, issues = review_questions(candidates, source, verified_answers)
         missing = request.count - len(accepted)
         if missing <= 0:
-            return PracticeDraft(questions=[question.model_copy(update={
-                "sourceLocation": source_location(full_source, question.supportQuote, request.material.mimeType),
-            }) for question in accepted[:request.count]])
+            return PracticeDraft(questions=accepted[:request.count])
         logger.warning("Practice candidates insufficient requested=%s received=%s verified=%s issues=%s",
                        request.count, len(candidates), len(accepted), dict(issues))
         if attempt == 2:

@@ -125,7 +125,6 @@ class PracticeQuestion(BaseModel):
     correctIndex: int = Field(ge=0, le=3)
     explanation: str = Field(min_length=10, max_length=500)
     supportQuote: str = Field(min_length=10, max_length=300)
-    sourceLocation: str | None = Field(default=None, max_length=100)
 
 
 class PracticeDraft(BaseModel):
@@ -149,7 +148,6 @@ class ProgrammingPracticeQuestion(BaseModel):
     testCases: list[ProgrammingPracticeTest] = Field(min_length=2, max_length=3)
     explanation: str = Field(min_length=70, max_length=1000)
     supportQuote: str = Field(min_length=10, max_length=300)
-    sourceLocation: str | None = Field(default=None, max_length=100)
 
 
 class ProgrammingPracticeDraft(BaseModel):
