@@ -3,7 +3,7 @@ import asyncio
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .contracts import ProgrammingPracticeDraft, ProgrammingPracticeQuestion, ProgrammingPracticeRequest
-from .materials import extract_material, select_material_excerpt
+from .materials import extract_material, select_material_excerpt, source_location
 from .practice import is_document_meta_question, normalize
 from .practice_evidence import is_table_of_contents_entry
 
@@ -28,7 +28,8 @@ def validate_programming_questions(questions: list[ProgrammingPracticeQuestion],
 
 async def generate_programming_practice(model: ChatGoogleGenerativeAI,
                                         request: ProgrammingPracticeRequest) -> ProgrammingPracticeDraft:
-    source = select_material_excerpt(extract_material(request.material), request.instruction or "")
+    full_source = extract_material(request.material)
+    source = select_material_excerpt(full_source, request.instruction or "")
     structured = model.with_structured_output(ProgrammingPracticeDraft, method="function_calling")
     semaphore = asyncio.Semaphore(2)
 
@@ -55,4 +56,7 @@ async def generate_programming_practice(model: ChatGoogleGenerativeAI,
 
     sizes = [min(5, request.count - start) for start in range(0, request.count, 5)]
     batches = await asyncio.gather(*(batch(size, index) for index, size in enumerate(sizes)))
-    return validate_programming_questions([question for group in batches for question in group], source, request)
+    draft = validate_programming_questions([question for group in batches for question in group], source, request)
+    return ProgrammingPracticeDraft(questions=[question.model_copy(update={
+        "sourceLocation": source_location(full_source, question.supportQuote, request.material.mimeType),
+    }) for question in draft.questions])

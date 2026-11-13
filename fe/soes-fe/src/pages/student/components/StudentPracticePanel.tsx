@@ -140,7 +140,7 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
         </div>}
         {item.result && <div className="space-y-1 text-xs text-slate-600">
           <p>{item.result.explanation}</p>
-          <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'} · {sourceLabel(item.result.supportQuote)}</p>
+          <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}{item.result.sourceLocation ? ` · ${item.result.sourceLocation}` : ''} · {sourceLabel(item.result.supportQuote)}</p>
         </div>}
       </fieldset>)}
       {pageCount > 1 && <nav aria-label="Trang bài luyện" className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">

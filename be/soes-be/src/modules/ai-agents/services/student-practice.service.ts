@@ -104,7 +104,7 @@ export async function getStudentPractice(studentId: string, practiceSetId: strin
         const answer = item.response?.answer as { sourceCode: string; passedTestCases: number; totalTestCases: number } | undefined
         return { ...publicItem(item), ...(set.completedAt && answer && { result: {
           ...answer, explanation: question.explanation, supportQuote: question.supportQuote,
-          materialTitle: source.materialTitle,
+          materialTitle: source.materialTitle, sourceLocation: question.sourceLocation,
         } }) }
       }
       const question = practiceDraftSchema.shape.questions.element.parse(item.snapshot)
@@ -112,7 +112,7 @@ export async function getStudentPractice(studentId: string, practiceSetId: strin
       return { ...publicItem(item), ...(set.completedAt && answer && { result: {
         selectedIndex: answer.selectedIndex, correctIndex: question.correctIndex,
         explanation: question.explanation, supportQuote: question.supportQuote,
-        materialTitle: source.materialTitle,
+        materialTitle: source.materialTitle, sourceLocation: question.sourceLocation,
       } }) }
     }),
   }

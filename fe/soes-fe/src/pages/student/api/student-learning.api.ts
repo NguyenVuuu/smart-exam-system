@@ -41,7 +41,7 @@ interface PracticeBaseItem {
 export interface ChoicePracticeItem extends PracticeBaseItem {
   kind: 'CHOICE'
   options: string[]
-  result?: { selectedIndex: number; correctIndex: number; explanation: string; supportQuote: string; materialTitle?: string }
+  result?: { selectedIndex: number; correctIndex: number; explanation: string; supportQuote: string; materialTitle?: string; sourceLocation?: string | null }
 }
 
 export interface ProgrammingPracticeItem extends PracticeBaseItem {
@@ -51,7 +51,7 @@ export interface ProgrammingPracticeItem extends PracticeBaseItem {
   sampleInput: string
   sampleOutput: string
   result?: { sourceCode: string; passedTestCases: number; totalTestCases: number;
-    explanation: string; supportQuote: string; materialTitle?: string }
+    explanation: string; supportQuote: string; materialTitle?: string; sourceLocation?: string | null }
 }
 
 export type PracticeItem = ChoicePracticeItem | ProgrammingPracticeItem
