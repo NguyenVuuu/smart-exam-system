@@ -30,6 +30,12 @@ function BankQuestionPickerModalContent({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedScope, setSelectedScope] = useState<'ALL' | 'PERSONAL' | 'SHARED'>('ALL')
+  const [selectedTopicId, setSelectedTopicId] = useState('ALL')
+  const availableTopics = Array.from(new Map(
+    questions.filter((question) => question.subjectId === targetSubjectId)
+      .flatMap((question) => question.topics ?? [])
+      .map((topic) => [topic.id, topic] as const),
+  ).values()).sort((a, b) => a.name.localeCompare(b.name, 'vi'))
 
   const questionTypeLabel: Record<QuestionType, string> = {
     SINGLE_CHOICE: '1 đáp án đúng',
@@ -51,6 +57,8 @@ function BankQuestionPickerModalContent({
     const matchesScope =
       selectedScope === 'ALL' ||
       (selectedScope === 'SHARED' ? q.bankScope === 'SHARED' : q.bankScope !== 'SHARED')
+    const matchesTopic = selectedTopicId === 'ALL' ||
+      (selectedTopicId === 'UNTAGGED' ? !q.topics?.length : q.topics?.some((topic) => topic.id === selectedTopicId))
 
     let matchesExamType = true
     if (examType === 'MULTIPLE_CHOICE') {
@@ -68,7 +76,7 @@ function BankQuestionPickerModalContent({
         q.type === 'PROGRAMMING'
     }
 
-    return !isAlreadyInExam && matchesSearch && matchesExamType && matchesScope
+    return !isAlreadyInExam && matchesSearch && matchesExamType && matchesScope && matchesTopic
   })
 
   const toggleSelect = (id: string) => {
@@ -99,6 +107,7 @@ function BankQuestionPickerModalContent({
   const handleResetFilters = () => {
     setSearchQuery('')
     setSelectedScope('ALL')
+    setSelectedTopicId('ALL')
   }
 
   return (
@@ -138,7 +147,7 @@ function BankQuestionPickerModalContent({
         {/* Toolbar bộ lọc cố định */}
         <div className="px-6 py-3.5 bg-gray-50/70 border-b border-gray-100 space-y-2.5 shrink-0">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-            <div className="sm:col-span-4">
+            <div className="sm:col-span-3">
               <AppSelect
                 value={selectedScope}
                 onChange={(val) => setSelectedScope(val as 'ALL' | 'PERSONAL' | 'SHARED')}
@@ -151,7 +160,20 @@ function BankQuestionPickerModalContent({
               />
             </div>
 
-            <div className="sm:col-span-7 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-2xs relative">
+            <div className="sm:col-span-3">
+              <AppSelect
+                value={selectedTopicId}
+                onChange={setSelectedTopicId}
+                buttonClassName="bg-white text-xs py-2 shadow-2xs"
+                options={[
+                  { value: 'ALL', label: 'Tất cả chủ đề' },
+                  ...availableTopics.map((topic) => ({ value: topic.id, label: topic.name })),
+                  { value: 'UNTAGGED', label: 'Chưa gắn chủ đề' },
+                ]}
+              />
+            </div>
+
+            <div className="sm:col-span-5 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-2xs relative">
               <Search size={15} className="text-gray-400 shrink-0" />
               <input
                 type="text"
@@ -248,6 +270,12 @@ function BankQuestionPickerModalContent({
                         >
                           {q.bankScope === 'SHARED' ? 'Ngân hàng chung' : 'Cá nhân'}
                         </span>
+                        {q.topics?.map((topic) => (
+                          <span key={topic.id} className="rounded-md bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                            {topic.name}
+                          </span>
+                        ))}
+                        {!q.topics?.length && <span className="text-[11px] text-amber-700">Chưa gắn chủ đề</span>}
                       </div>
                       <p className="text-sm font-semibold text-gray-900 leading-relaxed">
                         {q.title || q.content}
