@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 import unicodedata
+from collections import Counter
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import ValidationError
@@ -16,6 +17,50 @@ logger = logging.getLogger(__name__)
 
 def normalize(value: str) -> str:
     return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", value)).strip().casefold()
+
+
+def plain_words(value: str, include_digits: bool = False) -> list[str]:
+    stripped = "".join(character for character in unicodedata.normalize("NFD", value.casefold())
+                       if unicodedata.category(character) != "Mn").replace("đ", "d")
+    return re.findall(r"[a-z0-9]+" if include_digits else r"[a-z]+", stripped)
+
+
+_VIETNAMESE_MARKS = re.compile(r"[àáâãăạảấầẩẫậắằẳẵặèéêẹẻẽếềểễệìíịỉĩòóôõơọỏốồổỗộớờởỡợùúûũưụủứừửữựỳýỵỷỹđ]", re.IGNORECASE)
+_VIETNAMESE_WORDS = {"la", "nao", "duoc", "trong", "nguon", "ngon", "ngu", "lap", "trinh", "cong", "cu", "soan", "thao", "ve", "cua", "khong", "sau", "day", "dung", "noi", "den", "phat", "bieu", "nam", "ma", "cac", "hang", "khoa", "khop", "tat", "ca", "ben", "trai", "phai"}
+_QUESTION_FILLER = {"la", "nao", "duoc", "trong", "ve", "cua", "khong", "sau", "day", "noi", "den", "nhung", "hay", "va", "voi", "mot", "khi", "co", "the", "gi", "dung"}
+
+
+def lacks_vietnamese_diacritics(value: str) -> bool:
+    words = plain_words(value)
+    return (len(words) >= 4 and not _VIETNAMESE_MARKS.search(value)
+            and len(set(words) & _VIETNAMESE_WORDS) >= 3)
+
+
+def canonical_answer(value: str) -> str:
+    answer = normalize(value)
+    return re.sub(r"^(?:năm|là(?:\s+một)?)\s+", "", answer)
+
+
+def answer_words(value: str) -> set[str]:
+    return set(plain_words(value, include_digits=True))
+
+
+def repeats_question(stem: str, answer: str, earlier: list[tuple[str, str]]) -> bool:
+    words = set(plain_words(stem)) - _QUESTION_FILLER
+    if len(words) < 4:
+        return False
+    first_answer = answer_words(answer)
+    for previous_stem, previous_answer in earlier:
+        second_answer = answer_words(previous_answer)
+        answer_overlap = (len(first_answer & second_answer) / min(len(first_answer), len(second_answer))
+                          if first_answer and second_answer else 0)
+        if answer_overlap < 0.8:
+            continue
+        previous_words = set(plain_words(previous_stem)) - _QUESTION_FILLER
+        overlap = len(words & previous_words) / min(len(words), len(previous_words)) if previous_words else 0
+        if len(previous_words) >= 4 and overlap >= 0.7:
+            return True
+    return False
 
 
 def appears_in_quote(option: str, quote: str) -> bool:
@@ -37,55 +82,70 @@ def lacks_code_context(stem: str) -> bool:
     )
 
 
-def validate_questions(questions: list[PracticeQuestion], source: str, count: int,
-                       independently_verified: set[int] | None = None) -> PracticeDraft:
+def review_questions(questions: list[PracticeQuestion], source: str,
+                     independently_verified: set[int] | None = None) -> tuple[list[PracticeQuestion], Counter]:
     source_text = normalize(source)
     stems = set()
     concepts = set()
+    accepted_questions: list[tuple[str, str]] = []
     accepted = []
-    first_error = None
+    issues: Counter = Counter()
     for question in questions:
         stem = normalize(question.stem)
+        if (lacks_vietnamese_diacritics(question.stem)
+                or lacks_vietnamese_diacritics(question.explanation)
+                or sum(lacks_vietnamese_diacritics(option) for option in question.options) >= 2):
+            issues["Practice question is missing Vietnamese diacritics"] += 1
+            continue
         if is_document_meta_question(question.stem):
-            first_error = first_error or "Practice question asks about document structure"
+            issues["Practice question asks about document structure"] += 1
             continue
         if lacks_code_context(question.stem):
-            first_error = first_error or "Practice question lacks context"
+            issues["Practice question lacks context"] += 1
             continue
         if any("..." in option or "…" in option for option in question.options):
-            first_error = first_error or "Practice option contains a placeholder"
+            issues["Practice option contains a placeholder"] += 1
             continue
         if len(question.explanation.strip()) < 70:
-            first_error = first_error or "Practice explanation is too short"
+            issues["Practice explanation is too short"] += 1
             continue
         concept = (normalize(question.supportQuote), normalize(question.options[question.correctIndex]))
         if (stem in stems or concept in concepts
+                or repeats_question(stem, canonical_answer(question.options[question.correctIndex]), accepted_questions)
                 or len({normalize(option) for option in question.options}) != 4):
-            first_error = first_error or "Duplicate practice content"
+            issues["Duplicate practice content"] += 1
             continue
         if normalize(question.supportQuote) not in source_text:
-            first_error = first_error or "Practice question lacks a source quote"
+            issues["Practice question lacks a source quote"] += 1
             continue
         if (normalize(question.options[question.correctIndex]) == normalize(question.supportQuote)
                 and re.search(r"[;{}()]", question.supportQuote)):
-            first_error = first_error or "Practice question copies a code example"
+            issues["Practice question copies a code example"] += 1
             continue
         matches = [index for index, option in enumerate(question.options)
                    if appears_in_quote(option, question.supportQuote)]
         if matches != [question.correctIndex] and id(question) not in (independently_verified or set()):
-            first_error = first_error or "Practice answer is not uniquely supported by its source quote"
+            issues["Practice answer is not uniquely supported by its source quote"] += 1
             continue
         stems.add(stem)
         concepts.add(concept)
+        accepted_questions.append((stem, canonical_answer(question.options[question.correctIndex])))
         accepted.append(question.model_copy(update={"explanation": re.sub(
             r"\bEVIDENCE_\d{4}\b", "đã cho", question.explanation, flags=re.IGNORECASE), "options": [
             option[0].upper() + option[1:] if " " in option and option[0].islower() else option
             for option in question.options
         ]}))
+    return accepted, issues
+
+
+def validate_questions(questions: list[PracticeQuestion], source: str, count: int,
+                       independently_verified: set[int] | None = None) -> PracticeDraft:
+    accepted, issues = review_questions(questions, source, independently_verified)
     if len(accepted) < count:
-        logger.warning("Practice candidates insufficient requested=%s received=%s verified=%s reason=%s",
-                       count, len(questions), len(accepted), first_error or "Not enough valid practice questions")
-        raise ValueError(first_error or "Practice question count mismatch")
+        reason = next(iter(issues), "Practice question count mismatch")
+        logger.warning("Practice candidates insufficient requested=%s received=%s verified=%s issues=%s",
+                       count, len(questions), len(accepted), dict(issues))
+        raise ValueError(reason)
     return PracticeDraft(questions=accepted[:count])
 
 
@@ -138,7 +198,12 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
         "án khác sai. Viết hoa chữ đầu của lựa chọn thông thường; giữ nguyên mã nguồn "
         "và tên hàm. Không nhắc ID EVIDENCE trong câu hỏi hay giải thích. "
         "Có thể hỏi dự đoán kết quả hoặc lỗi của đoạn mã ngắn nếu nguồn hỗ trợ. "
-        "Không suy đoán ngoài nguồn."
+        "Không hỏi tài liệu có những mục nào, chương nào nêu điều gì, hoặc nhận diện "
+        "câu chữ được chép từ nguồn. Đáp án nhiễu phải hợp lý và cùng loại. "
+        "Toàn bộ câu hỏi, đáp án và giải thích bằng tiếng Việt CÓ DẤU, kể cả các câu cuối; "
+        "chỉ giữ nguyên tên riêng, thuật ngữ tiếng Anh và mã nguồn. "
+        "Trước khi trả, tự rà soát tính chính xác, tính độc lập và sự khác nhau "
+        "về kiến thức giữa các câu; viết lại câu chưa đạt. Không suy đoán ngoài nguồn."
     )
     request_message = (
         f"Tạo {request.count if request.count <= 10 else 'tối đa 10'} câu ứng viên theo yêu cầu.\n"
@@ -153,8 +218,9 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
     verified_answers: set[int] = set()
     model_slots = asyncio.Semaphore(2)
 
-    async def generate_batch(index: int, size: int, extra: str = "") -> list[PracticeQuestion]:
-        evidence = batch_evidence(passages, index % batch_count, batch_count)
+    async def generate_batch(index: int, size: int, extra: str = "",
+                             excluded: set[str] | None = None) -> list[PracticeQuestion]:
+        evidence = batch_evidence(passages, index % batch_count, batch_count, excluded)
         source_message = "\n".join(f"{key}: {value}" for key, value in evidence.items())
         async with model_slots:
             response = await structured.ainvoke([
@@ -179,19 +245,27 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
     batches = await asyncio.gather(*(generate_batch(index, batch_size) for index in range(batch_count)))
     candidates = [question for batch in batches for question in batch]
     for attempt in range(3):
-        try:
-            return validate_questions(candidates, source, request.count, verified_answers)
-        except ValueError as exc:
-            if attempt == 2:
-                raise
-            previous_stems = " | ".join(dict.fromkeys(question.stem for question in candidates))[:2500]
-            repair_count = 1 if request.count <= 10 else 2
-            repairs = await asyncio.gather(*(
-                generate_batch(index + attempt + 1, min(10, request.count),
-                               f"Bản nháp trước chưa đạt: {exc}. Không lặp: {previous_stems}. "
-                               "Hãy hỏi mục tiêu kiến thức khác, đủ dữ kiện trong đề, "
-                               "không sao chép giá trị ví dụ và có một đáp án suy ra được từ nguồn.")
-                for index in range(repair_count)
-            ))
-            candidates.extend(question for batch in repairs for question in batch)
+        accepted, issues = review_questions(candidates, source, verified_answers)
+        missing = request.count - len(accepted)
+        if missing <= 0:
+            return PracticeDraft(questions=accepted[:request.count])
+        logger.warning("Practice candidates insufficient requested=%s received=%s verified=%s issues=%s",
+                       request.count, len(candidates), len(accepted), dict(issues))
+        if attempt == 2:
+            raise ValueError(next(iter(issues), "Practice question count mismatch"))
+        previous_stems = " | ".join(question.stem for question in accepted)[:2500]
+        feedback = ", ".join(f"{reason}: {total}" for reason, total in issues.most_common(3))
+        repair_count = 1 if missing <= 5 else 2
+        repair_size = min(10, missing + 2)
+        excluded = {question.supportQuote for question in accepted}
+        repairs = await asyncio.gather(*(
+            generate_batch(index + attempt + 1, repair_size,
+                           f"Bản nháp trước chưa đạt; còn thiếu {missing} câu hợp lệ. "
+                           f"Lỗi thường gặp: {feedback}. Các câu đã giữ: {previous_stems}. "
+                           "Hãy hỏi mục tiêu kiến thức khác, không hỏi cấu trúc tài liệu, "
+                           "viết tiếng Việt có dấu, đủ dữ kiện trong đề, không sao chép giá trị ví dụ và có "
+                           "một đáp án suy ra được từ nguồn.", excluded)
+            for index in range(repair_count)
+        ))
+        candidates.extend(question for batch in repairs for question in batch)
     raise ValueError("Practice question count mismatch")

@@ -24,8 +24,12 @@ def evidence_passages(source: str) -> list[str]:
     return passages
 
 
-def batch_evidence(passages: list[str], batch_index: int, batch_count: int) -> dict[str, str]:
-    choices = passages[batch_index::batch_count] or passages
+def batch_evidence(passages: list[str], batch_index: int, batch_count: int,
+                   excluded: set[str] | None = None) -> dict[str, str]:
+    choices = [passage for passage in passages[batch_index::batch_count]
+               if passage not in (excluded or set())]
+    if not choices:
+        choices = passages[batch_index::batch_count] or passages
     selected = (choices if len(choices) <= 16 else [
         choices[round(index * (len(choices) - 1) / 15)] for index in range(16)
     ])

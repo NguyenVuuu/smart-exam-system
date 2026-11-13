@@ -3,7 +3,7 @@ import base64
 import pytest
 
 from soes_agent.contracts import PracticeDraft, PracticeDraftRequest, StudyMaterial
-from soes_agent.practice import generate_practice, parse_candidates, validate_draft
+from soes_agent.practice import generate_practice, parse_candidates, validate_draft, validate_questions
 
 
 SOURCE = "INNER JOIN chỉ trả các hàng có khóa khớp ở hai bảng."
@@ -89,6 +89,57 @@ def test_practice_rejects_reworded_duplicate_from_same_evidence():
     second.stem = "Những hàng nào được INNER JOIN giữ lại?"
     with pytest.raises(ValueError, match="Duplicate practice content"):
         validate_draft(PracticeDraft(questions=[first, second]), SOURCE, 2)
+
+
+def test_practice_rejects_same_java_history_question_with_different_quote():
+    first = numbered_question(1)
+    first.stem = "Java chính thức ra đời và được giới thiệu vào năm nào?"
+    first.options = ["1995", "1993", "1994", "1996"]
+    first.supportQuote = "Java được giới thiệu chính thức vào năm 1995."
+    second = first.model_copy(deep=True)
+    second.stem = "Ngôn ngữ lập trình Java ra đời và được giới thiệu chính thức vào năm nào?"
+    second.options = ["Năm 1993", "Năm 1995", "Năm 1994", "Năm 1996"]
+    second.correctIndex = 1
+    second.supportQuote = "Năm 1995 đánh dấu thời điểm Java được giới thiệu chính thức."
+    source = first.supportQuote + "\n" + second.supportQuote
+
+    with pytest.raises(ValueError, match="Duplicate practice content"):
+        validate_questions([first, second], source, 2, {id(first), id(second)})
+
+
+def test_practice_rejects_reworded_same_editor_concept():
+    quote = "Công cụ soạn thảo mã nguồn Java giúp viết và chỉnh sửa chương trình Java."
+    first = draft().questions[0].model_copy(deep=True)
+    first.stem = "Công cụ soạn thảo mã nguồn Java gắn liền với nội dung nào?"
+    first.options = ["Soạn thảo mã nguồn Java", "Biên dịch mã nguồn C", "Quản lý bộ nhớ C++", "Thiết kế giao diện Python"]
+    first.supportQuote = quote
+    second = first.model_copy(deep=True)
+    second.stem = "Nội dung nào sau đây mô tả đúng về công cụ soạn thảo mã nguồn Java?"
+    second.options = ["Là công cụ soạn thảo mã nguồn Java", "Là trình biên dịch mã máy",
+                      "Là phần mềm quản lý cơ sở dữ liệu", "Là công cụ thiết kế web"]
+    with pytest.raises(ValueError, match="Duplicate practice content"):
+        validate_questions([first, second], quote, 2, {id(first), id(second)})
+
+
+def test_practice_rejects_accentless_vietnamese_question_or_options():
+    candidate = draft()
+    candidate.questions[0].stem = "Cong cu soan thao ma nguon Java gan lien voi noi dung nao?"
+    with pytest.raises(ValueError, match="missing Vietnamese diacritics"):
+        validate_draft(candidate, SOURCE, 1)
+
+    candidate = draft()
+    candidate.questions[0].explanation = (
+        "Cac hang co khoa khop giua hai bang la dap an dung vi day la dieu kien noi. "
+        "Nhung lua chon khac khong phu hop voi quy tac nay."
+    )
+    with pytest.raises(ValueError, match="missing Vietnamese diacritics"):
+        validate_draft(candidate, SOURCE, 1)
+
+    candidate = draft()
+    candidate.questions[0].options = ["Cac hang co khoa khop", "Tat ca hang ben trai",
+                                       "Tat ca hang ben phai", "Khong co hang nao"]
+    with pytest.raises(ValueError, match="missing Vietnamese diacritics"):
+        validate_draft(candidate, SOURCE, 1)
 
 
 def test_practice_rejects_missing_code_context_and_copied_code_option():
@@ -250,6 +301,44 @@ async def test_generation_replenishes_large_draft_with_verified_questions():
     result = await generate_practice(model, request)
     assert len(result.questions) == 20
     assert model.calls == 6
+
+
+@pytest.mark.asyncio
+async def test_generation_replaces_document_meta_questions_with_new_concepts():
+    class Model:
+        calls = 0
+        repair_prompt = ""
+
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, messages):
+            self.calls += 1
+            prompt = messages[1][1]
+            if "Bản nháp trước chưa đạt" in prompt:
+                self.repair_prompt = prompt
+                questions = [numbered_question(number) for number in range(9, 13)]
+            else:
+                start = (self.calls - 1) * 2 + 1
+                questions = [numbered_question(number) for number in range(start, start + 2)]
+                meta = numbered_question(start + 12)
+                meta.stem = f"Trong chương {start} của tài liệu có mục nào?"
+                questions.append(meta)
+            return {"questions": [question.model_dump() for question in questions]}
+
+    model = Model()
+    request = PracticeDraftRequest(count=12, material=StudyMaterial(
+        materialId="material-1", title="Quy tắc", mimeType="text/plain",
+        contentBase64=base64.b64encode(
+            "\n".join(numbered_quote(number) for number in range(1, 30)).encode()
+        ).decode(),
+    ))
+    result = await generate_practice(model, request)
+    assert len(result.questions) == 12
+    assert model.calls == 5
+    assert "còn thiếu 4 câu hợp lệ" in model.repair_prompt
+    assert "Practice question asks about document structure: 4" in model.repair_prompt
+    assert all("chương" not in question.stem for question in result.questions)
 
 
 @pytest.mark.asyncio
