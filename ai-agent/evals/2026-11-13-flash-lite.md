@@ -7,3 +7,5 @@ All 18 Python unit tests passed. An authenticated HTTP request generated and val
 Before using generated material for a real class, evaluate it against teacher-reviewed examples and keep teacher approval for exam content. No model training or fine-tuning was performed.
 
 The teacher question-draft workflow was exercised with one synthetic text source and the backend's one-question JSON schema. The first attempt exposed a local schema-binding error, which was corrected by declaring the schema as a function-call tool. The next request reached Gemini but returned HTTP 503 (high demand), so live question-draft quality remains unverified.
+
+After adding evidence checks and class sample reporting, all 28 Python unit tests passed. The five synthetic insight cases passed in one local run: empty history, student topic, malicious material instruction, teacher question quality, and teacher class analysis. An earlier run caught an unsupported percentage format in the evaluator and inconsistent class sample wording; both checks were corrected. This synthetic pass does not measure answer quality on real student data or provider availability over time.

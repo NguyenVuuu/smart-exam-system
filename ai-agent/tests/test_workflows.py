@@ -1,7 +1,7 @@
 import pytest
 
 from soes_agent.contracts import AgentAnswer, ExamMatrixRequest, StudentRequest
-from soes_agent.workflows import build_evidence, percentages_are_grounded, propose_exam_matrix, run_student
+from soes_agent.workflows import add_evidence_scope, build_evidence, percentages_are_grounded, propose_exam_matrix, run_student
 
 
 def test_evidence_contains_only_numeric_metrics():
@@ -50,6 +50,17 @@ def test_rejects_percentages_not_supported_by_the_evidence():
     answer = AgentAnswer(summary="JOIN đạt 30%", actions=[], evidenceIds=["join"])
     assert percentages_are_grounded(answer, evidence)
     assert not percentages_are_grounded(answer.model_copy(update={"summary": "JOIN đạt 80%"}), evidence)
+
+
+def test_teacher_class_answer_includes_verified_sample_size():
+    evidence = {
+        "limitedToRecentAttempts": True,
+        "classes": [{"courseOfferingId": "class-1", "code": "SE01", "studentCount": 8}],
+    }
+    answer = AgentAnswer(summary="SE01 cần ôn JOIN", actions=[], evidenceIds=["class-1"])
+    scoped = add_evidence_scope(answer, evidence)
+    assert "SE01: 8 sinh viên" in scoped.caveat
+    assert "gần đây" in scoped.caveat
 
 
 @pytest.mark.asyncio

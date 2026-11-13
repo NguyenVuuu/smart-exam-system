@@ -84,12 +84,14 @@ async def evaluate(selected_case: str | None = None) -> int:
                 timeout=60,
             )
             text = " ".join([answer.summary, *answer.actions, answer.caveat or ""])
-            allowed_percentages = {item.percentage for item in request.topics}
+            allowed_percentages = {float(item.percentage) for item in request.topics}
             if role == "teacher":
                 allowed_percentages.update(item.averagePercentage for item in request.questions)
                 for group in request.classes:
                     allowed_percentages.update(topic.percentage for topic in group.topics if topic.sufficientData)
-            claimed_percentages = {int(value) for value in re.findall(r"\b(\d{1,3})\s*%", text)}
+            claimed_percentages = {float(value.replace(",", ".")) for value in re.findall(
+                r"(?<!\d)(\d{1,3}(?:[.,]\d+)?)\s*%", text
+            )}
             checks = {
                 "evidence": expected_ids.issubset(set(answer.evidenceIds)),
                 "requiredTerm": required_term.casefold() in text.casefold(),
