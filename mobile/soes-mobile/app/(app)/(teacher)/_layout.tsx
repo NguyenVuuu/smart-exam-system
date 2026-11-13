@@ -1,6 +1,6 @@
 import { Redirect, Stack, useSegments } from 'expo-router'
 import { ActivityIndicator, View } from 'react-native'
-import { PortalLayout } from '../../../src/components/layout/PortalLayout'
+import { PortalLayout, PORTAL_BACKGROUND_COLOR } from '../../../src/components/layout/PortalLayout'
 import { useTeacherNavigation } from '../../../src/hooks/useTeacherNavigation'
 import { useAuthStore } from '../../../src/store/authStore'
 import { ROLE_HOME } from '../../../src/utils/role'
@@ -20,6 +20,6 @@ export default function TeacherLayout() {
 
   return <PortalLayout groups={groups} activeRoute={activeRoute} portalLabel="Giảng viên"
     notificationsHref="/(app)/(teacher)/notifications">
-    <Stack screenOptions={{ headerShown: false }} />
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: PORTAL_BACKGROUND_COLOR } }} />
   </PortalLayout>
 }
