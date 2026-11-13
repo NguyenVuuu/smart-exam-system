@@ -22,14 +22,8 @@ export interface AutoExamConfigPanelProps {
   subjectOptions: TeacherSubjectOption[]
   draftStatus: AutoExamDraftStatus
   eligibleQuestions: Question[]
-  filteredEligibleQuestions: Question[]
-  selectedQuestionIds: string[]
-  selectedQuestions: Question[]
   pickMode: AutoExamPickMode
   setPickMode: (value: AutoExamPickMode) => void
-  questionSearch: string
-  setQuestionSearch: (value: string) => void
-  toggleQuestionSelection: (questionId: string) => void
   easyCount: number
   setEasyCount: (value: number) => void
   mediumCount: number

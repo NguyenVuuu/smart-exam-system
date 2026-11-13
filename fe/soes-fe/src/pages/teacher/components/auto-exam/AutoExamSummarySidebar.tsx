@@ -1,21 +1,15 @@
-import type { AutoExamPickMode } from '../../types/teacher-auto-exam.types'
-
 export default function AutoExamSummarySidebar({
   totalQuestions,
-  pickMode,
   easyCount,
   mediumCount,
   hardCount,
-  selectedQuestionCount,
   targetTotalPoints,
   examFormat = 'OBJECTIVE',
 }: {
   totalQuestions: number
-  pickMode: AutoExamPickMode
   easyCount: number
   mediumCount: number
   hardCount: number
-  selectedQuestionCount: number
   targetTotalPoints: number
   examFormat?: 'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'
 }) {
@@ -38,15 +32,9 @@ export default function AutoExamSummarySidebar({
       </div>
 
       <div className="space-y-3 text-sm border-t border-gray-100 pt-4">
-        {pickMode === 'AUTO' ? (
-          <>
-            <SummaryLine label="Câu dễ:" value={`${easyCount} câu`} />
-            <SummaryLine label="Câu trung bình:" value={`${mediumCount} câu`} />
-            <SummaryLine label="Câu khó:" value={`${hardCount} câu`} />
-          </>
-        ) : (
-          <SummaryLine label="Đã chọn:" value={`${selectedQuestionCount} câu`} />
-        )}
+        <SummaryLine label="Câu dễ:" value={`${easyCount} câu`} />
+        <SummaryLine label="Câu trung bình:" value={`${mediumCount} câu`} />
+        <SummaryLine label="Câu khó:" value={`${hardCount} câu`} />
         <SummaryLine label="Tổng điểm:" value={`${targetTotalPoints} điểm`} />
         <SummaryLine label="Điểm mỗi câu:" value={`${pointsPerQuestion} điểm`} />
         <SummaryLine label="Hình thức đề:" value={formatLabel} />

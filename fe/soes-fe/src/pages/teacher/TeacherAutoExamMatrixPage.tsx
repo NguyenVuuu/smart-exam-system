@@ -6,7 +6,7 @@ import TeacherTopBar from './components/TeacherTopBar'
 import { TeacherTwoColumnLayout, TeacherTwoColumnMain } from './components/TeacherTwoColumnLayout'
 import AutoExamConfigPanel from './components/auto-exam/AutoExamConfigPanel'
 import AutoExamAgentPanel from './components/auto-exam/AutoExamAgentPanel'
-import type { ExamMatrixProposal } from './api/teacher-ai-exam.api'
+import type { AgentExamDraft } from './api/teacher-ai-exam.api'
 import AutoExamPageHeader from './components/auto-exam/AutoExamPageHeader'
 import AutoExamSummarySidebar from './components/auto-exam/AutoExamSummarySidebar'
 import GeneratedExamPreviewModal from './components/auto-exam/results/GeneratedExamPreviewModal'
@@ -66,8 +66,8 @@ export default function TeacherAutoExamMatrixPage() {
   const [easyCount, setEasyCount] = useState(0)
   const [mediumCount, setMediumCount] = useState(0)
   const [hardCount, setHardCount] = useState(0)
-  const [pickMode, setPickMode] = useState<AutoExamPickMode>('AUTO')
-  const [questionSearch, setQuestionSearch] = useState('')
+  const [pickMode, setPickMode] = useState<AutoExamPickMode>('AGENT')
+  const [agentProposal, setAgentProposal] = useState<AgentExamDraft | null>(null)
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedExams, setGeneratedExams] = useState<GeneratedExamDraft[]>([])
@@ -105,36 +105,31 @@ export default function TeacherAutoExamMatrixPage() {
     return ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'TRUE_FALSE', 'PROGRAMMING'].includes(question.type)
   })
 
-  const selectedQuestions = eligibleQuestions.filter((question) =>
-    selectedQuestionIds.includes(question.id),
-  )
-  const totalQuestions = pickMode === 'MANUAL' ? selectedQuestions.length : configuredQuestionCount
-  const filteredEligibleQuestions = eligibleQuestions.filter(
-    (question) =>
-      question.content.toLowerCase().includes(questionSearch.toLowerCase()) ||
-      question.subjectName.toLowerCase().includes(questionSearch.toLowerCase()),
-  )
+  const totalQuestions = pickMode === 'AGENT' ? agentProposal?.questionIds.length ?? 0
+    : configuredQuestionCount
 
   const handleSubjectChange = (value: string) => {
     setSelectedSubjectId(value)
     setSelectedQuestionIds([])
+    setAgentProposal(null)
     setGeneratedExams([])
     setDraftStatus('NOT_GENERATED')
   }
 
-  const toggleQuestionSelection = (questionId: string) => {
-    setSelectedQuestionIds((prev) =>
-      prev.includes(questionId) ? prev.filter((id) => id !== questionId) : [...prev, questionId],
-    )
-  }
-
-  const applyAgentMatrix = (proposal: ExamMatrixProposal) => {
-    setPickMode('AUTO')
-    setEasyCount(proposal.easyCount)
-    setMediumCount(proposal.mediumCount)
-    setHardCount(proposal.hardCount)
+  const applyAgentProposal = (proposal: AgentExamDraft) => {
+    setAgentProposal(proposal)
+    setSelectedQuestionIds(proposal.questionIds)
+    setEasyCount(proposal.difficultyMatrix.easy)
+    setMediumCount(proposal.difficultyMatrix.medium)
+    setHardCount(proposal.difficultyMatrix.hard)
     setGeneratedExams([])
     setDraftStatus('NOT_GENERATED')
+  }
+
+  const handleFormatChange = (value: typeof examFormat) => {
+    setExamFormat(value)
+    setAgentProposal(null)
+    setSelectedQuestionIds([])
   }
 
   const validateAutoQuestionCount = () => {
@@ -167,7 +162,6 @@ export default function TeacherAutoExamMatrixPage() {
       hasValidSemester: Boolean(subjectCourse?.semesterId),
       pickMode,
       configuredQuestionCount,
-      selectedQuestionCount: selectedQuestionIds.length,
     })
 
     if (!validation.isValid) {
@@ -178,8 +172,8 @@ export default function TeacherAutoExamMatrixPage() {
 
     setFieldErrors({})
 
-    if (pickMode === 'MANUAL' && selectedQuestionIds.length === 0) {
-      toast.error('Vui lòng chọn ít nhất một câu hỏi từ ngân hàng trước khi sinh đề.')
+    if (pickMode === 'AGENT' && !agentProposal) {
+      toast.error('Vui lòng tạo và chọn một đề xuất từ trợ lý trước khi lưu đề nháp.')
       return
     }
 
@@ -201,10 +195,10 @@ export default function TeacherAutoExamMatrixPage() {
         format: examFormat,
         defaultDurationMinutes: Number(durationMinutes),
         totalPoints: targetTotalPoints,
-        pickMode,
+        pickMode: pickMode === 'AGENT' ? 'MANUAL' : pickMode,
         sourceScope: 'BOTH',
         matrix: { easy: easyCount, medium: mediumCount, hard: hardCount },
-        selectedQuestionIds: pickMode === 'MANUAL' ? selectedQuestionIds : [],
+        selectedQuestionIds: pickMode === 'AGENT' ? selectedQuestionIds : [],
       })
       setGeneratedExams([{
         id: exam.id,
@@ -296,20 +290,23 @@ export default function TeacherAutoExamMatrixPage() {
 
           <TeacherTwoColumnLayout>
             <TeacherTwoColumnMain>
-              <AutoExamAgentPanel
+              {pickMode === 'AGENT' && <AutoExamAgentPanel
                 key={`${selectedSubject}:${examFormat}`}
                 subjectId={selectedSubject}
                 format={examFormat}
-                currentCount={configuredQuestionCount}
-                onApply={applyAgentMatrix}
-              />
+                onApply={applyAgentProposal}
+                onInvalidate={() => { setAgentProposal(null); setSelectedQuestionIds([]) }}
+              />}
+              {pickMode === 'AGENT' && agentProposal && <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                Đã chọn {agentProposal.questionIds.length} câu AI đề xuất. Kiểm tra thông tin đề thi rồi lưu bản nháp bên dưới.
+              </div>}
               <AutoExamConfigPanel
                 examTitle={examTitle}
                 setExamTitle={setExamTitle}
                 examCategory={examCategory}
                 setExamCategory={setExamCategory}
                 examFormat={examFormat}
-                setExamFormat={setExamFormat}
+                setExamFormat={handleFormatChange}
                 durationMinutes={durationMinutes as number}
                 setDurationMinutes={setDurationMinutes}
                 targetTotalPoints={targetTotalPoints}
@@ -319,14 +316,8 @@ export default function TeacherAutoExamMatrixPage() {
                 subjectOptions={subjectOptions}
                 draftStatus={draftStatus}
                 eligibleQuestions={eligibleQuestions}
-                filteredEligibleQuestions={filteredEligibleQuestions}
-                selectedQuestionIds={selectedQuestionIds}
-                selectedQuestions={selectedQuestions}
                 pickMode={pickMode}
-                setPickMode={setPickMode}
-                questionSearch={questionSearch}
-                setQuestionSearch={setQuestionSearch}
-                toggleQuestionSelection={toggleQuestionSelection}
+                setPickMode={(value) => { setPickMode(value); setAgentProposal(null); setSelectedQuestionIds([]) }}
                 easyCount={easyCount}
                 setEasyCount={setEasyCount}
                 mediumCount={mediumCount}
@@ -343,11 +334,9 @@ export default function TeacherAutoExamMatrixPage() {
 
             <AutoExamSummarySidebar
               totalQuestions={totalQuestions}
-              pickMode={pickMode}
               easyCount={easyCount}
               mediumCount={mediumCount}
               hardCount={hardCount}
-              selectedQuestionCount={selectedQuestions.length}
               targetTotalPoints={targetTotalPoints}
               examFormat={examFormat}
             />

@@ -1,8 +1,9 @@
-import { Plus, Tags, X } from 'lucide-react'
+import { Plus, Sparkles, Tags, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getApiErrorMessage } from '../../../../api/errors'
 import { assignQuestionTopics, createLearningTopic, getLearningTopics, type LearningTopic } from '../../api/teacher-questions.api'
 import type { Question } from '../../types/teacher-question-bank.types'
+import { suggestQuestionTopic, type TopicSuggestion } from '../../api/teacher-ai-exam.api'
 
 interface Props {
   question: Question | null
@@ -24,6 +25,8 @@ function QuestionTopicModalContent({ question, onClose, onSaved, onDraftSaved }:
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestion, setSuggestion] = useState<TopicSuggestion | null>(null)
 
   useEffect(() => {
     let active = true
@@ -51,6 +54,20 @@ function QuestionTopicModalContent({ question, onClose, onSaved, onDraftSaved }:
       setError(getApiErrorMessage(cause, 'Không thể tạo chủ đề.'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const askSuggestion = async () => {
+    if (suggesting) return
+    setSuggesting(true)
+    setError('')
+    try {
+      setSuggestion(await suggestQuestionTopic({ subjectId: question.subjectId,
+        title: question.title, content: question.content }))
+    } catch (cause) {
+      setError(getApiErrorMessage(cause, 'Không thể gợi ý chủ đề.'))
+    } finally {
+      setSuggesting(false)
     }
   }
 
@@ -89,6 +106,23 @@ function QuestionTopicModalContent({ question, onClose, onSaved, onDraftSaved }:
           <p className="mt-1 text-xs text-slate-500">{onDraftSaved
             ? 'Chủ đề sẽ được lưu cùng câu hỏi sau khi bạn duyệt bản nháp.'
             : 'Chủ đề mới áp dụng khi thêm câu hỏi vào đề sau lần lưu này; dữ liệu đề cũ không đổi.'}</p>
+          <button type="button" onClick={() => void askSuggestion()} disabled={loading || suggesting}
+            className="mt-3 inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50">
+            <Sparkles size={16} /> {suggesting ? 'Đang gợi ý...' : 'AI gợi ý chủ đề'}
+          </button>
+          {suggestion && <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm">
+            <p className="text-slate-700">{suggestion.rationale}</p>
+            {suggestion.existing.length > 0 && <button type="button"
+              onClick={() => setSelectedIds((current) => Array.from(new Set([...current, ...suggestion.existing.map((topic) => topic.id)])))}
+              className="mt-2 font-semibold text-violet-700 hover:underline">
+              Chọn {suggestion.existing.map((topic) => topic.name).join(', ')}
+            </button>}
+            {suggestion.proposed && <button type="button"
+              onClick={() => { setCode(suggestion.proposed!.code); setName(suggestion.proposed!.name) }}
+              className="mt-2 block font-semibold text-violet-700 hover:underline">
+              Điền chủ đề mới: {suggestion.proposed.name} (cần bấm Thêm để tạo)
+            </button>}
+          </div>}
           {loading && <p className="mt-3 text-sm text-slate-500">Đang tải chủ đề...</p>}
           {!loading && topics.length === 0 && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">Môn học chưa có chủ đề. Hãy thêm chủ đề ở bên dưới.</p>}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">

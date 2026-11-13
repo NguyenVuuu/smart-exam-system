@@ -24,9 +24,11 @@ export default function AutoExamGenerationActions({
         <Sparkles size={18} />
         {isGenerating
           ? 'Đang sinh đề...'
+          : pickMode === 'AGENT'
+          ? `Lưu đề nháp từ ${selectedQuestionCount} câu AI đề xuất`
           : pickMode === 'AUTO'
           ? 'Sinh đề tự động'
-          : `Sinh đề từ ${selectedQuestionCount} câu đã chọn`}
+          : 'Sinh đề tự động'}
       </button>
     </div>
   )

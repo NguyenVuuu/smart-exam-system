@@ -93,9 +93,8 @@ export function validateAutoExamConfig(params: {
   targetTotalPoints: number | '' | undefined
   selectedSubject: string
   hasValidSemester: boolean
-  pickMode: 'AUTO' | 'MANUAL'
+  pickMode: 'AUTO' | 'AGENT'
   configuredQuestionCount: number
-  selectedQuestionCount: number
 }): ValidationResult {
   const errors: Record<string, string> = {}
   const trimmedTitle = params.title.trim()

@@ -11,5 +11,5 @@ export interface GeneratedExamDraft {
   exam: TeacherExamDetailDto
 }
 
-export type AutoExamPickMode = 'AUTO' | 'MANUAL'
+export type AutoExamPickMode = 'AUTO' | 'AGENT'
 export type AutoExamDraftStatus = 'NOT_GENERATED' | 'SAVED_DRAFT'
