@@ -4,7 +4,7 @@ import unicodedata
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .contracts import PracticeDraft, PracticeDraftRequest, PracticeQuestion
-from .materials import extract_material
+from .materials import extract_material, select_material_excerpt
 
 
 def normalize(value: str) -> str:
@@ -58,7 +58,10 @@ def validate_draft(draft: PracticeDraft, source: str, count: int) -> PracticeDra
 
 
 async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraftRequest) -> PracticeDraft:
-    source = extract_material(request.material)
+    full_source = extract_material(request.material)
+    source = select_material_excerpt(
+        full_source, " ".join(filter(None, [request.instruction, request.focusTopic.name if request.focusTopic else None])),
+    )
     candidate_count = request.count if request.count == 1 else min(10, request.count + 2)
     structured = model.with_structured_output(PracticeDraft, method="function_calling")
     messages = [

@@ -7,7 +7,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import ValidationError
 
 from .contracts import AgentAnswer, StudentRequest, StudyMaterial, TeacherRequest
-from .materials import extract_material
+from .materials import extract_material, select_material_excerpt
 
 
 class AgentState(TypedDict, total=False):
@@ -65,7 +65,9 @@ def build_evidence(state: AgentState) -> AgentState:
         "material": {
             "materialId": material["materialId"],
             "title": material["title"],
-            "content": extract_material(StudyMaterial.model_validate(material)),
+            "content": select_material_excerpt(
+                extract_material(StudyMaterial.model_validate(material)), request["message"]
+            ),
         } if material else None,
     }}
 
