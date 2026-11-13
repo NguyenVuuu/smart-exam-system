@@ -1,6 +1,7 @@
 import { MessageSquareText, Send } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
-import { askTeacherLearningAgent, getTeacherLearningInsights, type TeacherLearningAnswer, type TeacherLearningInsights } from '../../api/teacher-learning.api'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import AgentConversationHistory, { type AgentConversationSummary, type AgentConversationTurn } from '../../../../components/common/AgentConversationHistory'
+import { askTeacherLearningAgent, getTeacherLearningConversation, getTeacherLearningInsights, listTeacherLearningConversations, type TeacherLearningAnswer, type TeacherLearningInsights } from '../../api/teacher-learning.api'
 import { getApiErrorMessage } from '../../../../api/errors'
 
 const SIGNAL_LABELS = {
@@ -12,25 +13,46 @@ const SIGNAL_LABELS = {
 
 export default function TeacherLearningPanel({ scheduleId }: { scheduleId: string }) {
   const [insights, setInsights] = useState<TeacherLearningInsights | null>(null)
-  const [answer, setAnswer] = useState<TeacherLearningAnswer | null>(null)
+  const [conversationId, setConversationId] = useState('')
+  const conversationRequest = useRef(0)
+  const [conversations, setConversations] = useState<AgentConversationSummary[]>([])
+  const [turns, setTurns] = useState<AgentConversationTurn<TeacherLearningAnswer>[]>([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    conversationRequest.current += 1
     if (!scheduleId) return
     let active = true
     setLoading(true)
     setInsights(null)
-    setAnswer(null)
+    setConversationId('')
+    setTurns([])
     setError('')
     getTeacherLearningInsights(scheduleId)
       .then((data) => { if (active) setInsights(data) })
       .catch(() => { if (active) setError('Không thể tải phân tích ca thi.') })
       .finally(() => { if (active) setLoading(false) })
+    listTeacherLearningConversations(scheduleId)
+      .then((items) => { if (active) setConversations(items) })
+      .catch(() => { if (active) setError('Không thể tải lịch sử hội thoại.') })
     return () => { active = false }
   }, [scheduleId])
+
+  const selectConversation = async (id: string) => {
+    const request = ++conversationRequest.current
+    setConversationId(id)
+    setTurns([])
+    if (!id) return
+    try {
+      const conversation = await getTeacherLearningConversation(scheduleId, id)
+      if (request === conversationRequest.current) setTurns(conversation.turns)
+    } catch (cause) {
+      if (request === conversationRequest.current) setError(getApiErrorMessage(cause, 'Không thể mở hội thoại.'))
+    }
+  }
 
   const ask = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -38,11 +60,17 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
     if (!question || !scheduleId || asking) return
     setAsking(true)
     setError('')
+    const request = conversationRequest.current
     try {
-      setAnswer(await askTeacherLearningAgent(scheduleId, question))
+      const result = await askTeacherLearningAgent(scheduleId, question, conversationId || undefined)
+      if (request !== conversationRequest.current) return
+      setConversationId(result.conversationId)
+      setTurns((current) => [...current, { id: crypto.randomUUID(), message: question, answer: result.answer,
+        createdAt: new Date().toISOString() }])
       setMessage('')
+      void listTeacherLearningConversations(scheduleId).then(setConversations).catch(() => {})
     } catch (cause) {
-      setError(getApiErrorMessage(cause, 'Trợ lý hiện chưa thể phân tích. Hãy thử lại sau.'))
+      if (request === conversationRequest.current) setError(getApiErrorMessage(cause, 'Trợ lý hiện chưa thể phân tích. Hãy thử lại sau.'))
     } finally {
       setAsking(false)
     }
@@ -94,6 +122,8 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
         </div>
       </div>}
     </>}
+    <div className="mt-4"><AgentConversationHistory conversations={conversations} currentId={conversationId}
+      turns={turns} onSelect={(id) => void selectConversation(id)} /></div>
     <form onSubmit={(event) => void ask(event)} className="mt-4 flex gap-2">
       <input aria-label="Câu hỏi phân tích ca thi" value={message} onChange={(event) => setMessage(event.target.value)}
         maxLength={500} placeholder="Ví dụ: Chủ đề nào lớp cần ôn thêm?"
@@ -104,10 +134,5 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
       </button>
     </form>
     {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
-    {answer && <div className="mt-4 rounded-lg bg-blue-50 p-4 text-sm">
-      <p className="font-medium">{answer.summary}</p>
-      {answer.actions.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5">{answer.actions.map((action, index) => <li key={index}>{action}</li>)}</ul>}
-      {answer.caveat && <p className="mt-2 text-slate-600">{answer.caveat}</p>}
-    </div>}
   </section>
 }

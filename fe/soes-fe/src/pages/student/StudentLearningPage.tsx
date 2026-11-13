@@ -1,7 +1,8 @@
 import { BookOpenCheck, FileText, MessageCircle, Send, Sparkles, Target } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import AgentConversationHistory, { type AgentConversationSummary, type AgentConversationTurn } from '../../components/common/AgentConversationHistory'
 import { getApiErrorMessage } from '../../api/errors'
-import { askLearningAgent, getLearningInsights, getStudyMaterials, type LearningAnswer, type StudentLearningInsights, type StudyMaterial } from './api/student-learning.api'
+import { askLearningAgent, getLearningConversation, getLearningInsights, getStudyMaterials, listLearningConversations, type LearningAnswer, type StudentLearningInsights, type StudyMaterial } from './api/student-learning.api'
 import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
 import StudentPracticePanel from './components/StudentPracticePanel'
@@ -12,20 +13,23 @@ type LearningTab = 'ask' | 'practice' | 'topics'
 export default function StudentLearningPage() {
   const [activeTab, setActiveTab] = useState<LearningTab>('ask')
   const [insights, setInsights] = useState<StudentLearningInsights | null>(null)
-  const [answer, setAnswer] = useState<LearningAnswer | null>(null)
+  const [conversationId, setConversationId] = useState('')
+  const conversationRequest = useRef(0)
+  const [conversations, setConversations] = useState<AgentConversationSummary[]>([])
+  const [turns, setTurns] = useState<AgentConversationTurn<LearningAnswer>[]>([])
   const [question, setQuestion] = useState('')
   const [materials, setMaterials] = useState<StudyMaterial[]>([])
   const [materialsError, setMaterialsError] = useState(false)
   const [askMode, setAskMode] = useState<'material' | 'results'>('material')
   const [subjectId, setSubjectId] = useState('')
   const [materialId, setMaterialId] = useState('')
-  const [answeredFromMaterial, setAnsweredFromMaterial] = useState('')
   const [loading, setLoading] = useState(true)
   const [insightsError, setInsightsError] = useState(false)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    conversationRequest.current += 1
     let active = true
     getLearningInsights()
       .then((value) => { if (active) setInsights(value) })
@@ -36,22 +40,54 @@ export default function StudentLearningPage() {
     return () => { active = false }
   }, [])
 
+  useEffect(() => {
+    setConversationId('')
+    setTurns([])
+    if (askMode === 'material' && !materialId) { setConversations([]); return }
+    let active = true
+    listLearningConversations(askMode === 'material' ? materialId : undefined)
+      .then((items) => { if (active) setConversations(items) })
+      .catch(() => { if (active) setError('Không thể tải lịch sử hội thoại.') })
+    return () => { active = false }
+  }, [askMode, materialId])
+
+  const selectConversation = async (id: string) => {
+    const request = ++conversationRequest.current
+    setConversationId(id)
+    setTurns([])
+    if (!id) return
+    try {
+      const result = await getLearningConversation(id, askMode === 'material' ? materialId : undefined)
+      if (request === conversationRequest.current) setTurns(result.turns)
+    } catch (cause) {
+      if (request === conversationRequest.current) setError(getApiErrorMessage(cause, 'Không thể mở hội thoại.'))
+    }
+  }
+
   const ask = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const message = question.trim()
     if (!message || asking || (askMode === 'material' && !materialId)) return
     setAsking(true)
     setError('')
+    const request = conversationRequest.current
     try {
-      setAnswer(await askLearningAgent(message, askMode === 'material' ? materialId : undefined))
-      setAnsweredFromMaterial(askMode === 'material' ? materialId : '')
+      const result = await askLearningAgent(message, askMode === 'material' ? materialId : undefined, conversationId || undefined)
+      if (request !== conversationRequest.current) return
+      setConversationId(result.conversationId)
+      setTurns((current) => [...current, { id: crypto.randomUUID(), message, answer: result.answer,
+        createdAt: new Date().toISOString() }])
       setQuestion('')
+      void listLearningConversations(askMode === 'material' ? materialId : undefined)
+        .then(setConversations).catch(() => {})
     } catch (cause) {
-      setError(getApiErrorMessage(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
+      if (request === conversationRequest.current) setError(getApiErrorMessage(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
     } finally {
       setAsking(false)
     }
   }
+
+  const selectedMaterial = materials.find((item) => item.id === materialId)
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
@@ -126,18 +162,22 @@ export default function StudentLearningPage() {
               <div className="space-y-5 p-5">
                 <div className="inline-flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Nguồn trả lời">
                   {([['material', 'Tài liệu lớp học', FileText], ['results', 'Kết quả đã công bố', Sparkles]] as const).map(([mode, label, Icon]) =>
-                    <button key={mode} type="button" onClick={() => { setAskMode(mode); setError(''); setAnswer(null) }}
+                    <button key={mode} type="button" onClick={() => { setAskMode(mode); setError('') }}
                       aria-pressed={askMode === mode}
                       className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${askMode === mode ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
                       <Icon size={16} />{label}
                     </button>)}
                 </div>
                 {askMode === 'material' ? <StudentMaterialPicker materials={materials} subjectId={subjectId}
-                  materialId={materialId} onSubjectChange={(value) => { setSubjectId(value); setMaterialId(''); setAnswer(null) }}
-                  onMaterialChange={(value) => { setMaterialId(value); setAnswer(null) }} /> :
+                  materialId={materialId} onSubjectChange={(value) => { setSubjectId(value); setMaterialId('') }}
+                  onMaterialChange={setMaterialId} /> :
                   <p className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">Trợ lý chỉ sử dụng kết quả của bạn đã được phép xem lại.</p>}
                 {!materialsError && materials.length === 0 && askMode === 'material' &&
                   <p className="text-sm text-slate-500">Chưa có tài liệu phù hợp để hỏi. Bạn có thể chọn “Kết quả đã công bố”.</p>}
+                <AgentConversationHistory conversations={conversations} currentId={conversationId} turns={turns}
+                  onSelect={(id) => void selectConversation(id)}
+                  source={askMode === 'material' && materialId ? { id: materialId,
+                    label: selectedMaterial?.title || selectedMaterial?.fileName || 'Tài liệu lớp học' } : undefined} />
                 <form onSubmit={(event) => void ask(event)} className="space-y-3">
                   <label htmlFor="learning-question" className="block text-sm font-semibold text-slate-700">{askMode === 'material' ? '3. ' : ''}Câu hỏi của bạn</label>
                   <textarea id="learning-question" value={question} onChange={(event) => setQuestion(event.target.value)}
@@ -152,15 +192,7 @@ export default function StudentLearningPage() {
                   </div>
                 </form>
                 {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-                {answer && <div aria-live="polite" className="rounded-xl border border-blue-100 bg-blue-50 p-5 text-sm">
-                  <p className="font-semibold text-slate-900">{answer.summary}</p>
-                  {answer.actions.length > 0 && <ul className="mt-3 list-disc space-y-1.5 pl-5 text-slate-700">{answer.actions.map((action, index) => <li key={index}>{action}</li>)}</ul>}
-                  {answer.caveat && <p className="mt-3 text-slate-600">{answer.caveat}</p>}
-                  {answeredFromMaterial && answer.evidenceIds.includes(answeredFromMaterial) &&
-                    <p className="mt-3 border-t border-blue-100 pt-3 text-xs text-blue-800">Nguồn: {materials.find((item) => item.id === answeredFromMaterial)?.title
-                      || materials.find((item) => item.id === answeredFromMaterial)?.fileName}</p>}
-                  <p className="mt-2 text-xs text-slate-500">Nội dung AI chỉ để tham khảo; hãy đối chiếu với tài liệu và giảng viên.</p>
-                </div>}
+                {turns.length > 0 && <p className="text-xs text-slate-500">Nội dung AI chỉ để tham khảo; hãy đối chiếu với tài liệu và giảng viên.</p>}
               </div>
             </section>
             <div id="learning-panel-practice" role="tabpanel" aria-labelledby="learning-tab-practice"

@@ -1,4 +1,5 @@
 import { apiClient } from '../../../api/axios'
+import type { AgentConversationSummary, AgentConversationTurn } from '../../../components/common/AgentConversationHistory'
 
 export interface TeacherLearningInsights {
   analyzedAttemptCount: number
@@ -46,11 +47,23 @@ export async function getTeacherLearningInsights(scheduleId: string): Promise<Te
   return data.data
 }
 
-export async function askTeacherLearningAgent(scheduleId: string, message: string): Promise<TeacherLearningAnswer> {
-  const { data } = await apiClient.post<ApiResponse<{ answer: TeacherLearningAnswer }>>(
-    `/teacher/learning/schedules/${scheduleId}/ask`, { message },
+export async function askTeacherLearningAgent(scheduleId: string, message: string, conversationId?: string) {
+  const { data } = await apiClient.post<ApiResponse<{ answer: TeacherLearningAnswer; conversationId: string }>>(
+    `/teacher/learning/schedules/${scheduleId}/ask`, { message, conversationId },
   )
-  return data.data.answer
+  return data.data
+}
+
+export async function listTeacherLearningConversations(scheduleId: string): Promise<AgentConversationSummary[]> {
+  const { data } = await apiClient.get<ApiResponse<AgentConversationSummary[]>>(
+    `/teacher/learning/schedules/${scheduleId}/conversations`)
+  return data.data
+}
+
+export async function getTeacherLearningConversation(scheduleId: string, id: string): Promise<{ id: string; turns: AgentConversationTurn<TeacherLearningAnswer>[] }> {
+  const { data } = await apiClient.get<ApiResponse<{ id: string; turns: AgentConversationTurn<TeacherLearningAnswer>[] }>>(
+    `/teacher/learning/schedules/${scheduleId}/conversations/${id}`)
+  return data.data
 }
 
 export async function reviewProgrammingSubmission(attemptId: string, examQuestionId: string): Promise<ProgrammingReview> {

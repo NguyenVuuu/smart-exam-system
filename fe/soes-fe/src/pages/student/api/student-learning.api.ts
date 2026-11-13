@@ -1,4 +1,5 @@
 import { apiClient } from '../../../api/axios'
+import type { AgentConversationSummary, AgentConversationTurn } from '../../../components/common/AgentConversationHistory'
 
 export interface TopicInsight {
   topicId: string
@@ -67,9 +68,22 @@ export async function getStudyMaterials(): Promise<StudyMaterial[]> {
   return data.data
 }
 
-export async function askLearningAgent(message: string, materialId?: string): Promise<LearningAnswer> {
-  const { data } = await apiClient.post<ApiResponse<{ answer: LearningAnswer }>>('/student/learning/ask', { message, materialId })
-  return data.data.answer
+export async function askLearningAgent(message: string, materialId?: string, conversationId?: string) {
+  const { data } = await apiClient.post<ApiResponse<{ answer: LearningAnswer; conversationId: string }>>(
+    '/student/learning/ask', { message, materialId, conversationId })
+  return data.data
+}
+
+export async function listLearningConversations(materialId?: string): Promise<AgentConversationSummary[]> {
+  const { data } = await apiClient.get<ApiResponse<AgentConversationSummary[]>>('/student/learning/conversations',
+    { params: { materialId } })
+  return data.data
+}
+
+export async function getLearningConversation(id: string, materialId?: string): Promise<{ id: string; turns: AgentConversationTurn<LearningAnswer>[] }> {
+  const { data } = await apiClient.get<ApiResponse<{ id: string; turns: AgentConversationTurn<LearningAnswer>[] }>>(
+    `/student/learning/conversations/${id}`, { params: { materialId } })
+  return data.data
 }
 
 export async function explainReviewQuestion(
