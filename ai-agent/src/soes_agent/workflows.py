@@ -4,6 +4,7 @@ from typing import Any, TypedDict
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, START, StateGraph
+from pydantic import ValidationError
 
 from .contracts import AgentAnswer, StudentRequest, StudyMaterial, TeacherRequest
 from .materials import extract_material
@@ -79,7 +80,16 @@ def create_workflow(model: ChatGoogleGenerativeAI, role: str):
                 summary="Chưa có dữ liệu đủ điều kiện để phân tích đáng tin cậy.",
                 actions=[], evidenceIds=[], caveat="Cần thêm kết quả đã công bố hoặc câu hỏi được gắn chủ đề.",
             ).model_dump()}
-        response = await structured.ainvoke([
+        if role == "sinh viên" and re.search(
+            r"(?:cho\s+(?:tôi|em)\s+|tạo\s+|soạn\s+|ra\s+)\d{1,2}\s+câu\s+hỏi",
+            state["request"]["message"], re.IGNORECASE,
+        ):
+            material = state["evidence"]["material"]
+            return {"answer": AgentAnswer(
+                summary="Để tạo câu hỏi ôn tập có đáp án và lưu kết quả, hãy mở tab Bài luyện, chọn tài liệu, nhập nội dung muốn ôn và số câu cần tạo (tối đa 10).",
+                actions=[], evidenceIds=[material["materialId"]] if material else [],
+            ).model_dump()}
+        messages = [
             ("system", (
                 "Bạn là trợ lý học tập của hệ thống thi SOES. Chỉ dùng dữ liệu thống kê "
                 "được cung cấp. Không suy đoán điểm, đáp án, câu hỏi hoặc thông tin cá nhân. "
@@ -95,6 +105,8 @@ def create_workflow(model: ChatGoogleGenerativeAI, role: str):
                 "Không suy luận rằng sinh viên yếu chủ đề nào từ tài liệu nếu không có thống kê bài thi được phép xem. "
                 "Nếu tài liệu không hỗ trợ câu hỏi, nói rõ không đủ căn cứ. "
                 "Đề xuất hành động ngắn, cụ thể bằng tiếng Việt. "
+                "Giữ summary dưới 1500 ký tự, tối đa 5 actions và mỗi action dưới 500 ký tự. "
+                "Nếu người dùng muốn tạo bài luyện, hướng dẫn dùng tab Bài luyện thay vì liệt kê câu hỏi ở đây. "
                 f"Vai trò hiện tại: {role}."
             )),
             ("human", json.dumps({
@@ -102,8 +114,20 @@ def create_workflow(model: ChatGoogleGenerativeAI, role: str):
                 "history": state["request"].get("history", []),
                 "evidence": state["evidence"],
             }, ensure_ascii=False)),
-        ])
-        answer = AgentAnswer.model_validate(response)
+        ]
+        try:
+            answer = AgentAnswer.model_validate(await structured.ainvoke(messages))
+        except ValidationError:
+            try:
+                answer = AgentAnswer.model_validate(await structured.ainvoke([
+                    *messages,
+                    ("human", "Hãy trả lời lại thật ngắn theo đúng giới hạn của schema. Chỉ dùng bằng chứng đã cung cấp."),
+                ]))
+            except ValidationError:
+                return {"answer": AgentAnswer(
+                    summary="Trợ lý chưa thể tạo câu trả lời đúng định dạng. Hãy hỏi ngắn hơn hoặc dùng tab Bài luyện nếu muốn tạo câu hỏi ôn tập.",
+                    actions=[], evidenceIds=[],
+                ).model_dump()}
         allowed = {item["topicId"] for item in state["evidence"]["topics"]}
         allowed.update(item["questionId"] for item in state["evidence"]["questions"])
         allowed.update(item["courseOfferingId"] for item in state["evidence"]["classes"])

@@ -1,6 +1,8 @@
+import base64
+
 import pytest
 
-from soes_agent.contracts import AgentAnswer, StudentRequest
+from soes_agent.contracts import AgentAnswer, StudentRequest, StudyMaterial
 from soes_agent.workflows import add_evidence_scope, build_evidence, percentages_are_grounded, run_student
 
 
@@ -147,3 +149,51 @@ async def test_discards_model_citations_not_present_in_evidence():
         }],
     ))
     assert answer.evidenceIds == ["join"]
+
+
+@pytest.mark.asyncio
+async def test_student_exercise_request_uses_practice_flow_without_calling_model():
+    class Model:
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            raise AssertionError("Practice requests must use the validated practice flow")
+
+    material = StudyMaterial(
+        materialId="material-1", title="Java", mimeType="text/plain",
+        contentBase64=base64.b64encode("Chương 3: lớp và đối tượng".encode()).decode(),
+    )
+    answer = await run_student(Model(), StudentRequest(
+        message="tôi sắp thi chương 3 bạn cho tôi 10 câu hỏi để ôn tập", analyzedAttemptCount=0,
+        limitedToRecentAttempts=False, topics=[], material=material,
+        history=[{"message": "Giải thích chương 3", "summary": "Chương 3 nói về OOP."}],
+    ))
+    assert "Bài luyện" in answer.summary
+    assert answer.evidenceIds == ["material-1"]
+
+
+@pytest.mark.asyncio
+async def test_invalid_model_answer_is_retried_with_a_shorter_response():
+    class Model:
+        calls = 0
+
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            self.calls += 1
+            if self.calls == 1:
+                return {"summary": "too long " * 200, "actions": [], "evidenceIds": ["join"]}
+            return {"summary": "Ôn JOIN.", "actions": [], "evidenceIds": ["join"]}
+
+    model = Model()
+    answer = await run_student(model, StudentRequest(
+        message="Tôi nên ôn gì?", analyzedAttemptCount=1, limitedToRecentAttempts=False,
+        topics=[{
+            "topicId": "join", "code": "JOIN", "name": "SQL joins", "questionCount": 5,
+            "earnedPoints": 2, "possiblePoints": 10, "percentage": 20, "sufficientData": True,
+        }],
+    ))
+    assert model.calls == 2
+    assert answer.summary == "Ôn JOIN."
