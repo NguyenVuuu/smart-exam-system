@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { asyncHandler } from '../../../middlewares/asyncHandler'
 import { authenticate } from '../../auth/middlewares/authenticate'
 import { requireStudent, requireTeacher } from '../../auth/middlewares/authorize'
-import { studentAsk, studentConversationGet, studentConversationList, studentMaterials, studentPracticeCreate, studentPracticeGet, studentPracticeList, studentPracticeSubmit, studentReviewExplanation, teacherAsk, teacherConversationGet, teacherConversationList, teacherExamDraft, teacherExamMatrix, teacherProgrammingReview, teacherTopicSuggestion } from '../controllers/ai-agent.controller'
+import { studentAsk, studentConversationGet, studentConversationList, studentMaterials, studentPracticeCreate, studentPracticeGet, studentPracticeList, studentPracticeSubmit, studentReviewExplanation, teacherAsk, teacherConversationGet, teacherConversationList, teacherExamDraft, teacherProgrammingReview, teacherTopicSuggestion } from '../controllers/ai-agent.controller'
 
 export const studentAiAgentRoutes = Router()
 studentAiAgentRoutes.use(authenticate, requireStudent())
@@ -21,7 +21,6 @@ teacherAiAgentRoutes.use(authenticate, requireTeacher())
 teacherAiAgentRoutes.post('/learning/schedules/:scheduleId/ask', asyncHandler(teacherAsk))
 teacherAiAgentRoutes.get('/learning/schedules/:scheduleId/conversations', asyncHandler(teacherConversationList))
 teacherAiAgentRoutes.get('/learning/schedules/:scheduleId/conversations/:conversationId', asyncHandler(teacherConversationGet))
-teacherAiAgentRoutes.post('/exams/agent-matrix', asyncHandler(teacherExamMatrix))
 teacherAiAgentRoutes.post('/exams/agent-draft', asyncHandler(teacherExamDraft))
 teacherAiAgentRoutes.post('/questions/topic-suggestion', asyncHandler(teacherTopicSuggestion))
 teacherAiAgentRoutes.post('/learning/programming-review', asyncHandler(teacherProgrammingReview))

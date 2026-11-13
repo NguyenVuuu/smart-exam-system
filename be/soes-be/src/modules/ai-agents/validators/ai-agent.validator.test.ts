@@ -1,21 +1,21 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createPracticeSchema, examMatrixRequestSchema } from './ai-agent.validator'
+import { createPracticeSchema, examDraftRequestSchema } from './ai-agent.validator'
 
 const request = {
-  subjectId: 'subj-cpp',
+  subjectId: '61c6c0d6-35d0-4fdc-a779-a855461f0567',
   format: 'OBJECTIVE',
   desiredCount: 10,
   message: 'Ưu tiên câu trung bình',
 }
 
-test('accepts seeded subject IDs used by teacher courses', () => {
-  assert.equal(examMatrixRequestSchema.parse(request).subjectId, 'subj-cpp')
+test('accepts a subject ID for an AI exam draft', () => {
+  assert.equal(examDraftRequestSchema.parse(request).subjectId, request.subjectId)
 })
 
-test('rejects missing or excessively long subject IDs', () => {
-  assert.equal(examMatrixRequestSchema.safeParse({ ...request, subjectId: '' }).success, false)
-  assert.equal(examMatrixRequestSchema.safeParse({ ...request, subjectId: 'x'.repeat(101) }).success, false)
+test('rejects missing or invalid subject IDs', () => {
+  assert.equal(examDraftRequestSchema.safeParse({ ...request, subjectId: '' }).success, false)
+  assert.equal(examDraftRequestSchema.safeParse({ ...request, subjectId: 'x'.repeat(101) }).success, false)
 })
 
 test('accepts one to ten practice questions with a bounded instruction', () => {

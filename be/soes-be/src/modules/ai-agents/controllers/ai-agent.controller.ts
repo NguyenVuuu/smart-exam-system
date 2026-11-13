@@ -1,10 +1,9 @@
 import type { Request, Response } from 'express'
 import { sendSuccess as send } from '../../../utils/httpResponse'
 import { askStudent, askTeacher, studentConversation, studentConversations, teacherConversation, teacherConversations } from '../services/ai-agent.service'
-import { suggestExamMatrix } from '../services/exam-matrix.service'
 import { proposeExamDraft } from '../services/exam-draft.service'
 import { suggestQuestionTopic } from '../services/topic-suggestion.service'
-import { askAgentSchema, conversationParamSchema, conversationQuerySchema, createPracticeSchema, examDraftRequestSchema, examMatrixRequestSchema, practiceParamSchema, programmingReviewSchema, reviewExplanationParamsSchema, reviewExplanationSchema, scheduleParamSchema, submitPracticeSchema, topicSuggestionRequestSchema } from '../validators/ai-agent.validator'
+import { askAgentSchema, conversationParamSchema, conversationQuerySchema, createPracticeSchema, examDraftRequestSchema, practiceParamSchema, programmingReviewSchema, reviewExplanationParamsSchema, reviewExplanationSchema, scheduleParamSchema, submitPracticeSchema, topicSuggestionRequestSchema } from '../validators/ai-agent.validator'
 import { getStudentMaterials } from '../services/student-material.service'
 import { createStudentPractice, getStudentPractice, listStudentPractice, submitStudentPractice } from '../services/student-practice.service'
 import { reviewProgrammingSubmission } from '../services/programming-review.service'
@@ -56,10 +55,6 @@ export const teacherConversationList = async (req: Request, res: Response) => se
 export const teacherConversationGet = async (req: Request, res: Response) => send(res,
   await teacherConversation(req.user!.profileId, req.user!.id, scheduleParamSchema.parse(req.params).scheduleId,
     conversationParamSchema.parse(req.params).conversationId))
-
-export const teacherExamMatrix = async (req: Request, res: Response) => send(
-  res, await suggestExamMatrix(req.user!.profileId, req.user!.id, examMatrixRequestSchema.parse(req.body)),
-)
 
 export const teacherExamDraft = async (req: Request, res: Response) => send(
   res, await proposeExamDraft(req.user!.profileId, req.user!.id, examDraftRequestSchema.parse(req.body)),

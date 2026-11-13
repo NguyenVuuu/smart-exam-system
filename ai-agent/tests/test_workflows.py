@@ -1,7 +1,7 @@
 import pytest
 
-from soes_agent.contracts import AgentAnswer, ExamMatrixRequest, StudentRequest
-from soes_agent.workflows import add_evidence_scope, build_evidence, percentages_are_grounded, propose_exam_matrix, run_student
+from soes_agent.contracts import AgentAnswer, StudentRequest
+from soes_agent.workflows import add_evidence_scope, build_evidence, percentages_are_grounded, run_student
 
 
 def test_evidence_contains_only_numeric_metrics():
@@ -147,20 +147,3 @@ async def test_discards_model_citations_not_present_in_evidence():
         }],
     ))
     assert answer.evidenceIds == ["join"]
-
-
-@pytest.mark.asyncio
-async def test_matrix_workflow_returns_only_a_proposal():
-    class Model:
-        def with_structured_output(self, _schema, *, method):
-            assert method == "function_calling"
-            return self
-
-        async def ainvoke(self, _messages):
-            return {"easyCount": 2, "mediumCount": 1, "hardCount": 0, "rationale": "Phù hợp số câu hiện có."}
-
-    proposal = await propose_exam_matrix(Model(), ExamMatrixRequest(
-        message="Tạo đề 3 câu", desiredCount=3, format="OBJECTIVE",
-        availableEasy=2, availableMedium=1, availableHard=0,
-    ))
-    assert proposal.easyCount + proposal.mediumCount + proposal.hardCount == 3

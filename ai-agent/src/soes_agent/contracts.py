@@ -71,22 +71,6 @@ class TeacherRequest(ModelSelection):
     history: list[ConversationTurn] = Field(default_factory=list, max_length=6)
 
 
-class ExamMatrixRequest(ModelSelection):
-    message: str = Field(min_length=1, max_length=500)
-    desiredCount: int = Field(ge=1, le=100)
-    format: Literal["OBJECTIVE", "PROGRAMMING", "MIXED"]
-    availableEasy: int = Field(ge=0)
-    availableMedium: int = Field(ge=0)
-    availableHard: int = Field(ge=0)
-
-
-class ExamMatrixProposal(BaseModel):
-    easyCount: int = Field(ge=0, le=100)
-    mediumCount: int = Field(ge=0, le=100)
-    hardCount: int = Field(ge=0, le=100)
-    rationale: str = Field(max_length=500)
-
-
 class ExamCandidate(BaseModel):
     id: str = Field(min_length=1, max_length=100)
     title: str = Field(max_length=180)

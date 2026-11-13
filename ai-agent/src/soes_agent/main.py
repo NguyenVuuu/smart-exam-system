@@ -10,12 +10,12 @@ from fastapi.responses import JSONResponse
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
 
-from .contracts import AgentAnswer, ExamDraftProposal, ExamDraftRequest, ExamMatrixProposal, ExamMatrixRequest, PracticeDraft, PracticeDraftRequest, ProgrammingReview, ProgrammingReviewRequest, QuestionDraftRequest, StudentRequest, TeacherRequest, TopicSuggestion, TopicSuggestionRequest
+from .contracts import AgentAnswer, ExamDraftProposal, ExamDraftRequest, PracticeDraft, PracticeDraftRequest, ProgrammingReview, ProgrammingReviewRequest, QuestionDraftRequest, StudentRequest, TeacherRequest, TopicSuggestion, TopicSuggestionRequest
 from .exam_draft import propose_exam_draft, suggest_topic
 from .practice import generate_practice
 from .programming_review import review_programming_submission
 from .question_generation import generate_question_draft
-from .workflows import propose_exam_matrix, run_student, run_teacher
+from .workflows import run_student, run_teacher
 
 load_dotenv(Path(__file__).resolve().parents[2] / '.env')
 app = FastAPI(title="SOES AI Agent", docs_url=None, redoc_url=None)
@@ -99,12 +99,6 @@ async def student_practice_draft(request: PracticeDraftRequest, http_request: Re
         return await generate_practice(get_model(model_name=request.model), request)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@app.post("/v1/teacher/exam-matrix", response_model=ExamMatrixProposal, dependencies=[Depends(require_service)])
-async def teacher_exam_matrix(request: ExamMatrixRequest, http_request: Request) -> ExamMatrixProposal:
-    http_request.state.model = request.model or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
-    return await propose_exam_matrix(get_model(model_name=request.model), request)
 
 
 @app.post("/v1/teacher/exam-draft", response_model=ExamDraftProposal, dependencies=[Depends(require_service)])

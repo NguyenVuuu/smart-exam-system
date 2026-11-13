@@ -3,9 +3,9 @@ import { AppError } from '../../../errors/AppError'
 import { logger } from '../../../lib/logger'
 import { getStoredAiSettings } from '../../admin-system-settings/services/ai-settings-reader'
 import { z } from 'zod'
-import { agentAnswerSchema, examDraftProposalSchema, examMatrixProposalSchema, practiceDraftSchema, programmingReviewAnswerSchema, topicSuggestionSchema } from '../validators/ai-agent.validator'
+import { agentAnswerSchema, examDraftProposalSchema, practiceDraftSchema, programmingReviewAnswerSchema, topicSuggestionSchema } from '../validators/ai-agent.validator'
 
-type AgentPath = '/v1/student/insights' | '/v1/student/practice-draft' | '/v1/teacher/insights' | '/v1/teacher/exam-matrix' | '/v1/teacher/exam-draft' | '/v1/teacher/topic-suggestion' | '/v1/teacher/question-draft' | '/v1/teacher/programming-review'
+type AgentPath = '/v1/student/insights' | '/v1/student/practice-draft' | '/v1/teacher/insights' | '/v1/teacher/exam-draft' | '/v1/teacher/topic-suggestion' | '/v1/teacher/question-draft' | '/v1/teacher/programming-review'
 
 async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unknown, schema: T, timeoutMs = aiAgentConfig.timeoutMs): Promise<z.infer<T>> {
   if (!aiAgentConfig.enabled || !aiAgentConfig.sharedSecret) {
@@ -51,9 +51,6 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
 
 export const requestInsightAgent = (path: '/v1/student/insights' | '/v1/teacher/insights', payload: unknown) =>
   requestAgent(path, payload, agentAnswerSchema)
-
-export const requestExamMatrixAgent = (payload: unknown) =>
-  requestAgent('/v1/teacher/exam-matrix', payload, examMatrixProposalSchema)
 
 export const requestExamDraftAgent = (payload: unknown) =>
   requestAgent('/v1/teacher/exam-draft', payload, examDraftProposalSchema, 65000)
