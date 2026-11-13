@@ -89,6 +89,23 @@ def test_authorized_practice_response_uses_validated_source(monkeypatch):
     assert response.json()["questions"][0]["supportQuote"] == quote
 
 
+def test_practice_rejection_preserves_known_validation_reason(monkeypatch):
+    async def reject(_model, _request):
+        raise ValueError("Practice question is missing Vietnamese diacritics")
+
+    monkeypatch.setenv("AI_AGENT_SHARED_SECRET", "test-secret")
+    monkeypatch.setattr(main, "get_model", lambda **_kwargs: object())
+    monkeypatch.setattr(main, "generate_practice", reject)
+    response = TestClient(app).post("/v1/student/practice-draft",
+        headers={"authorization": "Bearer test-secret"},
+        json={"count": 1, "material": {
+            "materialId": "material-1", "title": "SQL", "mimeType": "text/plain",
+            "contentBase64": base64.b64encode(b"Valid material text").decode(),
+        }})
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Practice question is missing Vietnamese diacritics"
+
+
 def test_insight_uses_model_selected_by_backend(monkeypatch):
     async def answer(_model, _request):
         return {"summary": "No released results", "actions": [], "evidenceIds": [], "caveat": None}
