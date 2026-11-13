@@ -18,9 +18,18 @@ class TopicMetric(BaseModel):
 
 class QuestionMetric(BaseModel):
     questionId: str = Field(min_length=1, max_length=100)
+    title: str | None = Field(default=None, max_length=300)
     exposureCount: int = Field(ge=0)
     averagePercentage: int = Field(ge=0, le=100)
     signal: Literal["INSUFFICIENT_DATA", "VERY_HARD", "VERY_EASY", "NORMAL"]
+
+
+class ClassMetric(BaseModel):
+    courseOfferingId: str = Field(min_length=1, max_length=100)
+    code: str = Field(min_length=1, max_length=100)
+    studentCount: int = Field(ge=0)
+    sufficientData: bool
+    topics: list[TopicMetric] = Field(max_length=100)
 
 
 class StudyMaterial(BaseModel):
@@ -51,6 +60,7 @@ class TeacherRequest(ModelSelection):
     limitedToRecentAttempts: bool
     questions: list[QuestionMetric] = Field(max_length=500)
     topics: list[TopicMetric] = Field(max_length=100)
+    classes: list[ClassMetric] = Field(default_factory=list, max_length=50)
 
 
 class ExamMatrixRequest(ModelSelection):

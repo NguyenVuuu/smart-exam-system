@@ -50,9 +50,11 @@ export const findTeacherScheduleAttempts = (teacherId: string, scheduleId: strin
     totalScore: { not: null }, invalidatedAt: null,
   },
   select: {
+    studentId: true,
+    courseOffering: { select: { id: true, code: true } },
     attemptQuestions: { select: {
       examQuestionId: true,
-      examQuestion: { select: { points: true, exam: { select: { subjectId: true } },
+      examQuestion: { select: { title: true, points: true, exam: { select: { subjectId: true } },
         topics: { select: { topicId: true, code: true, name: true } } } },
     } },
     studentAnswers: { select: { examQuestionId: true, score: true } },

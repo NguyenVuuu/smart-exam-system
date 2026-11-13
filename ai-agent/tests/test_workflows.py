@@ -18,6 +18,26 @@ def test_evidence_contains_only_numeric_metrics():
     assert evidence["topics"][0]["percentage"] == 20
 
 
+def test_teacher_evidence_requires_enough_students_and_topic_responses():
+    from soes_agent.contracts import TeacherRequest
+
+    request = TeacherRequest(
+        message="Lớp nào yếu?", analyzedAttemptCount=5, limitedToRecentAttempts=False,
+        questions=[], topics=[], classes=[
+            {"courseOfferingId": "class-1", "code": "SE01", "studentCount": 4,
+             "sufficientData": False, "topics": []},
+            {"courseOfferingId": "class-2", "code": "SE02", "studentCount": 5,
+             "sufficientData": True, "topics": [{
+                 "topicId": "join", "code": "JOIN", "name": "JOIN",
+                 "questionCount": 2, "earnedPoints": 0, "possiblePoints": 2,
+                 "percentage": 0, "sufficientData": False,
+             }]},
+        ],
+    )
+    evidence = build_evidence({"request": request.model_dump()})["evidence"]
+    assert evidence["classes"] == []
+
+
 @pytest.mark.asyncio
 async def test_empty_results_never_call_the_model():
     class Model:

@@ -1,6 +1,7 @@
 import { MessageSquareText, Send } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { askTeacherLearningAgent, getTeacherLearningInsights, type TeacherLearningAnswer, type TeacherLearningInsights } from '../../api/teacher-learning.api'
+import { getApiErrorMessage } from '../../../../api/errors'
 
 const SIGNAL_LABELS = {
   INSUFFICIENT_DATA: 'Chưa đủ dữ liệu',
@@ -40,8 +41,8 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
     try {
       setAnswer(await askTeacherLearningAgent(scheduleId, question))
       setMessage('')
-    } catch {
-      setError('Trợ lý hiện chưa thể phân tích. Hãy thử lại sau.')
+    } catch (cause) {
+      setError(getApiErrorMessage(cause, 'Trợ lý hiện chưa thể phân tích. Hãy thử lại sau.'))
     } finally {
       setAsking(false)
     }
@@ -70,10 +71,25 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
           {insights.questions.every((item) => item.signal === 'NORMAL') && insights.questions.length > 0 &&
             <p className="mt-2 text-sm text-slate-500">Chưa có câu vượt ngưỡng cần rà soát.</p>}
           {insights.questions.filter((item) => item.signal !== 'NORMAL').slice(0, 5).map((item) => <p key={item.questionId} className="mt-2 text-sm">
-            Mã {item.questionId.slice(0, 8)}: {SIGNAL_LABELS[item.signal]} · {item.exposureCount} lượt
+            {item.title}: {SIGNAL_LABELS[item.signal]} · {item.exposureCount} lượt
           </p>)}
         </div>
       </div>
+      {insights.classes.length > 0 && <div className="mt-3 rounded-lg bg-slate-50 p-4">
+        <h3 className="text-sm font-semibold">Theo lớp học phần</h3>
+        <div className="mt-2 grid gap-3 md:grid-cols-2">
+          {insights.classes.map((group) => {
+            const topics = group.topics.filter((topic) => topic.sufficientData)
+            return <div key={group.courseOfferingId} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+              <p className="font-semibold text-slate-900">{group.code} · {group.studentCount} sinh viên</p>
+              {!group.sufficientData ? <p className="mt-1 text-amber-700">Chưa đủ dữ liệu để kết luận về lớp.</p>
+                : topics.length === 0 ? <p className="mt-1 text-slate-500">Chưa có chủ đề đủ dữ liệu.</p>
+                  : topics.slice(0, 3).map((topic) =>
+                    <p key={topic.topicId} className="mt-1 text-slate-600">{topic.name}: {topic.percentage}% · {topic.questionCount} câu</p>)}
+            </div>
+          })}
+        </div>
+      </div>}
     </>}
     <form onSubmit={(event) => void ask(event)} className="mt-4 flex gap-2">
       <input aria-label="Câu hỏi phân tích ca thi" value={message} onChange={(event) => setMessage(event.target.value)}

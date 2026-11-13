@@ -12,9 +12,17 @@ export interface TeacherLearningInsights {
   }>
   questions: Array<{
     questionId: string
+    title: string
     exposureCount: number
     averagePercentage: number
     signal: 'INSUFFICIENT_DATA' | 'VERY_HARD' | 'VERY_EASY' | 'NORMAL'
+  }>
+  classes: Array<{
+    courseOfferingId: string
+    code: string
+    studentCount: number
+    sufficientData: boolean
+    topics: TeacherLearningInsights['topics']
   }>
 }
 

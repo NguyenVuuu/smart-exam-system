@@ -48,18 +48,29 @@ export async function teacherScheduleInsights(teacherId: string, scheduleId: str
   const attempts = found.slice(0, 500)
   const outcomes: QuestionOutcome[] = []
   const topicObservations: TopicObservation[] = []
+  const classes = new Map<string, {
+    code: string; studentIds: Set<string>; observations: TopicObservation[]
+  }>()
   for (const attempt of attempts) {
+    const group = classes.get(attempt.courseOffering.id) ?? {
+      code: attempt.courseOffering.code, studentIds: new Set<string>(), observations: [],
+    }
+    group.studentIds.add(attempt.studentId)
+    classes.set(attempt.courseOffering.id, group)
     const answers = new Map(attempt.studentAnswers.map((answer) => [answer.examQuestionId, answer.score]))
     for (const item of attempt.attemptQuestions) {
       const earnedPoints = Number(answers.get(item.examQuestionId) ?? 0)
       const possiblePoints = Number(item.examQuestion.points)
-      outcomes.push({ questionId: item.examQuestionId, earnedPoints, possiblePoints })
-      topicObservations.push({
+      outcomes.push({ questionId: item.examQuestionId, title: item.examQuestion.title,
+        earnedPoints, possiblePoints })
+      const observation = {
         questionId: item.examQuestionId, earnedPoints, possiblePoints,
         topics: item.examQuestion.topics.map(({ topicId, code, name }) => ({
           id: topicId, code, name, subjectId: item.examQuestion.exam.subjectId,
         })),
-      })
+      }
+      topicObservations.push(observation)
+      group.observations.push(observation)
     }
   }
   return {
@@ -68,5 +79,10 @@ export async function teacherScheduleInsights(teacherId: string, scheduleId: str
     limitedToRecentAttempts: found.length > attempts.length,
     questions: calculateQuestionQuality(outcomes),
     topics: calculateTopicMastery(topicObservations),
+    classes: [...classes].map(([courseOfferingId, group]) => ({
+      courseOfferingId, code: group.code, studentCount: group.studentIds.size,
+      sufficientData: group.studentIds.size >= 5,
+      topics: calculateTopicMastery(group.observations),
+    })).sort((a, b) => a.code.localeCompare(b.code)),
   }
 }
