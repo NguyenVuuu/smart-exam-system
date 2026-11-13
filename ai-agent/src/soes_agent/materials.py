@@ -18,6 +18,7 @@ CHUNK_CHARS = 2_400
 CHAPTER_HEADING = re.compile(r"(?im)^[ \t]*(?:\[Trang \d+\][ \t]*)?chương[ \t]+(\d+)\b")
 SECTION_HEADING = re.compile(r"(?im)^[ \t]*(?:\[Trang \d+\][ \t]*)?(?:mục[ \t]+)?(\d+(?:\.\d+){1,3})\.?[ \t]+[^\n]{3,100}$")
 PAGE_MARKER = re.compile(r"\[Trang (\d+)\]")
+TOC_PAGE = re.compile(r"(?:\.{3,}|…{2,})\s*(\d{1,4})\s*$")
 
 
 class MaterialTextTooLarge(Exception):
@@ -81,29 +82,30 @@ def source_location(text: str, quote: str, mime_type: str) -> str | None:
     if not words:
         return None
 
-    def source_line(position: int) -> str:
-        start = text.rfind("\n", 0, position) + 1
-        end = text.find("\n", position)
-        return text[start:end if end != -1 else len(text)]
-
     match = next((candidate for candidate in re.finditer(r"\s+".join(map(re.escape, words)), text)
-                  if not is_table_of_contents_entry(source_line(candidate.start()))), None)
+                  if not is_table_of_contents_entry(_source_line(text, candidate.start()))), None)
     if not match:
         return None
     before = text[:match.start()]
-    chapter = [item for item in CHAPTER_HEADING.finditer(before)
-               if not is_table_of_contents_entry(source_line(item.start()))]
+    chapter = [item for item in _body_chapter_headings(text) if item.start() < match.start()]
     sections = [item for item in SECTION_HEADING.finditer(before)
-                if not is_table_of_contents_entry(source_line(item.start()))]
+                if not is_table_of_contents_entry(_source_line(text, item.start()))]
     labels = []
-    if chapter:
-        labels.append(f"Chương {chapter[-1].group(1)}")
+    pages = list(PAGE_MARKER.finditer(before)) if mime_type == "application/pdf" else []
+    toc_pages = _toc_chapter_pages(text) if pages else {}
+    body_chapter = chapter[-1] if chapter else None
+    if toc_pages and pages:
+        page_number = int(pages[-1].group(1))
+        chapter_from_page = max(((start, number) for number, start in toc_pages.items()
+                                 if start <= page_number), default=None)
+        if chapter_from_page and not body_chapter:
+            labels.append(f"Chương {chapter_from_page[1]}")
+    if body_chapter and not labels:
+        labels.append(f"Chương {body_chapter.group(1)}")
     if sections and (not chapter or sections[-1].start() > chapter[-1].start()):
         labels.append(f"Mục {sections[-1].group(1)}")
-    if mime_type == "application/pdf":
-        pages = list(PAGE_MARKER.finditer(before))
-        if pages:
-            labels.append(f"Trang {pages[-1].group(1)}")
+    if pages:
+        labels.append(f"Trang {pages[-1].group(1)}")
     return " · ".join(labels) or None
 
 
@@ -113,13 +115,21 @@ def select_material_excerpt(text: str, query: str) -> str:
 
     chapter_groups = re.findall(r"chương\s+(\d+(?:\s*(?:,|và)\s*\d+)*)", query.casefold())
     requested = list(dict.fromkeys(number for group in chapter_groups for number in re.findall(r"\d+", group)))
-    headings = list(CHAPTER_HEADING.finditer(text))
+    headings = _body_chapter_headings(text)
+    toc_pages = _toc_chapter_pages(text)
+    page_positions = {int(marker.group(1)): marker.start() for marker in PAGE_MARKER.finditer(text)}
     sections = []
     for chapter in requested:
         matches = [text[heading.start():headings[index + 1].start() if index + 1 < len(headings) else len(text)]
                    for index, heading in enumerate(headings) if heading.group(1) == chapter]
         if matches:
             sections.append(max(matches, key=len))
+        elif chapter in toc_pages and toc_pages[chapter] in page_positions:
+            start_page = toc_pages[chapter]
+            next_page = min((page for page in toc_pages.values() if page > start_page), default=None)
+            start = page_positions[start_page]
+            end = page_positions.get(next_page, len(text)) if next_page else len(text)
+            sections.append(text[start:end])
     if sections:
         budget = MAX_TEXT_CHARS // len(sections) - 20
         return "\n[...]\n".join(_sample_section(section, budget) for section in sections)[:MAX_TEXT_CHARS]
@@ -139,3 +149,25 @@ def _sample_section(section: str, budget: int) -> str:
     window = budget // 4
     starts = [round(index * (len(section) - window) / 3) for index in range(4)]
     return "\n[...]\n".join(section[start:start + window - 8] for start in starts)
+
+
+def _source_line(text: str, position: int) -> str:
+    start = text.rfind("\n", 0, position) + 1
+    end = text.find("\n", position)
+    return text[start:end if end != -1 else len(text)]
+
+
+def _body_chapter_headings(text: str) -> list[re.Match]:
+    headings = list(CHAPTER_HEADING.finditer(text))
+    toc_end = max((heading.start() for heading in headings
+                   if is_table_of_contents_entry(_source_line(text, heading.start()))), default=-1)
+    return [heading for heading in headings if heading.start() > toc_end]
+
+
+def _toc_chapter_pages(text: str) -> dict[str, int]:
+    pages = {}
+    for heading in CHAPTER_HEADING.finditer(text):
+        match = TOC_PAGE.search(_source_line(text, heading.start()))
+        if match:
+            pages.setdefault(heading.group(1), int(match.group(1)))
+    return pages

@@ -76,6 +76,30 @@ def test_practice_understands_chapter_range_without_repeated_word():
     assert "Nền tảng" not in selected
 
 
+def test_practice_uses_toc_page_ranges_when_pdf_chapter_headings_are_garbled():
+    text = ("[Trang 1] MỤC LỤC\n"
+            "Chương 2: NỀN TẢNG........................21\n"
+            "Chương 3: HƯỚNG ĐỐI TƯỢNG...............47\n"
+            "Chương 4: GIAO DIỆN.......................82\n"
+            "Chương 5: TẬP TIN........................128\n"
+            "[Trang 21] " + "Kiến thức nền tảng. " * 1800 + "\n"
+            "[Trang 47] CChhưươơnngg  33:: HƯỚNG ĐỐI TƯỢNG\n"
+            "Lớp con kế thừa thuộc tính và phương thức của lớp cha.\n"
+            "[Trang 48] Nạp chồng phương thức dùng các danh sách tham số khác nhau.\n"
+            "[Trang 82] CChhưươơnngg  44:: GIAO DIỆN\n"
+            "Giao diện người dùng có thể gồm nút bấm và ô nhập.\n"
+            "[Trang 83] Sự kiện bấm nút gọi phương thức xử lý tương ứng.\n"
+            "[Trang 128] CChhưươơnngg  55:: TẬP TIN\n"
+            "Tập tin lưu dữ liệu cho chương trình.")
+    selected = select_material_excerpt(text, "ôn luyện chương 3 và 4")
+    assert "Lớp con kế thừa" in selected
+    assert "Giao diện người dùng" in selected
+    assert "Kiến thức nền tảng" not in selected
+    assert "Tập tin lưu dữ liệu" not in selected
+    assert source_location(text, "Giao diện người dùng có thể gồm nút bấm và ô nhập.",
+                           "application/pdf") == "Chương 4 · Trang 82"
+
+
 @pytest.mark.asyncio
 async def test_material_can_support_an_answer_without_released_exam_results():
     class Model:
