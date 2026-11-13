@@ -28,7 +28,7 @@ def validate_programming_questions(questions: list[ProgrammingPracticeQuestion],
 
 async def generate_programming_practice(model: ChatGoogleGenerativeAI,
                                         request: ProgrammingPracticeRequest) -> ProgrammingPracticeDraft:
-    full_source = extract_material(request.material)
+    full_source = await asyncio.to_thread(extract_material, request.material)
     source = select_material_excerpt(full_source, request.instruction or "")
     structured = model.with_structured_output(ProgrammingPracticeDraft, method="function_calling")
     semaphore = asyncio.Semaphore(2)

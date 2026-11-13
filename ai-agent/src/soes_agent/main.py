@@ -22,6 +22,8 @@ from .question_generation import generate_question_draft
 from .workflows import run_student, run_teacher
 
 load_dotenv(Path(__file__).resolve().parents[2] / '.env')
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
+logging.getLogger("soes_agent").setLevel(logging.INFO)
 app = FastAPI(title="SOES AI Agent", docs_url=None, redoc_url=None)
 logger = logging.getLogger(__name__)
 

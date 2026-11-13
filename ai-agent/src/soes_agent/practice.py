@@ -11,6 +11,7 @@ from .contracts import PracticeDraft, PracticeDraftRequest, PracticeQuestion
 from .materials import extract_material, select_material_excerpt, source_location
 from .practice_evidence import batch_evidence, evidence_passages, is_heading_only, is_table_of_contents_entry
 from .practice_verification import verify_answers_against_sources
+from .performance import measure_stage
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,8 @@ def lacks_code_context(stem: str) -> bool:
 
 def review_questions(questions: list[PracticeQuestion], source: str,
                      independently_verified: set[int] | None = None,
-                     unique_sources: bool = False) -> tuple[list[PracticeQuestion], Counter]:
+                     unique_sources: bool = False, *,
+                     check_answer_support: bool = True) -> tuple[list[PracticeQuestion], Counter]:
     source_text = normalize(source)
     stems = set()
     concepts = set()
@@ -136,7 +138,8 @@ def review_questions(questions: list[PracticeQuestion], source: str,
             continue
         matches = [index for index, option in enumerate(question.options)
                    if appears_in_quote(option, question.supportQuote)]
-        if matches != [question.correctIndex] and id(question) not in (independently_verified or set()):
+        if (check_answer_support and matches != [question.correctIndex]
+                and id(question) not in (independently_verified or set())):
             issues["Practice answer is not uniquely supported by its source quote"] += 1
             continue
         stems.add(stem)
@@ -183,13 +186,12 @@ def parse_candidates(response: object) -> list[PracticeQuestion]:
 
 
 async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraftRequest) -> PracticeDraft:
-    full_source = extract_material(request.material)
+    full_source = await asyncio.to_thread(extract_material, request.material)
     source = select_material_excerpt(
         full_source, " ".join(filter(None, [request.instruction, request.focusTopic.name if request.focusTopic else None])),
     )
 
     passages = evidence_passages(source)
-    source_text = normalize(source)
     if not passages:
         raise ValueError("Material has no usable evidence")
     system_message = (
@@ -228,8 +230,9 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
         f"Yêu cầu ôn tập của sinh viên: {request.instruction or 'ôn tập kiến thức trọng tâm'}.\n"
     )
     batch_count = 1 if request.count == 1 else 2 if request.count <= 10 else 4
-    batch_size = request.count if batch_count == 1 else min(10, (request.count + batch_count - 1) // batch_count + 2)
+    batch_size = request.count if batch_count == 1 else min(10, (request.count + batch_count - 1) // batch_count + 1)
     verified_answers: set[int] = set()
+    rejected_issues: Counter = Counter()
     model_slots = asyncio.Semaphore(2)
 
     async def generate_batch(index: int, size: int, extra: str = "",
@@ -243,31 +246,32 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
         structured = model.with_structured_output(schema, method="json_schema")
         source_message = "\n".join(f"{key}: {value}" for key, value in evidence.items())
         async with model_slots:
-            response = await structured.ainvoke([
-                ("system", system_message),
-                ("human", f"{request_message}Tài liệu:\n{source_message}\nTạo {size} câu ứng viên. {extra}"),
-            ])
+            with measure_stage("practice.generate", size):
+                response = await structured.ainvoke([
+                    ("system", system_message),
+                    ("human", f"{request_message}Tài liệu:\n{source_message}\nTạo {size} câu ứng viên. {extra}"),
+                ])
             normalized = []
-            needs_verification = []
             for question in parse_candidates(response):
                 evidence_id = question.supportQuote.strip().upper()
                 passage = evidence.get(evidence_id) if re.fullmatch(r"EVIDENCE_\d{4}", evidence_id) else None
                 if passage:
                     question = question.model_copy(update={"supportQuote": passage})
-                if normalize(question.supportQuote) in source_text:
-                    needs_verification.append(question)
                 normalized.append(question)
-            verified = await verify_answers_against_sources(model, needs_verification)
+            with measure_stage("practice.prefilter", len(normalized)):
+                candidates, issues = review_questions(normalized, source, check_answer_support=False)
+            rejected_issues.update(issues)
+            with measure_stage("practice.verify", len(candidates)):
+                verified = await verify_answers_against_sources(model, candidates)
         verified_answers.update(verified)
-        required = {id(question) for question in needs_verification}
-        return [question for question in normalized
-                if id(question) not in required or id(question) in verified]
+        return [question for question in candidates if id(question) in verified]
 
     batches = await asyncio.gather(*(generate_batch(index, batch_size) for index in range(batch_count)))
     candidates = [question for batch in batches for question in batch]
     for attempt in range(3):
         accepted, issues = review_questions(candidates, source, verified_answers,
                                             unique_sources=len(passages) >= request.count)
+        issues.update(rejected_issues)
         missing = request.count - len(accepted)
         if missing <= 0:
             return PracticeDraft(questions=[question.model_copy(update={
@@ -280,7 +284,7 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
         previous_stems = " | ".join(question.stem for question in accepted)[:2500]
         feedback = ", ".join(f"{reason}: {total}" for reason, total in issues.most_common(3))
         repair_count = 1 if missing <= 5 else 2
-        repair_size = min(10, missing + 2)
+        repair_size = min(10, (missing + repair_count - 1) // repair_count + 1)
         excluded = {question.supportQuote for question in accepted}
         repairs = await asyncio.gather(*(
             generate_batch(index + attempt + 1, repair_size,

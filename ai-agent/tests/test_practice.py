@@ -1,4 +1,5 @@
 import base64
+import logging
 import re
 
 import pytest
@@ -237,6 +238,60 @@ class VerifiedFixtureModel:
             indexes = re.findall(r"^Câu (\d+):", messages[1][1], re.MULTILINE)
             return {"verdicts": [{"itemIndex": int(index), "answerIndex": 0,
                                   "qualityAccepted": True} for index in indexes]}
+
+
+@pytest.mark.asyncio
+async def test_prefilter_removes_bad_candidates_before_model_verification(caplog):
+    class Model(VerifiedFixtureModel):
+        async def ainvoke(self, _messages):
+            valid = draft().questions[0]
+            meta = valid.model_copy(update={"stem": "Trong chương 3 có mục nào?"})
+            missing = valid.model_copy(update={"supportQuote": "Not present in the material"})
+            return {"questions": [q.model_dump() for q in [meta, missing, valid, valid]]}
+
+        class Verifier(VerifiedFixtureModel.Verifier):
+            async def ainvoke(self, messages):
+                assert messages[1][1].count("Nguồn:") == 1
+                assert "Trong chương" not in messages[1][1]
+                assert "Not present" not in messages[1][1]
+                return await super().ainvoke(messages)
+
+    request = PracticeDraftRequest(count=1, material=StudyMaterial(
+        materialId="material-1", title="JOIN", mimeType="text/plain",
+        contentBase64=base64.b64encode(SOURCE.encode()).decode(),
+    ))
+    with caplog.at_level(logging.INFO):
+        result = await generate_practice(Model(), request)
+    assert len(result.questions) == 1
+    assert "stage=practice.verify count=1" in caplog.text
+    assert "stage=practice.generate" in caplog.text
+    assert SOURCE not in caplog.text
+    assert result.questions[0].stem not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("count, expected_candidates", [(5, 8), (20, 24)])
+async def test_generation_limits_initial_candidate_budget(count, expected_candidates):
+    class Model(VerifiedFixtureModel):
+        generated = 0
+        requests = []
+
+        async def ainvoke(self, messages):
+            size = int(re.search(r"Tạo (\d+) câu ứng viên", messages[1][1]).group(1))
+            self.requests.append(size)
+            start = self.generated + 1
+            self.generated += size
+            return {"questions": [numbered_question(n).model_dump()
+                                  for n in range(start, self.generated + 1)]}
+
+    model = Model()
+    request = PracticeDraftRequest(count=count, material=StudyMaterial(
+        materialId="material-1", title="Rules", mimeType="text/plain",
+        contentBase64=base64.b64encode("\n".join(numbered_quote(n) for n in range(1, 30)).encode()).decode(),
+    ))
+    result = await generate_practice(model, request)
+    assert len(result.questions) == count
+    assert sum(model.requests) == expected_candidates
 
 
 @pytest.mark.asyncio

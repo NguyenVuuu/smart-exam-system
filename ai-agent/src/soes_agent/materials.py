@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import logging
 import re
 from io import BytesIO
 from zipfile import BadZipFile
@@ -10,6 +12,8 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from .contracts import StudyMaterial
+from .material_cache import MaterialTextCache
+from .performance import measure_stage
 from .practice_evidence import is_table_of_contents_entry
 
 MAX_TEXT_CHARS = 20_000
@@ -19,6 +23,8 @@ CHAPTER_HEADING = re.compile(r"(?im)^[ \t]*(?:\[Trang \d+\][ \t]*)?chương[ \t]
 SECTION_HEADING = re.compile(r"(?im)^[ \t]*(?:\[Trang \d+\][ \t]*)?(?:mục[ \t]+)?(\d+(?:\.\d+){1,3})\.?[ \t]+[^\n]{3,100}$")
 PAGE_MARKER = re.compile(r"\[Trang (\d+)\]")
 TOC_PAGE = re.compile(r"(?:\.{3,}|…{2,})\s*(\d{1,4})\s*$")
+logger = logging.getLogger(__name__)
+_text_cache = MaterialTextCache()
 
 
 class MaterialTextTooLarge(Exception):
@@ -30,9 +36,24 @@ def extract_material(material: StudyMaterial) -> str:
         raw = base64.b64decode(material.contentBase64, validate=True)
         if not raw or len(raw) > 3 * 1024 * 1024:
             raise ValueError("Material size is unsupported")
-        if material.mimeType == "text/plain":
+    except ValueError as exc:
+        raise ValueError("Material cannot be read") from exc
+    key = hashlib.sha256(material.mimeType.encode() + b"\0" + raw).hexdigest()
+    cached = _text_cache.get(key)
+    logger.info("Material extraction cache=%s", "hit" if cached is not None else "miss")
+    if cached is not None:
+        return cached
+    with measure_stage("material.extract"):
+        text = _extract_text(raw, material.mimeType)
+    _text_cache.put(key, text)
+    return text
+
+
+def _extract_text(raw: bytes, mime_type: str) -> str:
+    try:
+        if mime_type == "text/plain":
             text = raw.decode("utf-8-sig")
-        elif material.mimeType == "application/pdf":
+        elif mime_type == "application/pdf":
             if not raw.startswith(b"%PDF-"):
                 raise ValueError("Invalid PDF")
             reader = PdfReader(BytesIO(raw), strict=True)
