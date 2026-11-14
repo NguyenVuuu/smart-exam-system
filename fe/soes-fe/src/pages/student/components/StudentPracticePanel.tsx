@@ -1,22 +1,17 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BookOpen, ClipboardList, Sparkles } from 'lucide-react'
 import AppSelect from '../../../components/common/AppSelect'
 import { getApiErrorMessage } from '../../../api/errors'
 import { createPracticeSet, getPracticeSet, listPracticeSets, submitPracticeSet,
   type PracticeSet, type PracticeSummary, type StudyMaterial, type TopicInsight } from '../api/student-learning.api'
 import StudentMaterialPicker from './StudentMaterialPicker'
-
-const PracticeCodeEditor = lazy(() => import('./PracticeCodeEditor'))
-
-function sourceLabel(quote: string): string {
-  const page = quote.match(/\.{3,}\s*(\d{1,4})\s*$/)?.[1]
-  return page ? `Mục lục dẫn đến trang ${page}; cần đối chiếu nội dung trang này` : `“${quote}”`
-}
+import PracticeProgrammingQuestion from './PracticeProgrammingQuestion'
 
 export default function StudentPracticePanel({ materials, topics }: { materials: StudyMaterial[]; topics: TopicInsight[] }) {
   const [subjectId, setSubjectId] = useState('')
   const [materialId, setMaterialId] = useState('')
   const [focusTopicId, setFocusTopicId] = useState('')
+  const [kind, setKind] = useState<'CHOICE' | 'PROGRAMMING'>('CHOICE')
   const [instruction, setInstruction] = useState('')
   const [questionCount, setQuestionCount] = useState('0')
   const [sets, setSets] = useState<PracticeSummary[]>([])
@@ -44,7 +39,7 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
     if (!materialId || !validCount) return
     setBusy(true); setError('')
     try {
-      const next = await createPracticeSet(materialId, count, focusTopicId || undefined, instruction.trim() || undefined)
+      const next = await createPracticeSet(materialId, count, focusTopicId || undefined, instruction.trim() || undefined, kind)
       setCurrent(next); setChoices({}); setCodes({}); setPage(0)
       listPracticeSets().then(setSets).catch(() => {})
     } catch (cause) { setError(getApiErrorMessage(cause, 'Chưa thể tạo bài luyện. Vui lòng thử lại sau.')) }
@@ -88,9 +83,17 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
           buttonClassName="h-11 border-slate-200" />
       </div>}
       <div className="space-y-2">
-        <label htmlFor="practice-instruction" className="block text-sm font-semibold text-slate-700">3. Bạn muốn luyện nội dung nào? <span className="font-normal text-slate-400">(tùy chọn)</span></label>
+        <span className="block text-sm font-semibold text-slate-700">3. Loại bài luyện</span>
+        <AppSelect value={kind} options={[
+          { value: 'CHOICE', label: 'Trắc nghiệm' },
+          { value: 'PROGRAMMING', label: 'Viết mã (chấm bằng Judge)' },
+        ]} onChange={(value) => setKind(value as 'CHOICE' | 'PROGRAMMING')}
+          ariaLabel="Loại bài luyện" buttonClassName="h-11 border-slate-200" />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="practice-instruction" className="block text-sm font-semibold text-slate-700">4. Bạn muốn luyện nội dung nào? <span className="font-normal text-slate-400">(tùy chọn)</span></label>
         <textarea id="practice-instruction" value={instruction} onChange={(event) => setInstruction(event.target.value)}
-          maxLength={500} rows={3} placeholder="Ví dụ: Dự đoán kết quả đoạn mã Java (trắc nghiệm), hoặc viết chương trình Java tính tổng dãy số (chạy Judge)."
+          maxLength={500} rows={3} placeholder={kind === 'PROGRAMMING' ? 'Ví dụ: Tạo bài Java về vòng lặp và mảng, có đầu vào, đầu ra và trường hợp biên.' : 'Ví dụ: Tạo câu hỏi về vòng lặp và mảng Java, có giải thích đáp án.'}
           className="w-full resize-y rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
         <p className="text-right text-xs text-slate-400">{instruction.length}/500 ký tự</p>
       </div>
@@ -129,18 +132,13 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
           <input type="radio" name={item.id} checked={(item.result?.selectedIndex ?? choices[item.id]) === index}
             disabled={!!current.completedAt || busy} onChange={() => setChoices((previous) => ({ ...previous, [item.id]: index }))} />
           {option}{item.result?.correctIndex === index && <span className="font-semibold text-emerald-700">(Đáp án)</span>}
-        </label>) : <div className="space-y-3">
-          <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">Ví dụ đầu vào: <code>{item.sampleInput}</code><br />Ví dụ đầu ra: <code>{item.sampleOutput}</code></p>
-          {current.completedAt ? <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{item.result?.sourceCode}</pre>
-            : <Suspense fallback={<p className="text-sm text-slate-500">Đang mở trình soạn mã...</p>}>
-              <PracticeCodeEditor item={item} value={codes[item.id] ?? item.starterCode}
-                onChange={(value) => setCodes((previous) => ({ ...previous, [item.id]: value }))} />
-            </Suspense>}
-          {item.result && <p className="text-sm font-semibold text-blue-700">Qua {item.result.passedTestCases}/{item.result.totalTestCases} test case</p>}
-        </div>}
+        </label>) : <PracticeProgrammingQuestion key={`${current.id}:${item.id}`} setId={current.id} item={item}
+          value={item.result?.sourceCode ?? codes[item.id] ?? item.starterCode}
+          onChange={(value) => setCodes((previous) => ({ ...previous, [item.id]: value }))}
+          completed={!!current.completedAt} />}
         {item.result && <div className="space-y-1 text-xs text-slate-600">
           <p>{item.result.explanation}</p>
-          <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}{item.result.sourceLocation ? ` · ${item.result.sourceLocation}` : ''} · {sourceLabel(item.result.supportQuote)}</p>
+          <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}</p>
         </div>}
       </fieldset>)}
       {pageCount > 1 && <nav aria-label="Trang bài luyện" className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">

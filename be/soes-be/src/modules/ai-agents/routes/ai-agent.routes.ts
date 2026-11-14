@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { asyncHandler } from '../../../middlewares/asyncHandler'
 import { authenticate } from '../../auth/middlewares/authenticate'
 import { requireStudent, requireTeacher } from '../../auth/middlewares/authorize'
-import { studentAsk, studentConversationGet, studentConversationList, studentMaterials, studentPracticeCreate, studentPracticeGet, studentPracticeList, studentPracticeSubmit, studentReviewExplanation, teacherAsk, teacherConversationGet, teacherConversationList, teacherExamDraft, teacherProgrammingReview, teacherTopicSuggestion } from '../controllers/ai-agent.controller'
+import { studentAsk, studentConversationGet, studentConversationList, studentMaterials, studentPracticeCreate, studentPracticeGet, studentPracticeList, studentPracticeRunSample, studentPracticeSubmit, studentReviewExplanation, teacherAsk, teacherConversationGet, teacherConversationList, teacherExamDraft, teacherProgrammingReview, teacherTopicSuggestion } from '../controllers/ai-agent.controller'
 
 export const studentAiAgentRoutes = Router()
 studentAiAgentRoutes.use(authenticate, requireStudent())
@@ -14,6 +14,7 @@ studentAiAgentRoutes.post('/learning/attempts/:attemptId/questions/:questionId/e
 studentAiAgentRoutes.post('/learning/practice', asyncHandler(studentPracticeCreate))
 studentAiAgentRoutes.get('/learning/practice', asyncHandler(studentPracticeList))
 studentAiAgentRoutes.get('/learning/practice/:practiceSetId', asyncHandler(studentPracticeGet))
+studentAiAgentRoutes.post('/learning/practice/:practiceSetId/items/:itemId/run-sample', asyncHandler(studentPracticeRunSample))
 studentAiAgentRoutes.post('/learning/practice/:practiceSetId/submit', asyncHandler(studentPracticeSubmit))
 
 export const teacherAiAgentRoutes = Router()

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createPracticeSchema, examDraftRequestSchema, topicSuggestionRequestSchema } from './ai-agent.validator'
+import { createPracticeSchema, examDraftRequestSchema, runPracticeSampleBodySchema, runPracticeSampleParamsSchema, topicSuggestionRequestSchema } from './ai-agent.validator'
 
 const request = {
   subjectId: 'subj-java',
@@ -32,4 +32,16 @@ test('accepts one to twenty practice questions with a bounded instruction', () =
   assert.equal(createPracticeSchema.safeParse({ materialId, count: 21 }).success, false)
   assert.equal(createPracticeSchema.safeParse({ materialId, count: 0 }).success, false)
   assert.equal(createPracticeSchema.safeParse({ materialId, instruction: 'x'.repeat(501) }).success, false)
+  assert.equal(createPracticeSchema.parse({ materialId, kind: 'PROGRAMMING' }).kind, 'PROGRAMMING')
+  assert.equal(createPracticeSchema.safeParse({ materialId, kind: 'MIXED' }).success, false)
+})
+
+test('running a sample requires a practice item and bounded source code', () => {
+  const practiceSetId = 'e1a00e4f-580a-4899-a40e-eb5dfbb89712'
+  const itemId = '32884078-c339-4be8-9a33-b3c808b12257'
+  assert.equal(runPracticeSampleParamsSchema.parse({ practiceSetId, itemId }).itemId, itemId)
+  assert.equal(runPracticeSampleParamsSchema.safeParse({ practiceSetId, itemId: 'bad' }).success, false)
+  assert.equal(runPracticeSampleBodySchema.parse({ sourceCode: 'int main() {}' }).sourceCode, 'int main() {}')
+  assert.equal(runPracticeSampleBodySchema.safeParse({ sourceCode: '' }).success, false)
+  assert.equal(runPracticeSampleBodySchema.safeParse({ sourceCode: 'x'.repeat(20001) }).success, false)
 })

@@ -13,8 +13,10 @@ export function getLearningAgentError(error: unknown, fallback: string): string 
     if (message === 'AI generated fewer questions than requested' || message === 'AI could not create enough verified practice questions' ||
       message === 'AI could not verify the answers against the selected material')
       return 'Chưa đủ câu hỏi có đáp án kiểm chứng từ tài liệu. Hãy giảm số câu hoặc mô tả kiến thức cụ thể hơn.'
-    if (message === 'AI chưa tạo được bài lập trình có test case hợp lệ từ tài liệu này')
-      return 'Chưa tạo được bài lập trình có test case hợp lệ. Hãy mô tả bài toán và chọn tài liệu phù hợp hơn.'
+    if (message === 'Tài liệu đã chọn chưa có nội dung đọc được để tạo bài lập trình' ||
+      message === 'AI chưa tạo đủ bài lập trình khác nhau. Hãy giảm số câu hoặc nêu chủ đề cụ thể hơn' ||
+      message === 'AI chưa tạo được bài lập trình phù hợp với tài liệu và yêu cầu. Vui lòng thử lại')
+      return message
   }
   return fallback
 }
@@ -77,6 +79,10 @@ export interface PracticeSet {
   items: PracticeItem[]
 }
 
+export interface PracticeSampleResult {
+  passed: boolean; output: string; error: string; status: string
+}
+
 export interface PracticeSummary {
   id: string; createdAt: string; completedAt: string | null; score: number | null
   subject: { name: string }; _count: { items: number }
@@ -124,13 +130,19 @@ export async function getPracticeSet(id: string): Promise<PracticeSet> {
 }
 
 export async function createPracticeSet(materialId: string, count: number, focusTopicId?: string,
-  instruction?: string): Promise<PracticeSet> {
+  instruction?: string, kind?: 'CHOICE' | 'PROGRAMMING'): Promise<PracticeSet> {
   const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice',
-    { materialId, count, focusTopicId, instruction }, { timeout: 240000 })
+    { materialId, count, focusTopicId, instruction, kind }, { timeout: 240000 })
   return data.data
 }
 
 export async function submitPracticeSet(id: string, answers: ({ itemId: string; selectedIndex: number } | { itemId: string; sourceCode: string })[]): Promise<PracticeSet> {
   const { data } = await apiClient.post<ApiResponse<PracticeSet>>(`/student/learning/practice/${id}/submit`, { answers }, { timeout: 240000 })
+  return data.data
+}
+
+export async function runPracticeSample(setId: string, itemId: string, sourceCode: string): Promise<PracticeSampleResult> {
+  const { data } = await apiClient.post<ApiResponse<PracticeSampleResult>>(
+    `/student/learning/practice/${setId}/items/${itemId}/run-sample`, { sourceCode }, { timeout: 65000 })
   return data.data
 }

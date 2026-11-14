@@ -3,23 +3,19 @@ import { Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { createPracticeSet, getLearningAgentError, getPracticeSet, listPracticeSets, submitPracticeSet,
   type PracticeSet, type PracticeSummary, type StudyMaterial, type StudentLearningInsights } from '../../api/student-learning.api'
 import { ChoicePicker } from '../ui/ChoicePicker'
+import PracticeCodeInput from './PracticeCodeInput'
 
 const card = { padding: 16, borderRadius: 16, backgroundColor: '#fff' } as const
-
-function sourceLabel(quote: string): string {
-  const page = quote.match(/\.{3,}\s*(\d{1,4})\s*$/)?.[1]
-  return page ? `Mục lục dẫn đến trang ${page}; cần đối chiếu nội dung trang này` : `“${quote}”`
-}
 
 export default function StudentPracticeSection({ materials, topics, onFocusInput }: {
   materials: StudyMaterial[]; topics: StudentLearningInsights['topics']; onFocusInput: (input: React.ElementRef<typeof TextInput> | null) => void
 }) {
   const instructionRef = useRef<React.ElementRef<typeof TextInput>>(null)
   const countRef = useRef<React.ElementRef<typeof TextInput>>(null)
-  const codeRefs = useRef<Record<string, React.ElementRef<typeof TextInput> | null>>({})
   const [selectedSubject, setSelectedSubject] = useState('')
   const [selectedMaterial, setSelectedMaterial] = useState('')
   const [focusTopicId, setFocusTopicId] = useState('')
+  const [kind, setKind] = useState<'CHOICE' | 'PROGRAMMING'>('CHOICE')
   const [instruction, setInstruction] = useState('')
   const [questionCount, setQuestionCount] = useState('0')
   const [sets, setSets] = useState<PracticeSummary[]>([])
@@ -42,7 +38,7 @@ export default function StudentPracticeSection({ materials, topics, onFocusInput
     if (!selectedMaterial || !validCount || busy) return
     setBusy(true); setError('')
     try {
-      setCurrent(await createPracticeSet(selectedMaterial, count, focusTopicId || undefined, instruction.trim() || undefined)); setChoices({}); setCodes({}); setPage(0)
+      setCurrent(await createPracticeSet(selectedMaterial, count, focusTopicId || undefined, instruction.trim() || undefined, kind)); setChoices({}); setCodes({}); setPage(0)
       listPracticeSets().then(setSets).catch(() => {})
     } catch (cause) { setError(getLearningAgentError(cause, 'Chưa thể tạo bài luyện. Vui lòng thử lại sau.')) }
     finally { setBusy(false) }
@@ -91,10 +87,14 @@ export default function StudentPracticeSection({ materials, topics, onFocusInput
         <Text>{topic.name} · {topic.percentage}% qua {topic.questionCount} câu</Text>
       </TouchableOpacity>)}
     </View>}
+    <ChoicePicker label="Loại bài luyện" placeholder="Chọn loại bài luyện" options={[
+      { value: 'CHOICE', label: 'Trắc nghiệm' },
+      { value: 'PROGRAMMING', label: 'Viết mã (chấm bằng Judge)' },
+    ]} selectedValues={[kind]} onToggle={(value) => setKind(value as 'CHOICE' | 'PROGRAMMING')} />
     <Text style={{ color: '#334155', fontWeight: '700' }}>Bạn muốn luyện nội dung nào? (tùy chọn)</Text>
     <TextInput ref={instructionRef} value={instruction} onChangeText={setInstruction} multiline maxLength={500}
       onFocus={() => onFocusInput(instructionRef.current)}
-      textAlignVertical="top" placeholder="Ví dụ: Dự đoán kết quả đoạn mã, hoặc viết chương trình Java để Judge chấm."
+      textAlignVertical="top" placeholder={kind === 'PROGRAMMING' ? 'Ví dụ: Tạo bài Java về vòng lặp và mảng, có đầu vào, đầu ra và trường hợp biên.' : 'Ví dụ: Tạo câu hỏi về vòng lặp và mảng Java, có giải thích đáp án.'}
       placeholderTextColor="#94a3b8" style={{ minHeight: 88, borderWidth: 1, borderColor: '#cbd5e1',
         borderRadius: 10, padding: 12, color: '#0f172a' }} />
     <Text style={{ color: '#64748b', fontSize: 12, textAlign: 'right' }}>{instruction.length}/500 ký tự</Text>
@@ -133,24 +133,13 @@ export default function StudentPracticeSection({ materials, topics, onFocusInput
               {option}{correct ? ' ✓' : wrong ? ' ✕' : ''}
             </Text>
           </TouchableOpacity>
-        }) : <View style={{ gap: 8 }}>
-          <Text style={{ color: '#475569', fontSize: 12 }}>Ví dụ đầu vào: {item.sampleInput}{'\n'}Ví dụ đầu ra: {item.sampleOutput}</Text>
-          <Text style={{ color: '#334155', fontWeight: '600' }}>Mã nguồn {item.language}</Text>
-          <TextInput ref={(input) => { codeRefs.current[item.id] = input }}
-            onFocus={() => onFocusInput(codeRefs.current[item.id])}
-            value={item.result?.sourceCode ?? codes[item.id] ?? item.starterCode}
-            onChangeText={(value) => setCodes((previous) => ({ ...previous, [item.id]: value }))}
-            editable={!current.completedAt && !busy} multiline textAlignVertical="top" autoCapitalize="none"
-            autoCorrect={false} accessibilityLabel={`Mã nguồn câu ${item.orderIndex}`}
-            style={{ minHeight: 240, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10,
-              padding: 12, fontFamily: 'monospace', color: '#0f172a' }} />
-          {item.result && <Text style={{ color: '#1d4ed8', fontWeight: '700' }}>
-            Qua {item.result.passedTestCases}/{item.result.totalTestCases} test case
-          </Text>}
-        </View>}
+        }) : <PracticeCodeInput key={`${current.id}:${item.id}`} setId={current.id} item={item}
+          value={codes[item.id] ?? item.starterCode}
+          onChange={(value) => setCodes((previous) => ({ ...previous, [item.id]: value }))}
+          onFocusInput={onFocusInput} completed={!!current.completedAt} />}
         {item.result && <>
           <Text style={{ color: '#64748b' }}>{item.result.explanation}</Text>
-          <Text style={{ color: '#64748b', fontSize: 12 }}>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}{item.result.sourceLocation ? ` · ${item.result.sourceLocation}` : ''} · {sourceLabel(item.result.supportQuote)}</Text>
+          <Text style={{ color: '#64748b', fontSize: 12 }}>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}</Text>
         </>}
       </View>)}
       {pageCount > 1 && <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

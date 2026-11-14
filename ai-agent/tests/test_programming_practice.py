@@ -3,7 +3,7 @@ import base64
 import pytest
 
 from soes_agent.contracts import ProgrammingPracticeQuestion, ProgrammingPracticeRequest, StudyMaterial
-from soes_agent.programming_practice import generate_programming_practice, validate_programming_questions
+from soes_agent.programming_practice import generate_programming_practice, review_programming_questions
 
 
 SOURCE = "Vòng lặp for lặp qua các phần tử của một mảng theo chỉ số."
@@ -36,17 +36,22 @@ def question() -> ProgrammingPracticeQuestion:
 
 
 def test_programming_practice_requires_matching_language_and_source():
-    assert len(validate_programming_questions([question()], SOURCE, request()).questions) == 1
+    accepted, issues = review_programming_questions([question()], SOURCE, request())
+    assert len(accepted) == 1
+    assert not issues
     invalid = question().model_copy(update={"supportQuote": "Kiến thức không có trong tài liệu"})
-    with pytest.raises(ValueError, match="invalid"):
-        validate_programming_questions([invalid], SOURCE, request())
+    accepted, issues = review_programming_questions([invalid], SOURCE, request())
+    assert not accepted
+    assert issues["Programming practice source quote is invalid"] == 1
     invalid = question().model_copy(update={"language": "C"})
-    with pytest.raises(ValueError, match="invalid"):
-        validate_programming_questions([invalid], SOURCE, request())
+    accepted, issues = review_programming_questions([invalid], SOURCE, request())
+    assert not accepted
+    assert issues["Programming practice language mismatch"] == 1
     contents = "Vòng lặp for trong Java........................12"
     invalid = question().model_copy(update={"supportQuote": contents})
-    with pytest.raises(ValueError, match="invalid"):
-        validate_programming_questions([invalid], SOURCE + "\n" + contents, request())
+    accepted, issues = review_programming_questions([invalid], SOURCE + "\n" + contents, request())
+    assert not accepted
+    assert issues["Programming practice source quote is invalid"] == 1
 
 
 @pytest.mark.asyncio
@@ -59,7 +64,59 @@ async def test_programming_practice_uses_selected_material_and_requested_count()
         async def ainvoke(self, messages):
             assert SOURCE in messages[1][1]
             assert "Tạo đúng 1 bài viết mã" in messages[1][1]
-            return {"questions": [question().model_dump()]}
+            return {"questions": [question().model_copy(update={"supportQuote": "EVIDENCE_0001"}).model_dump()]}
 
     result = await generate_programming_practice(Model(), request())
     assert result.questions[0].language == "JAVA"
+    assert result.questions[0].supportQuote == SOURCE
+
+
+@pytest.mark.asyncio
+async def test_programming_practice_replaces_invalid_candidate_without_discarding_valid_one():
+    second = question().model_copy(update={
+        "stem": "Cho số nguyên dương n. In tổng các số từ 1 đến n bằng vòng lặp for. "
+                "Đầu vào là n; đầu ra là tổng trên một dòng. Ví dụ n bằng 3 thì in 6.",
+    })
+
+    class Model:
+        calls = 0
+
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                assert "Tạo đúng 2 bài viết mã" in messages[1][1]
+                invalid = second.model_copy(update={"supportQuote": "Nguồn không tồn tại"})
+                return {"questions": [question().model_copy(update={"supportQuote": "EVIDENCE_0001"}).model_dump(),
+                                      invalid.model_dump()]}
+            assert "Tạo đúng 1 bài viết mã" in messages[1][1]
+            assert question().stem in messages[1][1]
+            return {"questions": [second.model_copy(update={"supportQuote": "EVIDENCE_0001"}).model_dump()]}
+
+    model = Model()
+    result = await generate_programming_practice(model, request(2))
+    assert len(result.questions) == 2
+    assert model.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_programming_practice_retries_schema_invalid_candidate():
+    class Model:
+        calls = 0
+
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            self.calls += 1
+            candidate = question().model_copy(update={"supportQuote": "EVIDENCE_0001"}).model_dump()
+            if self.calls == 1:
+                candidate.pop("testCases")
+            return {"questions": [candidate]}
+
+    model = Model()
+    result = await generate_programming_practice(model, request())
+    assert len(result.questions) == 1
+    assert model.calls == 2

@@ -32,7 +32,17 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
         throw new AppError(422, 'Trợ lý chưa chọn được đủ câu hỏi phù hợp. Hãy giảm số câu hoặc điều chỉnh yêu cầu và thử lại.')
       }
       if (response.status === 422 && path === '/v1/student/programming-practice-draft') {
-        throw new AppError(422, 'AI chưa tạo được bài lập trình có test case hợp lệ từ tài liệu này')
+        const error = await response.json().catch(() => null) as { detail?: unknown } | null
+        const detail = typeof error?.detail === 'string' ? error.detail : ''
+        if (detail === 'Material has no usable evidence' || detail === 'Material has no readable text' ||
+          detail === 'Material cannot be read') {
+          throw new AppError(422, 'Tài liệu đã chọn chưa có nội dung đọc được để tạo bài lập trình')
+        }
+        if (detail === 'Programming practice question count mismatch' ||
+          detail === 'Duplicate programming practice question') {
+          throw new AppError(422, 'AI chưa tạo đủ bài lập trình khác nhau. Hãy giảm số câu hoặc nêu chủ đề cụ thể hơn')
+        }
+        throw new AppError(422, 'AI chưa tạo được bài lập trình phù hợp với tài liệu và yêu cầu. Vui lòng thử lại')
       }
       if (response.status === 422 && path === '/v1/student/practice-draft') {
         const error = await response.json().catch(() => null) as { detail?: unknown } | null

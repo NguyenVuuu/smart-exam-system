@@ -63,6 +63,13 @@ export interface PracticeSet {
   items: PracticeItem[]
 }
 
+export interface PracticeSampleResult {
+  passed: boolean
+  output: string
+  error: string
+  status: string
+}
+
 export interface PracticeSummary {
   id: string
   createdAt: string
@@ -123,13 +130,19 @@ export async function getPracticeSet(id: string): Promise<PracticeSet> {
 }
 
 export async function createPracticeSet(materialId: string, count = 5, focusTopicId?: string,
-  instruction?: string): Promise<PracticeSet> {
+  instruction?: string, kind?: 'CHOICE' | 'PROGRAMMING'): Promise<PracticeSet> {
   const { data } = await apiClient.post<ApiResponse<PracticeSet>>('/student/learning/practice',
-    { materialId, count, focusTopicId, instruction }, { timeout: 240000 })
+    { materialId, count, focusTopicId, instruction, kind }, { timeout: 240000 })
   return data.data
 }
 
 export async function submitPracticeSet(id: string, answers: ({ itemId: string; selectedIndex: number } | { itemId: string; sourceCode: string })[]): Promise<PracticeSet> {
   const { data } = await apiClient.post<ApiResponse<PracticeSet>>(`/student/learning/practice/${id}/submit`, { answers }, { timeout: 240000 })
+  return data.data
+}
+
+export async function runPracticeSample(setId: string, itemId: string, sourceCode: string): Promise<PracticeSampleResult> {
+  const { data } = await apiClient.post<ApiResponse<PracticeSampleResult>>(
+    `/student/learning/practice/${setId}/items/${itemId}/run-sample`, { sourceCode }, { timeout: 65000 })
   return data.data
 }

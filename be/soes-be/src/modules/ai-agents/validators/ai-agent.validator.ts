@@ -85,11 +85,14 @@ export const programmingPracticeDraftSchema = z.object({ questions: z.array(prog
 
 export const createPracticeSchema = z.object({
   materialId: z.string().uuid(), count: z.number().int().min(1).max(20).default(5),
+  kind: z.enum(['CHOICE', 'PROGRAMMING']).optional(),
   focusTopicId: z.string().uuid().optional(),
   instruction: z.string().trim().max(500).optional(),
 })
 
 export const practiceParamSchema = z.object({ practiceSetId: z.string().uuid() })
+export const runPracticeSampleParamsSchema = practiceParamSchema.extend({ itemId: z.string().uuid() })
+export const runPracticeSampleBodySchema = z.object({ sourceCode: z.string().min(1).max(20000) })
 export const submitPracticeSchema = z.object({ answers: z.array(z.union([
   z.object({ itemId: z.string().uuid(), selectedIndex: z.number().int().min(0).max(3) }),
   z.object({ itemId: z.string().uuid(), sourceCode: z.string().min(1).max(20000) }),
