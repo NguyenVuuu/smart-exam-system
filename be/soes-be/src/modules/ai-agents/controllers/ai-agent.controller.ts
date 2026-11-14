@@ -3,9 +3,9 @@ import { sendSuccess as send } from '../../../utils/httpResponse'
 import { askStudent, askTeacher, studentConversation, studentConversations, teacherConversation, teacherConversations } from '../services/ai-agent.service'
 import { proposeExamDraft } from '../services/exam-draft.service'
 import { suggestQuestionTopic } from '../services/topic-suggestion.service'
-import { askAgentSchema, conversationParamSchema, conversationQuerySchema, createPracticeSchema, examDraftRequestSchema, practiceParamSchema, programmingReviewSchema, reviewExplanationParamsSchema, reviewExplanationSchema, scheduleParamSchema, submitPracticeSchema, topicSuggestionRequestSchema } from '../validators/ai-agent.validator'
+import { askAgentSchema, conversationParamSchema, conversationQuerySchema, createPracticeSchema, examDraftRequestSchema, practiceParamSchema, programmingReviewSchema, reviewExplanationParamsSchema, reviewExplanationSchema, runPracticeSampleBodySchema, runPracticeSampleParamsSchema, scheduleParamSchema, submitPracticeSchema, topicSuggestionRequestSchema } from '../validators/ai-agent.validator'
 import { getStudentMaterials } from '../services/student-material.service'
-import { createStudentPractice, getStudentPractice, listStudentPractice, submitStudentPractice } from '../services/student-practice.service'
+import { createStudentPractice, getStudentPractice, listStudentPractice, runStudentPracticeSample, submitStudentPractice } from '../services/student-practice.service'
 import { reviewProgrammingSubmission } from '../services/programming-review.service'
 import { explainStudentReviewQuestion } from '../services/student-review-explanation.service'
 
@@ -43,6 +43,12 @@ export const studentPracticeGet = async (req: Request, res: Response) =>
 export const studentPracticeSubmit = async (req: Request, res: Response) =>
   send(res, await submitStudentPractice(req.user!.profileId,
     practiceParamSchema.parse(req.params).practiceSetId, submitPracticeSchema.parse(req.body)))
+
+export const studentPracticeRunSample = async (req: Request, res: Response) => {
+  const { practiceSetId, itemId } = runPracticeSampleParamsSchema.parse(req.params)
+  const { sourceCode } = runPracticeSampleBodySchema.parse(req.body)
+  return send(res, await runStudentPracticeSample(req.user!.profileId, practiceSetId, itemId, sourceCode))
+}
 
 export const teacherAsk = async (req: Request, res: Response) => {
   const { message, conversationId } = askAgentSchema.parse(req.body)

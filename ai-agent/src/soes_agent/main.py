@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai.chat_models import GoogleAPIError, GoogleRateLimitError
+from langchain_google_genai.chat_models import GoogleAPIError, GoogleInvalidRequestError, GoogleRateLimitError
 
 # Ẩn cảnh báo vô hại của Google GenAI về schema $defs
 logging.getLogger("langchain_google_genai._function_utils").setLevel(logging.ERROR)
@@ -40,6 +40,12 @@ async def model_unavailable(_request: Request, _error: GoogleAPIError) -> JSONRe
     logger.warning("AI provider unavailable category=%s code=%s",
                    type(_error).__name__, getattr(_error, "code", ""))
     return JSONResponse(status_code=503, content={"detail": "AI model is temporarily unavailable"})
+
+
+@app.exception_handler(GoogleInvalidRequestError)
+async def model_request_invalid(_request: Request, _error: GoogleInvalidRequestError) -> JSONResponse:
+    logger.warning("AI provider rejected request category=%s", type(_error).__name__)
+    return JSONResponse(status_code=503, content={"detail": "AI model rejected the request"})
 
 
 @app.middleware("http")
@@ -134,8 +140,20 @@ async def student_programming_practice_draft(request: ProgrammingPracticeRequest
     try:
         return await generate_programming_practice(get_model(model_name=request.model), request)
     except ValueError as exc:
-        logger.warning("Programming practice draft rejected reason=%s", str(exc))
-        raise HTTPException(status_code=422, detail="Could not create verified programming practice") from exc
+        allowed_reasons = {
+            "Material has no usable evidence",
+            "Material has no readable text",
+            "Material cannot be read",
+            "Programming practice question count mismatch",
+            "Programming practice source quote is invalid",
+            "Programming practice test inputs are duplicated",
+            "Duplicate programming practice question",
+            "Programming practice language mismatch",
+            "Programming practice question asks about document structure",
+        }
+        reason = str(exc) if str(exc) in allowed_reasons else "Programming practice draft is invalid"
+        logger.warning("Programming practice draft rejected reason=%s", reason)
+        raise HTTPException(status_code=422, detail=reason) from exc
 
 
 @app.post("/v1/teacher/exam-draft", response_model=ExamDraftProposal, dependencies=[Depends(require_service)])

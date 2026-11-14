@@ -33,6 +33,24 @@ async function runCase(sourceCode: string, language: ProgrammingQuestion['langua
   return Judge0Service.mapResultToInternal(result, test.expectedOutput) === 'PASSED'
 }
 
+export async function runProgrammingPracticeSample(sourceCode: string, question: ProgrammingQuestion) {
+  const sample = question.testCases[0]
+  try {
+    const result = await judge0Service.submitAndPoll({
+      source_code: sourceCode, language_id: question.language, stdin: sample.input,
+      expected_output: sample.expectedOutput, cpu_time_limit: 2, memory_limit: 128000,
+    })
+    if (result.status.id === 13) throw new AppError(503, 'Judge tạm thời không khả dụng')
+    return { passed: Judge0Service.mapResultToInternal(result, sample.expectedOutput) === 'PASSED',
+      output: (result.stdout ?? '').slice(0, 4000),
+      error: (result.compile_output ?? result.stderr ?? '').slice(0, 4000),
+      status: result.status.description }
+  } catch (error) {
+    if (error instanceof AppError) throw error
+    throw new AppError(503, 'Không thể chạy thử với Judge')
+  }
+}
+
 export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], language: ProgrammingQuestion['language']) {
   for (const question of questions) {
     if (question.language !== language || new Set(question.testCases.map((test) => test.input)).size !== question.testCases.length) {

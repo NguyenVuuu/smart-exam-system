@@ -10,7 +10,7 @@ import { choosePracticeDifficulty } from './practice-difficulty'
 import { studentInsights } from '../../learning-analytics/services/learning-analytics.service'
 import { selectWeakPracticeTopic } from './practice-focus'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
-import { gradeProgrammingPractice, practiceLanguage, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
+import { gradeProgrammingPractice, practiceLanguage, runProgrammingPracticeSample, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
 type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
@@ -54,7 +54,7 @@ export async function createStudentPractice(studentId: string, userId: string, i
   const request = { material, count: input.count, difficulty,
     ...(focusTopic && { focusTopic: { code: focusTopic.code, name: focusTopic.name } }),
     ...(input.instruction && { instruction: input.instruction }) }
-  const programming = wantsProgrammingPractice(input.instruction)
+  const programming = input.kind === 'PROGRAMMING' || (input.kind === undefined && wantsProgrammingPractice(input.instruction))
   let questions: Array<PracticeQuestion | ProgrammingQuestion>
   if (programming) {
     const language = practiceLanguage(input.instruction, material.subjectName)
@@ -126,6 +126,18 @@ export async function listStudentPractice(studentId: string) {
       subject: { select: { name: true } }, _count: { select: { items: true } } },
   })
   return rows.map((row) => ({ ...row, score: row.score === null ? null : Number(row.score) }))
+}
+
+export async function runStudentPracticeSample(studentId: string, practiceSetId: string, itemId: string, sourceCode: string) {
+  await assertOutsideExam(studentId)
+  const set = await prisma.practiceSet.findFirst({
+    where: { id: practiceSetId, studentId, completedAt: null },
+    select: { items: { where: { id: itemId }, select: { snapshot: true }, take: 1 } },
+  })
+  if (!set || !set.items.length) throw new NotFoundError('Practice item not found')
+  if ((set.items[0].snapshot as { kind?: string }).kind !== 'PROGRAMMING')
+    throw new ValidationError('Only programming practice can be run')
+  return runProgrammingPracticeSample(sourceCode, programmingPracticeQuestionSchema.parse(set.items[0].snapshot))
 }
 
 export async function submitStudentPractice(studentId: string, practiceSetId: string,
