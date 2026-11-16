@@ -7,12 +7,19 @@ import { createPracticeSet, getPracticeSet, listPracticeSets, submitPracticeSet,
 import StudentMaterialPicker from './StudentMaterialPicker'
 import PracticeProgrammingQuestion from './PracticeProgrammingQuestion'
 
-export default function StudentPracticePanel({ materials, topics }: { materials: StudyMaterial[]; topics: TopicInsight[] }) {
-  const [subjectId, setSubjectId] = useState('')
-  const [materialId, setMaterialId] = useState('')
-  const [focusTopicId, setFocusTopicId] = useState('')
+export default function StudentPracticePanel({ materials, topics, initialTopicId }: {
+  materials: StudyMaterial[]; topics: TopicInsight[]; initialTopicId?: string
+}) {
+  const initialTopic = topics.find((topic) => topic.topicId === initialTopicId)
+  const initialSubjectId = initialTopic?.subjectId ?? ''
+  const initialMaterials = materials.filter((item) => item.courseOffering.subject.id === initialSubjectId)
+  const [subjectId, setSubjectId] = useState(initialSubjectId)
+  const [materialId, setMaterialId] = useState(initialMaterials.length === 1 ? initialMaterials[0].id : '')
+  const [focusTopicId, setFocusTopicId] = useState(initialTopic?.topicId ?? '')
   const [kind, setKind] = useState<'CHOICE' | 'PROGRAMMING'>('CHOICE')
-  const [instruction, setInstruction] = useState('')
+  const [instruction, setInstruction] = useState(initialTopic
+    ? `Tạo bài luyện về ${initialTopic.name}, ưu tiên khái niệm cốt lõi, ví dụ áp dụng và lỗi thường gặp.`
+    : '')
   const [questionCount, setQuestionCount] = useState('0')
   const [sets, setSets] = useState<PracticeSummary[]>([])
   const [current, setCurrent] = useState<PracticeSet | null>(null)
@@ -71,7 +78,7 @@ export default function StudentPracticePanel({ materials, topics }: { materials:
     <div className="space-y-5 p-5">
       <StudentMaterialPicker materials={materials} subjectId={subjectId} materialId={materialId}
         onSubjectChange={(value) => { setSubjectId(value); setMaterialId(''); setFocusTopicId('') }}
-        onMaterialChange={(value) => { setMaterialId(value); setFocusTopicId('') }} />
+        onMaterialChange={setMaterialId} />
       {materials.length === 0 && <p className="text-sm text-slate-500">Chưa có tài liệu phù hợp để tạo bài luyện. Hãy kiểm tra tài liệu trong lớp học phần.</p>}
       {materialId && weakTopics.length > 0 && <div className="space-y-2">
         <span className="block text-sm font-semibold text-slate-700">Chủ đề cần ưu tiên <span className="font-normal text-slate-400">(tùy chọn)</span></span>

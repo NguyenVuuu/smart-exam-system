@@ -29,7 +29,8 @@ export async function studentInsights(studentId: string, now = new Date()) {
         earnedPoints: Number(answers.get(item.examQuestionId) ?? 0),
         possiblePoints: Number(item.examQuestion.points),
         topics: item.examQuestion.topics.map(({ topicId, code, name }) => ({
-          id: topicId, code, name, subjectId: item.examQuestion.exam.subjectId,
+          id: topicId, code, name, subjectId: item.examQuestion.exam.subject.id,
+          subjectName: item.examQuestion.exam.subject.name,
         })),
       })
     }
@@ -67,7 +68,8 @@ export async function teacherScheduleInsights(teacherId: string, scheduleId: str
       const observation = {
         questionId: item.examQuestionId, earnedPoints, possiblePoints,
         topics: item.examQuestion.topics.map(({ topicId, code, name }) => ({
-          id: topicId, code, name, subjectId: item.examQuestion.exam.subjectId,
+          id: topicId, code, name, subjectId: item.examQuestion.exam.subject.id,
+          subjectName: item.examQuestion.exam.subject.name,
         })),
       }
       topicObservations.push(observation)

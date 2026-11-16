@@ -7,16 +7,22 @@ import PracticeCodeInput from './PracticeCodeInput'
 
 const card = { padding: 16, borderRadius: 16, backgroundColor: '#fff' } as const
 
-export default function StudentPracticeSection({ materials, topics, onFocusInput }: {
-  materials: StudyMaterial[]; topics: StudentLearningInsights['topics']; onFocusInput: (input: React.ElementRef<typeof TextInput> | null) => void
+export default function StudentPracticeSection({ materials, topics, initialTopicId, onFocusInput }: {
+  materials: StudyMaterial[]; topics: StudentLearningInsights['topics']; initialTopicId?: string
+  onFocusInput: (input: React.ElementRef<typeof TextInput> | null) => void
 }) {
   const instructionRef = useRef<React.ElementRef<typeof TextInput>>(null)
   const countRef = useRef<React.ElementRef<typeof TextInput>>(null)
-  const [selectedSubject, setSelectedSubject] = useState('')
-  const [selectedMaterial, setSelectedMaterial] = useState('')
-  const [focusTopicId, setFocusTopicId] = useState('')
+  const initialTopic = topics.find((topic) => topic.topicId === initialTopicId)
+  const initialSubjectId = initialTopic?.subjectId ?? ''
+  const initialMaterials = materials.filter((item) => item.courseOffering.subject.id === initialSubjectId)
+  const [selectedSubject, setSelectedSubject] = useState(initialSubjectId)
+  const [selectedMaterial, setSelectedMaterial] = useState(initialMaterials.length === 1 ? initialMaterials[0].id : '')
+  const [focusTopicId, setFocusTopicId] = useState(initialTopic?.topicId ?? '')
   const [kind, setKind] = useState<'CHOICE' | 'PROGRAMMING'>('CHOICE')
-  const [instruction, setInstruction] = useState('')
+  const [instruction, setInstruction] = useState(initialTopic
+    ? `Tạo bài luyện về ${initialTopic.name}, ưu tiên khái niệm cốt lõi, ví dụ áp dụng và lỗi thường gặp.`
+    : '')
   const [questionCount, setQuestionCount] = useState('0')
   const [sets, setSets] = useState<PracticeSummary[]>([])
   const [current, setCurrent] = useState<PracticeSet | null>(null)
@@ -74,7 +80,7 @@ export default function StudentPracticeSection({ materials, topics, onFocusInput
     <ChoicePicker label="Tài liệu lớp học" placeholder={selectedSubject ? 'Chọn tài liệu' : 'Chọn môn học trước'}
       options={subjectMaterials.map((material) => ({ value: material.id, label: material.title || material.fileName,
         description: material.fileName }))} selectedValues={selectedMaterial ? [selectedMaterial] : []}
-      onToggle={(value) => { setSelectedMaterial(value); setFocusTopicId('') }} disabled={!selectedSubject} />
+      onToggle={setSelectedMaterial} disabled={!selectedSubject} />
     {weakTopics.length > 0 && <View style={{ gap: 8 }}>
       <Text style={{ fontWeight: '600', color: '#334155' }}>Chủ đề ưu tiên</Text>
       <TouchableOpacity accessibilityRole="button" onPress={() => setFocusTopicId('')}

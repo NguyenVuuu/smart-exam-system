@@ -29,7 +29,7 @@ test('class analysis requires five distinct students even when question count is
   const attempt = (studentId: string) => ({
     studentId, courseOffering: { id: 'course-1', code: 'SE01' }, studentAnswers: [],
     attemptQuestions: [{ examQuestionId: 'question-1', examQuestion: {
-      title: 'JOIN', points: 1, exam: { subjectId: 'sql' },
+      title: 'JOIN', points: 1, exam: { subject: { id: 'sql', name: 'Cơ sở dữ liệu' } },
       topics: [{ topicId: 'topic-1', code: 'JOIN', name: 'SQL JOIN' }],
     } }],
   })
