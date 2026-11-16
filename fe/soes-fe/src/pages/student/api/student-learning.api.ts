@@ -4,6 +4,7 @@ import type { AgentConversationSummary, AgentConversationTurn } from '../../../c
 export interface TopicInsight {
   topicId: string
   subjectId: string
+  subjectName: string
   code: string
   name: string
   questionCount: number

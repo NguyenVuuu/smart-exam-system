@@ -27,6 +27,7 @@ export interface StudentLearningInsights {
   topics: {
     topicId: string
     subjectId: string
+    subjectName: string
     name: string
     questionCount: number
     percentage: number

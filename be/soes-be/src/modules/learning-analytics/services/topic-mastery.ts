@@ -2,12 +2,13 @@ export interface TopicObservation {
   questionId: string
   earnedPoints: number
   possiblePoints: number
-  topics: Array<{ id: string; code: string; name: string; subjectId: string }>
+  topics: Array<{ id: string; code: string; name: string; subjectId: string; subjectName: string }>
 }
 
 export interface TopicMastery {
   topicId: string
   subjectId: string
+  subjectName: string
   code: string
   name: string
   questionCount: number
@@ -31,7 +32,8 @@ export function calculateTopicMastery(observations: TopicObservation[]): TopicMa
     const earned = Math.min(observation.possiblePoints, Math.max(0, observation.earnedPoints))
     for (const topic of observation.topics) {
       const current = totals.get(topic.id) ?? {
-        topicId: topic.id, subjectId: topic.subjectId, code: topic.code, name: topic.name,
+        topicId: topic.id, subjectId: topic.subjectId, subjectName: topic.subjectName,
+        code: topic.code, name: topic.name,
         questionCount: 0, questionIds: new Set<string>(), earnedPoints: 0, possiblePoints: 0,
       }
       current.questionCount += 1

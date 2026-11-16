@@ -1,7 +1,7 @@
 import { BackToTopScrollView } from '../../../src/components/ui/BackToTop'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View, type ScrollViewInstance } from 'react-native'
-import { BookOpenCheck, Bot, MessageCircle, Send, Target } from 'lucide-react-native'
+import { ArrowRight, BookOpenCheck, Bot, Lightbulb, MessageCircle, Send, Target } from 'lucide-react-native'
 import { useRequireAuth } from '../../../src/hooks/useRequireAuth'
 import { askLearningAgent, getLearningAgentError, getLearningConversation, getLearningInsights, getStudyMaterials, listLearningConversations,
   type LearningConversationSummary, type LearningConversationTurn, type StudentLearningInsights, type StudyMaterial } from '../../../src/api/student-learning.api'
@@ -23,9 +23,11 @@ export default function StudentLearningScreen() {
   const [materials, setMaterials] = useState<StudyMaterial[]>([])
   const [materialId, setMaterialId] = useState('')
   const [subjectId, setSubjectId] = useState('')
+  const [topicSubjectId, setTopicSubjectId] = useState('')
   const [loading, setLoading] = useState(true)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
+  const [practiceRequest, setPracticeRequest] = useState<{ topicId: string; requestId: number } | null>(null)
   const scrollRef = useRef<ScrollViewInstance>(null)
   const questionRef = useRef<React.ElementRef<typeof TextInput>>(null)
   const focusInput = (input: React.ElementRef<typeof TextInput> | null) => scrollToFocusedInput(scrollRef.current, { current: input }, 16)
@@ -49,6 +51,13 @@ export default function StudentLearningScreen() {
       .catch(() => { if (active) setError('Không thể tải lịch sử hội thoại.') })
     return () => { active = false }
   }, [materialId])
+
+  const topicSubjects = useMemo(() => Array.from(new Map(
+    (insights?.topics ?? []).map((topic) => [topic.subjectId, {
+      id: topic.subjectId,
+      name: topic.subjectName,
+    }]),
+  ).values()), [insights?.topics])
 
   const changeMaterial = (value: string) => {
     conversationRequest.current += 1
@@ -100,6 +109,28 @@ export default function StudentLearningScreen() {
   }
   const subjects = Array.from(new Map(materials.map((item) => [item.courseOffering.subject.id, item.courseOffering.subject])).values())
   const subjectMaterials = materials.filter((item) => item.courseOffering.subject.id === subjectId)
+  const selectedTopicSubjectId = topicSubjects.some((subject) => subject.id === topicSubjectId)
+    ? topicSubjectId
+    : topicSubjects[0]?.id ?? ''
+  const visibleTopics = (insights?.topics ?? []).filter((topic) => topic.subjectId === selectedTopicSubjectId)
+  const recommendTopic = (topic: StudentLearningInsights['topics'][number]) => {
+    if (!topic.sufficientData) return {
+      label: 'Cần thêm dữ liệu', color: '#b45309', backgroundColor: '#fffbeb',
+      content: `Nội dung nên luyện: ${topic.name}. Hãy làm thêm câu hỏi để hệ thống đánh giá chính xác hơn mức độ hiểu bài.`,
+    }
+    if (topic.percentage <= 40) return {
+      label: 'Ưu tiên cao', color: '#b91c1c', backgroundColor: '#fef2f2',
+      content: `Nội dung nên ôn: ${topic.name}. Bắt đầu bằng định nghĩa và quy tắc cốt lõi, xem ví dụ mẫu rồi làm bài từ dễ đến trung bình.`,
+    }
+    if (topic.needsPractice) return {
+      label: 'Cần củng cố', color: '#b45309', backgroundColor: '#fffbeb',
+      content: `Nội dung nên củng cố: ${topic.name}. Làm câu hỏi vận dụng và xem kỹ lời giải của những câu trả lời sai.`,
+    }
+    return {
+      label: 'Duy trì', color: '#047857', backgroundColor: '#ecfdf5',
+      content: `Nội dung nên duy trì: ${topic.name}. Tiếp tục làm câu hỏi vận dụng để giữ mức độ thành thạo.`,
+    }
+  }
 
   return <StudentLayout activeRoute="learning">
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -135,12 +166,37 @@ export default function StudentLearningScreen() {
             {insights.limitedToRecentAttempts ? ' · chỉ các lượt gần đây' : ''}
           </Text>
           {insights.topics.length === 0 && <Text style={{ color: '#64748b' }}>Chưa đủ dữ liệu từ kết quả được phép xem lại để xác định chủ đề yếu. Bạn có thể chọn tài liệu lớp học để ôn tập.</Text>}
-          {insights.topics.map((topic) => <View key={topic.topicId} style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
-            <Text style={{ fontWeight: '700', color: '#0f172a' }}>{topic.name} · {topic.percentage}%</Text>
-            <Text style={{ fontSize: 12, color: topic.sufficientData ? '#64748b' : '#b45309' }}>
-              {topic.questionCount} lượt trả lời · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}
-            </Text>
-          </View>)}
+          {topicSubjects.length > 0 && <ChoicePicker label="Môn học" placeholder="Chọn môn học"
+            options={topicSubjects.map((subject) => ({ value: subject.id, label: subject.name }))}
+            selectedValues={selectedTopicSubjectId ? [selectedTopicSubjectId] : []} onToggle={setTopicSubjectId} />}
+          {visibleTopics.map((topic) => {
+            const recommendation = recommendTopic(topic)
+            return <View key={topic.topicId} style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', gap: 8 }}>
+              <Text style={{ fontWeight: '700', color: '#0f172a' }}>{topic.name} · {topic.percentage}%</Text>
+              <Text style={{ fontSize: 12, color: topic.sufficientData ? '#64748b' : '#b45309' }}>
+                {topic.questionCount} lượt trả lời · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}
+              </Text>
+              <View style={{ padding: 10, borderRadius: 10, backgroundColor: '#f8fafc', gap: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <Lightbulb size={16} color="#2563eb" />
+                  <Text style={{ fontWeight: '700', color: '#1e293b' }}>Gợi ý nội dung</Text>
+                  <Text style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+                    color: recommendation.color, backgroundColor: recommendation.backgroundColor, fontSize: 12, fontWeight: '700' }}>
+                    {recommendation.label}
+                  </Text>
+                </View>
+                <Text style={{ color: '#475569', lineHeight: 20 }}>{recommendation.content}</Text>
+              </View>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Ôn chủ đề ${topic.name}`}
+                onPress={() => {
+                  setPracticeRequest({ topicId: topic.topicId, requestId: Date.now() })
+                  setActiveTab('practice')
+                }} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ color: '#1d4ed8', fontWeight: '700' }}>Ôn chủ đề này</Text>
+                <ArrowRight size={16} color="#1d4ed8" />
+              </TouchableOpacity>
+            </View>
+          })}
         </>}
       </View>}
 
@@ -168,7 +224,9 @@ export default function StudentLearningScreen() {
         {!!error && <Text accessibilityRole="alert" style={{ color: '#b91c1c' }}>{error}</Text>}
         {turns.length > 0 && <Text style={{ fontSize: 12, color: '#64748b' }}>Đề xuất AI chỉ để tham khảo; hãy đối chiếu với giảng viên.</Text>}
       </View>}
-      {activeTab === 'practice' && <StudentPracticeSection materials={materials} topics={insights?.topics ?? []} onFocusInput={focusInput} />}
+      {activeTab === 'practice' && <StudentPracticeSection key={practiceRequest?.requestId ?? 'practice'}
+        materials={materials} topics={insights?.topics ?? []} initialTopicId={practiceRequest?.topicId}
+        onFocusInput={focusInput} />}
     </BackToTopScrollView>
     </KeyboardAvoidingView>
   </StudentLayout>

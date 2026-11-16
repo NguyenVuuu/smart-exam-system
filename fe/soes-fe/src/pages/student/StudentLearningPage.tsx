@@ -7,6 +7,7 @@ import StudentSidebar from './components/StudentSidebar'
 import StudentTopBar from './components/StudentTopBar'
 import StudentPracticePanel from './components/StudentPracticePanel'
 import StudentMaterialPicker from './components/StudentMaterialPicker'
+import StudentTopicInsightsPanel from './components/StudentTopicInsightsPanel'
 
 type LearningTab = 'ask' | 'practice' | 'topics'
 
@@ -26,6 +27,7 @@ export default function StudentLearningPage() {
   const [insightsError, setInsightsError] = useState(false)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
+  const [practiceRequest, setPracticeRequest] = useState<{ topicId: string; requestId: number } | null>(null)
 
   useEffect(() => {
     conversationRequest.current += 1
@@ -130,37 +132,11 @@ export default function StudentLearningPage() {
               Không thể tải tài liệu lớp học. Hãy tải lại trang để thử lại.
             </p>}
 
-            <section id="learning-panel-topics" role="tabpanel" aria-labelledby="learning-tab-topics"
-              className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${activeTab === 'topics' ? '' : 'hidden'}`}>
-              <div className="flex items-center gap-3">
-                <span className="rounded-xl bg-blue-50 p-2.5 text-blue-600"><Target size={20} /></span>
-                <h2 className="font-semibold text-slate-950">Chủ đề cần chú ý</h2>
-              </div>
-              {loading && <p className="mt-3 text-sm text-slate-500">Đang tải dữ liệu...</p>}
-              {insightsError && <p role="alert" className="mt-3 text-sm text-red-600">Không thể tải dữ liệu kết quả học tập.</p>}
-              {!loading && insights && (
-                <>
-                  <p className="mt-1 text-sm text-slate-500">Dựa trên {insights.analyzedAttemptCount} lượt thi đủ điều kiện xem lại.
-                    {insights.limitedToRecentAttempts && ' Chỉ tính các lượt gần đây.'}
-                  </p>
-                  {insights.topics.length === 0 ? (
-                    <p className="mt-4 text-sm text-slate-500">Chưa đủ dữ liệu từ kết quả được phép xem lại để xác định chủ đề yếu. Bạn vẫn có thể chọn tài liệu lớp học để hỏi và ôn tập.</p>
-                  ) : (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {insights.topics.map((topic) => (
-                        <div key={topic.topicId} className="rounded-xl border border-slate-200 p-4">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-semibold text-slate-900">{topic.name}</p>
-                            <span className="text-sm font-bold text-blue-700">{topic.percentage}%</span>
-                          </div>
-                          <p className="mt-1 text-xs text-slate-500">{topic.questionCount} lượt trả lời · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </section>
+            <StudentTopicInsightsPanel visible={activeTab === 'topics'} insights={insights}
+              loading={loading} error={insightsError} onPracticeTopic={(topicId) => {
+                setPracticeRequest({ topicId, requestId: Date.now() })
+                setActiveTab('practice')
+              }} />
 
             <section id="learning-panel-ask" role="tabpanel" aria-labelledby="learning-tab-ask"
               className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ${activeTab === 'ask' ? '' : 'hidden'}`}>
@@ -200,7 +176,8 @@ export default function StudentLearningPage() {
             </section>
             <div id="learning-panel-practice" role="tabpanel" aria-labelledby="learning-tab-practice"
               className={activeTab === 'practice' ? '' : 'hidden'}>
-              <StudentPracticePanel materials={materials} topics={insights?.topics ?? []} />
+              <StudentPracticePanel key={practiceRequest?.requestId ?? 'practice'} materials={materials}
+                topics={insights?.topics ?? []} initialTopicId={practiceRequest?.topicId} />
             </div>
           </div>
         </main>

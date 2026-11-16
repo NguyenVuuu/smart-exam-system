@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { calculateTopicMastery } from './topic-mastery'
 
-const join = { id: 'join', subjectId: 'subject-sql', code: 'JOIN', name: 'SQL joins' }
+const join = { id: 'join', subjectId: 'subject-sql', subjectName: 'Cơ sở dữ liệu',
+  code: 'JOIN', name: 'SQL joins' }
 
 test('uses question points as denominator and preserves partial credit', () => {
   const result = calculateTopicMastery([
@@ -10,7 +11,8 @@ test('uses question points as denominator and preserves partial credit', () => {
     { questionId: 'q2', earnedPoints: 0, possiblePoints: 6, topics: [join] },
   ])
   assert.deepEqual(result, [{
-    topicId: 'join', subjectId: 'subject-sql', code: 'JOIN', name: 'SQL joins', questionCount: 2,
+    topicId: 'join', subjectId: 'subject-sql', subjectName: 'Cơ sở dữ liệu',
+    code: 'JOIN', name: 'SQL joins', questionCount: 2,
     earnedPoints: 2, possiblePoints: 10, percentage: 20, sufficientData: false, needsPractice: false,
   }])
 })
