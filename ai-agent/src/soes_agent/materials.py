@@ -142,6 +142,23 @@ def select_material_excerpt(text: str, query: str) -> str:
     if len(text) <= MAX_TEXT_CHARS:
         return text
 
+    sections = requested_chapter_text(text, query)
+    if sections:
+        parts = sections.split("\n[...]\n")
+        budget = MAX_TEXT_CHARS // len(parts) - 20
+        return "\n[...]\n".join(_sample_section(part, budget) for part in parts)[:MAX_TEXT_CHARS]
+
+    terms = {word for word in re.findall(r"\w{4,}", query.casefold())
+             if word not in {"chương", "muốn", "cần", "luyện", "phần", "trong", "những", "giúp"}}
+    chunks = [text[start:start + CHUNK_CHARS] for start in range(0, len(text), CHUNK_CHARS)]
+    scored = sorted(range(len(chunks)), key=lambda index: (
+        -sum(term in chunks[index].casefold() for term in terms), index))
+    chosen = sorted(scored[:MAX_TEXT_CHARS // (CHUNK_CHARS + 8)])
+    return "\n[...]\n".join(chunks[index] for index in chosen)[:MAX_TEXT_CHARS]
+
+
+def requested_chapter_text(text: str, query: str) -> str | None:
+    """Scope retrieval to requested chapters without discarding their later pages."""
     chapter_groups = re.findall(r"chương\s+(\d+(?:\s*(?:,|và)\s*\d+)*)", query.casefold())
     requested = list(dict.fromkeys(number for group in chapter_groups for number in re.findall(r"\d+", group)))
     headings = _body_chapter_headings(text)
@@ -160,16 +177,8 @@ def select_material_excerpt(text: str, query: str) -> str:
             end = page_positions.get(next_page, len(text)) if next_page else len(text)
             sections.append(text[start:end])
     if sections:
-        budget = MAX_TEXT_CHARS // len(sections) - 20
-        return "\n[...]\n".join(_sample_section(section, budget) for section in sections)[:MAX_TEXT_CHARS]
-
-    terms = {word for word in re.findall(r"\w{4,}", query.casefold())
-             if word not in {"chương", "muốn", "cần", "luyện", "phần", "trong", "những", "giúp"}}
-    chunks = [text[start:start + CHUNK_CHARS] for start in range(0, len(text), CHUNK_CHARS)]
-    scored = sorted(range(len(chunks)), key=lambda index: (
-        -sum(term in chunks[index].casefold() for term in terms), index))
-    chosen = sorted(scored[:MAX_TEXT_CHARS // (CHUNK_CHARS + 8)])
-    return "\n[...]\n".join(chunks[index] for index in chosen)[:MAX_TEXT_CHARS]
+        return "\n[...]\n".join(sections)
+    return None
 
 
 def _sample_section(section: str, budget: int) -> str:

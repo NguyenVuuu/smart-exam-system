@@ -178,6 +178,8 @@ class AgentAnswer(BaseModel):
     actions: list[Annotated[str, Field(max_length=500)]] = Field(max_length=5)
     evidenceIds: list[Annotated[str, Field(max_length=100)]] = Field(max_length=20)
     caveat: str | None = Field(default=None, max_length=500)
+    sourceQuote: str | None = Field(default=None, max_length=300)
+    sourceLocation: str | None = Field(default=None, max_length=100)
 
 
 class QuestionSourcePart(BaseModel):
@@ -203,6 +205,7 @@ class QuestionDraftRequest(ModelSelection):
     responseSchema: dict[str, Any]
     timeoutSeconds: int = Field(ge=10, le=180)
     maxOutputTokens: int = Field(ge=1024, le=65536)
+    extraction: bool = False
 
     @model_validator(mode="after")
     def bounded_source(self):

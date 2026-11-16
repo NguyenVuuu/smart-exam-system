@@ -22,6 +22,8 @@ export interface LearningAnswer {
   summary: string
   actions: string[]
   evidenceIds: string[]
+  sourceQuote?: string | null
+  sourceLocation?: string | null
   caveat: string | null
 }
 

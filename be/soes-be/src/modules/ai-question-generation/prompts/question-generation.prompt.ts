@@ -26,6 +26,7 @@ export function buildGenerationPrompt(input: GenerateQuestionsBody, subjectName:
     'difficultyReason: 1-2 câu chỉ rõ thao tác tư duy mà sinh viên phải thực hiện và vì sao phù hợp mức yêu cầu; không ghi tiền tố "Mức Khó:" hay "Lý do:".',
     'explanation: giải thích đáp án/thuật toán ngắn gọn nhưng đủ kiểm chứng; không viết rập khuôn "Theo tài liệu...". Mã nguồn dùng Markdown code fence hoặc inline code.',
     input.prompt ? `Yêu cầu bổ sung (không được đổi số lượng, độ khó hay dạng đã chọn): ${input.prompt}` : '',
+    'Nếu yêu cầu bổ sung chỉ là tên chủ đề hoặc vài từ như "vòng lặp", hãy hiểu đó là phạm vi nội dung cần ưu tiên trong môn học và nguồn đã chọn. Không yêu cầu giảng viên viết lại thành câu đầy đủ.',
     'KIỂM TRA TRƯỚC KHI TRẢ: đủ số câu; đúng dạng/độ khó; không trùng nội dung; đúng số đáp án; lời giải nhất quán với đáp án và test case. Câu chưa đạt phải viết lại nội dung, không chỉ sửa nhãn. Chỉ trả JSON, không xuất bản nháp hoặc quá trình suy nghĩ.',
   ].filter(Boolean).join('\n')
 }

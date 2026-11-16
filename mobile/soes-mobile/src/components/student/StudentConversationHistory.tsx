@@ -27,7 +27,10 @@ export function StudentConversationHistory({ conversations, currentId, turns, ma
           {turn.answer.actions.map((action, index) => <Text key={index} style={{ color: '#334155' }}>• {action}</Text>)}
           {!!turn.answer.caveat && <Text style={{ color: '#64748b' }}>{turn.answer.caveat}</Text>}
           {material && turn.answer.evidenceIds.includes(material.id) &&
-            <Text style={{ color: '#1d4ed8', fontSize: 12 }}>Nguồn: {material.title || material.fileName}</Text>}
+            <View style={{ gap: 3 }}>
+              <Text style={{ color: '#1d4ed8', fontSize: 12 }}>Nguồn: {material.title || material.fileName}{turn.answer.sourceLocation ? ` · ${turn.answer.sourceLocation}` : ''}</Text>
+              {!!turn.answer.sourceQuote && <Text style={{ color: '#64748b', fontSize: 12 }}>“{turn.answer.sourceQuote}”</Text>}
+            </View>}
         </View>
       </View>)}
     </View>}
