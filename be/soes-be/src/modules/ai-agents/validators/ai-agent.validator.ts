@@ -31,6 +31,8 @@ export const agentAnswerSchema = z.object({
   actions: z.array(z.string().max(500)).max(5),
   evidenceIds: z.array(z.string().max(100)).max(20),
   caveat: z.string().max(500).nullable(),
+  sourceQuote: z.string().max(300).nullable().optional(),
+  sourceLocation: z.string().max(100).nullable().optional(),
 })
 
 export const examDraftRequestSchema = z.object({

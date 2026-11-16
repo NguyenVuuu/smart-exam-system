@@ -51,6 +51,7 @@ async function generateReviewedQuestions(request: GeminiGenerationRequest, useAg
           responseSchema: buildGenerationResponseSchema(currentRequest),
           timeoutSeconds: Math.min(180, Math.max(10, Math.ceil(remainingMs / 1000))),
           maxOutputTokens: generationTokenLimit(currentRequest),
+          extraction: request.extraction,
         }, remainingMs)),
         candidates: undefined,
         usageMetadata: undefined,
