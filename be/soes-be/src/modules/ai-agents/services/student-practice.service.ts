@@ -10,7 +10,7 @@ import { choosePracticeDifficulty } from './practice-difficulty'
 import { studentInsights } from '../../learning-analytics/services/learning-analytics.service'
 import { selectWeakPracticeTopic } from './practice-focus'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
-import { gradeProgrammingPractice, practiceLanguage, runProgrammingPracticeSample, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
+import { collectVerifiedProgrammingQuestions, gradeProgrammingPractice, practiceLanguage, runProgrammingPracticeSample, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
 type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
@@ -58,9 +58,11 @@ export async function createStudentPractice(studentId: string, userId: string, i
   let questions: Array<PracticeQuestion | ProgrammingQuestion>
   if (programming) {
     const language = practiceLanguage(input.instruction, material.subjectName)
-    const draft = await requestProgrammingPracticeDraftAgent({ ...request, language })
-    await verifyProgrammingDraft(draft.questions, language)
-    questions = draft.questions
+    questions = await collectVerifiedProgrammingQuestions(input.count,
+      async (count, excludedStems) => (await requestProgrammingPracticeDraftAgent({
+        ...request, count, language, excludedStems,
+      })).questions,
+      (candidates) => verifyProgrammingDraft(candidates, language))
   } else {
     questions = (await requestPracticeDraftAgent(request)).questions
   }

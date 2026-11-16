@@ -1,9 +1,47 @@
 import { AppError, ValidationError } from '../../../errors/AppError'
 import { Judge0Service, judge0Service } from '../../../lib/judge0'
+import { logger } from '../../../lib/logger'
 import { programmingPracticeQuestionSchema } from '../validators/ai-agent.validator'
 import type { z } from 'zod'
 
-type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
+export type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
+
+const MAX_GENERATION_ATTEMPTS = 3
+
+function normalizedStem(stem: string) {
+  return stem.trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi-VN')
+}
+
+export async function collectVerifiedProgrammingQuestions(desiredCount: number,
+  generate: (missing: number, excludedStems: string[]) => Promise<ProgrammingQuestion[]>,
+  verify: (questions: ProgrammingQuestion[]) => Promise<ProgrammingQuestion[]>) {
+  const accepted: ProgrammingQuestion[] = []
+  const attemptedStems: string[] = []
+  const attemptedKeys = new Set<string>()
+
+  for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS && accepted.length < desiredCount; attempt += 1) {
+    const missing = desiredCount - accepted.length
+    const generated = await generate(missing, attemptedStems.slice(-20).map((stem) => stem.slice(0, 300)))
+    const novel = generated.filter((question) => {
+      const key = normalizedStem(question.stem)
+      if (attemptedKeys.has(key)) return false
+      attemptedKeys.add(key)
+      attemptedStems.push(question.stem)
+      return true
+    })
+    const verified = await verify(novel)
+    accepted.push(...verified.slice(0, missing))
+    logger.info('AI programming practice Judge verification completed', {
+      attempt, requested: missing, generated: generated.length, novel: novel.length,
+      accepted: verified.length, remaining: desiredCount - accepted.length,
+    })
+  }
+
+  if (accepted.length < desiredCount) {
+    throw new ValidationError('AI chưa tạo đủ bài lập trình vượt qua kiểm thử. Vui lòng thử lại')
+  }
+  return accepted
+}
 
 export function wantsProgrammingPractice(instruction?: string): boolean {
   const text = (instruction ?? '').toLocaleLowerCase('vi-VN')
@@ -24,13 +62,14 @@ export function practiceLanguage(instruction: string | undefined, subjectName: s
 }
 
 async function runCase(sourceCode: string, language: ProgrammingQuestion['language'],
-  test: ProgrammingQuestion['testCases'][number]): Promise<boolean> {
+  test: ProgrammingQuestion['testCases'][number]) {
   const result = await judge0Service.submitAndPoll({
     source_code: sourceCode, language_id: language, stdin: test.input,
     expected_output: test.expectedOutput, cpu_time_limit: 2, memory_limit: 128000,
   })
   if (result.status.id === 13) throw new AppError(503, 'Judge tạm thời không khả dụng')
-  return Judge0Service.mapResultToInternal(result, test.expectedOutput) === 'PASSED'
+  const outcome = Judge0Service.mapResultToInternal(result, test.expectedOutput)
+  return { passed: outcome === 'PASSED', outcome, judgeStatus: result.status.description }
 }
 
 export async function runProgrammingPracticeSample(sourceCode: string, question: ProgrammingQuestion) {
@@ -52,29 +91,40 @@ export async function runProgrammingPracticeSample(sourceCode: string, question:
 }
 
 export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], language: ProgrammingQuestion['language']) {
-  for (const question of questions) {
-    if (question.language !== language || new Set(question.testCases.map((test) => test.input)).size !== question.testCases.length) {
-      throw new ValidationError('Bài lập trình AI tạo chưa hợp lệ')
-    }
-  }
+  const verified: ProgrammingQuestion[] = []
   try {
     for (let start = 0; start < questions.length; start += 3) {
-      const valid = await Promise.all(questions.slice(start, start + 3).map(async (question) => {
+      const batch = questions.slice(start, start + 3)
+      const valid = await Promise.all(batch.map(async (question, batchIndex) => {
+        const questionIndex = start + batchIndex
+        if (question.language !== language ||
+          new Set(question.testCases.map((test) => test.input)).size !== question.testCases.length) {
+          logger.warn('AI programming practice failed structural verification', { questionIndex })
+          return false
+        }
         const results = await Promise.all(question.testCases.map((test) => runCase(question.referenceSolution, language, test)))
-        return results.every(Boolean)
+        results.forEach((result, testCaseIndex) => {
+          if (!result.passed) logger.warn('AI programming practice failed Judge verification', {
+            questionIndex, testCaseIndex, outcome: result.outcome, judgeStatus: result.judgeStatus,
+          })
+        })
+        return results.every((result) => result.passed)
       }))
-      if (!valid.every(Boolean)) throw new ValidationError('Bài lập trình AI tạo chưa vượt qua test case')
+      valid.forEach((passed, index) => {
+        if (passed) verified.push(batch[index])
+      })
     }
   } catch (error) {
-    if (error instanceof ValidationError || error instanceof AppError) throw error
+    if (error instanceof AppError) throw error
     throw new AppError(503, 'Không thể kiểm tra bài lập trình với Judge')
   }
+  return verified
 }
 
 export async function gradeProgrammingPractice(sourceCode: string, question: ProgrammingQuestion) {
   try {
     const results = await Promise.all(question.testCases.map((test) => runCase(sourceCode, question.language, test)))
-    const passedTestCases = results.filter(Boolean).length
+    const passedTestCases = results.filter((result) => result.passed).length
     return { score: Number(passedTestCases === question.testCases.length), passedTestCases,
       totalTestCases: question.testCases.length }
   } catch (error) {

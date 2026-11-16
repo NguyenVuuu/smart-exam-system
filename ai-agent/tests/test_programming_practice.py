@@ -52,6 +52,10 @@ def test_programming_practice_requires_matching_language_and_source():
     accepted, issues = review_programming_questions([invalid], SOURCE + "\n" + contents, request())
     assert not accepted
     assert issues["Programming practice source quote is invalid"] == 1
+    excluded_request = request().model_copy(update={"excludedStems": [question().stem]})
+    accepted, issues = review_programming_questions([question()], SOURCE, excluded_request)
+    assert not accepted
+    assert issues["Duplicate programming practice question"] == 1
 
 
 @pytest.mark.asyncio

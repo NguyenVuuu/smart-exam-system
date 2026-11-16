@@ -134,6 +134,9 @@ class PracticeDraft(BaseModel):
 
 class ProgrammingPracticeRequest(PracticeDraftRequest):
     language: Literal["C", "CPP", "JAVA"]
+    excludedStems: list[Annotated[str, Field(min_length=10, max_length=300)]] = Field(
+        default_factory=list, max_length=20,
+    )
 
 
 class ProgrammingPracticeTest(BaseModel):
