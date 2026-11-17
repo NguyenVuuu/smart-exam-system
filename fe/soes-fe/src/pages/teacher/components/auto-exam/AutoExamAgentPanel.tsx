@@ -1,13 +1,15 @@
 import { Sparkles } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { getApiErrorMessage } from '../../../../api/errors'
 import { getLearningTopics, type LearningTopic } from '../../api/teacher-questions.api'
 import { proposeAgentExamDraft, type AgentExamDraft } from '../../api/teacher-ai-exam.api'
+import type { Question } from '../../types/teacher-question-bank.types'
 import AgentExamProposalPreview from './AgentExamProposalPreview'
 
 interface Props {
   subjectId: string
   format: 'OBJECTIVE' | 'PROGRAMMING' | 'MIXED'
+  eligibleQuestions: Question[]
   proposal: AgentExamDraft | null
   targetTotalPoints: number
   isSaving: boolean
@@ -18,7 +20,7 @@ interface Props {
 }
 
 export default function AutoExamAgentPanel({
-  subjectId, format, proposal, targetTotalPoints, isSaving, isSaved,
+  subjectId, format, eligibleQuestions, proposal, targetTotalPoints, isSaving, isSaved,
   onProposal, onInvalidate, onSaveDraft,
 }: Props) {
   const [message, setMessage] = useState('')
@@ -28,6 +30,15 @@ export default function AutoExamAgentPanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const requestVersion = useRef(0)
+  const topicCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    eligibleQuestions.forEach((question) => question.topics?.forEach(({ id }) => {
+      counts.set(id, (counts.get(id) ?? 0) + 1)
+    }))
+    return counts
+  }, [eligibleQuestions])
+  const invalidTarget = topics.find((topic) =>
+    (topicTargets[topic.id] ?? 0) > Math.min(desiredCount, topicCounts.get(topic.id) ?? 0))
 
   useEffect(() => () => { requestVersion.current += 1 }, [])
 
@@ -42,7 +53,7 @@ export default function AutoExamAgentPanel({
 
   const suggest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!subjectId || !message.trim() || loading) return
+    if (!subjectId || !message.trim() || loading || invalidTarget) return
     invalidate()
     const version = requestVersion.current
     setLoading(true)
@@ -85,17 +96,22 @@ export default function AutoExamAgentPanel({
       </label>
       {topics.length > 0 && <div>
         <p className="text-sm font-medium text-slate-800">Số câu tối thiểu theo chủ đề <span className="font-normal text-slate-500">(tùy chọn)</span></p>
+        <p className="mt-1 text-xs text-slate-600">Số câu dưới đây thuộc ngân hàng của môn học và hình thức đề đã chọn. AI chỉ chọn các câu vượt qua bước rà soát.</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {topics.map((topic) => <label key={topic.id} className="flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm">
-            <span className="min-w-0 truncate" title={topic.name}>{topic.name}</span>
-            <input type="number" aria-label={`Số câu chủ đề ${topic.name}`} min={0} max={desiredCount}
+            <span className="min-w-0">
+              <span className="block truncate" title={topic.name}>{topic.name}</span>
+              <span className="text-xs text-slate-500">{topicCounts.get(topic.id) ?? 0} câu trong ngân hàng</span>
+            </span>
+            <input type="number" aria-label={`Số câu tối thiểu chủ đề ${topic.name}`} min={0} max={Math.min(desiredCount, topicCounts.get(topic.id) ?? 0)}
               value={topicTargets[topic.id] ?? 0}
               onChange={(event) => { setTopicTargets((current) => ({ ...current, [topic.id]: Number(event.target.value) })); invalidate() }}
-              className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-center" />
+              className="w-16 shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-center" />
           </label>)}
         </div>
+        {invalidTarget && <p role="alert" className="mt-2 text-sm text-red-700">Số câu tối thiểu của “{invalidTarget.name}” vượt quá số câu trong ngân hàng hoặc tổng số câu cần tạo.</p>}
       </div>}
-      <button type="submit" disabled={loading || !subjectId || !message.trim() || desiredCount < 1 || desiredCount > 100}
+      <button type="submit" disabled={loading || !subjectId || !message.trim() || desiredCount < 1 || desiredCount > 100 || Boolean(invalidTarget)}
         className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
         {loading ? 'Đang chọn câu...' : 'Đề xuất đề thi'}
       </button>
