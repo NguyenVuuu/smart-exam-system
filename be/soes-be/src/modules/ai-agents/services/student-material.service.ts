@@ -3,6 +3,7 @@ import { NotFoundError, ValidationError } from '../../../errors/AppError'
 import { downloadBufferFromBucket } from '../../../services/storage.service'
 import { supabaseBuckets } from '../../../lib/supabase'
 import { findStudentMaterial, listStudentMaterials } from '../repositories/student-material.repository'
+import { loadCourseMaterialBuffer } from '../../ai-question-generation/services/course-material-buffer.cache'
 
 const supportedTypes: Record<string, string> = {
   '.pdf': 'application/pdf',
@@ -21,7 +22,8 @@ export async function loadStudentMaterial(studentId: string, materialId: string)
   if (!material) throw new NotFoundError('Material not found')
   const mimeType = supportedTypes[extname(material.fileName).toLowerCase()]
   if (!mimeType || material.fileSize > maxBytes) throw new ValidationError('Material is not available for AI study')
-  const buffer = await downloadBufferFromBucket(supabaseBuckets.courseMaterials, material.storagePath)
+  const buffer = await loadCourseMaterialBuffer(material.storagePath, material.checksum,
+    () => downloadBufferFromBucket(supabaseBuckets.courseMaterials, material.storagePath))
   if (buffer.length > maxBytes) throw new ValidationError('Material is too large for AI study')
   return {
     materialId: material.id,

@@ -4,9 +4,28 @@ import { runPracticeSample, type PracticeSampleResult } from '../../api/student-
 
 const hints = {
   C: ['int', 'char', 'float', 'double', 'void', 'printf', 'scanf', 'strlen', 'malloc'],
-  CPP: ['int', 'char', 'string', 'vector', 'bool', 'long long', 'std::cout', 'std::cin', 'std::sort'],
-  JAVA: ['int', 'char', 'String', 'boolean', 'double', 'Math.max', 'Math.min', 'System.out.println', 'Scanner'],
+  CPP: ['int', 'char', 'string', 'vector', 'bool', 'long long', 'std::cout', 'std::cin', 'std::sort', 'std::reverse', 'std::sqrt'],
+  JAVA: ['int', 'char', 'String', 'boolean', 'double', 'Math.max', 'Math.min', 'Math.sqrt', 'System.out.println', 'Scanner', 'Arrays.sort', 'Collections.sort'],
 } as const
+
+function importForHint(language: 'C' | 'CPP' | 'JAVA', hint: string) {
+  if (language === 'JAVA') {
+    if (['Scanner', 'Arrays', 'Collections', 'List', 'ArrayList', 'Map', 'Set', 'Arrays.sort', 'Collections.sort'].includes(hint)) return 'import java.util.*;'
+    return ''
+  }
+  if (language === 'C') {
+    if (['printf', 'scanf', 'puts', 'getchar'].includes(hint)) return '#include <stdio.h>'
+    if (['strlen', 'strcmp'].includes(hint)) return '#include <string.h>'
+    if (['malloc', 'free', 'abs'].includes(hint)) return '#include <stdlib.h>'
+    if (['sqrt', 'pow'].includes(hint)) return '#include <math.h>'
+    return ''
+  }
+  if (['std::sort', 'std::reverse'].includes(hint)) return '#include <algorithm>'
+  if (hint === 'std::sqrt') return '#include <cmath>'
+  if (hint === 'vector') return '#include <vector>'
+  if (hint === 'string') return '#include <string>'
+  return ''
+}
 
 export default function PracticeCodeInput({ setId, item, value, onChange, onFocusInput, completed }: {
   setId: string
@@ -28,9 +47,22 @@ export default function PracticeCodeInput({ setId, item, value, onChange, onFocu
 
   const insert = (hint: string) => {
     const start = cursor - prefix.length
-    const next = value.slice(0, start) + hint + value.slice(cursor)
+    let next = value.slice(0, start) + hint + value.slice(cursor)
+    let importOffset = 0
+    const requiredImport = importForHint(item.language, hint)
+    if (requiredImport && !next.includes(requiredImport)) {
+      if (item.language === 'JAVA') {
+        const classStart = next.search(/\bclass\s+\w+/)
+        const insertionPoint = classStart < 0 ? 0 : classStart
+        next = `${next.slice(0, insertionPoint)}${requiredImport}\n${next.slice(insertionPoint)}`
+        if (insertionPoint <= start) importOffset = requiredImport.length + 1
+      } else {
+        next = `${requiredImport}\n${next}`
+        importOffset = requiredImport.length + 1
+      }
+    }
     onChange(next); setResult(null)
-    const position = start + hint.length
+    const position = start + hint.length + importOffset
     setCursor(position); setSelection({ start: position, end: position })
     inputRef.current?.focus()
   }

@@ -13,7 +13,7 @@ import TeacherTopBar from './components/TeacherTopBar'
 import CreateExamTypeModal from './components/exam-detail/CreateExamTypeModal'
 import DeleteExamDialog from './components/exam-detail/DeleteExamDialog'
 import { useTeacherExams } from './hooks/useTeacherExams'
-import type { Exam } from './types/teacher-exam.types'
+import type { Exam, ExamCategory } from './types/teacher-exam.types'
 import { examStatusLabel, examStatusTone } from './constants/examStatus'
 import { useTeacherCourses } from './hooks/useTeacherCourses'
 import { getApiErrorMessage } from '../../api/errors'
@@ -26,6 +26,7 @@ export default function TeacherExamsPage() {
   const { semesterOptions, currentSemesterId } = useTeacherCourses()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('ALL')
+  const [selectedCategory, setSelectedCategory] = useState<ExamCategory | 'ALL'>('ALL')
   const [selectedSemester, setSelectedSemester] = useState<string | null>(null)
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false)
   const [deletingExam, setDeletingExam] = useState<Exam | null>(null)
@@ -36,17 +37,19 @@ export default function TeacherExamsPage() {
   const handleResetFilters = () => {
     setSearchQuery('')
     setSelectedStatus('ALL')
+    setSelectedCategory('ALL')
     setSelectedSemester(currentSemesterId ?? 'ALL')
   }
 
   const filteredExams = exams.filter((e) => {
     const matchesStatus = selectedStatus === 'ALL' || e.status === selectedStatus
+    const matchesCategory = selectedCategory === 'ALL' || e.category === selectedCategory
     const matchesSemester = effectiveSemester === 'ALL' || e.semesterId === effectiveSemester
     const matchesSearch =
       e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.subjectName.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesStatus && matchesSemester && matchesSearch
+    return matchesStatus && matchesCategory && matchesSemester && matchesSearch
   })
 
   const handleDeleteExam = (exam: Exam, e: React.MouseEvent) => {
@@ -261,6 +264,18 @@ export default function TeacherExamsPage() {
                     { value: 'PUBLISHED', label: 'Đã công bố' },
                     { value: 'LOCKED', label: 'Đã khóa' },
                     { value: 'ARCHIVED', label: 'Đã lưu trữ' },
+                  ]}
+                />
+                <AppSelect
+                  value={selectedCategory}
+                  onChange={setSelectedCategory}
+                  ariaLabel="Lọc theo loại bài thi"
+                  className="w-52"
+                  options={[
+                    { value: 'ALL', label: 'Tất cả loại bài thi' },
+                    { value: 'QUIZ', label: examCategoryLabel.QUIZ },
+                    { value: 'MIDTERM', label: examCategoryLabel.MIDTERM },
+                    { value: 'FINAL', label: examCategoryLabel.FINAL },
                   ]}
                 />
               </>}

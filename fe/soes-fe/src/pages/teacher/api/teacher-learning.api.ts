@@ -8,6 +8,8 @@ export interface TeacherLearningInsights {
     topicId: string
     name: string
     questionCount: number
+    distinctQuestionCount: number
+    respondentCount: number
     percentage: number
     sufficientData: boolean
   }>
@@ -36,6 +38,13 @@ export interface TeacherLearningAnswer {
 
 export interface ProgrammingReview {
   summary: string
+  approach?: string | null
+  approachEvidence?: string | null
+  timeComplexity?: string | null
+  timeComplexityEvidence?: string | null
+  spaceComplexity?: string | null
+  spaceComplexityEvidence?: string | null
+  complexityReasoning?: string | null
   suggestions: string[]
   caveat: string
 }

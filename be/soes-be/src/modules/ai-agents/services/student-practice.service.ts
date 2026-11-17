@@ -10,7 +10,7 @@ import { choosePracticeDifficulty } from './practice-difficulty'
 import { studentInsights } from '../../learning-analytics/services/learning-analytics.service'
 import { selectWeakPracticeTopic } from './practice-focus'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
-import { gradeProgrammingPractice, practiceLanguage, runProgrammingPracticeSample, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
+import { collectVerifiedProgrammingQuestions, gradeProgrammingPractice, practiceLanguage, runProgrammingPracticeSample, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
 type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
@@ -58,9 +58,11 @@ export async function createStudentPractice(studentId: string, userId: string, i
   let questions: Array<PracticeQuestion | ProgrammingQuestion>
   if (programming) {
     const language = practiceLanguage(input.instruction, material.subjectName)
-    const draft = await requestProgrammingPracticeDraftAgent({ ...request, language })
-    await verifyProgrammingDraft(draft.questions, language)
-    questions = draft.questions
+    questions = await collectVerifiedProgrammingQuestions(input.count,
+      async (count, excludedStems) => (await requestProgrammingPracticeDraftAgent({
+        ...request, count, language, excludedStems,
+      })).questions,
+      (candidates) => verifyProgrammingDraft(candidates, language))
   } else {
     questions = (await requestPracticeDraftAgent(request)).questions
   }
@@ -104,7 +106,8 @@ export async function getStudentPractice(studentId: string, practiceSetId: strin
         const answer = item.response?.answer as { sourceCode: string; passedTestCases: number; totalTestCases: number } | undefined
         return { ...publicItem(item), ...(set.completedAt && answer && { result: {
           ...answer, explanation: question.explanation, supportQuote: question.supportQuote,
-          materialTitle: source.materialTitle, sourceLocation: question.sourceLocation,
+          materialTitle: question.sourceUrls?.length ? 'Nguồn web tham khảo' : source.materialTitle,
+          sourceLocation: question.sourceLocation, sourceUrls: question.sourceUrls,
         } }) }
       }
       const question = practiceDraftSchema.shape.questions.element.parse(item.snapshot)
@@ -123,9 +126,12 @@ export async function listStudentPractice(studentId: string) {
   const rows = await prisma.practiceSet.findMany({
     where: { studentId }, orderBy: { createdAt: 'desc' }, take: 20,
     select: { id: true, createdAt: true, completedAt: true, score: true,
-      subject: { select: { name: true } }, _count: { select: { items: true } } },
+      subject: { select: { name: true } }, _count: { select: { items: true } },
+      items: { select: { snapshot: true }, orderBy: { orderIndex: 'asc' }, take: 1 } },
   })
-  return rows.map((row) => ({ ...row, score: row.score === null ? null : Number(row.score) }))
+  return rows.map(({ items, ...row }) => ({ ...row, score: row.score === null ? null : Number(row.score),
+    kind: (items[0]?.snapshot as { kind?: string } | undefined)?.kind === 'PROGRAMMING' ? 'PROGRAMMING' : 'CHOICE',
+  }))
 }
 
 export async function runStudentPracticeSample(studentId: string, practiceSetId: string, itemId: string, sourceCode: string) {

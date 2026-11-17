@@ -3,7 +3,7 @@ import base64
 import pytest
 
 from soes_agent.contracts import AgentAnswer, StudentRequest, StudyMaterial
-from soes_agent.workflows import add_evidence_scope, build_evidence, percentages_are_grounded, run_student
+from soes_agent.workflows import add_evidence_scope, build_evidence, class_sizes_are_grounded, percentages_are_grounded, run_student
 
 
 def test_evidence_contains_only_numeric_metrics():
@@ -76,6 +76,16 @@ def test_teacher_class_answer_includes_verified_sample_size():
     scoped = add_evidence_scope(answer, evidence)
     assert "SE01: 8 sinh viên" in scoped.caveat
     assert "gần đây" in scoped.caveat
+
+
+def test_teacher_class_size_must_match_the_cited_class():
+    evidence = {"material": None, "classes": [
+        {"courseOfferingId": "class-1", "studentCount": 8},
+        {"courseOfferingId": "class-2", "studentCount": 20},
+    ]}
+    answer = AgentAnswer(summary="Lớp có 20 sinh viên", actions=[], evidenceIds=["class-1"])
+    assert not class_sizes_are_grounded(answer, evidence)
+    assert class_sizes_are_grounded(answer.model_copy(update={"summary": "Lớp có 8 sinh viên"}), evidence)
 
 
 @pytest.mark.asyncio
@@ -165,13 +175,16 @@ async def test_discards_model_citations_not_present_in_evidence():
 
 
 @pytest.mark.asyncio
-async def test_student_exercise_request_uses_practice_flow_without_calling_model():
+async def test_student_exercise_request_receives_conversational_answer():
     class Model:
         def with_structured_output(self, _schema, *, method):
             return self
 
-        async def ainvoke(self, _messages):
-            raise AssertionError("Practice requests must use the validated practice flow")
+        async def ainvoke(self, messages):
+            assert "tôi sắp thi chương 3" in messages[1][1]
+            return {"summary": "Chương 3 giới thiệu lớp và đối tượng. Bạn muốn ôn khái niệm nào trước?",
+                    "actions": ["Nếu muốn tạo bài có chấm điểm, mở tab Bài luyện."],
+                    "evidenceIds": ["material-1"]}
 
     material = StudyMaterial(
         materialId="material-1", title="Java", mimeType="text/plain",
@@ -182,8 +195,8 @@ async def test_student_exercise_request_uses_practice_flow_without_calling_model
         limitedToRecentAttempts=False, topics=[], material=material,
         history=[{"message": "Giải thích chương 3", "summary": "Chương 3 nói về OOP."}],
     ))
-    assert "Bài luyện" in answer.summary
-    assert "20" in answer.summary
+    assert "Chương 3" in answer.summary
+    assert "Bài luyện" in answer.actions[0]
     assert answer.evidenceIds == ["material-1"]
 
 

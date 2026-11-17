@@ -28,6 +28,9 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
       logger.warn('AI agent returned an error', { workflow: path, status: response.status, elapsedMs: Date.now() - startedAt })
       if (response.status === 429) throw new AppError(429, 'AI provider rate limit reached')
       if (response.status === 503) throw new AppError(503, 'AI provider is temporarily unavailable')
+      if (response.status === 422 && path === '/v1/teacher/insights') {
+        throw new AppError(422, 'Dữ liệu phân tích lớp chưa hợp lệ để trợ lý xử lý. Vui lòng tải lại trang và thử lại.')
+      }
       if (response.status === 422 && path === '/v1/teacher/exam-draft') {
         throw new AppError(422, 'Trợ lý chưa chọn được đủ câu hỏi phù hợp. Hãy giảm số câu hoặc điều chỉnh yêu cầu và thử lại.')
       }
@@ -36,7 +39,7 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
         const detail = typeof error?.detail === 'string' ? error.detail : ''
         if (detail === 'Material has no usable evidence' || detail === 'Material has no readable text' ||
           detail === 'Material cannot be read') {
-          throw new AppError(422, 'Tài liệu đã chọn chưa có nội dung đọc được để tạo bài lập trình')
+          throw new AppError(422, 'Chưa tìm được nội dung phù hợp trong tài liệu hoặc nguồn web để tạo bài lập trình')
         }
         if (detail === 'Programming practice question count mismatch' ||
           detail === 'Duplicate programming practice question') {

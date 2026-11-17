@@ -111,6 +111,18 @@ describe('auditQuestion', () => {
     assert.equal(classifyAuditIssues(issues), 'HIGH')
   })
 
+  it('rejects conflicting expected outputs for the same input', () => {
+    const issues = auditQuestion(objectiveQuestion({
+      type: 'PROGRAMMING', language: 'JAVA', options: [],
+      timeLimitMs: 2000, memoryLimitMb: 256, maxCodeSizeKb: 256,
+      testCases: [
+        { input: '2\n', expectedOutput: '4\n', isHidden: false },
+        { input: '2', expectedOutput: '5', isHidden: true },
+      ],
+    }))
+    assert.ok(issues.some(({ code, severity }) => code === 'TEST_CASE_CONFLICT' && severity === 'HIGH'))
+  })
+
   it('classifies an explanation-only issue as a warning', () => {
     const issues = auditQuestion(objectiveQuestion({ explanation: null }))
 

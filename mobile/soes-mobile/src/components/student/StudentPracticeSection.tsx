@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Linking, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { createPracticeSet, getLearningAgentError, getPracticeSet, listPracticeSets, submitPracticeSet,
   type PracticeSet, type PracticeSummary, type StudyMaterial, type StudentLearningInsights } from '../../api/student-learning.api'
 import { ChoicePicker } from '../ui/ChoicePicker'
@@ -18,7 +18,7 @@ export default function StudentPracticeSection({ materials, topics, initialTopic
   const initialMaterials = materials.filter((item) => item.courseOffering.subject.id === initialSubjectId)
   const [selectedSubject, setSelectedSubject] = useState(initialSubjectId)
   const [selectedMaterial, setSelectedMaterial] = useState(initialMaterials.length === 1 ? initialMaterials[0].id : '')
-  const [focusTopicId, setFocusTopicId] = useState(initialTopic?.topicId ?? '')
+  const [focusTopicId, setFocusTopicId] = useState(initialTopic?.needsPractice ? initialTopic.topicId : '')
   const [kind, setKind] = useState<'CHOICE' | 'PROGRAMMING'>('CHOICE')
   const [instruction, setInstruction] = useState(initialTopic
     ? `Tạo bài luyện về ${initialTopic.name}, ưu tiên khái niệm cốt lõi, ví dụ áp dụng và lỗi thường gặp.`
@@ -30,6 +30,7 @@ export default function StudentPracticeSection({ materials, topics, initialTopic
   const [codes, setCodes] = useState<Record<string, string>>({})
   const [page, setPage] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const subjects = Array.from(new Map(materials.map((item) => [item.courseOffering.subject.id, item.courseOffering.subject])).values())
   const subjectMaterials = materials.filter((item) => item.courseOffering.subject.id === selectedSubject)
@@ -42,12 +43,12 @@ export default function StudentPracticeSection({ materials, topics, initialTopic
 
   const create = async () => {
     if (!selectedMaterial || !validCount || busy) return
-    setBusy(true); setError('')
+    setBusy(true); setCreating(true); setError('')
     try {
       setCurrent(await createPracticeSet(selectedMaterial, count, focusTopicId || undefined, instruction.trim() || undefined, kind)); setChoices({}); setCodes({}); setPage(0)
       listPracticeSets().then(setSets).catch(() => {})
     } catch (cause) { setError(getLearningAgentError(cause, 'Chưa thể tạo bài luyện. Vui lòng thử lại sau.')) }
-    finally { setBusy(false) }
+    finally { setBusy(false); setCreating(false) }
   }
 
   const open = async (id: string) => {
@@ -112,16 +113,18 @@ export default function StudentPracticeSection({ materials, topics, initialTopic
     <Text style={{ color: validCount || questionCount === '0' ? '#64748b' : '#b91c1c', fontSize: 12 }}>Từ 1 đến 20 câu</Text>
     <TouchableOpacity accessibilityRole="button" disabled={!selectedMaterial || !validCount || busy} onPress={() => void create()}
       style={{ padding: 12, borderRadius: 10, backgroundColor: '#2563eb', opacity: !selectedMaterial || !validCount || busy ? 0.5 : 1 }}>
-      <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '700' }}>{busy ? 'Đang tạo bài...' : `Tạo ${count} câu ôn tập`}</Text>
+      <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '700' }}>{creating ? 'Đang tạo và kiểm tra...' : `Tạo ${count} câu ôn tập`}</Text>
     </TouchableOpacity>
+    {creating && <View accessibilityRole="progressbar" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+      padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}>
+      <ActivityIndicator color="#2563eb" />
+      <Text style={{ flex: 1, color: '#1e3a8a' }}>{kind === 'PROGRAMMING'
+        ? 'AI đang sinh bài; hệ thống chạy lời giải với các test case trên Judge trước khi hiển thị.'
+        : 'AI đang sinh câu hỏi và kiểm tra đáp án theo tài liệu trước khi hiển thị.'}</Text>
+    </View>}
     {!!error && <Text accessibilityRole="alert" style={{ color: '#b91c1c', backgroundColor: '#fef2f2',
       borderColor: '#fecaca', borderWidth: 1, borderRadius: 12, padding: 12 }}>{error}</Text>}
-    {sets.length > 0 && <ChoicePicker label="Lịch sử bài luyện" placeholder="Chọn bài luyện để xem lại"
-      options={sets.map((set) => ({ value: set.id,
-        label: `${set.subject.name} · ${new Date(set.createdAt).toLocaleString('vi-VN')}`,
-        description: set.completedAt ? `${set.score}/${set._count.items} câu đúng` : 'Chưa nộp' }))}
-      selectedValues={current ? [current.id] : []} onToggle={(id) => void open(id)} disabled={busy} />}
-    {current && <View style={{ gap: 12 }}>
+    {current && !creating && <View style={{ gap: 12 }}>
       {!!current.completedAt && <Text style={{ color: '#1d4ed8', fontWeight: '700' }}>Kết quả: {current.score}/{current.items.length}</Text>}
       {current.items.slice(page * 5, (page + 1) * 5).map((item) => <View key={item.id} style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', gap: 8 }}>
         <Text style={{ fontWeight: '700', color: '#0f172a' }}>Câu {item.orderIndex}: {item.stem}</Text>
@@ -146,6 +149,10 @@ export default function StudentPracticeSection({ materials, topics, initialTopic
         {item.result && <>
           <Text style={{ color: '#64748b' }}>{item.result.explanation}</Text>
           <Text style={{ color: '#64748b', fontSize: 12 }}>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}</Text>
+          {item.kind === 'PROGRAMMING' && item.result.sourceUrls?.map((url, index) =>
+            <TouchableOpacity key={url} accessibilityRole="link" onPress={() => void Linking.openURL(url)}>
+              <Text style={{ color: '#1d4ed8', fontSize: 12 }} numberOfLines={2}>Nguồn web {index + 1}: {url}</Text>
+            </TouchableOpacity>)}
         </>}
       </View>)}
       {pageCount > 1 && <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -160,5 +167,10 @@ export default function StudentPracticeSection({ materials, topics, initialTopic
         <Text style={{ color: '#fff', fontWeight: '700', textAlign: 'center' }}>Nộp bài luyện</Text>
       </TouchableOpacity>}
     </View>}
+    {sets.length > 0 && <ChoicePicker label="Lịch sử bài luyện" placeholder="Chọn bài luyện để xem lại"
+      options={sets.map((set) => ({ value: set.id,
+        label: `${set.subject.name} · ${set.kind === 'PROGRAMMING' ? 'Lập trình' : 'Trắc nghiệm'} · ${new Date(set.createdAt).toLocaleString('vi-VN')}`,
+        description: set.completedAt ? `${set.score}/${set._count.items} câu đúng` : 'Chưa nộp' }))}
+      selectedValues={current ? [current.id] : []} onToggle={(id) => void open(id)} disabled={busy} />}
   </View>
 }

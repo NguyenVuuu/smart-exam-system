@@ -28,6 +28,7 @@ CHUNK_OVERLAP = 180
 INDEX_TTL_SECONDS = 7 * 24 * 3600
 INDEX_PATH = Path(__file__).resolve().parents[2] / ".cache" / "rag.sqlite3"
 _locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
+_embedding_quota_retry_after: dict[str, float] = {}
 GENERIC_QUERY_TERMS = {
     "ôn", "tập", "câu", "hỏi", "bài", "giúp", "tôi", "em", "cho", "tạo", "sinh",
     "nội", "dung", "kiến", "thức", "trong", "tài", "liệu", "môn", "học", "chủ",
@@ -114,8 +115,9 @@ def _write_vectors(key: str, vectors: list[list[float]], path: Path) -> None:
 
 
 def _select(chunks: list[str], lexical: list[float], semantic: list[float] | None,
-            groups: list[int] | None = None, broad: bool = False) -> str:
-    budget = MAX_TEXT_CHARS // (CHUNK_SIZE + 8)
+            groups: list[int] | None = None, broad: bool = False,
+            max_chars: int = MAX_TEXT_CHARS) -> str:
+    budget = max(1, max_chars // (CHUNK_SIZE + 8))
     if broad or (semantic is None and not any(lexical)):
         if groups is None:
             indices = _spread_indices(len(chunks), budget)
@@ -127,7 +129,7 @@ def _select(chunks: list[str], lexical: list[float], semantic: list[float] | Non
                 quota = max(1, budget // len(group_ids))
                 indices.extend(group_indices[index] for index in _spread_indices(len(group_indices), quota))
             indices = sorted(indices[:budget])
-        return "\n[...]\n".join(chunks[index] for index in indices)[:MAX_TEXT_CHARS]
+        return "\n[...]\n".join(chunks[index] for index in indices)[:max_chars]
     lexical_rank = sorted(range(len(chunks)), key=lambda index: (-lexical[index], index))
     semantic_rank = (sorted(range(len(chunks)), key=lambda index: (-semantic[index], index))
                      if semantic is not None else [])
@@ -146,19 +148,20 @@ def _select(chunks: list[str], lexical: list[float], semantic: list[float] | Non
             chosen.update([index for index in ranked if groups[index] == group_id][:quota])
     chosen.update([index for index in ranked if index not in chosen][:budget - len(chosen)])
     chosen = sorted(chosen)
-    return "\n[...]\n".join(chunks[index] for index in chosen)[:MAX_TEXT_CHARS]
+    return "\n[...]\n".join(chunks[index] for index in chosen)[:max_chars]
 
 
 async def retrieve_material(text: str, query: str, *, title: str = "",
-                            embeddings=None, index_path: Path = INDEX_PATH) -> str:
+                            embeddings=None, index_path: Path = INDEX_PATH,
+                            max_chars: int = MAX_TEXT_CHARS) -> str:
     """Fuse keyword and vector rankings; keep chapter constraints and lexical fallback."""
-    if len(text) <= MAX_TEXT_CHARS:
+    if len(text) <= max_chars:
         return text
     scoped = requested_chapter_text(text, query)
     groups = None
     if scoped:
         text = scoped
-        if len(text) <= MAX_TEXT_CHARS:
+        if len(text) <= max_chars:
             return text
 
     if scoped:
@@ -170,11 +173,14 @@ async def retrieve_material(text: str, query: str, *, title: str = "",
     lexical = _lexical_scores(chunks, query)
     broad = _is_broad_query(query)
     if broad:
-        return _select(chunks, lexical, None, groups, broad=True)
+        return _select(chunks, lexical, None, groups, broad=True, max_chars=max_chars)
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if embeddings is None and not api_key:
-        return _select(chunks, lexical, None, groups)
+        return _select(chunks, lexical, None, groups, max_chars=max_chars)
     model = os.environ.get("AI_AGENT_EMBEDDING_MODEL", "gemini-embedding-001")
+    if embeddings is None and _embedding_quota_retry_after.get(model, 0) > time.monotonic():
+        logger.info("RAG vector quota cooldown; using keyword retrieval")
+        return _select(chunks, lexical, None, groups, max_chars=max_chars)
     key = _index_key(title + "\0" + "\0".join(chunks), model)
     lock = _locks.setdefault(key, asyncio.Lock())
     try:
@@ -193,7 +199,12 @@ async def retrieve_material(text: str, query: str, *, title: str = "",
         query_vector = await embedder.aembed_query(query, task_type="RETRIEVAL_QUERY")
         semantic = [_cosine(query_vector, vector) for vector in vectors]
         logger.info("RAG retrieval chunks=%s index=%s", len(chunks), "hit" if cache_hit else "miss")
-        return _select(chunks, lexical, semantic, groups)
+        return _select(chunks, lexical, semantic, groups, max_chars=max_chars)
     except Exception as exc:
-        logger.warning("RAG vector retrieval unavailable category=%s; using keyword retrieval", type(exc).__name__)
-        return _select(chunks, lexical, None, groups)
+        cause = getattr(exc, "__cause__", None)
+        code = getattr(exc, "code", None) or getattr(cause, "code", None)
+        if code == 429:
+            _embedding_quota_retry_after[model] = time.monotonic() + 60
+        logger.warning("RAG vector retrieval unavailable category=%s code=%s; using keyword retrieval",
+                       type(exc).__name__, code)
+        return _select(chunks, lexical, None, groups, max_chars=max_chars)

@@ -22,6 +22,13 @@ export const programmingReviewSchema = z.object({
 
 export const programmingReviewAnswerSchema = z.object({
   summary: z.string().min(1).max(800),
+  approach: z.string().max(600).nullable().optional(),
+  approachEvidence: z.string().max(300).nullable().optional(),
+  timeComplexity: z.string().max(80).nullable().optional(),
+  timeComplexityEvidence: z.string().max(300).nullable().optional(),
+  spaceComplexity: z.string().max(80).nullable().optional(),
+  spaceComplexityEvidence: z.string().max(300).nullable().optional(),
+  complexityReasoning: z.string().max(450).nullable().optional(),
   suggestions: z.array(z.string().min(1).max(400)).max(4),
   caveat: z.string().min(1).max(300),
 })
@@ -82,6 +89,7 @@ export const programmingPracticeQuestionSchema = z.object({
   explanation: z.string().min(70).max(1000),
   supportQuote: z.string().min(10).max(300),
   sourceLocation: z.string().max(100).nullable().optional(),
+  sourceUrls: z.array(z.string().url().max(500)).max(5).optional(),
 })
 export const programmingPracticeDraftSchema = z.object({ questions: z.array(programmingPracticeQuestionSchema).min(1).max(20) })
 

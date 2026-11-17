@@ -17,9 +17,12 @@ export function findReviewableSubmission(teacherId: string, attemptId: string, e
     orderBy: { submissionNo: 'desc' },
     select: {
       id: true, sourceCode: true, language: true, status: true,
-      passedTestCases: true, totalTestCases: true,
+      passedTestCases: true, totalTestCases: true, compilerOutput: true,
       examQuestion: { select: { title: true, content: true } },
-      testResults: { select: { status: true } },
+      testResults: { select: {
+        status: true, actualOutput: true, errorMessage: true,
+        testCase: { select: { input: true, expectedOutput: true, isHidden: true } },
+      } },
     },
   })
 }

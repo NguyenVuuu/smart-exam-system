@@ -3,6 +3,7 @@ import { NotFoundError, ValidationError } from '../../../errors/AppError'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
 import { openExamOption } from '../../../lib/exam-option-secret'
 import prisma from '../../../lib/prisma'
+import { logger } from '../../../lib/logger'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { findAutoExamQuestionPool } from '../../teacher-exams/repositories/teacher-exams.repository'
 import { auditQuestion } from '../../teacher-questions/services/question-audit.rules'
@@ -12,9 +13,10 @@ import type { examDraftRequestSchema } from '../validators/ai-agent.validator'
 type DraftRequest = z.infer<typeof examDraftRequestSchema>
 type Candidate = Awaited<ReturnType<typeof findAutoExamQuestionPool>>[number]
 
-export function candidateRequiresReview(question: Candidate) {
+export function candidateRequiresReview(question: Candidate, plain?: { title: string; content: string }) {
   return auditQuestion({
-    title: decryptField(question.title), content: decryptField(question.content),
+    title: plain?.title ?? decryptField(question.title),
+    content: plain?.content ?? decryptField(question.content),
     explanation: decryptNullable(question.explanation), type: question.type, language: question.language,
     options: question.options.map(openExamOption),
     timeLimitMs: question.programmingConfig?.timeLimitMs,
@@ -49,6 +51,7 @@ export function validateExamDraftSelection(
 }
 
 export async function proposeExamDraft(teacherId: string, userId: string, input: DraftRequest) {
+  const startedAt = Date.now()
   const teacher = await prisma.teacher.findFirst({
     where: { id: teacherId, status: 'ACTIVE' }, select: { departmentId: true },
   })
@@ -57,18 +60,26 @@ export async function proposeExamDraft(teacherId: string, userId: string, input:
     where: { id: input.subjectId, departmentId: teacher.departmentId }, select: { id: true, name: true },
   })
   if (!subject) throw new NotFoundError('Subject not found')
-  const topics = await prisma.learningTopic.findMany({
-    where: { subjectId: subject.id }, select: { id: true, code: true, name: true },
-  })
+  const [topics, pool] = await Promise.all([
+    prisma.learningTopic.findMany({
+      where: { subjectId: subject.id }, select: { id: true, code: true, name: true },
+    }),
+    findAutoExamQuestionPool(teacherId, {
+      subjectId: subject.id, format: input.format, sourceScope: 'BOTH', selectedQuestionIds: [],
+    }),
+  ])
   const topicById = new Map(topics.map((topic) => [topic.id, topic]))
   if (input.topicTargets.some(({ topicId }) => !topicById.has(topicId))) {
     throw new ValidationError('Topic does not belong to the selected subject')
   }
-  const pool = await findAutoExamQuestionPool(teacherId, {
-    subjectId: subject.id, format: input.format, sourceScope: 'BOTH', selectedQuestionIds: [],
-  })
   if (pool.length > 500) throw new ValidationError('Question bank is too large for one AI request; narrow the subject bank')
-  const eligiblePool = pool.filter((question) => !candidateRequiresReview(question))
+  const plainText = new Map<string, { title: string; content: string }>()
+  const eligiblePool = pool.filter((question) => {
+    const plain = { title: decryptField(question.title), content: decryptField(question.content) }
+    if (candidateRequiresReview(question, plain)) return false
+    plainText.set(question.id, plain)
+    return true
+  })
   if (eligiblePool.length < input.desiredCount) {
     throw new ValidationError('Question bank does not have enough questions that passed the required checks')
   }
@@ -78,15 +89,20 @@ export async function proposeExamDraft(teacherId: string, userId: string, input:
       throw new ValidationError(`Not enough questions for topic ${topicById.get(target.topicId)!.name}`)
     }
   }
+  const poolMs = Date.now() - startedAt
   const proposal = await requestExamDraftAgent({
     message: input.message, desiredCount: input.desiredCount, format: input.format,
     topicTargets: Object.fromEntries(topicTargets.map(({ topicId, count }) => [topicById.get(topicId)!.code, count])),
     candidates: eligiblePool.map((question) => ({
-      id: question.id, title: decryptField(question.title).slice(0, 180),
-      content: decryptField(question.content).slice(0, 300),
+      id: question.id, title: plainText.get(question.id)!.title.slice(0, 180),
+      content: plainText.get(question.id)!.content.slice(0, 300),
       type: question.type, difficulty: question.difficulty,
       topics: question.topics.map(({ topic }) => topic.code),
     })),
+  })
+  logger.info('AI exam draft prepared and selected', {
+    poolCount: pool.length, eligibleCount: eligiblePool.length,
+    poolMs, agentMs: Date.now() - startedAt - poolMs,
   })
   const selected = validateExamDraftSelection(proposal.questionIds, eligiblePool, { ...input, topicTargets })
   const topicMatrix = topics.map((topic) => ({
@@ -104,7 +120,7 @@ export async function proposeExamDraft(teacherId: string, userId: string, input:
       medium: selected.filter((question) => question.difficulty === 'MEDIUM').length,
       hard: selected.filter((question) => question.difficulty === 'HARD').length,
     },
-    questions: selected.map((question) => ({ id: question.id, title: decryptField(question.title), difficulty: question.difficulty,
+    questions: selected.map((question) => ({ id: question.id, title: plainText.get(question.id)!.title, difficulty: question.difficulty,
       type: question.type, topics: question.topics.map(({ topic }) => topic.name) })),
   }
 }

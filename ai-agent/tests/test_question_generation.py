@@ -1,4 +1,6 @@
 from fastapi.testclient import TestClient
+import base64
+import threading
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import ValidationError
 import pytest
@@ -6,6 +8,7 @@ import pytest
 from soes_agent import main
 from soes_agent.contracts import QuestionDraftRequest
 from soes_agent import question_generation
+from soes_agent import materials
 from soes_agent.question_generation import generate_question_draft
 
 
@@ -26,6 +29,10 @@ def test_question_endpoint_requires_service_secret(monkeypatch):
 
 
 def test_question_endpoint_uses_selected_model(monkeypatch):
+    async def accept_instruction(_model, _instruction, items, **_kwargs):
+        return set(range(len(items)))
+
+    monkeypatch.setattr(question_generation, "verify_instruction_fulfillment", accept_instruction)
     class Model:
         def with_structured_output(self, _schema, *, method):
             assert method == "function_calling"
@@ -84,7 +91,7 @@ async def test_teacher_generation_retrieves_from_text_and_pdf(monkeypatch):
         return "Đoạn tài liệu đã chọn"
 
     monkeypatch.setattr(question_generation, "retrieve_material", retrieve)
-    monkeypatch.setattr(question_generation, "_extract_text", lambda _raw, _mime: "Nội dung PDF")
+    monkeypatch.setattr(question_generation, "extract_source_bytes", lambda _raw, _mime: "Nội dung PDF")
     request = QuestionDraftRequest.model_validate({
         **REQUEST,
         "contents": [{"type": "text", "text": "Nội dung TXT"},
@@ -96,6 +103,53 @@ async def test_teacher_generation_retrieves_from_text_and_pdf(monkeypatch):
     assert "Nội dung TXT" in seen[0][0]
     assert "Nội dung PDF" in seen[0][0]
     assert parts == [{"type": "text", "text": "Đoạn tài liệu đã chọn"}]
+
+
+@pytest.mark.asyncio
+async def test_teacher_pdf_extraction_is_reused_for_same_authorized_content(monkeypatch):
+    calls = 0
+
+    def extract(_raw, _mime):
+        nonlocal calls
+        calls += 1
+        return "Nội dung Java về vòng lặp for và mảng."
+
+    monkeypatch.setattr(materials, "_extract_text", extract)
+    request = QuestionDraftRequest.model_validate({
+        **REQUEST,
+        "contents": [{"type": "document", "data": base64.b64encode(b"teacher-cache-probe").decode(),
+                      "mime_type": "application/pdf"}],
+    })
+    await question_generation._source_parts(request)
+    await question_generation._source_parts(request)
+    assert calls == 1
+
+
+@pytest.mark.asyncio
+async def test_teacher_multiple_pdfs_extract_concurrently_in_original_order(monkeypatch):
+    started = threading.Barrier(2)
+
+    def extract(raw, _mime):
+        started.wait(timeout=2)
+        return raw.decode()
+
+    async def retrieve(text, _query, *, title):
+        assert title == "Tài liệu môn học"
+        return text
+
+    monkeypatch.setattr(question_generation, "extract_source_bytes", extract)
+    monkeypatch.setattr(question_generation, "retrieve_material", retrieve)
+    request = QuestionDraftRequest.model_validate({
+        **REQUEST,
+        "contents": [
+            {"type": "document", "data": base64.b64encode(value).decode(),
+             "mime_type": "application/pdf"}
+            for value in (b"first", b"second")
+        ],
+    })
+
+    parts = await question_generation._source_parts(request)
+    assert parts[0]["text"].index("first") < parts[0]["text"].index("second")
 
 
 @pytest.mark.asyncio

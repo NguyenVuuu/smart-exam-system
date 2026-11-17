@@ -1,6 +1,7 @@
 import pytest
 
 from soes_agent.rag import retrieve_material
+from soes_agent import rag
 
 
 class FakeEmbeddings:
@@ -78,6 +79,33 @@ async def test_vector_failure_keeps_keyword_retrieval(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_embedding_quota_error_uses_keyword_retrieval_during_cooldown(monkeypatch, tmp_path):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    rag._embedding_quota_retry_after.clear()
+    calls = 0
+
+    class QuotaError(Exception):
+        code = 429
+
+    class QuotaEmbeddings:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def aembed_documents(self, *_args, **_kwargs):
+            nonlocal calls
+            calls += 1
+            raise RuntimeError("quota") from QuotaError()
+
+    monkeypatch.setattr(rag, "GoogleGenerativeAIEmbeddings", QuotaEmbeddings)
+    text = "Nền tảng. " * 3000 + "\nINNER JOIN ghép các hàng có khóa khớp."
+    for _ in range(2):
+        result = await retrieve_material(text, "INNER JOIN", index_path=tmp_path / "rag.sqlite3")
+        assert "INNER JOIN ghép" in result
+    assert calls == 1
+    rag._embedding_quota_retry_after.clear()
+
+
+@pytest.mark.asyncio
 async def test_short_generic_request_covers_distant_parts_without_embeddings(tmp_path):
     class UnexpectedEmbeddings:
         async def aembed_documents(self, *_args, **_kwargs):
@@ -90,6 +118,21 @@ async def test_short_generic_request_covers_distant_parts_without_embeddings(tmp
     assert "PHẦN 0" in result
     assert "Kiến thức 39" in result
     assert len(result) <= 20_000
+
+
+@pytest.mark.asyncio
+async def test_chat_retrieval_respects_smaller_context_budget(tmp_path):
+    class UnexpectedEmbeddings:
+        async def aembed_documents(self, *_args, **_kwargs):
+            raise AssertionError("Generic retrieval should not request embeddings")
+
+    text = "\n".join(f"PHẦN {index}: " + f"Kiến thức {index}. " * 140 for index in range(40))
+    result = await retrieve_material(text, "ôn tập", embeddings=UnexpectedEmbeddings(),
+                                     index_path=tmp_path / "rag.sqlite3", max_chars=12_000)
+
+    assert len(result) <= 12_000
+    assert "PHẦN 0" in result
+    assert "Kiến thức 39" in result
 
 
 @pytest.mark.asyncio

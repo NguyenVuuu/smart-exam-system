@@ -2,12 +2,13 @@ import { Text, View } from 'react-native'
 import { ChoicePicker } from '../ui/ChoicePicker'
 import type { LearningConversationSummary, LearningConversationTurn, StudyMaterial } from '../../api/student-learning.api'
 
-export function StudentConversationHistory({ conversations, currentId, turns, material, onSelect }: {
+export function StudentConversationHistory({ conversations, currentId, turns, material, onSelect, pendingMessage }: {
   conversations: LearningConversationSummary[]
   currentId: string
   turns: LearningConversationTurn[]
   material?: StudyMaterial
   onSelect: (id: string) => void
+  pendingMessage?: string
 }) {
   return <View style={{ gap: 12 }}>
     <ChoicePicker label="Hội thoại" placeholder="Cuộc trò chuyện mới"
@@ -17,7 +18,8 @@ export function StudentConversationHistory({ conversations, currentId, turns, ma
         description: new Date(item.updatedAt).toLocaleDateString('vi-VN'),
       }))]}
       selectedValues={[currentId || 'new']} onToggle={(value) => onSelect(value === 'new' ? '' : value)} />
-    {turns.length > 0 && <View style={{ padding: 12, borderRadius: 12, backgroundColor: '#f8fafc', gap: 12 }}>
+    <View style={{ minHeight: 160, padding: 12, borderRadius: 12, backgroundColor: '#f8fafc', gap: 12 }}>
+      {turns.length === 0 && !pendingMessage && <Text style={{ paddingVertical: 45, color: '#64748b', textAlign: 'center' }}>Hãy đặt câu hỏi về tài liệu đã chọn. Trợ lý sẽ trả lời tại đây.</Text>}
       {turns.map((turn) => <View key={turn.id} style={{ gap: 7 }}>
         <View style={{ alignSelf: 'flex-end', maxWidth: '90%', borderRadius: 12, backgroundColor: '#2563eb', padding: 10 }}>
           <Text style={{ color: '#fff' }}>{turn.message}</Text>
@@ -33,6 +35,12 @@ export function StudentConversationHistory({ conversations, currentId, turns, ma
             </View>}
         </View>
       </View>)}
-    </View>}
+      {!!pendingMessage && <View style={{ gap: 8 }}>
+        <View style={{ alignSelf: 'flex-end', maxWidth: '90%', borderRadius: 12, backgroundColor: '#2563eb', padding: 10 }}>
+          <Text style={{ color: '#fff' }}>{pendingMessage}</Text>
+        </View>
+        <Text style={{ alignSelf: 'flex-start', borderRadius: 12, backgroundColor: '#fff', padding: 12, color: '#64748b' }}>Trợ lý đang trả lời…</Text>
+      </View>}
+    </View>
   </View>
 }

@@ -14,6 +14,23 @@ interface CompletionCandidate extends LibraryFunction {
   isScope?: boolean
 }
 
+function requiredImportEdit(monacoApi: Monaco, model: monaco.editor.ITextModel, language: TakeExamLanguage,
+  candidate: { header?: string; importPath?: string }) {
+  const required = language === 'JAVA'
+    ? candidate.importPath && `import ${candidate.importPath};`
+    : candidate.header && `#include ${candidate.header}`
+  if (!required) return undefined
+  const current = model.getValue()
+  if (current.includes(required) || (language === 'JAVA' && current.includes('import java.util.*;')
+      && candidate.importPath?.startsWith('java.util.'))) return undefined
+  if (language === 'JAVA') {
+    const classIndex = current.search(/\bclass\s+\w+/)
+    const position = model.getPositionAt(classIndex < 0 ? 0 : classIndex)
+    return [{ range: new monacoApi.Range(position.lineNumber, 1, position.lineNumber, 1), text: `${required}\n` }]
+  }
+  return [{ range: new monacoApi.Range(1, 1, 1, 1), text: `${required}\n` }]
+}
+
 export function getLibraryCandidates(language: TakeExamLanguage, beforeWord: string): CompletionCandidate[] {
   const groups = PROGRAMMING_LIBRARY[language]
   const separator = language === 'CPP' ? '::' : '.'
@@ -50,9 +67,11 @@ export function registerProgrammingCompletions(monacoApi: Monaco): () => void {
             ? monacoApi.languages.CompletionItemKind.Class
             : monacoApi.languages.CompletionItemKind.Function,
           detail: candidate.signature,
-          documentation: candidate.header ? `Cần thêm #include ${candidate.header}` : undefined,
+          documentation: candidate.header ? `Cần thêm #include ${candidate.header}`
+            : candidate.importPath ? `Tự thêm import ${candidate.importPath};` : undefined,
           insertText: candidate.snippet,
           insertTextRules: monacoApi.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          additionalTextEdits: requiredImportEdit(monacoApi, model, language, candidate),
           range,
         }))
         const typeSuggestions: monaco.languages.CompletionItem[] = getProgrammingTypeCandidates(language, beforeWord).map((candidate) => ({
@@ -65,6 +84,7 @@ export function registerProgrammingCompletions(monacoApi: Monaco): () => void {
             ? `Cần thêm #include ${candidate.header}`
             : candidate.importPath ? `Cần thêm import ${candidate.importPath};` : undefined,
           insertText: candidate.name,
+          additionalTextEdits: requiredImportEdit(monacoApi, model, language, candidate),
           range,
         }))
         return { suggestions: [...librarySuggestions, ...typeSuggestions] }

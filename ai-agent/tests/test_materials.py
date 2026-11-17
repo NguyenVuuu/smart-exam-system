@@ -155,8 +155,13 @@ async def test_tutoring_uses_requested_later_chapter():
 
 
 @pytest.mark.asyncio
-async def test_practice_uses_requested_later_chapter():
+async def test_practice_uses_requested_later_chapter(monkeypatch):
     quote = "INNER JOIN trả các hàng có khóa khớp."
+
+    async def accept_instruction(_model, _instruction, items, **_kwargs):
+        return set(range(len(items)))
+
+    monkeypatch.setattr("soes_agent.practice.verify_instruction_fulfillment", accept_instruction)
     text = "CHƯƠNG 1\n" + "Nền tảng. " * 2500 + "\nCHƯƠNG 3\n" + quote
 
     class Model:

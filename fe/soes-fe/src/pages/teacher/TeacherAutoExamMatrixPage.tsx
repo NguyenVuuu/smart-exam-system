@@ -342,6 +342,7 @@ export default function TeacherAutoExamMatrixPage() {
                 key={`${selectedSubject}:${examFormat}`}
                 subjectId={selectedSubject}
                 format={examFormat}
+                eligibleQuestions={eligibleQuestions}
                 proposal={agentProposal}
                 targetTotalPoints={targetTotalPoints}
                 isSaving={isGenerating}

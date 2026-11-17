@@ -15,22 +15,22 @@ function getTopicRecommendation(topic: StudentLearningInsights['topics'][number]
   if (!topic.sufficientData) return {
     label: 'Cần thêm dữ liệu',
     badgeClassName: 'bg-amber-50 text-amber-700',
-    content: `Nội dung nên luyện: ${topic.name}. Hãy làm thêm câu hỏi để hệ thống đánh giá chính xác hơn mức độ hiểu bài.`,
+    content: `Bạn mới có ${topic.questionCount} lượt trả lời trên ${topic.distinctQuestionCount} câu khác nhau về ${topic.name}. Hãy ôn thêm và làm các câu khác nhau; hệ thống cần ít nhất 5 lượt trên 3 câu để nhận định mức độ hiểu bài.`,
   }
   if (topic.percentage <= 40) return {
     label: 'Ưu tiên cao',
     badgeClassName: 'bg-red-50 text-red-700',
-    content: `Nội dung nên ôn: ${topic.name}. Bắt đầu bằng định nghĩa và quy tắc cốt lõi, xem ví dụ mẫu rồi làm bài từ dễ đến trung bình.`,
+    content: `Với ${topic.name}, hãy đọc lại phần tương ứng trong tài liệu lớp, tự giải thích khái niệm chính rồi làm câu nhận biết trước khi chuyển sang bài áp dụng. Sau mỗi câu sai, đối chiếu lời giải để tìm bước hiểu nhầm.`,
   }
   if (topic.needsPractice) return {
     label: 'Cần củng cố',
     badgeClassName: 'bg-amber-50 text-amber-700',
-    content: `Nội dung nên củng cố: ${topic.name}. Làm câu hỏi vận dụng và xem kỹ lời giải của những câu trả lời sai.`,
+    content: `Hãy luyện thêm câu hỏi mới về ${topic.name}, ưu tiên tình huống áp dụng. Với câu đã xem lại, thử giải thích vì sao đáp án đúng và các phương án còn lại sai trước khi mở lời giải.`,
   }
   return {
     label: 'Duy trì',
     badgeClassName: 'bg-emerald-50 text-emerald-700',
-    content: `Nội dung nên duy trì: ${topic.name}. Tiếp tục làm câu hỏi vận dụng để giữ mức độ thành thạo.`,
+    content: `Bạn đã có kết quả tốt ở ${topic.name}. Hãy thử câu vận dụng khác với câu đã làm và ôn xen kẽ cùng các chủ đề còn yếu để duy trì kiến thức.`,
   }
 }
 
@@ -104,10 +104,10 @@ export default function StudentTopicInsightsPanel({
             return <div key={topic.topicId} className="rounded-xl border border-slate-200 p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="font-semibold text-slate-900">{topic.name}</p>
-                <span className="text-sm font-bold text-blue-700">{topic.percentage}%</span>
+                <span className="text-sm font-bold text-blue-700">{topic.sufficientData ? `${topic.percentage}%` : 'Chưa đủ mẫu'}</span>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                {topic.questionCount} lượt trả lời · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}
+                {topic.questionCount} lượt trả lời trên {topic.distinctQuestionCount} câu · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}
               </p>
               <div className="mt-3 rounded-lg bg-slate-50 p-3">
                 <div className="flex flex-wrap items-center gap-2">

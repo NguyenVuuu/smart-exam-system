@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, ClipboardList, Sparkles } from 'lucide-react'
+import { BookOpen, ClipboardList, LoaderCircle, Sparkles } from 'lucide-react'
 import AppSelect from '../../../components/common/AppSelect'
 import { getApiErrorMessage } from '../../../api/errors'
 import { createPracticeSet, getPracticeSet, listPracticeSets, submitPracticeSet,
@@ -15,7 +15,7 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
   const initialMaterials = materials.filter((item) => item.courseOffering.subject.id === initialSubjectId)
   const [subjectId, setSubjectId] = useState(initialSubjectId)
   const [materialId, setMaterialId] = useState(initialMaterials.length === 1 ? initialMaterials[0].id : '')
-  const [focusTopicId, setFocusTopicId] = useState(initialTopic?.topicId ?? '')
+  const [focusTopicId, setFocusTopicId] = useState(initialTopic?.needsPractice ? initialTopic.topicId : '')
   const [kind, setKind] = useState<'CHOICE' | 'PROGRAMMING'>('CHOICE')
   const [instruction, setInstruction] = useState(initialTopic
     ? `Tạo bài luyện về ${initialTopic.name}, ưu tiên khái niệm cốt lõi, ví dụ áp dụng và lỗi thường gặp.`
@@ -27,6 +27,7 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
   const [codes, setCodes] = useState<Record<string, string>>({})
   const [page, setPage] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const weakTopics = topics.filter((topic) => topic.subjectId === subjectId && topic.needsPractice)
   const count = Number(questionCount)
@@ -44,13 +45,13 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
 
   const create = async () => {
     if (!materialId || !validCount) return
-    setBusy(true); setError('')
+    setBusy(true); setCreating(true); setError('')
     try {
       const next = await createPracticeSet(materialId, count, focusTopicId || undefined, instruction.trim() || undefined, kind)
       setCurrent(next); setChoices({}); setCodes({}); setPage(0)
       listPracticeSets().then(setSets).catch(() => {})
     } catch (cause) { setError(getApiErrorMessage(cause, 'Chưa thể tạo bài luyện. Vui lòng thử lại sau.')) }
-    finally { setBusy(false) }
+    finally { setBusy(false); setCreating(false) }
   }
 
   const submit = async () => {
@@ -116,22 +117,19 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
         </div>
         <button type="button" disabled={!materialId || !validCount || busy} onClick={() => void create()}
           className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
-          <Sparkles size={16} />{busy ? 'Đang tạo bài...' : `Tạo ${count} câu ôn tập`}
+          {creating ? <LoaderCircle size={16} className="animate-spin" /> : <Sparkles size={16} />}
+          {creating ? 'Đang tạo và kiểm tra...' : `Tạo ${count} câu ôn tập`}
         </button>
       </div>
+      {creating && <div role="status" className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        <LoaderCircle size={18} className="mt-0.5 shrink-0 animate-spin" />
+        <p>{kind === 'PROGRAMMING'
+          ? 'AI đang sinh bài; hệ thống sẽ chạy lời giải với các test case trên Judge trước khi hiển thị.'
+          : 'AI đang sinh câu hỏi và kiểm tra đáp án theo tài liệu trước khi hiển thị.'}</p>
+      </div>}
       <p className="text-xs text-slate-500">Bài luyện không tính vào điểm hoặc lượt thi chính thức. Đối chiếu đáp án với tài liệu sau khi nộp.</p>
     {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-    {sets.length > 0 && <div className="space-y-2 border-t border-slate-100 pt-5">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800"><ClipboardList size={17} /> Lịch sử bài luyện</h3>
-      <AppSelect value={current?.id ?? ''} options={sets.map((set) => ({
-        value: set.id,
-        label: `${set.subject.name} · ${new Date(set.createdAt).toLocaleString('vi-VN')} · ${set.completedAt ? `${set.score}/${set._count.items} câu đúng` : 'Chưa nộp'}`,
-      }))} onChange={(id) => void open(id)} disabled={busy} placeholder="Chọn bài luyện để xem lại"
-        ariaLabel="Chọn bài luyện trong lịch sử" className="w-full sm:max-w-xl"
-        buttonClassName="h-11 border-slate-200" />
-      <p className="text-xs text-slate-500">Chọn bài chưa nộp để làm tiếp hoặc bài đã nộp để xem đáp án và giải thích.</p>
-    </div>}
-    {current && <div className="space-y-4">
+    {current && !creating && <div className="space-y-4">
       {current.completedAt && <p className="font-semibold text-blue-700">Kết quả: {current.score}/{current.items.length} câu đúng</p>}
       {current.items.slice(page * 5, (page + 1) * 5).map((item) => <fieldset key={item.id} className="space-y-2 rounded-xl border border-slate-200 p-4">
         <legend className="whitespace-pre-wrap px-1 font-medium text-slate-900">Câu {item.orderIndex}: {item.stem}</legend>
@@ -146,6 +144,10 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
         {item.result && <div className="space-y-1 text-xs text-slate-600">
           <p>{item.result.explanation}</p>
           <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}</p>
+          {item.kind === 'PROGRAMMING' && item.result.sourceUrls?.map((url, index) =>
+            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block break-all text-blue-700 underline">
+              Nguồn web {index + 1}: {url}
+            </a>)}
         </div>}
       </fieldset>)}
       {pageCount > 1 && <nav aria-label="Trang bài luyện" className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
@@ -157,6 +159,16 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
       </nav>}
       {!current.completedAt && <button type="button" disabled={busy || current.items.some((item) => item.kind === 'PROGRAMMING' ? !(codes[item.id] ?? item.starterCode).trim() : choices[item.id] === undefined)}
         onClick={() => void submit()} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Nộp bài luyện</button>}
+    </div>}
+    {sets.length > 0 && <div className="space-y-2 border-t border-slate-100 pt-5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800"><ClipboardList size={17} /> Lịch sử bài luyện</h3>
+      <AppSelect value={current?.id ?? ''} options={sets.map((set) => ({
+        value: set.id,
+        label: `${set.subject.name} · ${set.kind === 'PROGRAMMING' ? 'Lập trình' : 'Trắc nghiệm'} · ${new Date(set.createdAt).toLocaleString('vi-VN')} · ${set.completedAt ? `${set.score}/${set._count.items} câu đúng` : 'Chưa nộp'}`,
+      }))} onChange={(id) => void open(id)} disabled={busy} placeholder="Chọn bài luyện để xem lại"
+        ariaLabel="Chọn bài luyện trong lịch sử" className="w-full sm:max-w-xl"
+        buttonClassName="h-11 border-slate-200" />
+      <p className="text-xs text-slate-500">Chọn bài chưa nộp để làm tiếp hoặc bài đã nộp để xem đáp án và giải thích.</p>
     </div>}
     </div>
   </section>
