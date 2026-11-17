@@ -9,7 +9,7 @@ import { listConversations, loadConversation, recentHistory, saveTurn, type Conv
 async function studentContext(studentId: string, materialId?: string, includeContent = false): Promise<{ context: ConversationContext; material?: Awaited<ReturnType<typeof loadStudentMaterial>> }> {
   const activeAttempt = await prisma.examAttempt.count({ where: { studentId, status: 'IN_PROGRESS' } })
   if (activeAttempt) throw new ForbiddenError('Learning assistant is unavailable during an exam')
-  if (materialId && !(await getStudentMaterials(studentId)).some(({ id }) => id === materialId)) {
+  if (materialId && !includeContent && !(await getStudentMaterials(studentId)).some(({ id }) => id === materialId)) {
     throw new NotFoundError('Material not found')
   }
   const material = materialId && includeContent ? await loadStudentMaterial(studentId, materialId) : undefined
@@ -17,8 +17,11 @@ async function studentContext(studentId: string, materialId?: string, includeCon
 }
 
 export async function askStudent(studentId: string, userId: string, message: string, materialId?: string, conversationId?: string) {
-  const { context, material } = await studentContext(studentId, materialId, true)
-  const evidence = await studentInsights(studentId)
+  const [{ context, material }, evidence] = await Promise.all([
+    studentContext(studentId, materialId, true),
+    materialId ? Promise.resolve({ analyzedAttemptCount: 0, limitedToRecentAttempts: false, topics: [] })
+      : studentInsights(studentId),
+  ])
   const history = await recentHistory(userId, context, conversationId)
   await writeAuditLog(prisma, {
     userId, action: 'REQUEST_AI_STUDENT_INSIGHTS', entityType: 'Student', entityId: studentId,

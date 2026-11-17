@@ -3,6 +3,7 @@ import prisma from '../../../lib/prisma'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { findReviewableSubmission } from '../repositories/programming-review.repository'
 import { requestProgrammingReviewAgent } from './ai-agent.client'
+import { publicFailedTests } from './programming-review.evidence'
 
 export async function reviewProgrammingSubmission(
   teacherId: string, userId: string, attemptId: string, examQuestionId: string,
@@ -29,5 +30,7 @@ export async function reviewProgrammingSubmission(
     passedTestCases: submission.passedTestCases,
     totalTestCases: submission.totalTestCases,
     failureStatuses: [...failures].map(([status, count]) => `${status}: ${count}`),
+    compilerOutput: submission.compilerOutput?.slice(0, 1000) ?? null,
+    publicTestFailures: publicFailedTests(submission.testResults),
   })
 }

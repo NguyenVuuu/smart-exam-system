@@ -26,6 +26,7 @@ export default function StudentLearningPage() {
   const [loading, setLoading] = useState(true)
   const [insightsError, setInsightsError] = useState(false)
   const [asking, setAsking] = useState(false)
+  const [pendingMessage, setPendingMessage] = useState('')
   const [error, setError] = useState('')
   const [practiceRequest, setPracticeRequest] = useState<{ topicId: string; requestId: number } | null>(null)
 
@@ -80,6 +81,8 @@ export default function StudentLearningPage() {
     const message = question.trim()
     if (!message || asking || !materialId) return
     setAsking(true)
+    setPendingMessage(message)
+    setQuestion('')
     setError('')
     const request = conversationRequest.current
     try {
@@ -88,13 +91,16 @@ export default function StudentLearningPage() {
       setConversationId(result.conversationId)
       setTurns((current) => [...current, { id: crypto.randomUUID(), message, answer: result.answer,
         createdAt: new Date().toISOString() }])
-      setQuestion('')
       void listLearningConversations(materialId)
         .then((items) => { if (request === conversationRequest.current) setConversations(items) }).catch(() => {})
     } catch (cause) {
-      if (request === conversationRequest.current) setError(getApiErrorMessage(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
+      if (request === conversationRequest.current) {
+        setQuestion((current) => current || message)
+        setError(getApiErrorMessage(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
+      }
     } finally {
       setAsking(false)
+      setPendingMessage('')
     }
   }
 
@@ -154,16 +160,23 @@ export default function StudentLearningPage() {
                 {!materialsError && materials.length === 0 &&
                   <p className="text-sm text-slate-500">Chưa có tài liệu phù hợp để hỏi.</p>}
                 <AgentConversationHistory conversations={conversations} currentId={conversationId} turns={turns}
+                  chatMode pendingMessage={pendingMessage}
                   onSelect={(id) => void selectConversation(id)}
                   source={materialId ? { id: materialId,
                     label: selectedMaterial?.title || selectedMaterial?.fileName || 'Tài liệu lớp học' } : undefined} />
-                <form onSubmit={(event) => void ask(event)} className="space-y-3">
-                  <label htmlFor="learning-question" className="block text-sm font-semibold text-slate-700">3. Câu hỏi của bạn</label>
+                <form onSubmit={(event) => void ask(event)} className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <label htmlFor="learning-question" className="block text-sm font-semibold text-slate-700">Nhắn cho trợ lý</label>
                   <textarea id="learning-question" value={question} onChange={(event) => setQuestion(event.target.value)}
-                    maxLength={500} rows={3} placeholder="Ví dụ: Giải thích sự khác nhau giữa INNER JOIN và LEFT JOIN trong tài liệu này."
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                        event.preventDefault()
+                        event.currentTarget.form?.requestSubmit()
+                      }
+                    }}
+                    maxLength={500} rows={2} placeholder="Hỏi về tài liệu hoặc hỏi tiếp câu trả lời vừa rồi..."
                     className="w-full resize-y rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-slate-400">{question.length}/500 ký tự</span>
+                    <span className="text-xs text-slate-400">{question.length}/500 ký tự · Enter để gửi, Shift+Enter để xuống dòng</span>
                     <button type="submit" disabled={asking || !question.trim() || !materialId}
                       className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
                       <Send size={16} /> {asking ? 'Đang trả lời...' : 'Gửi câu hỏi'}

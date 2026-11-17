@@ -36,7 +36,7 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
         const detail = typeof error?.detail === 'string' ? error.detail : ''
         if (detail === 'Material has no usable evidence' || detail === 'Material has no readable text' ||
           detail === 'Material cannot be read') {
-          throw new AppError(422, 'Tài liệu đã chọn chưa có nội dung đọc được để tạo bài lập trình')
+          throw new AppError(422, 'Chưa tìm được nội dung phù hợp trong tài liệu hoặc nguồn web để tạo bài lập trình')
         }
         if (detail === 'Programming practice question count mismatch' ||
           detail === 'Duplicate programming practice question') {

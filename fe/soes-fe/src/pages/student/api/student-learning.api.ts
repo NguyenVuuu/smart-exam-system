@@ -8,6 +8,7 @@ export interface TopicInsight {
   code: string
   name: string
   questionCount: number
+  distinctQuestionCount: number
   percentage: number
   sufficientData: boolean
   needsPractice: boolean
@@ -54,7 +55,7 @@ export interface ProgrammingPracticeItem extends PracticeBaseItem {
   sampleInput: string
   sampleOutput: string
   result?: { sourceCode: string; passedTestCases: number; totalTestCases: number;
-    explanation: string; supportQuote: string; materialTitle?: string; sourceLocation?: string | null }
+    explanation: string; supportQuote: string; materialTitle?: string; sourceLocation?: string | null; sourceUrls?: string[] }
 }
 
 export type PracticeItem = ChoicePracticeItem | ProgrammingPracticeItem
@@ -75,6 +76,7 @@ export interface PracticeSampleResult {
 
 export interface PracticeSummary {
   id: string
+  kind: 'CHOICE' | 'PROGRAMMING'
   createdAt: string
   completedAt: string | null
   score: number | null

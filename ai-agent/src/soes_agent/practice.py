@@ -12,6 +12,7 @@ from .materials import extract_material, source_location
 from .rag import retrieve_material
 from .practice_evidence import batch_evidence, evidence_passages, is_heading_only, is_table_of_contents_entry
 from .practice_verification import verify_answers_against_sources
+from .instruction_verification import verify_instruction_fulfillment
 from .performance import measure_stage
 
 logger = logging.getLogger(__name__)
@@ -230,13 +231,14 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
         f"Mức độ: {request.difficulty}. BASIC = nhận biết; INTERMEDIATE = hiểu quan hệ; "
         "ADVANCED = vận dụng kiến thức trong nguồn.\n"
         f"Chủ đề cần ưu tiên: {request.focusTopic.name if request.focusTopic else 'không chọn'}. "
-        "Nếu nguồn không có chủ đề đó, chọn kiến thức khác trong nguồn.\n"
+        "Nếu nguồn không có đúng chủ đề được yêu cầu, không được tự đổi sang chủ đề khác; chỉ trả câu thực sự phù hợp.\n"
         f"Yêu cầu ôn tập của sinh viên: {request.instruction or 'ôn tập kiến thức trọng tâm'}.\n"
     )
     batch_count = 1 if request.count == 1 else 2 if request.count <= 10 else 4
     batch_size = request.count if batch_count == 1 else min(10, (request.count + batch_count - 1) // batch_count + 1)
     verified_answers: set[int] = set()
     rejected_issues: Counter = Counter()
+    rejected_stems: list[str] = []
     model_slots = asyncio.Semaphore(2)
 
     async def generate_batch(index: int, size: int, extra: str = "",
@@ -253,7 +255,8 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
             with measure_stage("practice.generate", size):
                 response = await structured.ainvoke([
                     ("system", system_message),
-                    ("human", f"{request_message}Tài liệu:\n{source_message}\nTạo {size} câu ứng viên. {extra}"),
+                    ("human", f"{request_message}Tài liệu:\n{source_message}\nTạo {size} câu ứng viên. "
+                     f"{extra} Không lặp hoặc diễn đạt lại câu đã bị loại: {' | '.join(rejected_stems[-20:])[:2500]}"),
                 ])
             normalized = []
             for question in parse_candidates(response):
@@ -266,9 +269,26 @@ async def generate_practice(model: ChatGoogleGenerativeAI, request: PracticeDraf
                 candidates, issues = review_questions(normalized, source, check_answer_support=False)
             rejected_issues.update(issues)
             with measure_stage("practice.verify", len(candidates)):
-                verified = await verify_answers_against_sources(model, candidates)
+                verified, instruction_verified = await asyncio.gather(
+                    verify_answers_against_sources(model, candidates),
+                    verify_instruction_fulfillment(
+                        model, request.instruction, candidates,
+                        evidence="\n\n".join(question.supportQuote for question in candidates),
+                    ),
+                )
         verified_answers.update(verified)
-        return [question for question in candidates if id(question) in verified]
+        accepted = [question for index, question in enumerate(candidates)
+                    if id(question) in verified and index in instruction_verified]
+        accepted_ids = {id(question) for question in accepted}
+        rejected_stems.extend(question.stem for question in candidates if id(question) not in accepted_ids)
+        rejected_issues["Practice answer failed independent verification"] += sum(
+            id(question) not in verified for question in candidates
+        )
+        rejected_issues["Practice question does not match the requested topic"] += sum(
+            id(question) in verified and index not in instruction_verified
+            for index, question in enumerate(candidates)
+        )
+        return accepted
 
     batches = await asyncio.gather(*(generate_batch(index, batch_size) for index in range(batch_count)))
     candidates = [question for batch in batches for question in batch]

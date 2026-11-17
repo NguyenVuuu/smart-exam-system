@@ -21,7 +21,9 @@ export async function collectVerifiedProgrammingQuestions(desiredCount: number,
 
   for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS && accepted.length < desiredCount; attempt += 1) {
     const missing = desiredCount - accepted.length
+    const generationStarted = Date.now()
     const generated = await generate(missing, attemptedStems.slice(-20).map((stem) => stem.slice(0, 300)))
+    const generationMs = Date.now() - generationStarted
     const novel = generated.filter((question) => {
       const key = normalizedStem(question.stem)
       if (attemptedKeys.has(key)) return false
@@ -29,11 +31,13 @@ export async function collectVerifiedProgrammingQuestions(desiredCount: number,
       attemptedStems.push(question.stem)
       return true
     })
+    const verificationStarted = Date.now()
     const verified = await verify(novel)
+    const judgeMs = Date.now() - verificationStarted
     accepted.push(...verified.slice(0, missing))
     logger.info('AI programming practice Judge verification completed', {
       attempt, requested: missing, generated: generated.length, novel: novel.length,
-      accepted: verified.length, remaining: desiredCount - accepted.length,
+      accepted: verified.length, remaining: desiredCount - accepted.length, generationMs, judgeMs,
     })
   }
 

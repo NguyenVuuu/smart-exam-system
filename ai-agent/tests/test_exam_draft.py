@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from soes_agent.contracts import ExamDraftRequest, TopicSuggestionRequest
@@ -32,6 +34,9 @@ async def test_exam_draft_passes_only_candidate_metadata():
     ))
     assert result.questionIds == ["q1"]
     assert "q1" in model.messages[1][1]
+    payload = json.loads(model.messages[1][1])
+    assert payload["candidates"] == [["q1", "Vòng lặp", "Tính tổng", "SINGLE_CHOICE", "EASY", ["LOOP"]]]
+    assert payload["message"] == "Câu vòng lặp"
 
 
 @pytest.mark.asyncio

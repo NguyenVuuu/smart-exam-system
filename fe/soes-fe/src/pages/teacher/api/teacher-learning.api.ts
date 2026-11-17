@@ -8,6 +8,8 @@ export interface TeacherLearningInsights {
     topicId: string
     name: string
     questionCount: number
+    distinctQuestionCount: number
+    respondentCount: number
     percentage: number
     sufficientData: boolean
   }>

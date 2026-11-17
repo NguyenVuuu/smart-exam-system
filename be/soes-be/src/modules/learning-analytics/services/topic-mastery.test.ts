@@ -12,7 +12,7 @@ test('uses question points as denominator and preserves partial credit', () => {
   ])
   assert.deepEqual(result, [{
     topicId: 'join', subjectId: 'subject-sql', subjectName: 'Cơ sở dữ liệu',
-    code: 'JOIN', name: 'SQL joins', questionCount: 2,
+    code: 'JOIN', name: 'SQL joins', questionCount: 2, distinctQuestionCount: 2, respondentCount: 0,
     earnedPoints: 2, possiblePoints: 10, percentage: 20, sufficientData: false, needsPractice: false,
   }])
 })
@@ -40,6 +40,18 @@ test('repeating one question does not establish topic mastery', () => {
   }))
   const [topic] = calculateTopicMastery(observations)
   assert.equal(topic.questionCount, 5)
+  assert.equal(topic.sufficientData, false)
+  assert.equal(topic.needsPractice, false)
+})
+
+test('class topic requires five distinct students as well as enough questions', () => {
+  const observations = Array.from({ length: 6 }, (_, index) => ({
+    questionId: `q${index % 3}`, studentId: index < 3 ? 's1' : 's2',
+    earnedPoints: 0, possiblePoints: 1, topics: [join],
+  }))
+  const [topic] = calculateTopicMastery(observations, 5)
+  assert.equal(topic.respondentCount, 2)
+  assert.equal(topic.distinctQuestionCount, 3)
   assert.equal(topic.sufficientData, false)
   assert.equal(topic.needsPractice, false)
 })

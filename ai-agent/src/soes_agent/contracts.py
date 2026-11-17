@@ -9,6 +9,8 @@ class TopicMetric(BaseModel):
     code: str = Field(min_length=1, max_length=50)
     name: str = Field(min_length=1, max_length=150)
     questionCount: int = Field(ge=0)
+    distinctQuestionCount: int = Field(default=0, ge=0)
+    respondentCount: int = Field(default=0, ge=0)
     earnedPoints: float = Field(ge=0)
     possiblePoints: float = Field(ge=0)
     percentage: int = Field(ge=0, le=100)
@@ -153,10 +155,19 @@ class ProgrammingPracticeQuestion(BaseModel):
     explanation: str = Field(min_length=70, max_length=1000)
     supportQuote: str = Field(min_length=10, max_length=300)
     sourceLocation: str | None = Field(default=None, max_length=100)
+    sourceUrls: list[str] = Field(default_factory=list, max_length=5)
 
 
 class ProgrammingPracticeDraft(BaseModel):
     questions: list[ProgrammingPracticeQuestion] = Field(min_length=1, max_length=20)
+
+
+class PublicTestFailure(BaseModel):
+    input: str = Field(max_length=500)
+    expectedOutput: str = Field(max_length=500)
+    actualOutput: str | None = Field(default=None, max_length=500)
+    status: str = Field(min_length=1, max_length=50)
+    errorMessage: str | None = Field(default=None, max_length=500)
 
 
 class ProgrammingReviewRequest(ModelSelection):
@@ -168,6 +179,8 @@ class ProgrammingReviewRequest(ModelSelection):
     passedTestCases: int = Field(ge=0)
     totalTestCases: int = Field(ge=0)
     failureStatuses: list[str] = Field(max_length=20)
+    compilerOutput: str | None = Field(default=None, max_length=1000)
+    publicTestFailures: list[PublicTestFailure] = Field(default_factory=list, max_length=3)
 
 
 class ProgrammingReview(BaseModel):

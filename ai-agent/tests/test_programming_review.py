@@ -57,3 +57,31 @@ async def test_programming_review_cannot_recommend_changing_judge_score():
     assert answer.summary.startswith("Judge ghi nhận 1/2")
     assert answer.suggestions == []
     assert "điểm Judge không thay đổi" in answer.caveat
+
+
+@pytest.mark.asyncio
+async def test_review_receives_only_explicit_public_failure_and_compiler_evidence():
+    class Model:
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, messages):
+            payload = json.loads(messages[1][1])
+            assert payload["publicTestFailures"] == [{
+                "input": "2", "expectedOutput": "4", "actualOutput": "3",
+                "status": "WRONG_ANSWER", "errorMessage": None,
+            }]
+            assert payload["compilerOutput"] is None
+            assert "test case ẩn" in messages[0][1]
+            return {"summary": "Ví dụ công khai cho ra 3 thay vì 4.",
+                    "suggestions": ["Kiểm tra phép tính với đầu vào 2."],
+                    "caveat": "Giảng viên cần rà soát; điểm Judge không thay đổi."}
+
+    answer = await review_programming_submission(Model(), ProgrammingReviewRequest(
+        questionTitle="Bình phương", questionContent="Đọc n và in n*n", language="C",
+        sourceCode="int main() { return 0; }", submissionStatus="WRONG_ANSWER",
+        passedTestCases=0, totalTestCases=2, failureStatuses=["WRONG_ANSWER: 2"],
+        publicTestFailures=[{"input": "2", "expectedOutput": "4", "actualOutput": "3",
+                             "status": "WRONG_ANSWER", "errorMessage": None}],
+    ))
+    assert "3 thay vì 4" in answer.summary

@@ -38,13 +38,18 @@ def extract_material(material: StudyMaterial) -> str:
             raise ValueError("Material size is unsupported")
     except ValueError as exc:
         raise ValueError("Material cannot be read") from exc
-    key = hashlib.sha256(material.mimeType.encode() + b"\0" + raw).hexdigest()
+    return extract_source_bytes(raw, material.mimeType)
+
+
+def extract_source_bytes(raw: bytes, mime_type: str) -> str:
+    """Reuse extracted text for an authorized source supplied on this request."""
+    key = hashlib.sha256(mime_type.encode() + b"\0" + raw).hexdigest()
     cached = _text_cache.get(key)
     logger.info("Material extraction cache=%s", "hit" if cached is not None else "miss")
     if cached is not None:
         return cached
     with measure_stage("material.extract"):
-        text = _extract_text(raw, material.mimeType)
+        text = _extract_text(raw, mime_type)
     _text_cache.put(key, text)
     return text
 

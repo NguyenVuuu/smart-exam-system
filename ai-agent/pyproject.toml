@@ -12,6 +12,7 @@ dependencies = [
   "langchain>=1,<2",
   "langgraph>=1,<2",
   "langchain-google-genai>=4,<5",
+  "google-genai>=1,<2",
   "python-dotenv>=1,<2",
   "pydantic>=2,<3",
   "pypdf>=5,<7",

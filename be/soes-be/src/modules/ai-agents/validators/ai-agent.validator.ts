@@ -82,6 +82,7 @@ export const programmingPracticeQuestionSchema = z.object({
   explanation: z.string().min(70).max(1000),
   supportQuote: z.string().min(10).max(300),
   sourceLocation: z.string().max(100).nullable().optional(),
+  sourceUrls: z.array(z.string().url().max(500)).max(5).optional(),
 })
 export const programmingPracticeDraftSchema = z.object({ questions: z.array(programmingPracticeQuestionSchema).min(1).max(20) })
 

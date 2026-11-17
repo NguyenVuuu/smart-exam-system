@@ -5,6 +5,7 @@ export interface LibraryFunction {
   signature: string
   snippet: string
   header?: string
+  importPath?: string
 }
 
 export interface LibraryGroup {
@@ -68,21 +69,21 @@ export const PROGRAMMING_LIBRARY: Record<TakeExamLanguage, readonly LibraryGroup
     {
       scope: 'Arrays',
       functions: [
-        { name: 'sort', signature: 'Arrays.sort(array)', snippet: 'sort(${1:array})' },
-        { name: 'fill', signature: 'Arrays.fill(array, value)', snippet: 'fill(${1:array}, ${2:value})' },
-        { name: 'binarySearch', signature: 'Arrays.binarySearch(array, key)', snippet: 'binarySearch(${1:array}, ${2:key})' },
-        { name: 'copyOf', signature: 'Arrays.copyOf(array, length)', snippet: 'copyOf(${1:array}, ${2:length})' },
-        { name: 'toString', signature: 'Arrays.toString(array)', snippet: 'toString(${1:array})' },
+        { name: 'sort', signature: 'Arrays.sort(array)', snippet: 'sort(${1:array})', importPath: 'java.util.Arrays' },
+        { name: 'fill', signature: 'Arrays.fill(array, value)', snippet: 'fill(${1:array}, ${2:value})', importPath: 'java.util.Arrays' },
+        { name: 'binarySearch', signature: 'Arrays.binarySearch(array, key)', snippet: 'binarySearch(${1:array}, ${2:key})', importPath: 'java.util.Arrays' },
+        { name: 'copyOf', signature: 'Arrays.copyOf(array, length)', snippet: 'copyOf(${1:array}, ${2:length})', importPath: 'java.util.Arrays' },
+        { name: 'toString', signature: 'Arrays.toString(array)', snippet: 'toString(${1:array})', importPath: 'java.util.Arrays' },
       ],
     },
     {
       scope: 'Collections',
       functions: [
-        { name: 'sort', signature: 'Collections.sort(list)', snippet: 'sort(${1:list})' },
-        { name: 'reverse', signature: 'Collections.reverse(list)', snippet: 'reverse(${1:list})' },
-        { name: 'min', signature: 'Collections.min(collection)', snippet: 'min(${1:collection})' },
-        { name: 'max', signature: 'Collections.max(collection)', snippet: 'max(${1:collection})' },
-        { name: 'frequency', signature: 'Collections.frequency(collection, value)', snippet: 'frequency(${1:collection}, ${2:value})' },
+        { name: 'sort', signature: 'Collections.sort(list)', snippet: 'sort(${1:list})', importPath: 'java.util.Collections' },
+        { name: 'reverse', signature: 'Collections.reverse(list)', snippet: 'reverse(${1:list})', importPath: 'java.util.Collections' },
+        { name: 'min', signature: 'Collections.min(collection)', snippet: 'min(${1:collection})', importPath: 'java.util.Collections' },
+        { name: 'max', signature: 'Collections.max(collection)', snippet: 'max(${1:collection})', importPath: 'java.util.Collections' },
+        { name: 'frequency', signature: 'Collections.frequency(collection, value)', snippet: 'frequency(${1:collection}, ${2:value})', importPath: 'java.util.Collections' },
       ],
     },
   ],

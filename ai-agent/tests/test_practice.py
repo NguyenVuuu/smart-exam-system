@@ -12,6 +12,14 @@ from soes_agent.practice_evidence import evidence_passages, is_heading_only
 SOURCE = "INNER JOIN chỉ trả các hàng có khóa khớp ở hai bảng."
 
 
+@pytest.fixture(autouse=True)
+def isolate_instruction_review(monkeypatch):
+    async def accept_instruction(_model, _instruction, items, **_kwargs):
+        return set(range(len(items)))
+
+    monkeypatch.setattr("soes_agent.practice.verify_instruction_fulfillment", accept_instruction)
+
+
 def draft(quote: str = SOURCE) -> PracticeDraft:
     return PracticeDraft(questions=[{
         "stem": "INNER JOIN trả loại hàng nào?",
@@ -507,5 +515,5 @@ async def test_generation_rejects_answer_when_independent_check_disagrees(
         materialId="material-1", title="JOIN", mimeType="text/plain",
         contentBase64=base64.b64encode(SOURCE.encode()).decode(),
     ))
-    with pytest.raises(ValueError, match="count mismatch"):
+    with pytest.raises(ValueError, match="Practice answer failed independent verification"):
         await generate_practice(Model(), request)

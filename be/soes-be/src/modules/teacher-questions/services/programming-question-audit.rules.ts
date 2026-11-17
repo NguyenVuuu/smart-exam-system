@@ -64,6 +64,20 @@ const auditProgrammingTests = (question: AuditableQuestion): QuestionAuditIssue[
       'Có test case trùng dữ liệu đầu vào và kết quả.',
     ))
   }
+  const expectedByInput = new Map<string, string>()
+  for (const test of question.testCases) {
+    const input = test.input.trim()
+    const expected = test.expectedOutput.trim()
+    if (expectedByInput.has(input) && expectedByInput.get(input) !== expected) {
+      issues.push(requiredIssue(
+        'TEST_CASE_CONFLICT',
+        'testCases',
+        'Cùng dữ liệu đầu vào có nhiều kết quả mong đợi khác nhau. Hãy kiểm tra lại test case.',
+      ))
+      break
+    }
+    expectedByInput.set(input, expected)
+  }
   return issues
 }
 

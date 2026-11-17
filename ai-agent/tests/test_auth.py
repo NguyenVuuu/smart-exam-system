@@ -63,6 +63,11 @@ def test_workflow_log_contains_metadata_only(monkeypatch, caplog):
 def test_authorized_practice_response_uses_validated_source(monkeypatch):
     quote = "INNER JOIN trả các hàng có khóa khớp."
 
+    async def accept_instruction(_model, _instruction, items, **_kwargs):
+        return set(range(len(items)))
+
+    monkeypatch.setattr("soes_agent.practice.verify_instruction_fulfillment", accept_instruction)
+
     class Model:
         def with_structured_output(self, _schema, *, method):
             assert method == "json_schema"

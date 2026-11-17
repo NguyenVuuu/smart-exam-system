@@ -26,6 +26,7 @@ export async function studentInsights(studentId: string, now = new Date()) {
     for (const item of attempt.attemptQuestions) {
       observations.push({
         questionId: item.examQuestionId,
+        studentId,
         earnedPoints: Number(answers.get(item.examQuestionId) ?? 0),
         possiblePoints: Number(item.examQuestion.points),
         topics: item.examQuestion.topics.map(({ topicId, code, name }) => ({
@@ -66,7 +67,7 @@ export async function teacherScheduleInsights(teacherId: string, scheduleId: str
         title: item.examQuestion.title,
         earnedPoints, possiblePoints })
       const observation = {
-        questionId: item.examQuestionId, earnedPoints, possiblePoints,
+        questionId: item.examQuestionId, studentId: attempt.studentId, earnedPoints, possiblePoints,
         topics: item.examQuestion.topics.map(({ topicId, code, name }) => ({
           id: topicId, code, name, subjectId: item.examQuestion.exam.subject.id,
           subjectName: item.examQuestion.exam.subject.name,
@@ -81,11 +82,11 @@ export async function teacherScheduleInsights(teacherId: string, scheduleId: str
     analyzedAttemptCount: attempts.length,
     limitedToRecentAttempts: found.length > attempts.length,
     questions: calculateQuestionQuality(outcomes),
-    topics: calculateTopicMastery(topicObservations),
+    topics: calculateTopicMastery(topicObservations, 5),
     classes: [...classes].map(([courseOfferingId, group]) => ({
       courseOfferingId, code: group.code, studentCount: group.studentIds.size,
       sufficientData: group.studentIds.size >= 5,
-      topics: calculateTopicMastery(group.observations),
+      topics: calculateTopicMastery(group.observations, 5),
     })).sort((a, b) => a.code.localeCompare(b.code)),
   }
 }

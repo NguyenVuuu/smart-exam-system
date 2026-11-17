@@ -106,7 +106,8 @@ export async function getStudentPractice(studentId: string, practiceSetId: strin
         const answer = item.response?.answer as { sourceCode: string; passedTestCases: number; totalTestCases: number } | undefined
         return { ...publicItem(item), ...(set.completedAt && answer && { result: {
           ...answer, explanation: question.explanation, supportQuote: question.supportQuote,
-          materialTitle: source.materialTitle, sourceLocation: question.sourceLocation,
+          materialTitle: question.sourceUrls?.length ? 'Nguồn web tham khảo' : source.materialTitle,
+          sourceLocation: question.sourceLocation, sourceUrls: question.sourceUrls,
         } }) }
       }
       const question = practiceDraftSchema.shape.questions.element.parse(item.snapshot)
@@ -125,9 +126,12 @@ export async function listStudentPractice(studentId: string) {
   const rows = await prisma.practiceSet.findMany({
     where: { studentId }, orderBy: { createdAt: 'desc' }, take: 20,
     select: { id: true, createdAt: true, completedAt: true, score: true,
-      subject: { select: { name: true } }, _count: { select: { items: true } } },
+      subject: { select: { name: true } }, _count: { select: { items: true } },
+      items: { select: { snapshot: true }, orderBy: { orderIndex: 'asc' }, take: 1 } },
   })
-  return rows.map((row) => ({ ...row, score: row.score === null ? null : Number(row.score) }))
+  return rows.map(({ items, ...row }) => ({ ...row, score: row.score === null ? null : Number(row.score),
+    kind: (items[0]?.snapshot as { kind?: string } | undefined)?.kind === 'PROGRAMMING' ? 'PROGRAMMING' : 'CHOICE',
+  }))
 }
 
 export async function runStudentPracticeSample(studentId: string, practiceSetId: string, itemId: string, sourceCode: string) {

@@ -30,6 +30,7 @@ export interface StudentLearningInsights {
     subjectName: string
     name: string
     questionCount: number
+    distinctQuestionCount: number
     percentage: number
     sufficientData: boolean
     needsPractice: boolean
@@ -72,7 +73,7 @@ type PracticeItem = ({
   id: string; orderIndex: number; stem: string; kind: 'PROGRAMMING'; language: 'C' | 'CPP' | 'JAVA'
   starterCode: string; sampleInput: string; sampleOutput: string
   result?: { sourceCode: string; passedTestCases: number; totalTestCases: number;
-    explanation: string; supportQuote: string; materialTitle?: string; sourceLocation?: string | null }
+    explanation: string; supportQuote: string; materialTitle?: string; sourceLocation?: string | null; sourceUrls?: string[] }
 })
 
 export interface PracticeSet {
@@ -87,7 +88,7 @@ export interface PracticeSampleResult {
 }
 
 export interface PracticeSummary {
-  id: string; createdAt: string; completedAt: string | null; score: number | null
+  id: string; kind: 'CHOICE' | 'PROGRAMMING'; createdAt: string; completedAt: string | null; score: number | null
   subject: { name: string }; _count: { items: number }
 }
 

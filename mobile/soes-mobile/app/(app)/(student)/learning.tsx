@@ -26,6 +26,7 @@ export default function StudentLearningScreen() {
   const [topicSubjectId, setTopicSubjectId] = useState('')
   const [loading, setLoading] = useState(true)
   const [asking, setAsking] = useState(false)
+  const [pendingMessage, setPendingMessage] = useState('')
   const [error, setError] = useState('')
   const [practiceRequest, setPracticeRequest] = useState<{ topicId: string; requestId: number } | null>(null)
   const scrollRef = useRef<ScrollViewInstance>(null)
@@ -89,6 +90,8 @@ export default function StudentLearningScreen() {
     const message = question.trim()
     if (!message || asking || !materialId) return
     setAsking(true)
+    setPendingMessage(message)
+    setQuestion('')
     setError('')
     const request = conversationRequest.current
     try {
@@ -97,14 +100,17 @@ export default function StudentLearningScreen() {
       setConversationId(result.conversationId)
       setTurns((current) => [...current, { id: `${Date.now()}-${current.length}`, message,
         answer: result.answer, createdAt: new Date().toISOString() }])
-      setQuestion('')
       void listLearningConversations(materialId).then((items) => {
         if (request === conversationRequest.current) setConversations(items)
       }).catch(() => {})
     } catch (cause) {
-      if (request === conversationRequest.current) setError(getLearningAgentError(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
+      if (request === conversationRequest.current) {
+        setQuestion((current) => current || message)
+        setError(getLearningAgentError(cause, 'Trợ lý hiện chưa thể trả lời. Hãy thử lại sau.'))
+      }
     } finally {
       setAsking(false)
+      setPendingMessage('')
     }
   }
   const subjects = Array.from(new Map(materials.map((item) => [item.courseOffering.subject.id, item.courseOffering.subject])).values())
@@ -116,19 +122,19 @@ export default function StudentLearningScreen() {
   const recommendTopic = (topic: StudentLearningInsights['topics'][number]) => {
     if (!topic.sufficientData) return {
       label: 'Cần thêm dữ liệu', color: '#b45309', backgroundColor: '#fffbeb',
-      content: `Nội dung nên luyện: ${topic.name}. Hãy làm thêm câu hỏi để hệ thống đánh giá chính xác hơn mức độ hiểu bài.`,
+      content: `Bạn mới có ${topic.questionCount} lượt trả lời trên ${topic.distinctQuestionCount} câu khác nhau về ${topic.name}. Hãy ôn thêm và làm các câu khác nhau; hệ thống cần ít nhất 5 lượt trên 3 câu để nhận định mức độ hiểu bài.`,
     }
     if (topic.percentage <= 40) return {
       label: 'Ưu tiên cao', color: '#b91c1c', backgroundColor: '#fef2f2',
-      content: `Nội dung nên ôn: ${topic.name}. Bắt đầu bằng định nghĩa và quy tắc cốt lõi, xem ví dụ mẫu rồi làm bài từ dễ đến trung bình.`,
+      content: `Với ${topic.name}, hãy đọc lại phần tương ứng trong tài liệu lớp, tự giải thích khái niệm chính rồi làm câu nhận biết trước khi chuyển sang bài áp dụng. Sau mỗi câu sai, đối chiếu lời giải để tìm bước hiểu nhầm.`,
     }
     if (topic.needsPractice) return {
       label: 'Cần củng cố', color: '#b45309', backgroundColor: '#fffbeb',
-      content: `Nội dung nên củng cố: ${topic.name}. Làm câu hỏi vận dụng và xem kỹ lời giải của những câu trả lời sai.`,
+      content: `Hãy luyện thêm câu hỏi mới về ${topic.name}, ưu tiên tình huống áp dụng. Với câu đã xem lại, thử giải thích vì sao đáp án đúng và các phương án còn lại sai trước khi mở lời giải.`,
     }
     return {
       label: 'Duy trì', color: '#047857', backgroundColor: '#ecfdf5',
-      content: `Nội dung nên duy trì: ${topic.name}. Tiếp tục làm câu hỏi vận dụng để giữ mức độ thành thạo.`,
+      content: `Bạn đã có kết quả tốt ở ${topic.name}. Hãy thử câu vận dụng khác với câu đã làm và ôn xen kẽ cùng các chủ đề còn yếu để duy trì kiến thức.`,
     }
   }
 
@@ -172,9 +178,9 @@ export default function StudentLearningScreen() {
           {visibleTopics.map((topic) => {
             const recommendation = recommendTopic(topic)
             return <View key={topic.topicId} style={{ padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', gap: 8 }}>
-              <Text style={{ fontWeight: '700', color: '#0f172a' }}>{topic.name} · {topic.percentage}%</Text>
+              <Text style={{ fontWeight: '700', color: '#0f172a' }}>{topic.name} · {topic.sufficientData ? `${topic.percentage}%` : 'Chưa đủ mẫu'}</Text>
               <Text style={{ fontSize: 12, color: topic.sufficientData ? '#64748b' : '#b45309' }}>
-                {topic.questionCount} lượt trả lời · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}
+                {topic.questionCount} lượt trả lời trên {topic.distinctQuestionCount} câu · {topic.sufficientData ? 'Đủ dữ liệu để tham khảo' : 'Chưa đủ dữ liệu để kết luận'}
               </Text>
               <View style={{ padding: 10, borderRadius: 10, backgroundColor: '#f8fafc', gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -211,7 +217,7 @@ export default function StudentLearningScreen() {
           onToggle={changeMaterial} disabled={!subjectId} />
         {materials.length === 0 && <Text style={{ color: '#64748b' }}>Chưa có tài liệu lớp học phù hợp để hỏi.</Text>}
         {!!materialId && <StudentConversationHistory conversations={conversations} currentId={conversationId}
-          turns={turns} material={materials.find((item) => item.id === materialId)} onSelect={(id) => void selectConversation(id)} />}
+          turns={turns} pendingMessage={pendingMessage} material={materials.find((item) => item.id === materialId)} onSelect={(id) => void selectConversation(id)} />}
         <TextInput ref={questionRef} value={question} onChangeText={setQuestion} maxLength={500} multiline
           onFocus={() => focusInput(questionRef.current)}
           placeholder="Ví dụ: Giải thích khái niệm trong tài liệu này." accessibilityLabel="Câu hỏi cho trợ lý học tập"

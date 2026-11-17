@@ -18,7 +18,7 @@ export const listStudentMaterials = (studentId: string) => prisma.material.findM
 export const findStudentMaterial = (studentId: string, materialId: string) => prisma.material.findFirst({
   where: { id: materialId, ...accessibleMaterial(studentId) },
   select: {
-    id: true, title: true, fileName: true, fileSize: true, storagePath: true,
+    id: true, title: true, fileName: true, fileSize: true, storagePath: true, checksum: true,
     courseOffering: { select: { subjectId: true, subject: { select: { name: true } } } },
   },
 })

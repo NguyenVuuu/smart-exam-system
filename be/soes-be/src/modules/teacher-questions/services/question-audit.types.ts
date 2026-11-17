@@ -20,6 +20,7 @@ export type QuestionAuditIssueCode =
   | 'PUBLIC_TEST_CASE_REQUIRED'
   | 'TEST_EXPECTED_OUTPUT_REQUIRED'
   | 'TEST_CASE_DUPLICATED'
+  | 'TEST_CASE_CONFLICT'
   | 'EXPLANATION_RECOMMENDED'
 
 export interface QuestionAuditIssue {
