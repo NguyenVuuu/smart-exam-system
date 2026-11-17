@@ -1,5 +1,6 @@
 import { resolveAttemptResultReason, resolveAttemptReviewAccess } from '../../student-take-exam/services/attempt-result.policy'
 import { NotFoundError } from '../../../errors/AppError'
+import { decryptField } from '../../../lib/encryption'
 import * as repo from '../repositories/learning-analytics.repository'
 import { calculateTopicMastery, type TopicObservation } from './topic-mastery'
 import { calculateQuestionQuality, type QuestionOutcome } from './question-quality'
@@ -64,7 +65,7 @@ export async function teacherScheduleInsights(teacherId: string, scheduleId: str
       const earnedPoints = Number(answers.get(item.examQuestionId) ?? 0)
       const possiblePoints = Number(item.examQuestion.points)
       outcomes.push({ questionId: item.examQuestionId, studentId: attempt.studentId,
-        title: item.examQuestion.title,
+        title: decryptField(item.examQuestion.title).slice(0, 300),
         earnedPoints, possiblePoints })
       const observation = {
         questionId: item.examQuestionId, studentId: attempt.studentId, earnedPoints, possiblePoints,

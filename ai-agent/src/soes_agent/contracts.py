@@ -185,6 +185,13 @@ class ProgrammingReviewRequest(ModelSelection):
 
 class ProgrammingReview(BaseModel):
     summary: str = Field(min_length=1, max_length=800)
+    approach: str | None = Field(default=None, max_length=600)
+    approachEvidence: str | None = Field(default=None, max_length=300)
+    timeComplexity: str | None = Field(default=None, max_length=80)
+    timeComplexityEvidence: str | None = Field(default=None, max_length=300)
+    spaceComplexity: str | None = Field(default=None, max_length=80)
+    spaceComplexityEvidence: str | None = Field(default=None, max_length=300)
+    complexityReasoning: str | None = Field(default=None, max_length=450)
     suggestions: list[Annotated[str, Field(min_length=1, max_length=400)]] = Field(max_length=4)
     caveat: str = Field(min_length=1, max_length=300)
 

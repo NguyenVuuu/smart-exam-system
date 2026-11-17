@@ -6,6 +6,7 @@ from time import perf_counter
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai.chat_models import GoogleAPIError, GoogleInvalidRequestError, GoogleRateLimitError
@@ -26,6 +27,16 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logging.getLogger("soes_agent").setLevel(logging.INFO)
 app = FastAPI(title="SOES AI Agent", docs_url=None, redoc_url=None)
 logger = logging.getLogger(__name__)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_schema_invalid(request: Request, error: RequestValidationError) -> JSONResponse:
+    fields = [
+        {"field": ".".join(map(str, issue["loc"])), "type": issue["type"]}
+        for issue in error.errors()[:10]
+    ]
+    logger.warning("AI request schema rejected workflow=%s fields=%s", request.url.path, fields)
+    return JSONResponse(status_code=422, content={"detail": "AI request validation failed"})
 
 
 @app.exception_handler(GoogleRateLimitError)

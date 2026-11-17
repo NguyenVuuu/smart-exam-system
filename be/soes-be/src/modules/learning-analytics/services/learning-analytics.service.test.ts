@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { mock, test } from 'node:test'
 import * as repo from '../repositories/learning-analytics.repository'
+import { encryptField } from '../../../lib/encryption'
 import { studentInsights, teacherScheduleInsights } from './learning-analytics.service'
 
 test('counts only attempts whose answers may be reviewed', async () => {
@@ -43,5 +44,30 @@ test('class analysis requires five distinct students even when question count is
   } finally {
     findSchedule.mock.restore()
     findAttempts.mock.restore()
+  }
+})
+
+test('teacher insights send readable bounded question titles to the agent', async () => {
+  const previousKey = process.env.EXAM_ENCRYPTION_KEY
+  process.env.EXAM_ENCRYPTION_KEY = '1'.repeat(64)
+  const title = 'Câu hỏi về vòng lặp '.repeat(25)
+  const encryptedTitle = encryptField(title)
+  const findSchedule = mock.method(repo, 'findTeacherSchedule', async () => ({ id: 'schedule-1', title: 'Java' } as never))
+  const findAttempts = mock.method(repo, 'findTeacherScheduleAttempts', async () => [{
+    studentId: 's1', courseOffering: { id: 'course-1', code: 'JAVA101' }, studentAnswers: [],
+    attemptQuestions: [{ examQuestionId: 'question-1', examQuestion: {
+      title: encryptedTitle, points: 1, exam: { subject: { id: 'java', name: 'Java' } }, topics: [],
+    } }],
+  }] as never)
+  try {
+    const result = await teacherScheduleInsights('teacher-1', 'schedule-1')
+    assert.equal(result.questions[0].title, title.slice(0, 300))
+    assert.ok(result.questions[0].title.length <= 300)
+    assert.ok(!result.questions[0].title.startsWith('enc:'))
+  } finally {
+    findSchedule.mock.restore()
+    findAttempts.mock.restore()
+    if (previousKey === undefined) delete process.env.EXAM_ENCRYPTION_KEY
+    else process.env.EXAM_ENCRYPTION_KEY = previousKey
   }
 })

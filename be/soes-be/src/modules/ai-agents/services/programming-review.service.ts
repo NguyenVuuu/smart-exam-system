@@ -1,5 +1,6 @@
 import { NotFoundError, ValidationError } from '../../../errors/AppError'
 import prisma from '../../../lib/prisma'
+import { decryptField } from '../../../lib/encryption'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { findReviewableSubmission } from '../repositories/programming-review.repository'
 import { requestProgrammingReviewAgent } from './ai-agent.client'
@@ -22,8 +23,8 @@ export async function reviewProgrammingSubmission(
     if (result.status !== 'PASSED') failures.set(result.status, (failures.get(result.status) ?? 0) + 1)
   }
   return requestProgrammingReviewAgent({
-    questionTitle: submission.examQuestion.title.slice(0, 300),
-    questionContent: submission.examQuestion.content.slice(0, 5000),
+    questionTitle: decryptField(submission.examQuestion.title).slice(0, 300),
+    questionContent: decryptField(submission.examQuestion.content).slice(0, 5000),
     language: submission.language,
     sourceCode: submission.sourceCode,
     submissionStatus: submission.status,

@@ -16,6 +16,18 @@ def test_rejects_requests_without_service_secret(monkeypatch):
     assert response.status_code == 401
 
 
+def test_teacher_schema_error_logs_only_field_metadata(monkeypatch, caplog):
+    monkeypatch.setenv("AI_AGENT_SHARED_SECRET", "test-secret")
+    with caplog.at_level(logging.WARNING, logger="soes_agent.main"):
+        response = TestClient(app).post("/v1/teacher/insights",
+            headers={"authorization": "Bearer test-secret"},
+            json={"message": "private-class-question"})
+    assert response.status_code == 422
+    assert response.json()["detail"] == "AI request validation failed"
+    assert "analyzedAttemptCount" in caplog.text
+    assert "private-class-question" not in caplog.text
+
+
 def test_health_does_not_require_model_configuration():
     assert TestClient(app).get("/health").json() == {"status": "ok"}
 

@@ -106,3 +106,24 @@ test('reports the specific safe reason when practice answers lack material evide
     else process.env.AI_AGENT_SHARED_SECRET = previousSecret
   }
 })
+
+test('reports a readable error for invalid teacher insight evidence', async () => {
+  const previousEnabled = process.env.AI_AGENT_ENABLED
+  const previousSecret = process.env.AI_AGENT_SHARED_SECRET
+  const previousFetch = globalThis.fetch
+  process.env.AI_AGENT_ENABLED = 'true'
+  process.env.AI_AGENT_SHARED_SECRET = 'test-secret'
+  globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'AI request validation failed' }), { status: 422 })
+  try {
+    await assert.rejects(requestInsightAgent('/v1/teacher/insights', {}), {
+      statusCode: 422,
+      message: 'Dữ liệu phân tích lớp chưa hợp lệ để trợ lý xử lý. Vui lòng tải lại trang và thử lại.',
+    })
+  } finally {
+    globalThis.fetch = previousFetch
+    if (previousEnabled === undefined) delete process.env.AI_AGENT_ENABLED
+    else process.env.AI_AGENT_ENABLED = previousEnabled
+    if (previousSecret === undefined) delete process.env.AI_AGENT_SHARED_SECRET
+    else process.env.AI_AGENT_SHARED_SECRET = previousSecret
+  }
+})

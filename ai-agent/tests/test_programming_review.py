@@ -85,3 +85,36 @@ async def test_review_receives_only_explicit_public_failure_and_compiler_evidenc
                              "status": "WRONG_ANSWER", "errorMessage": None}],
     ))
     assert "3 thay vì 4" in answer.summary
+
+
+@pytest.mark.asyncio
+async def test_algorithm_and_complexity_need_exact_code_evidence():
+    source = "for (int i = 0; i < n; i++) { sum += values[i]; }"
+
+    class Model:
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            return {
+                "summary": "Judge ghi nhận 2/2 test đạt.",
+                "approach": "Duyệt mảng một lượt để tính tổng.",
+                "approachEvidence": "sum += values[i];",
+                "timeComplexity": "O(n)",
+                "timeComplexityEvidence": "for (int i = 0; i < n; i++)",
+                "spaceComplexity": "O(n)",
+                "spaceComplexityEvidence": "int[] copy = new int[n];",
+                "complexityReasoning": "n là số phần tử; vòng lặp duyệt n lần.",
+                "suggestions": ["Đặt tên biến sum rõ nghĩa."],
+                "caveat": "Giảng viên cần rà soát; điểm Judge không thay đổi.",
+            }
+
+    answer = await review_programming_submission(Model(), ProgrammingReviewRequest(
+        questionTitle="Tính tổng", questionContent="Tính tổng n phần tử.", language="JAVA",
+        sourceCode=source, submissionStatus="ACCEPTED", passedTestCases=2,
+        totalTestCases=2, failureStatuses=[],
+    ))
+    assert answer.approach == "Duyệt mảng một lượt để tính tổng."
+    assert answer.timeComplexity == "O(n)"
+    assert answer.spaceComplexity is None
+    assert answer.spaceComplexityEvidence is None
