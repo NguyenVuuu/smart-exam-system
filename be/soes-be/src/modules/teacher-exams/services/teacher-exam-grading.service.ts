@@ -7,10 +7,14 @@ import { toPagination } from '../../../utils/pagination'
 import { computeScheduleStatus } from '../../exam-schedules/mappers/exam-schedule.mapper'
 import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
 import * as repo from '../repositories/teacher-exam-grading.repository'
-import type { BulkFinalizeScoresBody, FinalizeScoreBody, InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
+import type { BulkFinalizeScoresBody, FinalizeScoreBody, ForceSubmitAttemptBody, InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
-import { emitProctoringEvent, emitStudentEvent, emitTeacherEvent } from '../../proctoring/proctoring-realtime.events'
+import { emitAttemptEvent, emitProctoringEvent, emitStudentEvent, emitTeacherEvent, emitUserEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
 import { notifyUsers } from '../../notifications/notifications.service'
+import { closeAttemptProctoring } from '../../student-take-exam/services/student-take-exam.service'
+import { gradeProgrammingAnswers } from '../../student-take-exam/services/programming-grading.service'
+import { gradeObjectiveAnswers } from '../../student-take-exam/repositories/attempt-grading.repository'
+import { proctoringRiskSummary } from './proctoring-risk.policy'
 
 function currentWebcamStatus(status: WebcamStatus, isActive: boolean): WebcamStatus {
   return !isActive && status === 'ACTIVE' ? 'DISCONNECTED' : status
@@ -130,6 +134,7 @@ export async function listProctoringSessions(teacherId: string, examId: string, 
         studentCode: row.student.studentCode,
         studentName: row.student.user.fullName,
         attemptStatus: row.status,
+        endedBy: row.endedBy,
         isOnline,
         ipAddress: row.examSession?.ipAddress ?? null,
         webcamStatus: currentWebcamStatus(webcamStatus, isOnline),
@@ -347,7 +352,50 @@ export async function reviewViolation(
   })
   if (!result) throw new NotFoundError('Violation not found')
   emitProctoringEvent(scheduleId, 'violation:reviewed', result)
+  if (data.reviewStatus === 'WARNED') {
+    const warning = { violationId, scheduleId, message: data.reviewNote! }
+    emitStudentEvent(result.studentId, 'proctoring:warning', warning)
+    try {
+      await notifyUsers([result.studentUserId], 'Cảnh cáo trong ca thi', data.reviewNote!)
+    } catch (error) {
+      logger.warn('Could not deliver proctoring warning notification', { violationId, error })
+    }
+  }
   return result
+}
+
+export async function forceSubmitAttempt(
+  teacherId: string, userId: string, examId: string, scheduleId: string, attemptId: string,
+  data: ForceSubmitAttemptBody,
+) {
+  const result = await repo.forceSubmitAttempt({ teacherId, userId, examId, scheduleId, attemptId, reason: data.reason })
+  if (!result) throw new ConflictError('Attempt is no longer in progress or is not accessible')
+  await closeAttemptProctoring(attemptId, scheduleId, result.submittedAt)
+  const event = { attemptId, scheduleId, status: 'GRADING', reason: data.reason }
+  emitAttemptEvent(attemptId, 'proctoring:attempt-ended', event)
+  emitStudentEvent(result.studentId, 'proctoring:attempt-ended', event)
+  emitProctoringEvent(scheduleId, 'student:offline', { attemptId, scheduleId, attemptStatus: 'GRADING', isOnline: false })
+  leaveAttemptRoom(attemptId)
+  try {
+    await notifyUsers([result.student.userId], 'Bài thi đã được buộc nộp',
+      `Bài thi "${result.examSchedule.title}" đã được giám thị buộc nộp. Các câu trả lời đã lưu được giữ lại để chấm và xem xét. Lý do: ${data.reason}`)
+  } catch (error) {
+    logger.warn('Could not deliver force-submit notification', { attemptId, error })
+  }
+  let gradingPending = false
+  try {
+    await gradeProgrammingAnswers(attemptId)
+  } catch (error) {
+    gradingPending = true
+    logger.error('Force-submitted programming answers need grading retry', { attemptId, error })
+  }
+  try {
+    await gradeObjectiveAnswers(attemptId, { finalStatus: 'GRADING' })
+  } catch (error) {
+    gradingPending = true
+    logger.error('Force-submitted objective answers need grading retry', { attemptId, error })
+  }
+  return { ...result, gradingPending }
 }
 
 export async function invalidateAttempt(
@@ -366,13 +414,20 @@ export async function invalidateAttempt(
     attemptId,
     reason: data.reason,
   })
-  if (!result) throw new NotFoundError('Exam attempt not found')
+  if (!result) throw new ConflictError('Attempt is no longer in progress or is not accessible')
+  await closeAttemptProctoring(attemptId, scheduleId, result.submittedAt!)
+  const event = { attemptId, scheduleId, status: 'INVALIDATED', reason: data.reason }
+  emitAttemptEvent(attemptId, 'proctoring:attempt-ended', event)
+  emitUserEvent(result.student.userId, 'proctoring:attempt-ended', event)
+  emitProctoringEvent(scheduleId, 'student:offline', { attemptId, scheduleId, attemptStatus: 'INVALIDATED', isOnline: false })
+  leaveAttemptRoom(attemptId)
   emitProctoringEvent(scheduleId, 'attempt:invalidated', result)
-  await notifyUsers(
-    [result.student.userId],
-    'Bài thi bị xử lý vi phạm',
-    `Bài thi "${result.examSchedule.title}" của bạn đã bị xử lý vi phạm. Lý do: ${data.reason}`,
-  )
+  try {
+    await notifyUsers([result.student.userId], 'Bài thi bị hủy do vi phạm',
+      `Bài thi "${result.examSchedule.title}" của bạn đã bị hủy. Lý do: ${data.reason}`)
+  } catch (error) {
+    logger.warn('Could not deliver invalidation notification', { attemptId, error })
+  }
   return result
 }
 
@@ -389,7 +444,6 @@ export async function cameraReport(teacherId: string, examId: string, scheduleId
     items: rows.map((row) => {
       const count = (type: string) => row.violations.filter((violation) => violation.violationType === type).length
       const reviewCount = (status: string) => row.violations.filter((violation) => violation.reviewStatus === status).length
-      const highCount = row.violations.filter((violation) => violation.severity === 'HIGH').length
       const pendingCount = reviewCount('PENDING')
       const confirmedCount = reviewCount('CONFIRMED')
       const totalDisconnectedSeconds = row.violations
@@ -410,11 +464,7 @@ export async function cameraReport(teacherId: string, examId: string, scheduleId
         confirmedCount,
         dismissedCount: reviewCount('DISMISSED'),
         pendingCount,
-        riskSummary: highCount > 0 || confirmedCount > 0
-          ? 'SERIOUS'
-          : pendingCount > 0 || row.violations.length >= 3
-            ? 'NEEDS_REVIEW'
-            : 'NORMAL',
+        riskSummary: proctoringRiskSummary(row.violations),
       }
     }),
   }

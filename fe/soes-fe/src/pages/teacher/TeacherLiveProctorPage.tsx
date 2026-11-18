@@ -13,6 +13,7 @@ import TeacherTopBar from './components/TeacherTopBar'
 import { ExamDetailBackButton } from './components/exam-detail/ExamDetailBackButton'
 import EvidenceImageModal from './components/proctoring/EvidenceImageModal'
 import ExtendTimeModal from './components/proctoring/ExtendTimeModal'
+import ProctoringActionModal from './components/proctoring/ProctoringActionModal'
 import LiveStreamPanel from './components/proctoring/LiveStreamPanel'
 import ProctoringAssignmentPicker from './components/proctoring/ProctoringAssignmentPicker'
 import ProctoringMetrics from './components/proctoring/ProctoringMetrics'
@@ -24,8 +25,10 @@ import { useTeacherProctorAssignments } from './hooks/useTeacherProctorAssignmen
 import { useLiveProctorSocket } from './hooks/useLiveProctorSocket'
 import {
   extendTeacherAttemptTime,
+  forceSubmitTeacherAttempt,
   getTeacherLiveProctoringSessions,
   getTeacherLiveProctoringViolations,
+  invalidateTeacherAttempt,
   reviewTeacherViolation,
 } from './api/teacher-exams.api'
 import type { ProctoringSessionRecord, ViolationRecord } from './types/teacher-exam.types'
@@ -90,6 +93,14 @@ export default function TeacherLiveProctorPage() {
   const [evidence, setEvidence] = useState<{ url: string; type: ViolationRecord['type'] } | null>(null)
   const [extensionTarget, setExtensionTarget] = useState<ProctoringSessionRecord | null>(null)
   const [isExtendingTime, setIsExtendingTime] = useState(false)
+  const [proctoringAction, setProctoringAction] = useState<{
+    action: 'WARN' | 'FORCE_SUBMIT' | 'INVALIDATE'
+    attemptId?: string
+    violationId?: string
+    studentName: string
+    studentCode: string
+  } | null>(null)
+  const [isApplyingAction, setIsApplyingAction] = useState(false)
 
   const {
     liveAttemptId,
@@ -164,6 +175,12 @@ export default function TeacherLiveProctorPage() {
     reviewStatus: NonNullable<ViolationRecord['reviewStatus']>,
   ) => {
     if (!examId || !scheduleId) return
+    if (reviewStatus === 'WARNED') {
+      const violation = violations.find((item) => item.id === violationId)
+      if (violation) setProctoringAction({ action: 'WARN', violationId, studentName: violation.studentName, studentCode: violation.studentCode })
+      return
+    }
+    if (reviewStatus === 'FORCE_SUBMITTED' || reviewStatus === 'INVALIDATED') return
     try {
       await reviewTeacherViolation(examId, scheduleId, violationId, {
         reviewStatus,
@@ -176,7 +193,36 @@ export default function TeacherLiveProctorPage() {
     } catch {
       toast.error('Không thể cập nhật xử lý vi phạm.')
     }
-  }, [examId, scheduleId])
+  }, [examId, scheduleId, violations])
+
+  const applyProctoringAction = useCallback(async (reason: string) => {
+    if (!proctoringAction || !examId || !scheduleId) return
+    setIsApplyingAction(true)
+    try {
+      if (proctoringAction.action === 'WARN' && proctoringAction.violationId) {
+        await reviewTeacherViolation(examId, scheduleId, proctoringAction.violationId, { reviewStatus: 'WARNED', reviewNote: reason })
+        setViolations((current) => current.map((item) => item.id === proctoringAction.violationId
+          ? { ...item, reviewStatus: 'WARNED', reviewNote: reason, reviewedAt: new Date().toISOString() }
+          : item))
+        toast.success('Đã gửi cảnh cáo cho sinh viên.')
+      } else if (proctoringAction.attemptId) {
+        if (proctoringAction.action === 'FORCE_SUBMIT') {
+          const result = await forceSubmitTeacherAttempt(examId, scheduleId, proctoringAction.attemptId, reason)
+          if (result.gradingPending) toast.warning('Đã buộc nộp bài; phần chấm tự động cần được giảng viên kiểm tra lại.')
+          else toast.success('Đã buộc nộp bài. Các câu trả lời đã lưu được giữ để chấm và xem xét.')
+        } else {
+          await invalidateTeacherAttempt(examId, scheduleId, proctoringAction.attemptId, reason)
+          toast.success('Đã hủy bài thi và ghi nhận lý do.')
+        }
+        setRefreshVersion((current) => current + 1)
+      }
+      setProctoringAction(null)
+    } catch {
+      toast.error('Không thể xử lý. Hãy kiểm tra trạng thái bài thi và thử lại.')
+    } finally {
+      setIsApplyingAction(false)
+    }
+  }, [examId, proctoringAction, scheduleId])
 
   useEffect(() => {
     if (!scheduleId) return
@@ -189,7 +235,8 @@ export default function TeacherLiveProctorPage() {
     return !keyword ||
       session.studentName.toLocaleLowerCase('vi').includes(keyword) ||
       session.studentCode.toLocaleLowerCase('vi').includes(keyword)
-  }), [liveSearchQuery, sessions])
+  }).sort((a, b) => Number(b.attemptStatus === 'IN_PROGRESS') - Number(a.attemptStatus === 'IN_PROGRESS')
+    || b.violationCount - a.violationCount || a.studentCode.localeCompare(b.studentCode)), [liveSearchQuery, sessions])
 
   const violationStudentOptions = useMemo(() => [
     { value: 'ALL', label: 'Tất cả sinh viên' },
@@ -338,6 +385,8 @@ export default function TeacherLiveProctorPage() {
                       onStartLive={startLive}
                       onStopLive={stopLive}
                       onExtendTime={setExtensionTarget}
+                      onForceSubmit={(session) => setProctoringAction({ action: 'FORCE_SUBMIT', attemptId: session.attemptId, studentName: session.studentName, studentCode: session.studentCode })}
+                      onInvalidate={(session) => setProctoringAction({ action: 'INVALIDATE', attemptId: session.attemptId, studentName: session.studentName, studentCode: session.studentCode })}
                     />
                   </TeacherTablePanel>
 
@@ -419,6 +468,10 @@ export default function TeacherLiveProctorPage() {
           onSubmit={extendAttemptTime}
         />
       )}
+
+      {proctoringAction && <ProctoringActionModal key={`${proctoringAction.action}:${proctoringAction.attemptId ?? proctoringAction.violationId}`}
+        action={proctoringAction.action} studentName={proctoringAction.studentName} studentCode={proctoringAction.studentCode}
+        submitting={isApplyingAction} onClose={() => setProctoringAction(null)} onConfirm={applyProctoringAction} />}
 
       <EvidenceImageModal
         imageUrl={evidence?.url ?? null}

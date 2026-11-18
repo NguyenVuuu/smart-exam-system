@@ -65,6 +65,16 @@ const violationAccess = (teacherId: string): Prisma.ExamScheduleWhereInput => ({
   scheduleCourses: { some: violationScheduleCourseAccess(teacherId) },
 })
 
+async function hasCourseProctorAccess(
+  tx: Prisma.TransactionClient, teacherId: string, scheduleId: string, courseOfferingId: string,
+) {
+  const assignment = await tx.examScheduleCourse.findFirst({
+    where: { examScheduleId: scheduleId, courseOfferingId, ...violationScheduleCourseAccess(teacherId) },
+    select: { id: true },
+  })
+  return Boolean(assignment)
+}
+
 export const findScheduleAccess = (teacherId: string, examId: string, scheduleId: string) =>
   prisma.examSchedule.findFirst({
     where: {
@@ -350,6 +360,7 @@ export function listProctoringSessions(scheduleId: string, courseOfferingIds: st
     select: {
       id: true,
       status: true,
+      endedBy: true,
       deadlineAt: true,
       lastSavedAt: true,
       student: {
@@ -370,8 +381,9 @@ export function listProctoringSessions(scheduleId: string, courseOfferingIds: st
           lastScreenHeartbeatAt: true,
         },
       },
-      _count: { select: { violations: true, studentAnswers: true, attemptQuestions: true } },
+      _count: { select: { violations: { where: { reviewStatus: { not: 'DISMISSED' } } }, studentAnswers: true, attemptQuestions: true } },
       violations: {
+        where: { reviewStatus: { not: 'DISMISSED' } },
         orderBy: { detectedAt: 'desc' },
         take: 1,
         select: {
@@ -441,9 +453,14 @@ export function updateViolationReview(input: {
           examSchedule: { examId: input.examId, ...violationAccess(input.teacherId) },
         },
       },
-      select: { id: true, reviewStatus: true },
+      select: {
+        id: true,
+        reviewStatus: true,
+        attempt: { select: { studentId: true, courseOfferingId: true, student: { select: { userId: true } } } },
+      },
     })
     if (!violation) return null
+    if (!await hasCourseProctorAccess(tx, input.teacherId, input.scheduleId, violation.attempt.courseOfferingId)) return null
 
     const updated = await tx.violation.update({
       where: { id: violation.id },
@@ -470,7 +487,60 @@ export function updateViolationReview(input: {
       metadata: { previousStatus: violation.reviewStatus, reviewStatus: input.reviewStatus },
     })
 
-    return updated
+    return { ...updated, studentId: violation.attempt.studentId, studentUserId: violation.attempt.student.userId }
+  })
+}
+
+export function forceSubmitAttempt(input: {
+  teacherId: string
+  userId: string
+  examId: string
+  scheduleId: string
+  attemptId: string
+  reason: string
+}) {
+  return prisma.$transaction(async (tx) => {
+    const attempt = await tx.examAttempt.findFirst({
+      where: {
+        id: input.attemptId,
+        examScheduleId: input.scheduleId,
+        examSchedule: { examId: input.examId, ...violationAccess(input.teacherId) },
+        status: 'IN_PROGRESS',
+        deadlineAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        studentId: true,
+        courseOfferingId: true,
+        student: { select: { userId: true } },
+        examSchedule: { select: { title: true } },
+      },
+    })
+    if (!attempt) return null
+    if (!await hasCourseProctorAccess(tx, input.teacherId, input.scheduleId, attempt.courseOfferingId)) return null
+
+    const now = new Date()
+    const changed = await tx.examAttempt.updateMany({
+      where: { id: attempt.id, status: 'IN_PROGRESS', deadlineAt: { gt: now } },
+      data: {
+        status: 'GRADING',
+        endedBy: 'PROCTOR',
+        submittedAt: now,
+        version: { increment: 1 },
+      },
+    })
+    if (changed.count !== 1) return null
+
+    await tx.examSession.updateMany({ where: { attemptId: attempt.id }, data: { isOnline: false } })
+    await writeAuditLog(tx, {
+      userId: input.userId,
+      action: 'FORCE_SUBMIT_EXAM_ATTEMPT_BY_PROCTOR',
+      entityType: 'ExamAttempt',
+      entityId: attempt.id,
+      metadata: { reason: input.reason, examScheduleId: input.scheduleId },
+    })
+    return { attemptId: attempt.id, status: 'GRADING' as const, submittedAt: now, studentId: attempt.studentId,
+      student: attempt.student, examSchedule: attempt.examSchedule }
   })
 }
 
@@ -489,14 +559,16 @@ export function invalidateAttempt(input: {
         examScheduleId: input.scheduleId,
         examSchedule: { examId: input.examId, ...violationAccess(input.teacherId) },
         status: 'IN_PROGRESS',
+        deadlineAt: { gt: new Date() },
       },
-      select: { id: true, status: true, student: { select: { userId: true } }, examSchedule: { select: { title: true } } },
+      select: { id: true, status: true, courseOfferingId: true, student: { select: { userId: true } }, examSchedule: { select: { title: true } } },
     })
     if (!attempt) return null
+    if (!await hasCourseProctorAccess(tx, input.teacherId, input.scheduleId, attempt.courseOfferingId)) return null
 
     const now = new Date()
-    const updated = await tx.examAttempt.update({
-      where: { id: attempt.id },
+    const changed = await tx.examAttempt.updateMany({
+      where: { id: attempt.id, status: 'IN_PROGRESS', deadlineAt: { gt: now } },
       data: {
         status: 'INVALIDATED',
         endedBy: 'PROCTOR',
@@ -508,6 +580,10 @@ export function invalidateAttempt(input: {
         invalidationReason: input.reason,
         version: { increment: 1 },
       },
+    })
+    if (changed.count !== 1) return null
+    const updated = await tx.examAttempt.findUniqueOrThrow({
+      where: { id: attempt.id },
       select: {
         id: true,
         status: true,

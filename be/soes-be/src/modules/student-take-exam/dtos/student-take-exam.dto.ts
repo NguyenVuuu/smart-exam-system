@@ -85,6 +85,7 @@ export interface GetAttemptStatusResponseDto {
   deadlineAt:         string
   submittedAt:        string | null
   endedBy:            string | null
+  invalidationReason:  string | null
   remainingSeconds:   number
   lastSavedAt:        string | null
   isOnline:           boolean

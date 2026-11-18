@@ -43,6 +43,8 @@ export function getAttemptEndedByLabel(value: AttemptStatus['endedBy'] | undefin
       return 'Hết giờ'
     case 'SYSTEM':
       return 'Hệ thống'
+    case 'PROCTOR':
+      return 'Giám thị'
     default:
       return '—'
   }

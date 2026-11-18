@@ -360,6 +360,7 @@ export async function findAttemptStatus(attemptId: string, scheduleId: string, s
       deadlineAt: true,
       submittedAt: true,
       endedBy: true,
+      invalidationReason: true,
       lastSavedAt: true,
       examSession: { select: { lastHeartbeat: true, webcamStatus: true, screenShareStatus: true } },
       _count: { select: { studentAnswers: true, attemptQuestions: true } },

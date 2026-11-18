@@ -200,7 +200,8 @@ export interface AttemptStatus {
   startedAt: string
   deadlineAt: string
   submittedAt: string | null
-  endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | null
+  endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | 'PROCTOR' | null
+  invalidationReason: string | null
   remainingSeconds: number
   lastSavedAt: string | null
   isOnline: boolean

@@ -338,7 +338,7 @@ export const reviewTeacherViolation = (
   examId: string,
   scheduleId: string,
   violationId: string,
-  payload: { reviewStatus: 'PENDING' | 'REVIEWED' | 'CONFIRMED' | 'DISMISSED' | 'WARNED' | 'FORCE_SUBMITTED' | 'INVALIDATED'; reviewNote?: string | null },
+  payload: { reviewStatus: 'PENDING' | 'REVIEWED' | 'CONFIRMED' | 'DISMISSED' | 'WARNED'; reviewNote?: string | null },
 ) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/violations/${violationId}/review`, payload)
 
 export interface TeacherGradeAppeal {
@@ -384,6 +384,15 @@ export const invalidateTeacherAttempt = (
   attemptId: string,
   reason: string,
 ) => apiClient.post(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/invalidate`, { reason })
+
+export const forceSubmitTeacherAttempt = (
+  examId: string,
+  scheduleId: string,
+  attemptId: string,
+  reason: string,
+) => apiClient.post<ApiResponse<{ gradingPending: boolean }>>(
+  `/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/force-submit`, { reason },
+).then(({ data }) => data.data)
 
 export const gradeTeacherExamSubmission = (
   examId: string, scheduleId: string, attemptId: string, score: number, reason: string,

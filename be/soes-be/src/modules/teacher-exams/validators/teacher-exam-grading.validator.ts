@@ -58,13 +58,18 @@ export const resultReleaseSchema = z.object({
 })
 
 export const violationReviewSchema = z.object({
-  reviewStatus: z.enum(['PENDING', 'REVIEWED', 'CONFIRMED', 'DISMISSED', 'WARNED', 'FORCE_SUBMITTED', 'INVALIDATED']),
+  reviewStatus: z.enum(['PENDING', 'REVIEWED', 'CONFIRMED', 'DISMISSED', 'WARNED']),
   reviewNote: z.string().trim().max(1000).optional().nullable(),
+}).refine((value) => value.reviewStatus !== 'WARNED' || (value.reviewNote?.length ?? 0) >= 5, {
+  message: 'A warning must include a reason of at least five characters',
+  path: ['reviewNote'],
 })
 
 export const invalidateAttemptSchema = z.object({
   reason: z.string().trim().min(5).max(1000),
 })
+
+export const forceSubmitAttemptSchema = invalidateAttemptSchema
 
 export type SubmissionQuery = z.infer<typeof submissionQuerySchema>
 export type ViolationQuery = z.infer<typeof violationQuerySchema>
@@ -74,3 +79,4 @@ export type BulkFinalizeScoresBody = z.infer<typeof bulkFinalizeScoresSchema>
 export type ResultReleaseBody = z.infer<typeof resultReleaseSchema>
 export type ViolationReviewBody = z.infer<typeof violationReviewSchema>
 export type InvalidateAttemptBody = z.infer<typeof invalidateAttemptSchema>
+export type ForceSubmitAttemptBody = z.infer<typeof forceSubmitAttemptSchema>

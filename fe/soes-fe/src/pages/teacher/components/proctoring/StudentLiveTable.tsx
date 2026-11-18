@@ -1,4 +1,4 @@
-import { ClockPlus, MonitorUp, Square, Video } from 'lucide-react'
+import { ClockPlus, MonitorUp, ShieldX, Square, Upload, Video } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import type { ProctoringSessionRecord } from '../../types/teacher-exam.types'
 
@@ -45,6 +45,8 @@ export interface StudentLiveTableProps {
   onStartLive: (session: ProctoringSessionRecord, streamType: LiveStreamType) => void
   onStopLive: () => void
   onExtendTime: (session: ProctoringSessionRecord) => void
+  onForceSubmit: (session: ProctoringSessionRecord) => void
+  onInvalidate: (session: ProctoringSessionRecord) => void
 }
 
 export default function StudentLiveTable({
@@ -54,6 +56,8 @@ export default function StudentLiveTable({
   onStartLive,
   onStopLive,
   onExtendTime,
+  onForceSubmit,
+  onInvalidate,
 }: StudentLiveTableProps) {
   return (
     <div className="overflow-x-auto">
@@ -65,6 +69,7 @@ export default function StudentLiveTable({
             <th className="whitespace-nowrap px-5 py-3" title="Trạng thái do thiết bị sinh viên báo; xem luồng trực tiếp để xác nhận">Camera</th>
             <th className="whitespace-nowrap px-5 py-3" title="Trạng thái do thiết bị sinh viên báo; xem luồng trực tiếp để xác nhận">Màn hình</th>
             <th className="whitespace-nowrap px-5 py-3">Tiến độ</th>
+            <th className="whitespace-nowrap px-5 py-3">Tín hiệu</th>
             <th className="whitespace-nowrap px-5 py-3 text-right">Thao tác</th>
           </tr>
         </thead>
@@ -77,6 +82,8 @@ export default function StudentLiveTable({
               <td className="px-5 py-4">
                 <p className="font-semibold text-slate-900">{session.studentName}</p>
                 <p className="text-xs text-blue-600 font-medium">MSSV: {session.studentCode}</p>
+                {session.attemptStatus === 'INVALIDATED' && <p className="mt-1 text-xs font-semibold text-rose-700">Bài thi đã hủy</p>}
+                {session.endedBy === 'PROCTOR' && session.attemptStatus !== 'INVALIDATED' && <p className="mt-1 text-xs font-semibold text-amber-700">Đã buộc nộp</p>}
               </td>
               <td className="px-5 py-4">
                 <AppBadge tone={session.isOnline ? 'blue' : 'gray'}>
@@ -96,6 +103,11 @@ export default function StudentLiveTable({
               </td>
               <td className="px-5 py-4 text-slate-600 font-medium">
                 {session.answeredCount}/{session.totalQuestionCount}
+              </td>
+              <td className="px-5 py-4">
+                <AppBadge tone={session.violationCount >= 3 ? 'rose' : session.violationCount > 0 ? 'amber' : 'gray'}>
+                  {session.violationCount} tín hiệu
+                </AppBadge>
               </td>
               <td className="px-5 py-4 text-right">
                 <div className="flex flex-wrap justify-end gap-2">
@@ -134,6 +146,14 @@ export default function StudentLiveTable({
                     className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                   >
                     <ClockPlus size={14} /> Gia hạn
+                  </button>
+                  <button type="button" onClick={() => onForceSubmit(session)} disabled={session.attemptStatus !== 'IN_PROGRESS'}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">
+                    <Upload size={14} /> Buộc nộp
+                  </button>
+                  <button type="button" onClick={() => onInvalidate(session)} disabled={session.attemptStatus !== 'IN_PROGRESS'}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50">
+                    <ShieldX size={14} /> Hủy bài
                   </button>
                 </div>
               </td>
