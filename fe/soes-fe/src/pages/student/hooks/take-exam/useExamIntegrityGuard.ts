@@ -33,7 +33,7 @@ const BLOCKED_SHORTCUTS: Record<string, BlockedAction> = {
 const FULLSCREEN_GRACE_MS = 3_000
 const FULLSCREEN_COUNTDOWN_SECONDS = 5
 const FULLSCREEN_SEVERE_MS = 7_000
-const TAB_SWITCH_CAPTURE_DELAY_MS = 450
+const TAB_SWITCH_CAPTURE_DELAY_MS = 0
 
 export function useExamIntegrityGuard({
   enabled,
@@ -337,6 +337,7 @@ export function useExamIntegrityGuard({
             violationType: 'TAB_SWITCH',
             severity,
             description,
+            detectedAt: new Date(now).toISOString(),
             evidenceFiles,
           }, false)
         }).catch(() => {
@@ -344,6 +345,7 @@ export function useExamIntegrityGuard({
             violationType: 'TAB_SWITCH',
             severity,
             description,
+            detectedAt: new Date(now).toISOString(),
           }, false)
         })
       }, TAB_SWITCH_CAPTURE_DELAY_MS)
