@@ -4,16 +4,19 @@ import vm from 'node:vm'
 import test from 'node:test'
 
 const source = await readFile(new URL('../public/mediapipe/vision-worker.js', import.meta.url), 'utf8')
+const phoneFramesSource = await readFile(new URL('../public/mediapipe/phone-frames.js', import.meta.url), 'utf8')
+const phoneScanSource = await readFile(new URL('../public/mediapipe/phone-scan.js', import.meta.url), 'utf8')
+const faceIssueSource = await readFile(new URL('../public/mediapipe/face-issue.js', import.meta.url), 'utf8')
 const phoneResult = (score = 0.9) => ({ detections: [{
   categories: [{ categoryName: 'cell phone', score }],
-  boundingBox: { originX: 112.5, originY: 180, width: 67.5, height: 135 },
+  boundingBox: { originX: 100, originY: 160, width: 60, height: 120 },
 }] })
 const faceLandmarks = (centerX, centerY) => Array.from({ length: 60 }, (_, index) => ({
   x: centerX + Math.cos(index * Math.PI / 30) * 0.12,
   y: centerY + Math.sin(index * Math.PI / 30) * 0.16,
 }))
 
-async function harness({ failGpu = false, failInference = false } = {}) {
+async function harness({ failGpu = false, failInference = false, mode = 'phone' } = {}) {
   const messages = [], calls = [], delegates = [], stamps = [], draws = []
   let phones = phoneResult()
   let edgePhones = () => ({ detections: [] })
@@ -33,16 +36,24 @@ async function harness({ failGpu = false, failInference = false } = {}) {
     }
   } })
   const self = { location: { href: 'http://localhost/mediapipe/vision-worker.js', origin: 'http://localhost' }, postMessage: (value) => messages.push(value) }
-  vm.runInNewContext(source, {
+  const context = vm.createContext({
     self, importScripts() {}, URL, Date, performance: { now: () => clock },
-    Vision: { FilesetResolver: { forVisionTasks: async () => ({}) }, FaceLandmarker: task('face'), ObjectDetector: task('phone') },
+    Vision: { FilesetResolver: { forVisionTasks: async () => ({}) }, FaceLandmarker: task('face') },
+    PhoneYolo: { create: async () => ({ delegate: 'WASM', close() {}, async detectForVideo(image) {
+      calls.push('phone'); clock += duration
+      return image.lastDraw?.length === 8 ? edgePhones(image.lastDraw) : phones
+    } }) },
     OffscreenCanvas: class {
       constructor(width, height) { this.width = width; this.height = height }
       getContext() { return { drawImage: (...args) => { this.lastDraw = args.slice(1); draws.push(this.lastDraw) }, fillRect() {}, strokeRect() {}, fillText: (value) => stamps.push(value) } }
       async convertToBlob() { return new Blob(['jpeg'], { type: 'image/jpeg' }) }
     },
   })
-  await self.onmessage({ data: { type: 'init' } })
+  vm.runInContext(phoneFramesSource, context)
+  vm.runInContext(phoneScanSource, context)
+  vm.runInContext(faceIssueSource, context)
+  vm.runInContext(source, context)
+  await self.onmessage({ data: { type: 'init', mode } })
   return {
     messages, calls, delegates, stamps, draws,
     setPhones: (value) => { phones = value },
@@ -61,12 +72,27 @@ async function harness({ failGpu = false, failInference = false } = {}) {
   }
 }
 
+test('separate face worker never runs phone inference', async () => {
+  const h = await harness({ mode: 'face' })
+  await h.frame(0)
+  await h.frame(200)
+  assert.deepEqual(h.calls, ['face', 'face'])
+})
+
+test('separate phone worker never runs face inference', async () => {
+  const h = await harness({ mode: 'phone' })
+  await h.frame(0)
+  await h.frame(200)
+  assert.ok(h.calls.length >= 2)
+  assert.ok(h.calls.every((kind) => kind === 'phone'))
+})
+
 test('detects a phone on the first frame without repeating one continuous appearance', async () => {
   const h = await harness()
   const first = await h.frame(0)
   assert.equal(first.evidence.metadata.observedDurationMs, 0)
   for (let time = 250; time <= 10500; time += 250) await h.frame(time)
-  assert.deepEqual(h.calls.slice(0, 2), ['phone', 'face'])
+  assert.ok(h.calls.every((kind) => kind === 'phone'))
   const events = h.messages.filter((m) => m.evidence)
   assert.equal(events.length, 1)
   assert.equal(events[0].evidence.metadata.confidence, 0.9)
@@ -84,21 +110,21 @@ test('a phone leaving and reappearing is reported again without a time cooldown'
   assert.equal((await h.frame(200)).evidence, null)
   h.setPhones(phoneResult())
   const second = await h.frame(300)
-  assert.equal(second.kind, 'face')
+  assert.equal(second.kind, 'phone')
   assert.ok(second.evidence)
   assert.equal(second.evidence.metadata.capturedAt, new Date(1700000000300).toISOString())
 })
 
-test('captures a phone first visible during a face-analysis frame', async () => {
+test('captures a phone first visible on the next phone frame', async () => {
   const h = await harness()
   h.setPhones({ detections: [] })
   assert.equal((await h.frame(0)).evidence, null)
   h.setPhones(phoneResult())
   const next = await h.frame(100)
-  assert.equal(next.kind, 'face')
+  assert.equal(next.kind, 'phone')
   assert.equal(next.evidence.metadata.observedDurationMs, 0)
   assert.equal(next.evidence.metadata.capturedAt, new Date(1700000000100).toISOString())
-  assert.deepEqual(h.calls.slice(-2), ['phone', 'face'])
+  assert.ok(h.calls.every((kind) => kind === 'phone'))
 })
 
 test('phone input keeps aspect ratio and detections in padding cannot become evidence', async () => {
@@ -107,14 +133,14 @@ test('phone input keeps aspect ratio and detections in padding cannot become evi
   result.detections[0].boundingBox = { originX: 100, originY: 5, width: 50, height: 20 }
   h.setPhones(result)
   await h.frame(0)
-  assert.deepEqual(h.draws[0], [0, 90, 720, 540])
+  assert.deepEqual(h.draws[0], [0, 80, 640, 480])
   assert.equal(h.messages.filter((m) => m.evidence).length, 0)
 })
 
 test('portrait camera uses horizontal padding and maps evidence boxes to original pixels', async () => {
   const h = await harness()
   await h.frame(0, 480, 640)
-  assert.deepEqual(h.draws[0], [90, 0, 540, 720])
+  assert.deepEqual(h.draws[0], [80, 0, 480, 640])
   const event = h.messages.find((m) => m.evidence)
   assert.deepEqual(JSON.parse(JSON.stringify(event.evidence.metadata.boundingBox)), { originX: 20, originY: 160, width: 60, height: 120 })
   assert.equal(event.evidence.metadata.frameWidth, 480)
@@ -168,13 +194,14 @@ test('corner scanning is bounded per frame and visits other corners', async () =
   const h = await harness()
   h.setPhones({ detections: [] })
   h.setEdgePhones(([sx, sy]) => sx === 0 && sy === 0 ? phoneResult(0.93) : { detections: [] })
-  for (let timestamp = 0; timestamp < 1500; timestamp += 250) {
+  let event = null
+  for (let timestamp = 0; timestamp <= 1500; timestamp += 250) {
     const before = h.calls.filter((call) => call === 'phone').length
     const result = await h.frame(timestamp)
-    if (result.kind === 'phone') assert.ok(h.calls.filter((call) => call === 'phone').length - before <= 3)
-    assert.equal(result.evidence, null)
+    assert.ok(h.calls.filter((call) => call === 'phone').length - before <= 3)
+    event ??= result.evidence
   }
-  assert.ok((await h.frame(1500)).evidence)
+  assert.ok(event)
 })
 
 test('a central weak match cannot skip a phone visible in a corner', async () => {
@@ -237,18 +264,18 @@ test('a small low-confidence phone at the edge is confirmed in the same captured
 })
 
 test('face evidence comes from the same frame as the detected issue', async () => {
-  const h = await harness()
+  const h = await harness({ mode: 'face' })
   h.setPhones({ detections: [] })
   h.setFace({ faceLandmarks: [] })
   let result
-  for (let timestamp = 0; timestamp <= 3250; timestamp += 250) result = await h.frame(timestamp)
+  for (let timestamp = 0; timestamp <= 3000; timestamp += 250) result = await h.frame(timestamp)
   assert.equal(result.issue, 'NO_FACE')
   assert.ok(result.faceEvidence instanceof Blob)
-  assert.equal(result.capturedAt, 1700000003250)
+  assert.equal(result.capturedAt, 1700000003000)
 })
 
 test('brief missing face does not create a violation', async () => {
-  const h = await harness()
+  const h = await harness({ mode: 'face' })
   h.setPhones({ detections: [] })
   h.setFace({ faceLandmarks: [] })
   for (let timestamp = 0; timestamp <= 1250; timestamp += 250) assert.equal((await h.frame(timestamp)).issue, null)
@@ -257,32 +284,49 @@ test('brief missing face does not create a violation', async () => {
 })
 
 test('a duplicate face box is ignored while two distinct persistent faces are reported', async () => {
-  const h = await harness()
+  const h = await harness({ mode: 'face' })
   h.setPhones({ detections: [] })
   h.setFace({ faceLandmarks: [faceLandmarks(0.5, 0.5), faceLandmarks(0.51, 0.51)] })
   for (let timestamp = 0; timestamp <= 1250; timestamp += 250) assert.equal((await h.frame(timestamp)).issue, null)
   h.setFace({ faceLandmarks: [faceLandmarks(0.3, 0.5), faceLandmarks(0.75, 0.5)] })
-  for (let timestamp = 1500; timestamp < 2750; timestamp += 250) assert.equal((await h.frame(timestamp)).issue, null)
-  assert.equal((await h.frame(2750)).issue, 'MULTIPLE_FACES')
+  for (let timestamp = 1500; timestamp < 2500; timestamp += 250) assert.equal((await h.frame(timestamp)).issue, null)
+  assert.equal((await h.frame(2500)).issue, 'MULTIPLE_FACES')
 })
 
-test('GPU initialization failures fall back to CPU for both tasks', async () => {
-  const h = await harness({ failGpu: true })
+test('looking away requires 1.5 seconds and resets when facing the camera again', async () => {
+  const h = await harness({ mode: 'face' })
+  const turned = Array.from({ length: 264 }, () => ({ x: 0.5, y: 0.5 }))
+  turned[1] = { x: 0.9, y: 0.5 }
+  turned[2] = { x: 0.3, y: 0.3 }
+  turned[3] = { x: 0.7, y: 0.7 }
+  turned[33] = { x: 0.4, y: 0.5 }
+  turned[263] = { x: 0.6, y: 0.5 }
+  h.setFace({ faceLandmarks: [turned] })
+  for (let timestamp = 0; timestamp < 1500; timestamp += 250) {
+    assert.equal((await h.frame(timestamp)).issue, null)
+  }
+  assert.equal((await h.frame(1500)).issue, 'LOOKING_AWAY')
+  h.setFace({ faceLandmarks: [faceLandmarks(0.5, 0.5)] })
+  assert.equal((await h.frame(1750)).issue, null)
+  h.setFace({ faceLandmarks: [turned] })
+  assert.equal((await h.frame(2000)).issue, null)
+})
+
+test('face GPU initialization falls back to CPU', async () => {
+  const h = await harness({ failGpu: true, mode: 'face' })
   assert.equal(h.messages[0].type, 'ready')
   assert.equal(h.messages[0].faceDelegate, 'CPU')
-  assert.equal(h.messages[0].phoneDelegate, 'CPU')
 })
 
 test('lost GPU context falls back without processing stale frame again', async () => {
-  const h = await harness({ failInference: true })
+  const h = await harness({ failInference: true, mode: 'face' })
   assert.equal((await h.frame(0)).skipped, true)
-  assert.equal((await h.frame(250)).skipped, true)
-  assert.equal((await h.frame(500)).issue, null)
-  assert.ok(h.delegates.some(([kind, delegate]) => kind === 'phone' && delegate === 'CPU'))
+  assert.equal((await h.frame(250)).issue, null)
+  assert.ok(h.delegates.some(([kind, delegate]) => kind === 'face' && delegate === 'CPU'))
 })
 
 test('slow inference reduces frequency while face confirmation remains active', async () => {
-  const h = await harness()
+  const h = await harness({ mode: 'face' })
   h.slow()
   const first = await h.frame(0)
   assert.equal(first.intervalMs, 150)

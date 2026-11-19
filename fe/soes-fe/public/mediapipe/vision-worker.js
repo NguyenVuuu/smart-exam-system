@@ -1,175 +1,40 @@
 /* Classic worker: MediaPipe's WASM loader uses importScripts. */
-importScripts('./vision_bundle.js')
-const vision = Vision
+let vision = null
 
 let face = null
 let phone = null
 let faceDelegate = 'GPU'
-let phoneDelegate = 'GPU'
+let phoneDelegate = 'WASM'
 let fileset = null
 let busy = false
-let nextTask = 'phone'
 let intervalMs = 150
 let phoneEpisodeActive = false
-let phoneSweepIndex = 0
 let initialized = false
 let debug = false
+let mode = null
 let phoneDiagnostics = null
 let lastFaceEvidenceIssue = null
 let lastFaceEvidenceAt = -Infinity
 let faceCandidateIssue = null
 let faceCandidateStartedAt = 0
-const PHONE_CONFIDENCE = 0.75
-const PHONE_CANDIDATE_CONFIDENCE = 0.5
-const PHONE_CONFIRM_CONFIDENCE = 0.75
-const PHONE_STRONG_CONFIDENCE = 0.9
-const PHONE_INPUT_SIZE = 720
-const PHONE_SWEEP = [
-  [3, 0.35], [2, 0.22], [1, 0.22], [0, 0.22],
-  [2, 0.35], [1, 0.35], [0, 0.35],
-]
 const FACE_CONFIRM_MS = { NO_FACE: 3000, MULTIPLE_FACES: 1000, LOOKING_AWAY: 1500 }
-let phoneCanvas = null
-let edgeCanvas = null
 
-function preparePhoneFrame(frame) {
-  phoneCanvas ??= new OffscreenCanvas(PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
-  const context = phoneCanvas.getContext('2d')
-  if (!context) throw new Error('Phone input canvas unavailable')
-  const scale = PHONE_INPUT_SIZE / Math.max(frame.width, frame.height)
-  const width = frame.width * scale
-  const height = frame.height * scale
-  const offsetX = Math.floor((PHONE_INPUT_SIZE - width) / 2)
-  const offsetY = Math.floor((PHONE_INPUT_SIZE - height) / 2)
-  // Preserve camera aspect ratio when passing a rectangular frame to a square model.
-  context.fillStyle = '#000000'
-  context.fillRect(0, 0, PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
-  context.drawImage(frame, offsetX, offsetY, width, height)
-  return { image: phoneCanvas, scale, offsetX, offsetY, sourceX: 0, sourceY: 0, sourceWidth: frame.width, sourceHeight: frame.height }
-}
-
-function preparePhoneEdge(frame, edge, fraction) {
-  edgeCanvas ??= new OffscreenCanvas(PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
-  const context = edgeCanvas.getContext('2d')
-  if (!context) throw new Error('Phone edge canvas unavailable')
-  const sourceWidth = Math.max(1, Math.round(frame.width * fraction))
-  const sourceHeight = Math.max(1, Math.round(frame.height * fraction))
-  const sourceX = edge % 2 === 0 ? 0 : frame.width - sourceWidth
-  const sourceY = edge < 2 ? 0 : frame.height - sourceHeight
-  const scale = PHONE_INPUT_SIZE / Math.max(sourceWidth, sourceHeight)
-  const width = sourceWidth * scale
-  const height = sourceHeight * scale
-  const offsetX = Math.floor((PHONE_INPUT_SIZE - width) / 2)
-  const offsetY = Math.floor((PHONE_INPUT_SIZE - height) / 2)
-  context.fillStyle = '#000000'
-  context.fillRect(0, 0, PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
-  context.drawImage(frame, sourceX, sourceY, sourceWidth, sourceHeight, offsetX, offsetY, width, height)
-  return { image: edgeCanvas, scale, offsetX, offsetY, sourceX, sourceY, sourceWidth, sourceHeight }
-}
-
-function phoneResultInOriginalFrame(result, transform) {
-  return { ...result, detections: result.detections.flatMap((detection) => {
-    const box = detection.boundingBox
-    if (!box) return []
-    const x = Math.max(transform.sourceX, Math.min(transform.sourceX + transform.sourceWidth, Math.round(transform.sourceX + (box.originX - transform.offsetX) / transform.scale)))
-    const y = Math.max(transform.sourceY, Math.min(transform.sourceY + transform.sourceHeight, Math.round(transform.sourceY + (box.originY - transform.offsetY) / transform.scale)))
-    const right = Math.max(transform.sourceX, Math.min(transform.sourceX + transform.sourceWidth, Math.round(transform.sourceX + (box.originX + box.width - transform.offsetX) / transform.scale)))
-    const bottom = Math.max(transform.sourceY, Math.min(transform.sourceY + transform.sourceHeight, Math.round(transform.sourceY + (box.originY + box.height - transform.offsetY) / transform.scale)))
-    if (right <= x || bottom <= y) return []
-    return [{ ...detection, boundingBox: { originX: x, originY: y, width: right - x, height: bottom - y } }]
-  }) }
-}
-
-function phoneConfidence(detection) {
-  return detection.categories.find((category) => category.categoryName === 'cell phone')?.score ?? 0
-}
-
-function samePhoneBox(first, second) {
-  const left = Math.max(first.originX, second.originX)
-  const top = Math.max(first.originY, second.originY)
-  const right = Math.min(first.originX + first.width, second.originX + second.width)
-  const bottom = Math.min(first.originY + first.height, second.originY + second.height)
-  const intersection = Math.max(0, right - left) * Math.max(0, bottom - top)
-  return intersection / Math.max(1, first.width * first.height + second.width * second.height - intersection) >= 0.45
-}
-
-function confirmPhoneCandidate(frame, detection, timestamp) {
-  const box = detection.boundingBox
-  const padding = Math.max(box.width, box.height) * 0.75
-  const sourceX = Math.max(0, box.originX - padding)
-  const sourceY = Math.max(0, box.originY - padding)
-  const sourceWidth = Math.min(frame.width, box.originX + box.width + padding) - sourceX
-  const sourceHeight = Math.min(frame.height, box.originY + box.height + padding) - sourceY
-  edgeCanvas ??= new OffscreenCanvas(PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
-  const context = edgeCanvas.getContext('2d')
-  if (!context) return false
-  const scale = PHONE_INPUT_SIZE / Math.max(sourceWidth, sourceHeight)
-  const offsetX = (PHONE_INPUT_SIZE - sourceWidth * scale) / 2
-  const offsetY = (PHONE_INPUT_SIZE - sourceHeight * scale) / 2
-  context.fillStyle = '#000000'
-  context.fillRect(0, 0, PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
-  context.drawImage(frame, sourceX, sourceY, sourceWidth, sourceHeight, offsetX, offsetY, sourceWidth * scale, sourceHeight * scale)
-  const confirmation = phoneResultInOriginalFrame(phone.detectForVideo(edgeCanvas, timestamp), {
-    sourceX, sourceY, sourceWidth, sourceHeight, scale, offsetX, offsetY,
-  })
-  return confirmation.detections.some((item) => phoneConfidence(item) >= PHONE_CONFIRM_CONFIDENCE && samePhoneBox(box, item.boundingBox))
-}
-
-async function createTask(kind, delegate) {
+async function createFaceTask(delegate) {
   const baseOptions = {
-    modelAssetPath: new URL(kind === 'face' ? '../models/face_landmarker.task' : '../models/efficientdet_lite0.tflite', self.location.href).href,
+    modelAssetPath: new URL('../models/face_landmarker.task', self.location.href).href,
     delegate,
   }
   // Each task owns its WebGL context; inference is still serialized in this worker.
   const canvas = new OffscreenCanvas(1, 1)
-  if (kind === 'face') {
-    return vision.FaceLandmarker.createFromOptions(fileset, {
-      baseOptions, canvas, runningMode: 'VIDEO', numFaces: 3,
-      minFaceDetectionConfidence: 0.55, minFacePresenceConfidence: 0.55,
-      minTrackingConfidence: 0.55, outputFacialTransformationMatrixes: true,
-    })
-  }
-  return vision.ObjectDetector.createFromOptions(fileset, {
-    baseOptions, canvas, runningMode: 'VIDEO', scoreThreshold: 0.25,
-    categoryAllowlist: ['cell phone'], maxResults: 3,
+  return vision.FaceLandmarker.createFromOptions(fileset, {
+    baseOptions, canvas, runningMode: 'VIDEO', numFaces: 3,
+    minFaceDetectionConfidence: 0.55, minFacePresenceConfidence: 0.55,
+    minTrackingConfidence: 0.55, outputFacialTransformationMatrixes: true,
   })
 }
 
-function faceBox(landmarks) {
-  if (!landmarks || landmarks.length < 50) return null
-  const points = landmarks.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
-  if (points.length < 50) return null
-  const left = Math.min(...points.map((point) => point.x))
-  const right = Math.max(...points.map((point) => point.x))
-  const top = Math.min(...points.map((point) => point.y))
-  const bottom = Math.max(...points.map((point) => point.y))
-  const width = right - left, height = bottom - top
-  if (width < 0.08 || height < 0.08 || width * height < 0.008) return null
-  return { left, right, top, bottom, width, height }
-}
-
-function distinctFaces(first, second) {
-  const overlap = Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left))
-    * Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top))
-  const union = first.width * first.height + second.width * second.height - overlap
-  return overlap / Math.max(0.0001, union) < 0.25
-}
-
-function faceIssue(result) {
-  if (!result.faceLandmarks.length) return 'NO_FACE'
-  const boxes = result.faceLandmarks.map(faceBox).filter(Boolean)
-  if (boxes.length > 1 && boxes.some((box, index) => index > 0 && distinctFaces(boxes[0], box))) return 'MULTIPLE_FACES'
-  const landmarks = result.faceLandmarks[0]
-  const nose = landmarks[1], left = landmarks[33], right = landmarks[263]
-  if (!nose || !left || !right) return null
-  const offset = Math.abs(nose.x - (left.x + right.x) / 2) / Math.max(0.001, Math.abs(right.x - left.x))
-  const matrix = result.facialTransformationMatrixes?.[0]?.data
-  const yaw = matrix?.length >= 16 ? Math.atan2(matrix[8], Math.hypot(matrix[0], matrix[4])) * 180 / Math.PI : null
-  return offset > 0.55 && (yaw === null || Math.abs(yaw) > 35) ? 'LOOKING_AWAY' : null
-}
-
 function confirmedFaceIssue(result, timestamp) {
-  const candidate = faceIssue(result)
+  const candidate = FaceIssue.detect(result)
   if (!candidate) {
     faceCandidateIssue = null
     return null
@@ -206,9 +71,9 @@ async function phoneEvidence(result, frame, capturedAt) {
     return item.boundingBox && category ? [{ detection: item, confidence: category.score }] : []
   }).sort((a, b) => b.confidence - a.confidence)
   const best = candidates[0]
-  const detection = best?.confidence >= PHONE_CONFIDENCE || best?.detection.confirmed ? best.detection : null
+  const detection = best?.confidence >= PhoneScan.minConfidence || best?.detection.confirmed ? best.detection : null
   phoneDiagnostics = {
-    confidence: best?.confidence ?? null, threshold: PHONE_CONFIDENCE,
+    confidence: best?.confidence ?? null, threshold: PhoneScan.minConfidence,
     positiveMs: 0,
     cooldownRemainingMs: 0,
     state: !detection ? (best ? 'below-threshold' : 'not-detected') : phoneEpisodeActive ? 'same-appearance' : 'first-frame',
@@ -228,7 +93,7 @@ async function phoneEvidence(result, frame, capturedAt) {
   return {
     blob,
     metadata: {
-      model: 'efficientdet_lite0', category: 'cell phone', confidence: category.score,
+      model: 'yolo11n', category: 'cell phone', confidence: category.score,
       boundingBox: { originX, originY, width, height }, frameWidth: frame.width, frameHeight: frame.height,
       capturedAt: new Date(capturedAt).toISOString(), observedDurationMs: 0,
     },
@@ -243,13 +108,25 @@ self.onmessage = async ({ data }) => {
   if (data.type === 'init') {
     if (initialized || busy) return
     debug = data.debug === true
+    mode = data.mode
+    if (mode !== 'face' && mode !== 'phone') {
+      self.postMessage({ type: 'error', message: 'Vision worker mode is required', fatal: true })
+      return
+    }
     busy = true
     try {
-      fileset = await vision.FilesetResolver.forVisionTasks(new URL('./wasm', self.location.href).href)
-      try { face = await createTask('face', 'GPU') }
-      catch { faceDelegate = 'CPU'; face = await createTask('face', 'CPU') }
-      try { phone = await createTask('phone', 'GPU') }
-      catch { phoneDelegate = 'CPU'; phone = await createTask('phone', 'CPU') }
+      if (mode === 'face') {
+        importScripts('./vision_bundle.js', './face-issue.js')
+        vision = Vision
+        fileset = await vision.FilesetResolver.forVisionTasks(new URL('./wasm', self.location.href).href)
+        try { face = await createFaceTask('GPU') }
+        catch { faceDelegate = 'CPU'; face = await createFaceTask('CPU') }
+      }
+      if (mode === 'phone') {
+        importScripts('../yolo/ort.min.js', './phone-yolo.js', './phone-frames.js', './phone-scan.js')
+        phone = await PhoneYolo.create()
+        phoneDelegate = phone.delegate
+      }
       initialized = true
       self.postMessage({ type: 'ready', faceDelegate, phoneDelegate })
     } catch (error) {
@@ -261,80 +138,19 @@ self.onmessage = async ({ data }) => {
   if (busy || !initialized) { data.frame.close(); return }
   busy = true
   const started = performance.now()
-  const kind = nextTask
-  nextTask = kind === 'face' ? 'phone' : 'face'
+  const kind = mode
   try {
     let result
-    let faceFramePhone = null
-    let activeDetector = kind
     try {
       if (kind === 'face') {
-        // A brief phone appearance can fall on a face-analysis frame. Check the
-        // full frame here too, while keeping the more expensive edge scan on
-        // dedicated phone frames.
-        if (!phoneEpisodeActive) {
-          activeDetector = 'phone'
-          const input = preparePhoneFrame(data.frame)
-          const quickResult = phoneResultInOriginalFrame(phone.detectForVideo(input.image, data.timestamp), input)
-          const candidates = quickResult.detections.filter((item) => phoneConfidence(item) >= PHONE_CONFIDENCE)
-            .sort((a, b) => phoneConfidence(b) - phoneConfidence(a))
-          const strongest = candidates[0]
-          if (strongest && (phoneConfidence(strongest) >= PHONE_STRONG_CONFIDENCE
-            || confirmPhoneCandidate(data.frame, strongest, data.timestamp + 0.01))) {
-            faceFramePhone = { detections: [{ ...strongest, confirmed: true }] }
-          }
-        }
-        activeDetector = 'face'
         result = face.detectForVideo(data.frame, data.timestamp)
       } else {
-        const input = preparePhoneFrame(data.frame)
-        result = phoneResultInOriginalFrame(phone.detectForVideo(input.image, data.timestamp), input)
-        const fullConfidence = Math.max(0, ...result.detections.flatMap((item) => item.categories.filter((category) => category.categoryName === 'cell phone').map((category) => category.score)))
-        const weakCandidates = [...result.detections]
-        // Check the same captured frame at multiple scales. A strong full-frame
-        // candidate can be confirmed before scanning every corner.
-        if (fullConfidence < PHONE_STRONG_CONFIDENCE) {
-          let cropIndex = 0
-          let foundPhone = false
-          const clearCandidates = weakCandidates.filter((item) => phoneConfidence(item) >= PHONE_CONFIDENCE)
-            .sort((a, b) => phoneConfidence(b) - phoneConfidence(a))
-          for (const candidate of clearCandidates) {
-            if (confirmPhoneCandidate(data.frame, candidate, data.timestamp + (++cropIndex) * 0.01)) {
-              result = { detections: [{ ...candidate, confirmed: true }] }
-              foundPhone = true
-              break
-            }
-          }
-          const sweep = PHONE_SWEEP[phoneSweepIndex++ % PHONE_SWEEP.length]
-          for (const [edge, fraction] of foundPhone ? [] : [[3, 0.22], sweep]) {
-            const crop = preparePhoneEdge(data.frame, edge, fraction)
-            const edgeResult = phoneResultInOriginalFrame(phone.detectForVideo(crop.image, data.timestamp + (++cropIndex) * 0.01), crop)
-            weakCandidates.push(...edgeResult.detections)
-            if (edgeResult.detections.some((item) => phoneConfidence(item) >= PHONE_STRONG_CONFIDENCE)) {
-              result = edgeResult
-              foundPhone = true
-              break
-            }
-          }
-          if (!foundPhone) {
-            const candidates = weakCandidates.filter((item) => phoneConfidence(item) >= PHONE_CANDIDATE_CONFIDENCE)
-              .sort((a, b) => phoneConfidence(b) - phoneConfidence(a)).slice(0, 2)
-            result = { detections: [] }
-            for (const candidate of candidates) {
-              if (confirmPhoneCandidate(data.frame, candidate, data.timestamp + (++cropIndex) * 0.01)) {
-                result = { detections: [{ ...candidate, confirmed: true }] }
-                break
-              }
-            }
-          }
-        }
+        result = await PhoneScan.full(phone, data.frame, data.timestamp)
       }
     } catch (error) {
-      if ((activeDetector === 'face' ? faceDelegate : phoneDelegate) === 'CPU') throw error
-      if (activeDetector === 'face') {
-        face.close(); faceDelegate = 'CPU'; face = await createTask('face', 'CPU')
-      } else {
-        phone.close(); phoneDelegate = 'CPU'; phone = await createTask('phone', 'CPU')
+      if (kind === 'phone' || faceDelegate === 'CPU') throw error
+      if (kind === 'face') {
+        face.close(); faceDelegate = 'CPU'; face = await createFaceTask('CPU')
       }
       // The next fresh frame is used after delegate recovery.
       self.postMessage({ type: 'result', kind, skipped: true, intervalMs })
@@ -350,8 +166,7 @@ self.onmessage = async ({ data }) => {
         lastFaceEvidenceAt = data.timestamp
       }
     }
-    const evidence = kind === 'phone' ? await phoneEvidence(result, data.frame, data.capturedAt)
-      : faceFramePhone ? await phoneEvidence(faceFramePhone, data.frame, data.capturedAt) : null
+    const evidence = kind === 'phone' ? await phoneEvidence(result, data.frame, data.capturedAt) : null
     const duration = performance.now() - started
     intervalMs = Math.round(Math.min(150, Math.max(80, intervalMs * 0.75 + duration * 0.25)))
     self.postMessage({

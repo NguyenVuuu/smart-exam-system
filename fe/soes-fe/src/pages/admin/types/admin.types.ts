@@ -125,6 +125,7 @@ export interface AdminExam {
 export interface AdminExamSchedule {
   id: string
   examId?: string
+  durationMinutes?: number
   examTitle: string
   subjectName: string
   courseCodes: string[]

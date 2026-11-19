@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { takeExamApi, type ExamViolationType, type RecordViolationPayload, type PhoneDetectionMetadata } from '../../api/student-take-exam.api'
+import { takeExamApi, type ExamViolationType, type RecordViolationPayload } from '../../api/student-take-exam.api'
 import type { ExamWebcamStatus } from './useExamWebcam'
 import { captureExamWebcamSnapshot, isExamWebcamStreamLive } from '../../utils/exam-webcam'
+import { usePhoneViolationMonitor } from './usePhoneViolationMonitor'
 
 type WebcamIssueType = Extract<
   ExamViolationType,
@@ -144,9 +145,7 @@ interface VisionMessage {
   message?: string
   intervalMs?: number
   capturedAt?: number
-  evidence?: { blob: Blob; metadata: PhoneDetectionMetadata } | null
   faceEvidence?: Blob | null
-  diagnostics?: { confidence: number | null; threshold: number; positiveMs: number; cooldownRemainingMs: number; state: string }
 }
 
 export function useWebcamViolationMonitor(input: {
@@ -156,12 +155,12 @@ export function useWebcamViolationMonitor(input: {
   stream: MediaStream | null
   webcamStatus: ExamWebcamStatus
 }) {
+  const phoneError = usePhoneViolationMonitor(input)
   const openViolationRef = useRef<OpenViolationState | null>(null)
   const issueStartedAtRef = useRef<Partial<Record<WebcamIssueType, number>>>({})
   const lastCreatedAtRef = useRef<Partial<Record<WebcamIssueType, number>>>({})
   const [visionError, setVisionError] = useState<string | null>(null)
   const [visionStatus, setVisionStatus] = useState<'RECOVERING' | 'READY' | 'UNAVAILABLE'>('RECOVERING')
-  const [uploadError, setUploadError] = useState<string | null>(null)
   const attemptKeyRef = useRef('')
   const webcamStatusRef = useRef(input.webcamStatus)
 
@@ -189,10 +188,6 @@ export function useWebcamViolationMonitor(input: {
     let lastFrameSentAt = 0
     let observingFace = false
     let lastFaceObservedAt = 0
-    let visionDebug = false
-    const phoneEvidenceQueue: Array<NonNullable<VisionMessage['evidence']>> = []
-    let uploadingPhone = false
-    try { visionDebug = window.localStorage.getItem('soes:vision-debug') === '1' } catch { /* Storage may be unavailable. */ }
     const attemptKey = `${input.scheduleId}:${input.attemptId}`
     if (attemptKeyRef.current !== attemptKey) {
       attemptKeyRef.current = attemptKey
@@ -286,37 +281,6 @@ export function useWebcamViolationMonitor(input: {
       finally { observingFace = false }
     }
 
-    const drainPhoneEvidence = async () => {
-      if (uploadingPhone || cancelled) return
-      uploadingPhone = true
-      try {
-        while (!cancelled && phoneEvidenceQueue.length > 0) {
-          const evidence = phoneEvidenceQueue.shift()!
-          try {
-            const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
-              violationType: 'PHONE_DETECTED', severity: 'MEDIUM',
-              description: 'Possible phone detected. Evidence requires teacher review; this is not a conclusion of misconduct.',
-              detectedAt: evidence.metadata.capturedAt,
-              metadata: evidence.metadata,
-              evidenceFiles: [new File([evidence.blob], `phone-${Date.parse(evidence.metadata.capturedAt)}.jpg`, { type: 'image/jpeg' })],
-            })
-            if (visionDebug) console.info('[exam-vision] phone event saved', { id: response.id })
-            if (!cancelled) setUploadError(null)
-          } catch (error) {
-            worker?.postMessage({ type: 'phone-upload-failed' })
-            if (visionDebug) console.error('[exam-vision] phone upload failed', error)
-            if (!cancelled) setUploadError('Không gửi được ảnh bằng chứng. Hệ thống sẽ thử lại khi có sự kiện tiếp theo.')
-          }
-        }
-      } finally { uploadingPhone = false }
-    }
-
-    const recordPhone = (evidence: NonNullable<VisionMessage['evidence']>) => {
-      if (cancelled) return
-      phoneEvidenceQueue.push(evidence)
-      void drainPhoneEvidence()
-    }
-
     const failWorker = () => {
       ready = false
       busy = false
@@ -339,13 +303,10 @@ export function useWebcamViolationMonitor(input: {
     function startWorker() {
       if (cancelled) return
       try {
-        worker = new Worker('/mediapipe/vision-worker.js', { name: 'exam-vision' })
+        worker = new Worker('/mediapipe/vision-worker.js', { name: 'exam-face' })
         worker.onerror = failWorker
         worker.onmessage = ({ data }: MessageEvent<VisionMessage>) => {
           if (cancelled) return
-          if (visionDebug && data.diagnostics) console.info('[exam-vision] phone', data.diagnostics)
-          if (visionDebug && data.type === 'error') console.error('[exam-vision] worker', data.message)
-          if (visionDebug && data.type === 'ready') console.info('[exam-vision] ready')
           window.clearTimeout(watchdog)
           if (data.type === 'ready') {
             ready = true
@@ -369,7 +330,6 @@ export function useWebcamViolationMonitor(input: {
                 setVisionStatus('READY')
                 setVisionError(null)
                 if (data.kind === 'face') void observeFace(data.issue ?? null, data.capturedAt ?? Date.now(), data.faceEvidence)
-                if (data.evidence) void recordPhone(data.evidence)
               }
             }
           } finally {
@@ -379,7 +339,7 @@ export function useWebcamViolationMonitor(input: {
           }
         }
         watchdog = window.setTimeout(failWorker, 60_000)
-        worker.postMessage({ type: 'init', debug: visionDebug })
+        worker.postMessage({ type: 'init', mode: 'face' })
       } catch { failWorker() }
     }
 
@@ -429,10 +389,9 @@ export function useWebcamViolationMonitor(input: {
       window.clearTimeout(watchdog)
       window.clearTimeout(recoveryTimer)
       worker?.terminate()
-      phoneEvidenceQueue.length = 0
       video?.pause()
       if (video) video.srcObject = null
     }
   }, [input.attemptId, input.enabled, input.scheduleId, input.stream])
-  return { visionError: input.enabled ? visionError ?? uploadError : null, visionStatus }
+  return { visionError: input.enabled ? visionError ?? phoneError : null, visionStatus }
 }

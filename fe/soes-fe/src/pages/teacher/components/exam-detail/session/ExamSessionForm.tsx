@@ -111,11 +111,9 @@ export function ExamSessionForm({
         </Field>
 
         <Field label="Thời lượng làm bài" error={fieldErrors.durationMinutes}>
-          <AppNumberInput
-            value={draft.durationMinutes}
-            onChange={(value) => update('durationMinutes', value)}
-            suffix="phút"
-          />
+          <input type="text" value={`${draft.durationMinutes} phút`} disabled
+            title="Thời lượng được lấy từ cấu hình đề thi"
+            className={`${inputClassName} cursor-not-allowed bg-slate-100 text-slate-500`} />
         </Field>
 
         <Field label="Số lần làm bài" error={fieldErrors.maxAttempts} className="md:col-start-4">

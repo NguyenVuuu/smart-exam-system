@@ -26,7 +26,7 @@ const computeScheduleStatus = (
 }
 
 export const toAdminSchedule = (row: ExamScheduleApiDto): AdminExamSchedule => ({
-  id: row.id, examId: row.exam.id, examTitle: row.title, subjectName: row.exam.subject.name,
+  id: row.id, examId: row.exam.id, durationMinutes: row.durationMinutes, examTitle: row.title, subjectName: row.exam.subject.name,
   courseCodes: row.courses.map(({ code }) => code), date: dateFormatter.format(new Date(row.startTime)),
   time: `${timeFormatter.format(new Date(row.startTime))} - ${timeFormatter.format(new Date(row.endTime))}`,
   location: row.locationMode === 'CAMPUS' ? 'Mạng trường' : 'Trực tuyến',
@@ -92,7 +92,7 @@ export function toSchedulePayload(schedule: AdminExamSchedule, existing: boolean
   })
   return {
     title: schedule.examTitle, examId: schedule.examId!, startTime: startTime.toISOString(), endTime: endTime.toISOString(),
-    durationMinutes: Math.round((endTime.getTime() - startTime.getTime()) / 60000), maxAttempts: 1,
+    durationMinutes: schedule.durationMinutes ?? Math.round((endTime.getTime() - startTime.getTime()) / 60000), maxAttempts: 1,
     ...(!existing && schedule.password ? { password: schedule.password } : {}),
     ...(existing && schedule.password ? { password: schedule.password } : {}),
     enableTabLock: schedule.enableTabLock ?? true,

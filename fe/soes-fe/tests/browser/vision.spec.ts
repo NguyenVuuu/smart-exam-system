@@ -7,19 +7,34 @@ for (const fallback of [false, true]) {
     test.skip(!process.env.VISION_TEST_IMAGE, 'Set VISION_TEST_IMAGE to a local phone reference image; private evidence is not committed.')
     const photo = await readFile(process.env.VISION_TEST_IMAGE!)
     await page.route('**/vision-reference.jpg', route => route.fulfill({ contentType: 'image/jpeg', body: photo }))
+    if (process.env.VISION_TEST_MODEL) {
+      const model = await readFile(process.env.VISION_TEST_MODEL)
+      await page.route('**/models/yolo11n.onnx', route => route.fulfill({ contentType: 'application/octet-stream', body: model }))
+    }
     await page.route('**/vision-reference-test', route => route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' }))
     if (fallback) {
       await page.route('**/mediapipe/vision-worker.js', async route => {
         const response = await route.fetch()
         await route.fulfill({ response, body: (await response.text()).replace(
-          'async function createTask(kind, delegate) {',
-          "async function createTask(kind, delegate) { if (delegate === 'GPU') throw new Error('Test GPU failure');",
+          'async function createFaceTask(delegate) {',
+          "async function createFaceTask(delegate) { if (delegate === 'GPU') throw new Error('Test GPU failure');",
         ) })
       })
+    }
+    if (process.env.VISION_TEST_CROP) {
+      await page.addInitScript((crop) => { (window as Window & { visionTestCrop?: number[] }).visionTestCrop = crop },
+        process.env.VISION_TEST_CROP.split(',').map(Number))
     }
     await page.goto('/vision-reference-test')
     const result = await page.evaluate(async () => {
       const image = new Image(); image.src = '/vision-reference.jpg'; await image.decode()
+      const crop = (window as Window & { visionTestCrop?: number[] }).visionTestCrop
+      const canvas = crop ? document.createElement('canvas') : null
+      if (canvas && crop) {
+        canvas.width = crop[2]; canvas.height = crop[3]
+        canvas.getContext('2d')!.drawImage(image, crop[0], crop[1], crop[2], crop[3], 0, 0, crop[2], crop[3])
+      }
+      const source = canvas ?? image
       const worker = new Worker('/mediapipe/vision-worker.js')
       const next = () => new Promise<{
         type: string; message?: string; kind?: string; diagnostics?: unknown
@@ -29,10 +44,10 @@ for (const fallback of [false, true]) {
         worker.onerror = event => reject(new Error(event.message))
       })
       try {
-        const ready = next(); worker.postMessage({ type: 'init', debug: true }); await ready
+        const ready = next(); worker.postMessage({ type: 'init', mode: 'phone', debug: true }); await ready
         const events = [], samples = []
         for (let i = 0; i < 18; i++) {
-          const frame = await createImageBitmap(image)
+          const frame = await createImageBitmap(source)
           const pending = next()
           worker.postMessage({ type: 'frame', frame, timestamp: 1000 + i * 250, capturedAt: Date.now() }, [frame])
           const message = await pending
@@ -43,7 +58,7 @@ for (const fallback of [false, true]) {
             bitmap.close()
           }
         }
-        return { events, samples, width: image.naturalWidth, height: image.naturalHeight }
+        return { events, samples, width: canvas?.width ?? image.naturalWidth, height: canvas?.height ?? image.naturalHeight }
       } finally { worker.terminate() }
     })
     console.log(JSON.stringify({ fallback, samples: result.samples, events: result.events }))
@@ -63,48 +78,50 @@ for (const fallback of [false, true]) {
 }
 
 for (const fallback of [false, true]) {
-  test(`real MediaPipe worker loads both local models (${fallback ? 'CPU fallback' : 'GPU preferred'})`, async ({ page }) => {
+  test(`real worker loads MediaPipe face model and YOLO phone model (${fallback ? 'CPU fallback' : 'GPU preferred'})`, async ({ page }) => {
     if (fallback) {
       await page.route('**/mediapipe/vision-worker.js', async (route) => {
         const response = await route.fetch()
         await route.fulfill({ response, body: (await response.text()).replace(
-          'async function createTask(kind, delegate) {',
-          "async function createTask(kind, delegate) { if (delegate === 'GPU') throw new Error('Test GPU failure');",
+          'async function createFaceTask(delegate) {',
+          "async function createFaceTask(delegate) { if (delegate === 'GPU') throw new Error('Test GPU failure');",
         ) })
       })
     }
     await page.goto('/')
     const result = await page.evaluate(async () => {
-      const worker = new Worker('/mediapipe/vision-worker.js')
-      try {
-        const next = () => new Promise<Record<string, unknown>>((resolve, reject) => {
-          worker.onmessage = ({ data }) => data.type === 'error' ? reject(new Error(data.message)) : resolve(data)
-          worker.onerror = (event) => reject(new Error(event.message))
-        })
-        const readyPromise = next()
-        worker.postMessage({ type: 'init' })
-        const ready = await readyPromise
-        const canvas = document.createElement('canvas')
-        canvas.width = 640; canvas.height = 480
-        canvas.getContext('2d')!.fillRect(0, 0, 640, 480)
-        const results = []
-        for (let i = 0; i < 4; i++) {
+      const run = async (mode: 'face' | 'phone') => {
+        const worker = new Worker('/mediapipe/vision-worker.js')
+        try {
+          const next = () => new Promise<Record<string, unknown>>((resolve, reject) => {
+            worker.onmessage = ({ data }) => data.type === 'error' ? reject(new Error(data.message)) : resolve(data)
+            worker.onerror = (event) => reject(new Error(event.message))
+          })
+          const readyPromise = next()
+          worker.postMessage({ type: 'init', mode })
+          const ready = await readyPromise
+          const canvas = document.createElement('canvas')
+          canvas.width = 640; canvas.height = 480
+          canvas.getContext('2d')!.fillRect(0, 0, 640, 480)
           const frame = await createImageBitmap(canvas)
           const pending = next()
           worker.postMessage({ type: 'frame', frame, timestamp: performance.now(), capturedAt: Date.now() }, [frame])
-          results.push(await pending)
-        }
-        return { ready, results }
-      } finally { worker.terminate() }
+          return { ready, result: await pending }
+        } finally { worker.terminate() }
+      }
+      const [face, phone] = await Promise.all([run('face'), run('phone')])
+      return { face, phone }
     })
-    expect(result.ready.type).toBe('ready')
-    expect(result.results.map((item) => item.kind)).toEqual(['phone', 'face', 'phone', 'face'])
-    expect(result.results[1].issue).toBeNull()
-    expect(result.results[2].evidence).toBeNull()
+    expect(result.face.ready.type).toBe('ready')
+    expect(result.phone.ready.type).toBe('ready')
+    expect(result.face.result.kind).toBe('face')
+    expect(result.phone.result.kind).toBe('phone')
+    expect(result.face.result.issue).toBeNull()
+    expect(result.phone.result.evidence).toBeNull()
     if (fallback) {
-      expect(result.ready.faceDelegate).toBe('CPU')
-      expect(result.ready.phoneDelegate).toBe('CPU')
+      expect(result.face.ready.faceDelegate).toBe('CPU')
     }
+    expect(result.phone.ready.phoneDelegate).toBe('WASM')
   })
 }
 
@@ -169,7 +186,7 @@ test('monitor queues two phone appearances during a slow upload and leaves share
     canvas.width = 640; canvas.height = 480
     const timer = setInterval(() => canvas.getContext('2d')!.fillRect(0, 0, 640, 480), 30)
     const stream = canvas.captureStream(30)
-    const workers: Array<{ terminated: boolean; frames: number }> = []
+    const workers: Array<{ terminated: boolean; frames: number; mode: string }> = []
     const uploads: Array<{ evidenceFiles: File[]; metadata: { confidence: number }; violationType: string }> = []
     let pending = 0, maxPending = 0, cameraRequests = 0
     navigator.mediaDevices.getUserMedia = async () => { cameraRequests++; return stream }
@@ -178,21 +195,24 @@ test('monitor queues two phone appearances during a slow upload and leaves share
       onmessage: ((event: { data: unknown }) => void) | null = null
       terminated = false
       frames = 0
+      mode = ''
       constructor() { workers.push(this) }
       terminate() { this.terminated = true }
-      postMessage(data: { type: string; frame?: ImageBitmap }) {
+      postMessage(data: { type: string; mode?: string; frame?: ImageBitmap }) {
         if (data.type === 'init') {
+          this.mode = data.mode ?? ''
           setTimeout(() => this.onmessage?.({ data: { type: 'ready' } }), 0)
           return
         }
+        if (data.type !== 'frame') return
         this.frames++; const frameNumber = this.frames; pending++; maxPending = Math.max(maxPending, pending)
         data.frame?.close()
         setTimeout(() => {
           pending--
           if (this.terminated) return
           this.onmessage?.({ data: {
-            type: 'result', kind: 'phone', intervalMs: 250,
-            evidence: frameNumber <= 2 ? {
+            type: 'result', kind: this.mode, issue: null, intervalMs: 250,
+            evidence: this.mode === 'phone' && frameNumber <= 2 ? {
               blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
               metadata: { capturedAt: new Date().toISOString(), confidence: 0.9 },
             } : null,
@@ -218,11 +238,12 @@ test('monitor queues two phone appearances during a slow upload and leaves share
       const beforeStart = workers.length
       root.render(React.createElement(Monitor, { enabled: true })); await pause(2000)
       root.render(React.createElement(Monitor, { enabled: false })); await pause(350)
-      const framesAfterStop = workers[0].frames
+      const framesAfterStop = workers.map((worker) => worker.frames)
       await pause(600)
       return {
-        beforeStart, workerCount: workers.length, terminated: workers[0].terminated,
-        noFramesAfterStop: framesAfterStop === workers[0].frames, cameraRequests,
+        beforeStart, workerModes: workers.map((worker) => worker.mode),
+        terminated: workers.every((worker) => worker.terminated),
+        noFramesAfterStop: framesAfterStop.every((count, index) => count === workers[index].frames), cameraRequests,
         streamLive: stream.getVideoTracks()[0].readyState === 'live', maxPending,
         uploads: uploads.map((item) => ({ type: item.violationType, files: item.evidenceFiles.length,
           mime: item.evidenceFiles[0].type, confidence: item.metadata.confidence })),
@@ -232,11 +253,12 @@ test('monitor queues two phone appearances during a slow upload and leaves share
     }
   })
   expect(result.beforeStart).toBe(0)
-  expect(result.workerCount).toBe(1)
+  expect(result.workerModes.sort()).toEqual(['face', 'phone'])
   expect(result.terminated).toBe(true)
   expect(result.noFramesAfterStop).toBe(true)
   expect(result.cameraRequests).toBe(0)
   expect(result.streamLive).toBe(true)
-  expect(result.maxPending).toBe(1)
+  expect(result.maxPending).toBeGreaterThanOrEqual(1)
+  expect(result.maxPending).toBeLessThanOrEqual(2)
   expect(result.uploads).toEqual(Array.from({ length: 2 }, () => ({ type: 'PHONE_DETECTED', files: 1, mime: 'image/jpeg', confidence: 0.9 })))
 })

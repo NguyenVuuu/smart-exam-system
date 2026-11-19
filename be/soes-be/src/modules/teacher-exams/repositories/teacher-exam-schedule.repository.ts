@@ -5,7 +5,7 @@ import { scheduleInclude } from '../../exam-schedules/repositories/exam-schedule
 export const findOwnedExam = (teacherId: string, examId: string) => prisma.exam.findFirst({
   where: { id: examId, createdById: teacherId },
   select: {
-    id: true, title: true, subjectId: true, semesterId: true, type: true, status: true,
+    id: true, title: true, subjectId: true, semesterId: true, type: true, status: true, defaultDurationMinutes: true,
     contentHash: true,
     _count: { select: { examQuestions: true } },
   },
@@ -92,7 +92,7 @@ export const findOwnedSchedule = (tx: Prisma.TransactionClient, teacherId: strin
   tx.examSchedule.findFirst({
     where: { id, createdById: userId, exam: { createdById: teacherId } },
     select: {
-      id: true, status: true, startTime: true, endTime: true,
+      id: true, status: true, startTime: true, endTime: true, durationMinutes: true,
       exam: { select: { status: true } },
       _count: { select: { attempts: true } },
     },
@@ -120,12 +120,13 @@ export const findOwnedScheduleForMakeup = (
     status: true,
     startTime: true,
     endTime: true,
+    durationMinutes: true,
     resultsPublishedAt: true,
     blockCopyPaste: true,
     blockRightClick: true,
     locationMode: true,
     allowedIpRanges: true,
-    exam: { select: { id: true, title: true, status: true, subjectId: true } },
+    exam: { select: { id: true, title: true, status: true, subjectId: true, defaultDurationMinutes: true } },
     scheduleCourses: {
       take: 1,
       select: { courseOffering: { select: { id: true, code: true, subjectId: true, semesterId: true } } },
