@@ -334,13 +334,16 @@ export function useExamIntegrityGuard({
       }
       if (tabSwitchTimeoutRef.current !== null) window.clearTimeout(tabSwitchTimeoutRef.current)
       tabSwitchTimeoutRef.current = window.setTimeout(() => {
-        void Promise.resolve(captureScreenEvidence?.()).then((evidenceFiles) => {
+        const isAway = () => document.visibilityState === 'hidden' || !document.hasFocus()
+        // Returning before the capture must never attach an image of the exam as
+        // evidence of the destination tab. The switch is still recorded.
+        void Promise.resolve(isAway() ? captureScreenEvidence?.() : undefined).then((evidenceFiles) => {
           void reportViolation({
             violationType: 'TAB_SWITCH',
             severity,
             description,
             detectedAt: new Date(now).toISOString(),
-            evidenceFiles,
+            evidenceFiles: isAway() ? evidenceFiles : undefined,
           }, false)
         }).catch(() => {
           void reportViolation({

@@ -54,7 +54,7 @@ export default function LiveStreamPanel({
       role={expanded ? 'dialog' : undefined}
       aria-modal={expanded ? true : undefined}
       aria-label={expanded ? (isScreen ? 'Màn hình sinh viên' : 'Camera sinh viên') : undefined}
-      className={`overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xs ${expanded ? 'fixed inset-3 z-[80] flex flex-col shadow-2xl' : 'w-full max-w-md self-start 2xl:max-w-none'}`}
+      className={`overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xs ${expanded ? 'fixed inset-3 z-[80] flex flex-col shadow-2xl' : 'w-full self-start lg:sticky lg:top-4'}`}
     >
       <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
         <div className="min-w-0">

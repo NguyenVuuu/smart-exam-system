@@ -98,9 +98,9 @@ for (const fallback of [false, true]) {
       } finally { worker.terminate() }
     })
     expect(result.ready.type).toBe('ready')
-    expect(result.results.map((item) => item.kind)).toEqual(['face', 'phone', 'face', 'phone'])
-    expect(result.results[2].issue).toBe('NO_FACE')
-    expect(result.results[3].evidence).toBeNull()
+    expect(result.results.map((item) => item.kind)).toEqual(['phone', 'face', 'phone', 'face'])
+    expect(result.results[1].issue).toBe('NO_FACE')
+    expect(result.results[2].evidence).toBeNull()
     if (fallback) {
       expect(result.ready.faceDelegate).toBe('CPU')
       expect(result.ready.phoneDelegate).toBe('CPU')

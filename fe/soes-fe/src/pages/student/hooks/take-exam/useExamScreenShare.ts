@@ -108,7 +108,7 @@ export function useExamScreenShare(required: boolean) {
 
     try {
       const nextStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: 'monitor' } as MediaTrackConstraints,
+        video: { displaySurface: 'monitor', frameRate: { ideal: 15, max: 20 } } as MediaTrackConstraints,
         audio: false,
       })
       if (generation !== streamGeneration) {

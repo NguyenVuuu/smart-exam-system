@@ -115,9 +115,9 @@ test('an upload failure allows another immediate detection', async () => {
 test('detects a partly visible phone in a corner on the first frame', async () => {
   const h = await harness()
   h.setPhones({ detections: [] })
-  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 ? phoneResult(0.46) : { detections: [] })
+  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 ? phoneResult(0.8) : { detections: [] })
   const result = await h.frame(0)
-  assert.equal(result.evidence.metadata.confidence, 0.46)
+  assert.equal(result.evidence.metadata.confidence, 0.8)
   assert.equal(result.evidence.metadata.observedDurationMs, 0)
   assert.equal(h.calls.filter((call) => call === 'phone').length, 2)
   const box = result.evidence.metadata.boundingBox
@@ -127,10 +127,10 @@ test('detects a partly visible phone in a corner on the first frame', async () =
 test('uses a tighter corner crop when only a small part of a phone is visible', async () => {
   const h = await harness()
   h.setPhones({ detections: [] })
-  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 && draw[2] <= 225 ? phoneResult(0.43) : { detections: [] })
+  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 && draw[2] <= 225 ? phoneResult(0.8) : { detections: [] })
   const result = await h.frame(0)
   assert.equal(result.evidence.metadata.observedDurationMs, 0)
-  assert.equal(result.evidence.metadata.confidence, 0.43)
+  assert.equal(result.evidence.metadata.confidence, 0.8)
   assert.ok(result.evidence.metadata.boundingBox.originX > 400)
   assert.ok(result.evidence.metadata.boundingBox.originY > 300)
   assert.equal(h.calls.filter((call) => call === 'phone').length, 2)
@@ -139,10 +139,35 @@ test('uses a tighter corner crop when only a small part of a phone is visible', 
 test('a central weak match cannot skip a phone visible in a corner', async () => {
   const h = await harness()
   h.setPhones(phoneResult(0.55))
-  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 && draw[2] <= 225 ? phoneResult(0.45) : { detections: [] })
+  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 && draw[2] <= 225 ? phoneResult(0.8) : { detections: [] })
   const result = await h.frame(0)
-  assert.equal(result.evidence.metadata.confidence, 0.45)
+  assert.equal(result.evidence.metadata.confidence, 0.8)
   assert.ok(result.evidence.metadata.boundingBox.originX > 400)
+})
+
+test('a single weak false match is rejected without same-frame corroboration', async () => {
+  const h = await harness()
+  h.setPhones(phoneResult(0.8))
+  const result = await h.frame(0)
+  assert.equal(result.evidence, null)
+})
+
+test('a weak phone can be corroborated at a second scale in the same frame', async () => {
+  const h = await harness()
+  h.setPhones(phoneResult(0.6))
+  h.setEdgePhones(([sx, sy, sw, sh, dx, dy, dw, dh]) => {
+    if (sw === 224 || sw === 384) return { detections: [] }
+    const result = phoneResult(0.7)
+    result.detections[0].boundingBox = {
+      originX: dx + (100 - sx) * dw / sw,
+      originY: dy + (80 - sy) * dh / sh,
+      width: 60 * dw / sw, height: 120 * dh / sh,
+    }
+    return result
+  })
+  const result = await h.frame(0)
+  assert.equal(result.evidence.metadata.observedDurationMs, 0)
+  assert.equal(result.evidence.metadata.confidence, 0.6)
 })
 
 test('face evidence comes from the same frame as the detected issue', async () => {
@@ -175,7 +200,7 @@ test('slow inference reduces frequency and face rules remain active', async () =
   const h = await harness()
   h.slow()
   const first = await h.frame(0)
-  assert.ok(first.intervalMs > 250)
+  assert.equal(first.intervalMs, 250)
   h.setFace({ faceLandmarks: [[], []] })
   assert.equal((await h.frame(250)).issue, 'MULTIPLE_FACES')
 })

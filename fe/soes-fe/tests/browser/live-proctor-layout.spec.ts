@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('proctor actions stay on one row and stream preview expands', async ({ page }) => {
-  await page.setViewportSize({ width: 1595, height: 900 })
+  await page.setViewportSize({ width: 1366, height: 900 })
   await page.goto('/')
   await page.evaluate(async () => {
     const { default: React } = await import('/node_modules/.vite/deps/react.js')
@@ -15,7 +15,7 @@ test('proctor actions stay on one row and stream preview expands', async ({ page
       answeredCount: 1, totalQuestionCount: 5, violationCount: 2,
     }
     const container = document.createElement('div')
-    container.className = 'grid gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]'
+    container.className = 'grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_300px]'
     document.body.replaceChildren(container)
     const table = React.createElement(StudentLiveTable, {
       sessions: [session], liveAttemptId: null, liveStreamType: 'WEBCAM',
@@ -32,6 +32,11 @@ test('proctor actions stay on one row and stream preview expands', async ({ page
   const screen = page.getByRole('button', { name: 'Màn hình' })
   const actions = page.getByRole('button', { name: 'Xử lý bài thi của Trần Thị C' })
   await expect(camera).toBeVisible()
+  const previewBox = await page.locator('section').boundingBox()
+  const tableBox = await page.locator('table').boundingBox()
+  expect(previewBox!.x).toBeGreaterThan(tableBox!.x)
+  expect(previewBox!.y).toBeLessThan(tableBox!.y + tableBox!.height)
+  expect(previewBox!.width).toBeLessThanOrEqual(300)
   const [cameraBox, screenBox, actionsBox] = await Promise.all([camera.boundingBox(), screen.boundingBox(), actions.boundingBox()])
   expect(cameraBox?.y).toBe(screenBox?.y)
   expect(Math.abs((cameraBox!.y + cameraBox!.height / 2) - (actionsBox!.y + actionsBox!.height / 2))).toBeLessThan(1)
@@ -40,7 +45,7 @@ test('proctor actions stay on one row and stream preview expands', async ({ page
   await page.getByRole('button', { name: 'Phóng to luồng giám sát' }).click()
   const dialog = page.getByRole('dialog', { name: 'Camera sinh viên' })
   await expect(dialog).toBeVisible()
-  expect((await dialog.boundingBox())?.width).toBeGreaterThan(1400)
+  expect((await dialog.boundingBox())?.width).toBeGreaterThan(1300)
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
 })

@@ -188,6 +188,7 @@ export function useWebcamViolationMonitor(input: {
     let unavailable = false
     let softErrors = 0
     let lastVideoTime = -1
+    let lastFrameSentAt = 0
     let observingFace = false
     let lastFaceObservedAt = 0
     let visionDebug = false
@@ -273,8 +274,8 @@ export function useWebcamViolationMonitor(input: {
       }
     }
 
-    const schedule = () => {
-      if (!cancelled && !unavailable) timer = window.setTimeout(() => { void tick() }, intervalMs)
+    const schedule = (delayMs = intervalMs) => {
+      if (!cancelled && !unavailable) timer = window.setTimeout(() => { void tick() }, delayMs)
     }
 
     const observeFace = async (type: WebcamIssueType | null, observedAt: number, frameEvidence?: Blob | null) => {
@@ -365,7 +366,8 @@ export function useWebcamViolationMonitor(input: {
             }
           } finally {
             busy = false
-            schedule()
+            // Inference time is already elapsed; do not add another full interval.
+            schedule(Math.max(0, intervalMs - (performance.now() - lastFrameSentAt)))
           }
         }
         watchdog = window.setTimeout(failWorker, 60_000)
@@ -396,6 +398,7 @@ export function useWebcamViolationMonitor(input: {
       try {
         const capturedAt = Date.now()
         const timestamp = performance.now()
+        lastFrameSentAt = timestamp
         lastVideoTime = video.currentTime
         frame = await createImageBitmap(video)
         if (cancelled) { frame.close(); return }
