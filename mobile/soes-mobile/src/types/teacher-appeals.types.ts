@@ -22,5 +22,9 @@ export interface TeacherSubmission {
 export interface AppealPage {
   items: TeacherAppeal[]
   openCount: number
+  filters: {
+    subjects: { id: string; code: string; name: string }[]
+    exams: { id: string; title: string; subjectId: string }[]
+  }
   pagination: { page: number; totalPages: number; totalItems: number }
 }

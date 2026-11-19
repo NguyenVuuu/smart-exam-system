@@ -34,7 +34,16 @@ const FULLSCREEN_GRACE_MS = 3_000
 const FULLSCREEN_COUNTDOWN_SECONDS = 5
 const FULLSCREEN_SEVERE_MS = 7_000
 // Let the shared monitor produce a frame after the browser changes the visible tab.
-const TAB_SWITCH_CAPTURE_DELAY_MS = 450
+const TAB_SWITCH_CAPTURE_DELAY_MS = 200
+const TAB_SWITCH_CAPTURE_TIMEOUT_MS = 2500
+
+function captureWithin<T>(capture: () => Promise<T>, timeoutMs: number): Promise<T | undefined> {
+  let timeoutId: number | undefined
+  return Promise.race([
+    capture(),
+    new Promise<undefined>((resolve) => { timeoutId = window.setTimeout(() => resolve(undefined), timeoutMs) }),
+  ]).finally(() => window.clearTimeout(timeoutId))
+}
 
 export function useExamIntegrityGuard({
   enabled,
@@ -337,7 +346,10 @@ export function useExamIntegrityGuard({
         const isAway = () => document.visibilityState === 'hidden' || !document.hasFocus()
         // Returning before the capture must never attach an image of the exam as
         // evidence of the destination tab. The switch is still recorded.
-        void Promise.resolve(isAway() ? captureScreenEvidence?.() : undefined).then((evidenceFiles) => {
+        const capture = isAway()
+          ? captureWithin(() => Promise.resolve().then(() => captureScreenEvidenceRef.current?.()), TAB_SWITCH_CAPTURE_TIMEOUT_MS)
+          : Promise.resolve(undefined)
+        void capture.then((evidenceFiles) => {
           void reportViolation({
             violationType: 'TAB_SWITCH',
             severity,
@@ -383,7 +395,7 @@ export function useExamIntegrityGuard({
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('blur', handleWindowBlur)
     }
-  }, [captureScreenEvidence, enableTabLock, enabled, reportSevereFullscreenExit, reportViolation])
+  }, [enableTabLock, enabled, reportSevereFullscreenExit, reportViolation])
 
   useEffect(() => {
     if (!enabled || inactivityMs <= 0) return

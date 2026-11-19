@@ -68,9 +68,9 @@ const DESCRIPTION: Record<WebcamIssueType, string> = {
   CAMERA_DISCONNECTED: 'Camera was disconnected or stopped during the exam.',
   CAMERA_PERMISSION_DENIED: 'Webcam permission was denied or revoked during the exam.',
   CAMERA_BLOCKED: 'Camera is blocked, muted, or not producing fresh frames.',
-  NO_FACE: 'Possible missing face detected in one camera frame. Teacher review is required.',
-  MULTIPLE_FACES: 'Possible multiple faces detected in one camera frame. Teacher review is required.',
-  LOOKING_AWAY: 'Possible looking away detected in one camera frame. Teacher review is required.',
+  NO_FACE: 'Face was not visible for at least 3 seconds. Teacher review is required.',
+  MULTIPLE_FACES: 'Two distinct faces remained visible for at least 1 second. Teacher review is required.',
+  LOOKING_AWAY: 'Looking away persisted for at least 1.5 seconds. Teacher review is required.',
 }
 
 function issueFromWebcamStatus(status: ExamWebcamStatus): WebcamIssueType | null {
@@ -162,8 +162,6 @@ export function useWebcamViolationMonitor(input: {
   const [visionError, setVisionError] = useState<string | null>(null)
   const [visionStatus, setVisionStatus] = useState<'RECOVERING' | 'READY' | 'UNAVAILABLE'>('RECOVERING')
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const phoneUploadRef = useRef(false)
-  const lastPhoneCreatedAtRef = useRef(0)
   const attemptKeyRef = useRef('')
   const webcamStatusRef = useRef(input.webcamStatus)
 
@@ -179,7 +177,7 @@ export function useWebcamViolationMonitor(input: {
     let worker: Worker | null = null
     let ready = false
     let busy = false
-    let intervalMs = 250
+    let intervalMs = 150
     let timer: number | undefined
     let watchdog: number | undefined
     let recoveryTimer: number | undefined
@@ -192,13 +190,14 @@ export function useWebcamViolationMonitor(input: {
     let observingFace = false
     let lastFaceObservedAt = 0
     let visionDebug = false
+    const phoneEvidenceQueue: Array<NonNullable<VisionMessage['evidence']>> = []
+    let uploadingPhone = false
     try { visionDebug = window.localStorage.getItem('soes:vision-debug') === '1' } catch { /* Storage may be unavailable. */ }
     const attemptKey = `${input.scheduleId}:${input.attemptId}`
     if (attemptKeyRef.current !== attemptKey) {
       attemptKeyRef.current = attemptKey
       openViolationRef.current = null
       lastCreatedAtRef.current = {}
-      lastPhoneCreatedAtRef.current = 0
     }
     issueStartedAtRef.current = {}
     openViolationRef.current = openViolationRef.current ?? restoreOpenViolation(input.scheduleId, input.attemptId)
@@ -287,26 +286,35 @@ export function useWebcamViolationMonitor(input: {
       finally { observingFace = false }
     }
 
-    const recordPhone = async (evidence: NonNullable<VisionMessage['evidence']>) => {
-      const capturedAt = Date.parse(evidence.metadata.capturedAt)
-      if (cancelled || phoneUploadRef.current || capturedAt - lastPhoneCreatedAtRef.current < 10_000) return
-      phoneUploadRef.current = true
+    const drainPhoneEvidence = async () => {
+      if (uploadingPhone || cancelled) return
+      uploadingPhone = true
       try {
-        const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
-          violationType: 'PHONE_DETECTED', severity: 'MEDIUM',
-          description: 'Possible phone detected. Evidence requires teacher review; this is not a conclusion of misconduct.',
-          detectedAt: evidence.metadata.capturedAt,
-          metadata: evidence.metadata,
-          evidenceFiles: [new File([evidence.blob], `phone-${Date.parse(evidence.metadata.capturedAt)}.jpg`, { type: 'image/jpeg' })],
-        })
-        if (visionDebug) console.info('[exam-vision] phone event saved', { id: response.id })
-        lastPhoneCreatedAtRef.current = capturedAt
-        if (!cancelled) setUploadError(null)
-      } catch (error) {
-        worker?.postMessage({ type: 'phone-upload-failed' })
-        if (visionDebug) console.error('[exam-vision] phone upload failed', error)
-        if (!cancelled) setUploadError('Không gửi được ảnh bằng chứng. Hệ thống sẽ thử lại khi có sự kiện tiếp theo.')
-      } finally { phoneUploadRef.current = false }
+        while (!cancelled && phoneEvidenceQueue.length > 0) {
+          const evidence = phoneEvidenceQueue.shift()!
+          try {
+            const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
+              violationType: 'PHONE_DETECTED', severity: 'MEDIUM',
+              description: 'Possible phone detected. Evidence requires teacher review; this is not a conclusion of misconduct.',
+              detectedAt: evidence.metadata.capturedAt,
+              metadata: evidence.metadata,
+              evidenceFiles: [new File([evidence.blob], `phone-${Date.parse(evidence.metadata.capturedAt)}.jpg`, { type: 'image/jpeg' })],
+            })
+            if (visionDebug) console.info('[exam-vision] phone event saved', { id: response.id })
+            if (!cancelled) setUploadError(null)
+          } catch (error) {
+            worker?.postMessage({ type: 'phone-upload-failed' })
+            if (visionDebug) console.error('[exam-vision] phone upload failed', error)
+            if (!cancelled) setUploadError('Không gửi được ảnh bằng chứng. Hệ thống sẽ thử lại khi có sự kiện tiếp theo.')
+          }
+        }
+      } finally { uploadingPhone = false }
+    }
+
+    const recordPhone = (evidence: NonNullable<VisionMessage['evidence']>) => {
+      if (cancelled) return
+      phoneEvidenceQueue.push(evidence)
+      void drainPhoneEvidence()
     }
 
     const failWorker = () => {
@@ -421,6 +429,7 @@ export function useWebcamViolationMonitor(input: {
       window.clearTimeout(watchdog)
       window.clearTimeout(recoveryTimer)
       worker?.terminate()
+      phoneEvidenceQueue.length = 0
       video?.pause()
       if (video) video.srcObject = null
     }

@@ -2,13 +2,12 @@
 
 ## Hanh vi
 
-- Dung EfficientDet-Lite0, chi lay nhan `cell phone`, confidence >= 0.5 de xac nhan. Ket qua >= 0.25 chi phuc vu chan doan.
-- Can it nhat 3 giay quan sat du confidence. Cho phep mat nhan dien ngan toi 1200ms; thoi gian mat nhan dien khong cong vao 3 giay. Mat lau hon se reset. Chi chup khi frame hien tai co dien thoai du confidence.
-- Tao mot anh JPEG tu dung frame da phat hien, co timestamp ISO UTC in tren anh.
-- Cooldown 10 giay tinh tu frame tao su kien truoc. Neu van thay dien thoai, tiep tuc tao mot su kien moi sau moi cooldown; khong gioi han o hai su kien.
+- Dung EfficientDet-Lite0, chi lay nhan `cell phone`. Phat hien du tin cay tao su kien ngay o frame dau tien; ung vien yeu can duoc xac nhan bang lan nhin khac tren cung frame.
+- Moi lan dien thoai xuat hien tao mot su kien. Mot luot quet dien thoai day du khong con phat hien se ket thuc lan xuat hien do; lan xuat hien tiep theo duoc ghi nhan ngay, khong khoa 10 giay.
+- Tao mot anh JPEG tu dung frame da phat hien, danh dau bounding box va timestamp ISO UTC tren anh. Upload duoc xep hang de khong bo qua su kien moi khi anh truoc dang gui.
 - Chi upload anh khi co su kien. Cac frame inference chi di chuyen noi bo trinh duyet.
 - Metadata: model, category, confidence, boundingBox (pixel tren frame goc khong lat guong), frameWidth, frameHeight, capturedAt, observedDurationMs.
-- `PHONE_DETECTED` la su kien tuc thoi, severity MEDIUM, reviewStatus PENDING. Khong tu tru diem, ket luan gian lan, huy bai hay buoc nop bai.
+- `PHONE_DETECTED` la tin hieu AI can giang vien xem anh va xac nhan; he thong khong tu ket luan gian lan hay tu buoc nop bai.
 - Su kien dien thoai khong dong su kien khuon mat dang mo.
 
 ## Camera va Worker
@@ -17,11 +16,11 @@
 
 `StudentTakeExamPage` truyen cung `webcamStream` cho preview, live publisher va `useWebcamViolationMonitor`. Hook tao video tu stream nay, gui ImageBitmap vao mot classic Worker `exam-vision`. Worker khong mo camera.
 
-Worker chay Face Landmarker va Object Detector xen ke. Chi gui frame moi sau khi co ket qua frame truoc. Khoang nghi ban dau 250ms, tu tang toi 1000ms theo thoi gian inference; moi model chay mot lan trong hai luot. May cham co the can hon 3 giay thoi gian thuc de xac nhan.
+Worker chay Face Landmarker va Object Detector xen ke, dong thoi kiem tra nhanh dien thoai tren frame xu ly khuon mat neu chua co su kien dang hien dien. Chi gui frame moi sau khi co ket qua frame truoc. Khoang lay frame muc tieu 80-150ms; thoi gian inference thuc te van gioi han toc do. Moi luot quet day du chi xu ly hai vung goc, uu tien goc duoi ben phai va luan phien cac goc khac.
 
 Truoc phone inference, Worker giu nguyen ti le camera va them vien den vao canvas vuong 720x720 (letterbox). Khong cat mat phan nao cua khung hinh. Model van xu ly o kich thuoc native cua no. Bounding box duoc bo offset, chia scale va gioi han trong kich thuoc anh goc. Anh bang chung van la frame goc, khong co vien den. Face Landmarker van nhan frame goc.
 
-Da tai hien bang anh webcam local 1280x720 co dien thoai che mat: duong cu GPU chi tra confidence 0.292, CPU nham nhan. Sau letterbox, Worker tra 0.514 (GPU) va 0.527 (CPU), tao duoc anh bang chung sau 3000ms quan sat mo phong. Day la ket qua tren mot anh tham chieu, khong phai cam ket nhan ra moi dien thoai/anh sang. Khong ha nguong 0.5 trong lan sua nay.
+Anh xem truoc bi thu nho trong giao dien khong du de danh gia chac chan mo hinh tren frame camera goc. Kiem tra voi anh xem truoc co dien thoai chi lo mot goc va anh khong co dien thoai cho diem du doan rat gan nhau; ha nguong se tang bao nham. Can thu nghiem tren frame camera goc va tap anh gom nhieu loai dien thoai, op lung, anh sang va goc che khuat truoc khi thay mo hinh hoac nguong nhan dien.
 
 Ca hai model thu GPU truoc, fallback CPU/WASM khi khoi tao hoac inference GPU loi. Neu Worker khong the tiep tuc, giao dien hien thong bao, live camera van hoat dong. Chi bat hook khi phase IN_PROGRESS va ca thi bat webcam; cleanup terminate Worker khi ket thuc.
 

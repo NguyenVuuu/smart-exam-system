@@ -65,11 +65,9 @@ export const violationReviewSchema = z.object({
   path: ['reviewNote'],
 })
 
-export const invalidateAttemptSchema = z.object({
+export const forceSubmitAttemptSchema = z.object({
   reason: z.string().trim().min(5).max(1000),
 })
-
-export const forceSubmitAttemptSchema = invalidateAttemptSchema
 
 export type SubmissionQuery = z.infer<typeof submissionQuerySchema>
 export type ViolationQuery = z.infer<typeof violationQuerySchema>
@@ -78,5 +76,4 @@ export type FinalizeScoreBody = z.infer<typeof finalizeScoreSchema>
 export type BulkFinalizeScoresBody = z.infer<typeof bulkFinalizeScoresSchema>
 export type ResultReleaseBody = z.infer<typeof resultReleaseSchema>
 export type ViolationReviewBody = z.infer<typeof violationReviewSchema>
-export type InvalidateAttemptBody = z.infer<typeof invalidateAttemptSchema>
 export type ForceSubmitAttemptBody = z.infer<typeof forceSubmitAttemptSchema>

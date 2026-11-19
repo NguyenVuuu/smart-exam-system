@@ -179,6 +179,11 @@ export default function StudentExamResultPage() {
                   Bài thi đã bị giám thị hủy do vi phạm. Lý do: {status.invalidationReason ?? 'Xem thông báo để biết chi tiết.'} Liên hệ giảng viên nếu cần được xem xét.
                 </div>
               )}
+              {status.totalQuestionCount === 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+                  Lượt thi này không được ghi nhận câu hỏi nào, nên không có bài làm để xem. Hãy kiểm tra lại ca thi hoặc lượt thi đã chọn.
+                </div>
+              )}
               {status.endedBy === 'PROCTOR' && status.status !== 'INVALIDATED' && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800">
                   <span className="mb-1 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold">Giám thị buộc nộp</span>
@@ -186,9 +191,9 @@ export default function StudentExamResultPage() {
                   <p className="mt-1">Lý do: {status.forceSubmitReason ?? 'Xem thông báo để biết chi tiết.'}</p>
                 </div>
               )}
-              {result && status.status !== 'INVALIDATED' && <ExamScorePanel result={result} />}
-              {result && status.status !== 'INVALIDATED' && scheduleId && attemptId && <ExamReviewPanel result={result} scheduleId={scheduleId} attemptId={attemptId} />}
-              {result?.available && (
+              {result && status.totalQuestionCount > 0 && <ExamScorePanel result={result} />}
+              {result && status.totalQuestionCount > 0 && scheduleId && attemptId && <ExamReviewPanel result={result} scheduleId={scheduleId} attemptId={attemptId} />}
+              {result?.available && status.status !== 'INVALIDATED' && status.totalQuestionCount > 0 && (
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
                   <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">
                     <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">

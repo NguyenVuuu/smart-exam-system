@@ -363,9 +363,14 @@ export interface TeacherGradeAppeal {
   }
 }
 
-export const getTeacherGradeAppeals = (params: { status?: TeacherGradeAppeal['status'] | 'ALL'; page?: number; pageSize?: number } = {}) =>
-  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; openCount: number; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
-    params: { status: params.status ?? 'ALL', page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
+export interface TeacherGradeAppealFilters {
+  subjects: Array<{ id: string; code: string; name: string }>
+  exams: Array<{ id: string; title: string; subjectId: string }>
+}
+
+export const getTeacherGradeAppeals = (params: { status?: TeacherGradeAppeal['status'] | 'ALL'; subjectId?: string; examId?: string; page?: number; pageSize?: number } = {}) =>
+  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; openCount: number; filters: TeacherGradeAppealFilters; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
+    params: { status: params.status ?? 'ALL', subjectId: params.subjectId, examId: params.examId, page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
   }).then(({ data }) => data.data)
 
 export const getTeacherGradeAppeal = (appealId: string) =>
@@ -377,13 +382,6 @@ export const updateTeacherGradeAppeal = (
   payload: { status: 'IN_REVIEW' | 'REJECTED'; teacherReply?: string },
 ) => apiClient.patch<ApiResponse<TeacherGradeAppeal>>(`/teacher/grade-appeals/${appealId}`, payload)
   .then(({ data }) => data.data)
-
-export const invalidateTeacherAttempt = (
-  examId: string,
-  scheduleId: string,
-  attemptId: string,
-  reason: string,
-) => apiClient.post(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/invalidate`, { reason })
 
 export const forceSubmitTeacherAttempt = (
   examId: string,

@@ -28,7 +28,6 @@ import {
   forceSubmitTeacherAttempt,
   getTeacherLiveProctoringSessions,
   getTeacherLiveProctoringViolations,
-  invalidateTeacherAttempt,
   reviewTeacherViolation,
 } from './api/teacher-exams.api'
 import type { ProctoringSessionRecord, ViolationRecord } from './types/teacher-exam.types'
@@ -94,7 +93,7 @@ export default function TeacherLiveProctorPage() {
   const [extensionTarget, setExtensionTarget] = useState<ProctoringSessionRecord | null>(null)
   const [isExtendingTime, setIsExtendingTime] = useState(false)
   const [proctoringAction, setProctoringAction] = useState<{
-    action: 'WARN' | 'FORCE_SUBMIT' | 'INVALIDATE'
+    action: 'WARN' | 'FORCE_SUBMIT'
     attemptId?: string
     violationId?: string
     studentName: string
@@ -205,15 +204,10 @@ export default function TeacherLiveProctorPage() {
           ? { ...item, reviewStatus: 'WARNED', reviewNote: reason, reviewedAt: new Date().toISOString() }
           : item))
         toast.success('Đã gửi cảnh cáo cho sinh viên.')
-      } else if (proctoringAction.attemptId) {
-        if (proctoringAction.action === 'FORCE_SUBMIT') {
-          const result = await forceSubmitTeacherAttempt(examId, scheduleId, proctoringAction.attemptId, reason)
-          if (result.gradingPending) toast.warning('Đã buộc nộp bài; phần chấm tự động cần được giảng viên kiểm tra lại.')
-          else toast.success('Đã buộc nộp bài. Các câu trả lời đã lưu được giữ để chấm và xem xét.')
-        } else {
-          await invalidateTeacherAttempt(examId, scheduleId, proctoringAction.attemptId, reason)
-          toast.success('Đã hủy bài thi và ghi nhận lý do.')
-        }
+      } else if (proctoringAction.action === 'FORCE_SUBMIT' && proctoringAction.attemptId) {
+        const result = await forceSubmitTeacherAttempt(examId, scheduleId, proctoringAction.attemptId, reason)
+        if (result.gradingPending) toast.warning('Đã buộc nộp bài; phần chấm tự động cần được giảng viên kiểm tra lại.')
+        else toast.success('Đã buộc nộp bài. Các câu trả lời đã lưu được giữ để chấm và xem xét.')
         setRefreshVersion((current) => current + 1)
       }
       setProctoringAction(null)
@@ -386,7 +380,6 @@ export default function TeacherLiveProctorPage() {
                       onStopLive={stopLive}
                       onExtendTime={setExtensionTarget}
                       onForceSubmit={(session) => setProctoringAction({ action: 'FORCE_SUBMIT', attemptId: session.attemptId, studentName: session.studentName, studentCode: session.studentCode })}
-                      onInvalidate={(session) => setProctoringAction({ action: 'INVALIDATE', attemptId: session.attemptId, studentName: session.studentName, studentCode: session.studentCode })}
                     />
                   </TeacherTablePanel>
 

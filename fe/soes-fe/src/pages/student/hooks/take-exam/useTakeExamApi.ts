@@ -83,6 +83,7 @@ export function useGetExamAttemptStatus(scheduleId: string, attemptId: string, e
     queryFn: () => takeExamApi.getAttemptStatus(scheduleId, attemptId),
     enabled: enabled && !!scheduleId && !!attemptId,
     refetchOnWindowFocus: false,
+    refetchInterval: (query) => query.state.data?.status === 'GRADING' ? 5_000 : false,
   })
 }
 
@@ -94,6 +95,7 @@ export function useGetExamAttemptResult(scheduleId: string, attemptId: string, e
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     staleTime: 0,
+    refetchInterval: (query) => query.state.data?.reason === 'GRADING' ? 5_000 : false,
   })
 }
 

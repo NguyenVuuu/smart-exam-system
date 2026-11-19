@@ -79,10 +79,34 @@ async function captureScreenVideoEvidence(stream: MediaStream): Promise<File | n
   return file
 }
 
+async function captureScreenTrackEvidence(stream: MediaStream): Promise<File | null> {
+  const track = stream.getVideoTracks()[0]
+  if (!track || !window.ImageCapture) return null
+  const capture = new window.ImageCapture(track)
+  // The first grab can still be queued from the exam tab. Read another frame
+  // after the compositor has had time to show the destination screen.
+  const first = await capture.grabFrame()
+  first.close()
+  await new Promise((resolve) => window.setTimeout(resolve, 150))
+  const frame = await capture.grabFrame()
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = frame.width
+    canvas.height = frame.height
+    const context = canvas.getContext('2d')
+    if (!context) return null
+    context.drawImage(frame, 0, 0)
+    return canvasToEvidenceFile(canvas)
+  } finally {
+    frame.close()
+  }
+}
+
 export async function captureScreenEvidence(stream: MediaStream | null): Promise<File[] | undefined> {
   if (!isExamScreenShareStreamLive(stream)) return undefined
 
-  const file = await captureScreenVideoEvidence(stream).catch(() => null)
+  const file = await captureScreenTrackEvidence(stream).catch(() => null)
+    ?? await captureScreenVideoEvidence(stream).catch(() => null)
   return file ? [file] : undefined
 }
 

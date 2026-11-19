@@ -8,7 +8,7 @@ import { ChoicePicker } from '../../components/ui/ChoicePicker'
 import { PaginationControls } from '../../components/ui/PaginationControls'
 import { ScreenHeader } from '../../components/ui/ScreenHeader'
 import { ScreenState } from '../../components/ui/ScreenState'
-import type { AppealStatus, TeacherAppeal } from '../../types/teacher-appeals.types'
+import type { AppealPage, AppealStatus, TeacherAppeal } from '../../types/teacher-appeals.types'
 
 const statuses = [
   { value: 'ALL', label: 'Tất cả trạng thái' }, { value: 'PENDING', label: 'Chờ xử lý' },
@@ -19,36 +19,49 @@ const statuses = [
 export function TeacherAppealsPage() {
   const [items, setItems] = useState<TeacherAppeal[]>([])
   const [status, setStatus] = useState<AppealStatus | 'ALL'>('ALL')
+  const [subjectId, setSubjectId] = useState('ALL')
+  const [examId, setExamId] = useState('ALL')
+  const [filters, setFilters] = useState<AppealPage['filters']>({ subjects: [], exams: [] })
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(false)
 
-  const load = useCallback(async (nextPage: number, nextStatus: AppealStatus | 'ALL') => {
+  const load = useCallback(async (nextPage: number, nextStatus: AppealStatus | 'ALL', nextSubjectId: string, nextExamId: string) => {
     setLoading(true)
     try {
-      const result = await listTeacherAppeals(nextPage, nextStatus)
-      setItems(result.items); setPage(nextPage); setTotalPages(result.pagination.totalPages); setError(false)
+      const result = await listTeacherAppeals(nextPage, nextStatus, nextSubjectId, nextExamId)
+      setItems(result.items); setFilters(result.filters); setPage(nextPage); setTotalPages(result.pagination.totalPages); setError(false)
     } catch { setError(true) }
     finally { setLoading(false); setRefreshing(false) }
   }, [])
 
-  useFocusEffect(useCallback(() => { void load(1, status) }, [load, status]))
+  useFocusEffect(useCallback(() => { void load(1, status, subjectId, examId) }, [load, status, subjectId, examId]))
 
   return <View style={styles.root}>
     <BackToTopFlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.list}
       ListHeaderComponent={<View style={styles.header}>
         <ScreenHeader title="Phúc khảo điểm" description="Xem yêu cầu, đối chiếu bài làm và lưu kết luận" />
+        <ChoicePicker label="Môn học" placeholder="Tất cả môn học"
+          options={[{ value: 'ALL', label: 'Tất cả môn học' }, ...filters.subjects.map((subject) => ({
+            value: subject.id, label: `${subject.code} · ${subject.name}`,
+          }))]}
+          selectedValues={[subjectId]} onToggle={(value) => { setSubjectId(value); setExamId('ALL') }} />
+        <ChoicePicker label="Bài thi" placeholder="Tất cả bài thi"
+          options={[{ value: 'ALL', label: 'Tất cả bài thi' }, ...filters.exams.filter((exam) => subjectId === 'ALL' || exam.subjectId === subjectId).map((exam) => ({
+            value: exam.id, label: exam.title,
+          }))]}
+          selectedValues={[examId]} onToggle={setExamId} />
         <ChoicePicker label="Trạng thái" placeholder="Tất cả trạng thái" options={statuses}
           selectedValues={[status]} onToggle={(value) => setStatus(value as AppealStatus | 'ALL')} />
       </View>}
       renderItem={({ item }) => <AppealCard appeal={item} />}
-      ListEmptyComponent={loading ? <ScreenState kind="loading" /> : error ? <ScreenState kind="error" onRetry={() => void load(1, status)} />
+      ListEmptyComponent={loading ? <ScreenState kind="loading" /> : error ? <ScreenState kind="error" onRetry={() => void load(1, status, subjectId, examId)} />
         : <ScreenState kind="empty" message="Không có yêu cầu phúc khảo phù hợp." />}
       ListFooterComponent={<>{error && items.length > 0 && <Text style={styles.error}>Không thể tải trang này.</Text>}
-        <PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => void load(next, status)} /></>}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(page, status) }} />}
+        <PaginationControls page={page} totalPages={totalPages} loading={loading} onPage={(next) => void load(next, status, subjectId, examId)} /></>}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(page, status, subjectId, examId) }} />}
     />
   </View>
 }

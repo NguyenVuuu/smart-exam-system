@@ -1,7 +1,7 @@
 import { ShieldAlert, X } from 'lucide-react'
 import { useState } from 'react'
 
-type Action = 'WARN' | 'FORCE_SUBMIT' | 'INVALIDATE'
+type Action = 'WARN' | 'FORCE_SUBMIT'
 
 interface Props {
   action: Action
@@ -23,11 +23,6 @@ const labels: Record<Action, { title: string; description: string; button: strin
     description: 'Các câu trả lời đã lưu được giữ lại để chấm và xem xét. Sinh viên không thể tiếp tục làm bài.',
     button: 'Buộc nộp bài',
   },
-  INVALIDATE: {
-    title: 'Hủy bài thi',
-    description: 'Bài thi bị kết thúc và ghi điểm 0. Chỉ chọn khi đã xác minh bằng chứng vi phạm.',
-    button: 'Xác nhận hủy bài',
-  },
 }
 
 export default function ProctoringActionModal({ action, studentName, studentCode, submitting, onClose, onConfirm }: Props) {
@@ -44,7 +39,7 @@ export default function ProctoringActionModal({ action, studentName, studentCode
           <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X size={18} /></button>
         </div>
         <div className="space-y-4 px-5 py-5">
-          <p className={`rounded-xl px-4 py-3 text-sm ${action === 'INVALIDATE' ? 'bg-rose-50 text-rose-800' : 'bg-amber-50 text-amber-800'}`}>
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {details.description}
           </p>
           <label className="block text-sm font-semibold text-slate-800" htmlFor="proctoring-action-reason">Lý do xử lý</label>
@@ -55,7 +50,7 @@ export default function ProctoringActionModal({ action, studentName, studentCode
         <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
           <button type="button" onClick={onClose} disabled={submitting} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">Đóng</button>
           <button type="button" onClick={() => onConfirm(reason.trim())} disabled={reason.trim().length < 5 || submitting}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${action === 'INVALIDATE' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
             <ShieldAlert size={16} /> {submitting ? 'Đang xử lý...' : details.button}
           </button>
         </div>

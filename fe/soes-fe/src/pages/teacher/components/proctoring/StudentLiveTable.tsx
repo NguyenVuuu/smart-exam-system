@@ -1,4 +1,4 @@
-import { ClockPlus, MonitorUp, ShieldX, Square, Upload, Video } from 'lucide-react'
+import { ClockPlus, MonitorUp, Square, Upload, Video } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import AppSelect from '../../../../components/common/AppSelect'
 import type { ProctoringSessionRecord } from '../../types/teacher-exam.types'
@@ -47,7 +47,6 @@ export interface StudentLiveTableProps {
   onStopLive: () => void
   onExtendTime: (session: ProctoringSessionRecord) => void
   onForceSubmit: (session: ProctoringSessionRecord) => void
-  onInvalidate: (session: ProctoringSessionRecord) => void
 }
 
 export default function StudentLiveTable({
@@ -58,7 +57,6 @@ export default function StudentLiveTable({
   onStopLive,
   onExtendTime,
   onForceSubmit,
-  onInvalidate,
 }: StudentLiveTableProps) {
   return (
     <div className="overflow-x-auto">
@@ -150,12 +148,10 @@ export default function StudentLiveTable({
                     options={[
                       { value: 'extend', label: <span className="inline-flex items-center gap-2"><ClockPlus size={14} /> Gia hạn</span> },
                       { value: 'submit', label: <span className="inline-flex items-center gap-2"><Upload size={14} /> Buộc nộp</span> },
-                      { value: 'invalidate', label: <span className="inline-flex items-center gap-2 text-rose-700"><ShieldX size={14} /> Hủy bài</span> },
                     ]}
                     onChange={(action) => {
                       if (action === 'extend') onExtendTime(session)
                       if (action === 'submit') onForceSubmit(session)
-                      if (action === 'invalidate') onInvalidate(session)
                     }}
                   />
                 </div>

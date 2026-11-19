@@ -45,6 +45,8 @@ export interface StudentExamStatusCounts {
 }
 
 export interface StudentScore extends ScoreItem {
+  endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | 'PROCTOR' | null
+  forceSubmitReason: string | null
   courseOfferingId: string
   courseCode: string
   subjectCode: string

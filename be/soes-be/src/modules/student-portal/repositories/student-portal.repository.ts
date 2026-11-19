@@ -89,6 +89,7 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
     where: {
       studentId,
       totalScore: { not: null },
+      attemptQuestions: { some: {} },
       status: { in: ['AUTO_SUBMITTED', 'GRADED', 'PUBLISHED'] },
       courseOfferingId: query.courseOfferingId,
       courseOffering: {
@@ -106,10 +107,12 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
           }
         : {}),
     },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
     select: {
       id: true,
       totalScore: true,
+      endedBy: true,
+      forceSubmitReason: true,
       courseOffering: { select: { id: true, code: true, subject: { select: { code: true, name: true } } } },
       examSchedule: {
         select: {

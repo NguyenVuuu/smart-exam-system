@@ -32,7 +32,6 @@ router.get('/exams/:id/schedules/:scheduleId/violations', asyncHandler(controlle
 router.get('/exams/:id/schedules/:scheduleId/proctoring-sessions', asyncHandler(controller.listProctoringSessions))
 router.get('/exams/:id/schedules/:scheduleId/camera-report', asyncHandler(controller.cameraReport))
 router.patch('/exams/:id/schedules/:scheduleId/violations/:violationId/review', asyncHandler(controller.reviewViolation))
-router.post('/exams/:id/schedules/:scheduleId/submissions/:attemptId/invalidate', asyncHandler(controller.invalidateAttempt))
 router.post('/exams/:id/schedules/:scheduleId/submissions/:attemptId/force-submit', asyncHandler(controller.forceSubmitAttempt))
 router.post('/exams/:id/schedules/:scheduleId/submissions/:attemptId/violations/viewed', asyncHandler(controller.markSubmissionViolationsViewed))
 router.patch('/exams/:id/schedules/:scheduleId/submissions/:attemptId/grade', asyncHandler(controller.gradeSubmission))

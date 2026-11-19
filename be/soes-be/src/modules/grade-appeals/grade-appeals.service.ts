@@ -122,11 +122,13 @@ function teacherAppealAccess(teacherId: string): Prisma.GradeAppealWhereInput {
 }
 
 export async function listTeacherAppeals(teacherId: string, query: TeacherGradeAppealQuery) {
-  const where = {
-    ...teacherAppealAccess(teacherId),
-    ...(query.status === 'ALL' ? {} : { status: query.status }),
-  }
-  const [total, openCount, rows] = await Promise.all([
+  const where: Prisma.GradeAppealWhereInput = { AND: [
+    teacherAppealAccess(teacherId),
+    ...(query.status === 'ALL' ? [] : [{ status: query.status }]),
+    ...(query.subjectId ? [{ attempt: { examSchedule: { exam: { subjectId: query.subjectId } } } }] : []),
+    ...(query.examId ? [{ attempt: { examSchedule: { examId: query.examId } } }] : []),
+  ] }
+  const [total, openCount, rows, filterExams] = await Promise.all([
     prisma.gradeAppeal.count({ where }),
     prisma.gradeAppeal.count({
       where: { ...teacherAppealAccess(teacherId), status: { in: ['PENDING', 'IN_REVIEW'] } },
@@ -138,8 +140,23 @@ export async function listTeacherAppeals(teacherId: string, query: TeacherGradeA
       take: query.pageSize,
       include: includeAppeal(),
     }),
+    prisma.exam.findMany({
+      where: { schedules: { some: {
+        attempts: { some: { gradeAppeals: { some: {} } } },
+        scheduleCourses: { some: { OR: [
+          { courseOffering: { teacherId } },
+          { proctors: { some: { teacherId } } },
+        ] } },
+      } } },
+      select: { id: true, title: true, subjectId: true, subject: { select: { code: true, name: true } } },
+    }),
   ])
-  return { items: rows.map(toDto), openCount, pagination: toPagination(query.page, query.pageSize, total) }
+  const exams = filterExams.map((exam) => ({ id: exam.id, title: exam.title, subjectId: exam.subjectId }))
+    .sort((a, b) => a.title.localeCompare(b.title, 'vi'))
+  const subjects = [...new Map(filterExams.map((exam) => [exam.subjectId, {
+    id: exam.subjectId, code: exam.subject.code, name: exam.subject.name,
+  }])).values()].sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+  return { items: rows.map(toDto), openCount, filters: { subjects, exams }, pagination: toPagination(query.page, query.pageSize, total) }
 }
 
 export async function getTeacherAppeal(teacherId: string, appealId: string) {

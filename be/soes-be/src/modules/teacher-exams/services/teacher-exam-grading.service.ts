@@ -7,9 +7,9 @@ import { toPagination } from '../../../utils/pagination'
 import { computeScheduleStatus } from '../../exam-schedules/mappers/exam-schedule.mapper'
 import { toExamSubmissionDto } from '../mappers/teacher-exam-grading.mapper'
 import * as repo from '../repositories/teacher-exam-grading.repository'
-import type { BulkFinalizeScoresBody, FinalizeScoreBody, ForceSubmitAttemptBody, InvalidateAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
+import type { BulkFinalizeScoresBody, FinalizeScoreBody, ForceSubmitAttemptBody, ManualGradeBody, ResultReleaseBody, SubmissionQuery, ViolationQuery, ViolationReviewBody } from '../validators/teacher-exam-grading.validator'
 import * as live from '../../proctoring-live/proctoring-live.service'
-import { emitAttemptEvent, emitProctoringEvent, emitStudentEvent, emitTeacherEvent, emitUserEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
+import { emitAttemptEvent, emitProctoringEvent, emitStudentEvent, emitTeacherEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
 import { notifyUsers } from '../../notifications/notifications.service'
 import { closeAttemptProctoring } from '../../student-take-exam/services/student-take-exam.service'
 import { gradeProgrammingAnswers } from '../../student-take-exam/services/programming-grading.service'
@@ -390,45 +390,13 @@ export async function forceSubmitAttempt(
     logger.error('Force-submitted programming answers need grading retry', { attemptId, error })
   }
   try {
-    await gradeObjectiveAnswers(attemptId, { finalStatus: 'GRADING' })
+    const graded = await gradeObjectiveAnswers(attemptId, gradingPending ? { finalStatus: 'GRADING' } : undefined)
+    gradingPending ||= graded.status === 'GRADING'
   } catch (error) {
     gradingPending = true
     logger.error('Force-submitted objective answers need grading retry', { attemptId, error })
   }
   return { ...result, gradingPending }
-}
-
-export async function invalidateAttempt(
-  teacherId: string,
-  userId: string,
-  examId: string,
-  scheduleId: string,
-  attemptId: string,
-  data: InvalidateAttemptBody,
-) {
-  const result = await repo.invalidateAttempt({
-    teacherId,
-    userId,
-    examId,
-    scheduleId,
-    attemptId,
-    reason: data.reason,
-  })
-  if (!result) throw new ConflictError('Attempt is no longer in progress or is not accessible')
-  await closeAttemptProctoring(attemptId, scheduleId, result.submittedAt!)
-  const event = { attemptId, scheduleId, status: 'INVALIDATED', reason: data.reason }
-  emitAttemptEvent(attemptId, 'proctoring:attempt-ended', event)
-  emitUserEvent(result.student.userId, 'proctoring:attempt-ended', event)
-  emitProctoringEvent(scheduleId, 'student:offline', { attemptId, scheduleId, attemptStatus: 'INVALIDATED', isOnline: false })
-  leaveAttemptRoom(attemptId)
-  emitProctoringEvent(scheduleId, 'attempt:invalidated', result)
-  try {
-    await notifyUsers([result.student.userId], 'Bài thi bị hủy do vi phạm',
-      `Bài thi "${result.examSchedule.title}" của bạn đã bị hủy. Lý do: ${data.reason}`)
-  } catch (error) {
-    logger.warn('Could not deliver invalidation notification', { attemptId, error })
-  }
-  return result
 }
 
 export async function cameraReport(teacherId: string, examId: string, scheduleId: string) {

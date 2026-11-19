@@ -1,7 +1,7 @@
 import { Eye, MessageSquareWarning, SearchX } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
 import AppSelect from '../../../../components/common/AppSelect'
-import type { TeacherGradeAppeal, TeacherPaginationMeta } from '../../api/teacher-exams.api'
+import type { TeacherGradeAppeal, TeacherGradeAppealFilters, TeacherPaginationMeta } from '../../api/teacher-exams.api'
 import type { GradeAppealStatus } from '../../hooks/useTeacherGradeAppeals'
 import TeacherPagination from '../TeacherPagination'
 
@@ -9,9 +9,14 @@ interface GradeAppealsPanelProps {
   appeals: TeacherGradeAppeal[]
   pagination: TeacherPaginationMeta
   status: GradeAppealStatus
+  subjectId: string
+  examId: string
+  filters: TeacherGradeAppealFilters
   replies: Record<string, string>
   loading: boolean
   onStatusChange: (status: GradeAppealStatus) => void
+  onSubjectChange: (subjectId: string) => void
+  onExamChange: (examId: string) => void
   onPageChange: (page: number) => void
   onReplyChange: (appealId: string, reply: string) => void
   onReviewAppeal: (appeal: TeacherGradeAppeal) => void
@@ -48,9 +53,14 @@ export default function GradeAppealsPanel({
   appeals,
   pagination,
   status,
+  subjectId,
+  examId,
+  filters,
   replies,
   loading,
   onStatusChange,
+  onSubjectChange,
+  onExamChange,
   onPageChange,
   onReplyChange,
   onReviewAppeal,
@@ -58,18 +68,27 @@ export default function GradeAppealsPanel({
 }: GradeAppealsPanelProps) {
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-slate-950">Yêu cầu phúc khảo</h2>
           <p className="mt-1 text-xs text-slate-500">Theo dõi yêu cầu, mở bài nộp và lưu kết luận chấm lại.</p>
         </div>
-        <AppSelect
-          value={status}
-          onChange={(nextStatus) => onStatusChange(nextStatus as GradeAppealStatus)}
-          options={STATUS_OPTIONS}
-          className="w-full md:w-52"
-          buttonClassName="bg-white"
-        />
+        <div className="grid w-full gap-3 sm:grid-cols-3 lg:w-auto lg:min-w-[690px]">
+          <label className="space-y-1 text-xs font-semibold text-slate-600">Môn học
+            <AppSelect value={subjectId} onChange={onSubjectChange} ariaLabel="Lọc phúc khảo theo môn học"
+              options={[{ value: 'ALL', label: 'Tất cả môn học' }, ...filters.subjects.map((subject) => ({ value: subject.id, label: `${subject.code} · ${subject.name}` }))]}
+              className="w-full" buttonClassName="bg-white" />
+          </label>
+          <label className="space-y-1 text-xs font-semibold text-slate-600">Bài thi
+            <AppSelect value={examId} onChange={onExamChange} ariaLabel="Lọc phúc khảo theo bài thi"
+              options={[{ value: 'ALL', label: 'Tất cả bài thi' }, ...filters.exams.filter((exam) => subjectId === 'ALL' || exam.subjectId === subjectId).map((exam) => ({ value: exam.id, label: exam.title }))]}
+              className="w-full" buttonClassName="bg-white" />
+          </label>
+          <label className="space-y-1 text-xs font-semibold text-slate-600">Trạng thái
+            <AppSelect value={status} onChange={(nextStatus) => onStatusChange(nextStatus as GradeAppealStatus)}
+              options={STATUS_OPTIONS} ariaLabel="Lọc phúc khảo theo trạng thái" className="w-full" buttonClassName="bg-white" />
+          </label>
+        </div>
       </div>
 
       {loading ? (

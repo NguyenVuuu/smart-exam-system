@@ -9,21 +9,26 @@ let phoneDelegate = 'GPU'
 let fileset = null
 let busy = false
 let nextTask = 'phone'
-let intervalMs = 250
-let lastPhoneAlertAt = -Infinity
+let intervalMs = 150
+let phoneEpisodeActive = false
+let phoneSweepIndex = 0
 let initialized = false
 let debug = false
 let phoneDiagnostics = null
 let lastFaceEvidenceIssue = null
 let lastFaceEvidenceAt = -Infinity
+let faceCandidateIssue = null
+let faceCandidateStartedAt = 0
 const PHONE_CONFIDENCE = 0.75
 const PHONE_CANDIDATE_CONFIDENCE = 0.5
-const PHONE_CONFIRM_CONFIDENCE = 0.65
-const PHONE_STRONG_CONFIDENCE = 0.85
-const PHONE_ALERT_COOLDOWN_MS = 10_000
+const PHONE_CONFIRM_CONFIDENCE = 0.75
+const PHONE_STRONG_CONFIDENCE = 0.9
 const PHONE_INPUT_SIZE = 720
-const PHONE_EDGE_FRACTIONS = [0.35, 0.6]
-const PHONE_EDGE_ORDER = [3, 2, 1, 0]
+const PHONE_SWEEP = [
+  [3, 0.35], [2, 0.22], [1, 0.22], [0, 0.22],
+  [2, 0.35], [1, 0.35], [0, 0.35],
+]
+const FACE_CONFIRM_MS = { NO_FACE: 3000, MULTIPLE_FACES: 1000, LOOKING_AWAY: 1500 }
 let phoneCanvas = null
 let edgeCanvas = null
 
@@ -85,7 +90,7 @@ function samePhoneBox(first, second) {
   const right = Math.min(first.originX + first.width, second.originX + second.width)
   const bottom = Math.min(first.originY + first.height, second.originY + second.height)
   const intersection = Math.max(0, right - left) * Math.max(0, bottom - top)
-  return intersection / Math.max(1, first.width * first.height + second.width * second.height - intersection) >= 0.3
+  return intersection / Math.max(1, first.width * first.height + second.width * second.height - intersection) >= 0.45
 }
 
 function confirmPhoneCandidate(frame, detection, timestamp) {
@@ -130,9 +135,30 @@ async function createTask(kind, delegate) {
   })
 }
 
+function faceBox(landmarks) {
+  if (!landmarks || landmarks.length < 50) return null
+  const points = landmarks.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+  if (points.length < 50) return null
+  const left = Math.min(...points.map((point) => point.x))
+  const right = Math.max(...points.map((point) => point.x))
+  const top = Math.min(...points.map((point) => point.y))
+  const bottom = Math.max(...points.map((point) => point.y))
+  const width = right - left, height = bottom - top
+  if (width < 0.08 || height < 0.08 || width * height < 0.008) return null
+  return { left, right, top, bottom, width, height }
+}
+
+function distinctFaces(first, second) {
+  const overlap = Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left))
+    * Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top))
+  const union = first.width * first.height + second.width * second.height - overlap
+  return overlap / Math.max(0.0001, union) < 0.25
+}
+
 function faceIssue(result) {
   if (!result.faceLandmarks.length) return 'NO_FACE'
-  if (result.faceLandmarks.length > 1) return 'MULTIPLE_FACES'
+  const boxes = result.faceLandmarks.map(faceBox).filter(Boolean)
+  if (boxes.length > 1 && boxes.some((box, index) => index > 0 && distinctFaces(boxes[0], box))) return 'MULTIPLE_FACES'
   const landmarks = result.faceLandmarks[0]
   const nose = landmarks[1], left = landmarks[33], right = landmarks[263]
   if (!nose || !left || !right) return null
@@ -142,11 +168,29 @@ function faceIssue(result) {
   return offset > 0.55 && (yaw === null || Math.abs(yaw) > 35) ? 'LOOKING_AWAY' : null
 }
 
-async function captureEvidenceFrame(frame, capturedAt) {
+function confirmedFaceIssue(result, timestamp) {
+  const candidate = faceIssue(result)
+  if (!candidate) {
+    faceCandidateIssue = null
+    return null
+  }
+  if (candidate !== faceCandidateIssue) {
+    faceCandidateIssue = candidate
+    faceCandidateStartedAt = timestamp
+  }
+  return timestamp - faceCandidateStartedAt >= FACE_CONFIRM_MS[candidate] ? candidate : null
+}
+
+async function captureEvidenceFrame(frame, capturedAt, phoneBox = null) {
   const canvas = new OffscreenCanvas(frame.width, frame.height)
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Evidence canvas unavailable')
   context.drawImage(frame, 0, 0)
+  if (phoneBox) {
+    context.strokeStyle = '#facc15'
+    context.lineWidth = Math.max(3, Math.round(frame.width / 180))
+    context.strokeRect(phoneBox.originX, phoneBox.originY, phoneBox.width, phoneBox.height)
+  }
   const fontSize = Math.max(12, Math.round(frame.width / 55))
   context.font = `${fontSize}px monospace`
   context.fillStyle = 'rgba(0,0,0,0.75)'
@@ -156,7 +200,7 @@ async function captureEvidenceFrame(frame, capturedAt) {
   return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 })
 }
 
-async function phoneEvidence(result, frame, capturedAt, timestamp) {
+async function phoneEvidence(result, frame, capturedAt) {
   const candidates = result.detections.flatMap((item) => {
     const category = item.categories.find((entry) => entry.categoryName === 'cell phone')
     return item.boundingBox && category ? [{ detection: item, confidence: category.score }] : []
@@ -166,14 +210,19 @@ async function phoneEvidence(result, frame, capturedAt, timestamp) {
   phoneDiagnostics = {
     confidence: best?.confidence ?? null, threshold: PHONE_CONFIDENCE,
     positiveMs: 0,
-    cooldownRemainingMs: Math.max(0, PHONE_ALERT_COOLDOWN_MS - (timestamp - lastPhoneAlertAt)),
-    state: !detection ? (best ? 'below-threshold' : 'not-detected') : timestamp - lastPhoneAlertAt < PHONE_ALERT_COOLDOWN_MS ? 'cooldown' : 'first-frame',
+    cooldownRemainingMs: 0,
+    state: !detection ? (best ? 'below-threshold' : 'not-detected') : phoneEpisodeActive ? 'same-appearance' : 'first-frame',
   }
-  if (!detection) return null
-  if (timestamp - lastPhoneAlertAt < PHONE_ALERT_COOLDOWN_MS) return null
+  if (!detection) {
+    // A complete phone scan without a match ends the current appearance.
+    // The next appearance can be reported immediately, even within 10 seconds.
+    phoneEpisodeActive = false
+    return null
+  }
+  if (phoneEpisodeActive) return null
 
-  const blob = await captureEvidenceFrame(frame, capturedAt)
-  lastPhoneAlertAt = timestamp
+  const blob = await captureEvidenceFrame(frame, capturedAt, detection.boundingBox)
+  phoneEpisodeActive = true
   const category = detection.categories.find((item) => item.categoryName === 'cell phone')
   const { originX, originY, width, height } = detection.boundingBox
   return {
@@ -188,7 +237,7 @@ async function phoneEvidence(result, frame, capturedAt, timestamp) {
 
 self.onmessage = async ({ data }) => {
   if (data.type === 'phone-upload-failed') {
-    lastPhoneAlertAt = -Infinity
+    phoneEpisodeActive = false
     return
   }
   if (data.type === 'init') {
@@ -216,30 +265,56 @@ self.onmessage = async ({ data }) => {
   nextTask = kind === 'face' ? 'phone' : 'face'
   try {
     let result
+    let faceFramePhone = null
+    let activeDetector = kind
     try {
       if (kind === 'face') {
+        // A brief phone appearance can fall on a face-analysis frame. Check the
+        // full frame here too, while keeping the more expensive edge scan on
+        // dedicated phone frames.
+        if (!phoneEpisodeActive) {
+          activeDetector = 'phone'
+          const input = preparePhoneFrame(data.frame)
+          const quickResult = phoneResultInOriginalFrame(phone.detectForVideo(input.image, data.timestamp), input)
+          const candidates = quickResult.detections.filter((item) => phoneConfidence(item) >= PHONE_CONFIDENCE)
+            .sort((a, b) => phoneConfidence(b) - phoneConfidence(a))
+          const strongest = candidates[0]
+          if (strongest && (phoneConfidence(strongest) >= PHONE_STRONG_CONFIDENCE
+            || confirmPhoneCandidate(data.frame, strongest, data.timestamp + 0.01))) {
+            faceFramePhone = { detections: [{ ...strongest, confirmed: true }] }
+          }
+        }
+        activeDetector = 'face'
         result = face.detectForVideo(data.frame, data.timestamp)
       } else {
         const input = preparePhoneFrame(data.frame)
         result = phoneResultInOriginalFrame(phone.detectForVideo(input.image, data.timestamp), input)
         const fullConfidence = Math.max(0, ...result.detections.flatMap((item) => item.categories.filter((category) => category.categoryName === 'cell phone').map((category) => category.score)))
         const weakCandidates = [...result.detections]
-        // Check the same frame at multiple scales; no multi-second holding period.
+        // Check the same captured frame at multiple scales. A strong full-frame
+        // candidate can be confirmed before scanning every corner.
         if (fullConfidence < PHONE_STRONG_CONFIDENCE) {
           let cropIndex = 0
           let foundPhone = false
-          for (const fraction of PHONE_EDGE_FRACTIONS) {
-            for (const edge of PHONE_EDGE_ORDER) {
-              const crop = preparePhoneEdge(data.frame, edge, fraction)
-              const edgeResult = phoneResultInOriginalFrame(phone.detectForVideo(crop.image, data.timestamp + (++cropIndex) * 0.01), crop)
-              weakCandidates.push(...edgeResult.detections)
-              if (edgeResult.detections.some((item) => item.categories.some((category) => category.categoryName === 'cell phone' && category.score >= PHONE_CONFIDENCE))) {
-                result = edgeResult
-                foundPhone = true
-                break
-              }
+          const clearCandidates = weakCandidates.filter((item) => phoneConfidence(item) >= PHONE_CONFIDENCE)
+            .sort((a, b) => phoneConfidence(b) - phoneConfidence(a))
+          for (const candidate of clearCandidates) {
+            if (confirmPhoneCandidate(data.frame, candidate, data.timestamp + (++cropIndex) * 0.01)) {
+              result = { detections: [{ ...candidate, confirmed: true }] }
+              foundPhone = true
+              break
             }
-            if (foundPhone) break
+          }
+          const sweep = PHONE_SWEEP[phoneSweepIndex++ % PHONE_SWEEP.length]
+          for (const [edge, fraction] of foundPhone ? [] : [[3, 0.22], sweep]) {
+            const crop = preparePhoneEdge(data.frame, edge, fraction)
+            const edgeResult = phoneResultInOriginalFrame(phone.detectForVideo(crop.image, data.timestamp + (++cropIndex) * 0.01), crop)
+            weakCandidates.push(...edgeResult.detections)
+            if (edgeResult.detections.some((item) => phoneConfidence(item) >= PHONE_STRONG_CONFIDENCE)) {
+              result = edgeResult
+              foundPhone = true
+              break
+            }
           }
           if (!foundPhone) {
             const candidates = weakCandidates.filter((item) => phoneConfidence(item) >= PHONE_CANDIDATE_CONFIDENCE)
@@ -255,8 +330,8 @@ self.onmessage = async ({ data }) => {
         }
       }
     } catch (error) {
-      if ((kind === 'face' ? faceDelegate : phoneDelegate) === 'CPU') throw error
-      if (kind === 'face') {
+      if ((activeDetector === 'face' ? faceDelegate : phoneDelegate) === 'CPU') throw error
+      if (activeDetector === 'face') {
         face.close(); faceDelegate = 'CPU'; face = await createTask('face', 'CPU')
       } else {
         phone.close(); phoneDelegate = 'CPU'; phone = await createTask('phone', 'CPU')
@@ -265,7 +340,7 @@ self.onmessage = async ({ data }) => {
       self.postMessage({ type: 'result', kind, skipped: true, intervalMs })
       return
     }
-    const issue = kind === 'face' ? faceIssue(result) : null
+    const issue = kind === 'face' ? confirmedFaceIssue(result, data.timestamp) : null
     let faceEvidence = null
     if (kind === 'face') {
       if (!issue) lastFaceEvidenceIssue = null
@@ -275,9 +350,10 @@ self.onmessage = async ({ data }) => {
         lastFaceEvidenceAt = data.timestamp
       }
     }
-    const evidence = kind === 'phone' ? await phoneEvidence(result, data.frame, data.capturedAt, data.timestamp) : null
+    const evidence = kind === 'phone' ? await phoneEvidence(result, data.frame, data.capturedAt)
+      : faceFramePhone ? await phoneEvidence(faceFramePhone, data.frame, data.capturedAt) : null
     const duration = performance.now() - started
-    intervalMs = Math.round(Math.min(250, Math.max(100, intervalMs * 0.75 + duration * 0.25)))
+    intervalMs = Math.round(Math.min(150, Math.max(80, intervalMs * 0.75 + duration * 0.25)))
     self.postMessage({
       type: 'result', kind, issue,
       evidence, faceEvidence, intervalMs, capturedAt: data.capturedAt, inferenceMs: duration,
