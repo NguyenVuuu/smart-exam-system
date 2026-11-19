@@ -81,6 +81,7 @@ export function toGetAttemptStatusResponseDto(result: AttemptStatusResult): GetA
     submittedAt:        result.submittedAt ? result.submittedAt.toISOString() : null,
     endedBy:            result.endedBy,
     invalidationReason:  result.invalidationReason,
+    forceSubmitReason:   result.forceSubmitReason,
     remainingSeconds:   result.remainingSeconds,
     lastSavedAt:        result.lastSavedAt ? result.lastSavedAt.toISOString() : null,
     isOnline:           result.isOnline,

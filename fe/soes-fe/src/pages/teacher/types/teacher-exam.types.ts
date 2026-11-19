@@ -166,6 +166,8 @@ export interface ExamSubmission {
   isMakeup: boolean
   sectionScores?: Array<{ id: string; title: string; score: number; maxScore: number }>
   status: 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'INVALIDATED'
+  endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | 'PROCTOR' | null
+  proctorActionReason: string | null
   codingResults?: StudentCodingSubmissionResult[]
   answers?: Array<{
     questionId: string

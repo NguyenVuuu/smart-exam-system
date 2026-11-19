@@ -17,9 +17,11 @@ let phoneDiagnostics = null
 let lastFaceEvidenceIssue = null
 let lastFaceEvidenceAt = -Infinity
 const PHONE_CONFIDENCE = 0.4
+const PHONE_STRONG_CONFIDENCE = 0.85
 const PHONE_ALERT_COOLDOWN_MS = 10_000
 const PHONE_INPUT_SIZE = 720
-const PHONE_EDGE_FRACTION = 0.6
+const PHONE_EDGE_FRACTIONS = [0.35, 0.6]
+const PHONE_EDGE_ORDER = [3, 2, 1, 0]
 let phoneCanvas = null
 let edgeCanvas = null
 
@@ -39,12 +41,12 @@ function preparePhoneFrame(frame) {
   return { image: phoneCanvas, scale, offsetX, offsetY, sourceX: 0, sourceY: 0, sourceWidth: frame.width, sourceHeight: frame.height }
 }
 
-function preparePhoneEdge(frame, edge) {
+function preparePhoneEdge(frame, edge, fraction) {
   edgeCanvas ??= new OffscreenCanvas(PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
   const context = edgeCanvas.getContext('2d')
   if (!context) throw new Error('Phone edge canvas unavailable')
-  const sourceWidth = Math.max(1, Math.round(frame.width * PHONE_EDGE_FRACTION))
-  const sourceHeight = Math.max(1, Math.round(frame.height * PHONE_EDGE_FRACTION))
+  const sourceWidth = Math.max(1, Math.round(frame.width * fraction))
+  const sourceHeight = Math.max(1, Math.round(frame.height * fraction))
   const sourceX = edge % 2 === 0 ? 0 : frame.width - sourceWidth
   const sourceY = edge < 2 ? 0 : frame.height - sourceHeight
   const scale = PHONE_INPUT_SIZE / Math.max(sourceWidth, sourceHeight)
@@ -184,12 +186,21 @@ self.onmessage = async ({ data }) => {
         const input = preparePhoneFrame(data.frame)
         result = phoneResultInOriginalFrame(phone.detectForVideo(input.image, data.timestamp), input)
         const fullConfidence = Math.max(0, ...result.detections.flatMap((item) => item.categories.filter((category) => category.categoryName === 'cell phone').map((category) => category.score)))
-        if (fullConfidence < PHONE_CONFIDENCE) {
-          for (let edge = 0; edge < 4; edge++) {
-            const crop = preparePhoneEdge(data.frame, edge)
-            const edgeResult = phoneResultInOriginalFrame(phone.detectForVideo(crop.image, data.timestamp + (edge + 1) * 0.01), crop)
-            result = { ...result, detections: [...result.detections, ...edgeResult.detections] }
-            if (edgeResult.detections.some((item) => item.categories.some((category) => category.categoryName === 'cell phone' && category.score >= 0.85))) break
+        // A central low-confidence match must not mask a small phone at the edge.
+        if (fullConfidence < PHONE_STRONG_CONFIDENCE) {
+          let cropIndex = 0
+          let foundPhone = false
+          for (const fraction of PHONE_EDGE_FRACTIONS) {
+            for (const edge of PHONE_EDGE_ORDER) {
+              const crop = preparePhoneEdge(data.frame, edge, fraction)
+              const edgeResult = phoneResultInOriginalFrame(phone.detectForVideo(crop.image, data.timestamp + (++cropIndex) * 0.01), crop)
+              if (edgeResult.detections.some((item) => item.categories.some((category) => category.categoryName === 'cell phone' && category.score >= PHONE_CONFIDENCE))) {
+                result = edgeResult
+                foundPhone = true
+                break
+              }
+            }
+            if (foundPhone) break
           }
         }
       }

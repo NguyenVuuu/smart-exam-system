@@ -525,6 +525,7 @@ export function forceSubmitAttempt(input: {
       data: {
         status: 'GRADING',
         endedBy: 'PROCTOR',
+        forceSubmitReason: input.reason,
         submittedAt: now,
         version: { increment: 1 },
       },

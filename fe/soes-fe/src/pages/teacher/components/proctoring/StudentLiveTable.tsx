@@ -1,5 +1,6 @@
 import { ClockPlus, MonitorUp, ShieldX, Square, Upload, Video } from 'lucide-react'
 import AppBadge from '../../../../components/common/AppBadge'
+import AppSelect from '../../../../components/common/AppSelect'
 import type { ProctoringSessionRecord } from '../../types/teacher-exam.types'
 
 export type LiveStreamType = 'WEBCAM' | 'SCREEN'
@@ -109,13 +110,13 @@ export default function StudentLiveTable({
                   {session.violationCount} tín hiệu
                 </AppBadge>
               </td>
-              <td className="px-5 py-4 text-right">
-                <div className="flex flex-wrap justify-end gap-2">
+              <td className="whitespace-nowrap px-3 py-4 text-right">
+                <div className="flex items-center justify-end gap-1.5">
                   {liveAttemptId === session.attemptId ? (
                     <button
                       type="button"
                       onClick={onStopLive}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer"
                     >
                       <Square size={14} /> {liveStreamType === 'SCREEN' ? 'Ngắt màn hình' : 'Ngắt camera'}
                     </button>
@@ -125,7 +126,7 @@ export default function StudentLiveTable({
                         type="button"
                         onClick={() => onStartLive(session, 'WEBCAM')}
                         disabled={!session.isOnline || session.webcamStatus !== 'ACTIVE'}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                        className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                       >
                         <Video size={14} /> Camera
                       </button>
@@ -133,28 +134,30 @@ export default function StudentLiveTable({
                         type="button"
                         onClick={() => onStartLive(session, 'SCREEN')}
                         disabled={!session.isOnline || session.screenShareStatus !== 'ACTIVE'}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                        className="inline-flex items-center gap-1 rounded-lg bg-cyan-600 px-2 py-2 text-xs font-semibold text-white hover:bg-cyan-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                       >
                         <MonitorUp size={14} /> Màn hình
                       </button>
                     </>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => onExtendTime(session)}
+                  <AppSelect
+                    value=""
+                    ariaLabel={`Xử lý bài thi của ${session.studentName}`}
+                    placeholder="Xử lý"
                     disabled={session.attemptStatus !== 'IN_PROGRESS'}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-                  >
-                    <ClockPlus size={14} /> Gia hạn
-                  </button>
-                  <button type="button" onClick={() => onForceSubmit(session)} disabled={session.attemptStatus !== 'IN_PROGRESS'}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">
-                    <Upload size={14} /> Buộc nộp
-                  </button>
-                  <button type="button" onClick={() => onInvalidate(session)} disabled={session.attemptStatus !== 'IN_PROGRESS'}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50">
-                    <ShieldX size={14} /> Hủy bài
-                  </button>
+                    className="w-26 shrink-0"
+                    buttonClassName="h-8 rounded-lg px-2 text-xs font-semibold"
+                    options={[
+                      { value: 'extend', label: <span className="inline-flex items-center gap-2"><ClockPlus size={14} /> Gia hạn</span> },
+                      { value: 'submit', label: <span className="inline-flex items-center gap-2"><Upload size={14} /> Buộc nộp</span> },
+                      { value: 'invalidate', label: <span className="inline-flex items-center gap-2 text-rose-700"><ShieldX size={14} /> Hủy bài</span> },
+                    ]}
+                    onChange={(action) => {
+                      if (action === 'extend') onExtendTime(session)
+                      if (action === 'submit') onForceSubmit(session)
+                      if (action === 'invalidate') onInvalidate(session)
+                    }}
+                  />
                 </div>
               </td>
             </tr>

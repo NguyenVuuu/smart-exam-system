@@ -169,7 +169,7 @@ export default function StudentExamResultPage() {
           {/* Result Content */}
           {status && (
             <>
-              {resultError && (
+              {resultError && status.status !== 'INVALIDATED' && (
                 <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-700">
                   Không thể tải điểm và thông tin phúc khảo của bài thi. Vui lòng thử lại sau hoặc liên hệ quản trị viên.
                 </div>
@@ -179,9 +179,11 @@ export default function StudentExamResultPage() {
                   Bài thi đã bị giám thị hủy do vi phạm. Lý do: {status.invalidationReason ?? 'Xem thông báo để biết chi tiết.'} Liên hệ giảng viên nếu cần được xem xét.
                 </div>
               )}
-              {status.status === 'GRADING' && status.endedBy === 'PROCTOR' && (
+              {status.endedBy === 'PROCTOR' && status.status !== 'INVALIDATED' && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800">
-                  Giám thị đã buộc nộp bài. Các câu trả lời đã lưu được giữ lại để chấm và xem xét.
+                  <span className="mb-1 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold">Giám thị buộc nộp</span>
+                  <p>Các câu trả lời đã lưu được giữ lại để chấm và xem xét.</p>
+                  <p className="mt-1">Lý do: {status.forceSubmitReason ?? 'Xem thông báo để biết chi tiết.'}</p>
                 </div>
               )}
               {result && status.status !== 'INVALIDATED' && <ExamScorePanel result={result} />}
@@ -291,6 +293,9 @@ export default function StudentExamResultPage() {
                   )}
                   {status.status === 'INVALIDATED' && (
                     <span className="rounded-full border border-rose-200 bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800">Bài thi bị hủy</span>
+                  )}
+                  {status.endedBy === 'PROCTOR' && status.status !== 'INVALIDATED' && (
+                    <span className="rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">Giám thị buộc nộp</span>
                   )}
                 </div>
               </div>

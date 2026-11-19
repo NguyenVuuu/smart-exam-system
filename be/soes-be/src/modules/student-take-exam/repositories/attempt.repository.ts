@@ -361,6 +361,7 @@ export async function findAttemptStatus(attemptId: string, scheduleId: string, s
       submittedAt: true,
       endedBy: true,
       invalidationReason: true,
+      forceSubmitReason: true,
       lastSavedAt: true,
       examSession: { select: { lastHeartbeat: true, webcamStatus: true, screenShareStatus: true } },
       _count: { select: { studentAnswers: true, attemptQuestions: true } },

@@ -219,7 +219,11 @@ export function ExamSubmissionsReadOnlyTab({
       width: '120px',
       align: 'center',
       render: (s) =>
-        s.status === 'PUBLISHED' ? (
+        s.status === 'INVALIDATED' ? (
+          <AppBadge tone="rose">Đã hủy</AppBadge>
+        ) : s.endedBy === 'PROCTOR' ? (
+          <AppBadge tone="amber">Buộc nộp</AppBadge>
+        ) : s.status === 'PUBLISHED' ? (
           <AppBadge tone="emerald">Đã chốt</AppBadge>
         ) : (
           <AppBadge tone="amber">Chưa chốt</AppBadge>

@@ -814,6 +814,7 @@ model ExamAttempt {
   invalidatedAt          DateTime?
   invalidatedById        String?
   invalidationReason     String?
+  forceSubmitReason      String?
   version                Int                     @default(1)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt

@@ -369,7 +369,7 @@ export default function TeacherLiveProctorPage() {
               </div>
 
               {activeTab === 'face' && !scheduleEnded ? <FaceManualReviewPanel scheduleId={scheduleId} refreshVersion={refreshVersion} /> : activeTab === 'live' ? (
-                <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
+                <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
                   <TeacherTablePanel>
                     <TeacherToolbar
                       filters={<h3 className="text-sm font-semibold text-slate-950">Sinh viên đang làm bài</h3>}

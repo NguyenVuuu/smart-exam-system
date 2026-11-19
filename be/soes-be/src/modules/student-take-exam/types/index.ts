@@ -88,6 +88,7 @@ export interface AttemptStatusResult {
   submittedAt:        Date | null
   endedBy:            string | null
   invalidationReason:  string | null
+  forceSubmitReason:   string | null
   remainingSeconds:   number
   lastSavedAt:        Date | null
   isOnline:           boolean

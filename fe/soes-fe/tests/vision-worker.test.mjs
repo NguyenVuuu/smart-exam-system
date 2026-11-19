@@ -119,9 +119,30 @@ test('detects a partly visible phone in a corner on the first frame', async () =
   const result = await h.frame(0)
   assert.equal(result.evidence.metadata.confidence, 0.46)
   assert.equal(result.evidence.metadata.observedDurationMs, 0)
-  assert.equal(h.calls.filter((call) => call === 'phone').length, 5)
+  assert.equal(h.calls.filter((call) => call === 'phone').length, 2)
   const box = result.evidence.metadata.boundingBox
   assert.ok(box.originX > 0 && box.originY > 0)
+})
+
+test('uses a tighter corner crop when only a small part of a phone is visible', async () => {
+  const h = await harness()
+  h.setPhones({ detections: [] })
+  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 && draw[2] <= 225 ? phoneResult(0.43) : { detections: [] })
+  const result = await h.frame(0)
+  assert.equal(result.evidence.metadata.observedDurationMs, 0)
+  assert.equal(result.evidence.metadata.confidence, 0.43)
+  assert.ok(result.evidence.metadata.boundingBox.originX > 400)
+  assert.ok(result.evidence.metadata.boundingBox.originY > 300)
+  assert.equal(h.calls.filter((call) => call === 'phone').length, 2)
+})
+
+test('a central weak match cannot skip a phone visible in a corner', async () => {
+  const h = await harness()
+  h.setPhones(phoneResult(0.55))
+  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 && draw[2] <= 225 ? phoneResult(0.45) : { detections: [] })
+  const result = await h.frame(0)
+  assert.equal(result.evidence.metadata.confidence, 0.45)
+  assert.ok(result.evidence.metadata.boundingBox.originX > 400)
 })
 
 test('face evidence comes from the same frame as the detected issue', async () => {

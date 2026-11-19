@@ -877,6 +877,7 @@ export async function getAttemptStatus(
     submittedAt:        data.submittedAt,
     endedBy:            data.endedBy,
     invalidationReason:  data.invalidationReason,
+    forceSubmitReason:   data.forceSubmitReason,
     remainingSeconds,
     lastSavedAt:        data.lastSavedAt,
     isOnline,
