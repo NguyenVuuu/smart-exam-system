@@ -2,7 +2,10 @@
 const PhoneYolo = (() => {
   const SIZE = 640
   const MIN_SCORE = 0.25
-  const MODEL = { file: 'yolo11n-devices.onnx', name: 'yolo11n-devices', classIndex: 67 }
+  const MODEL = {
+    file: 'yolo11n-devices.onnx?v=276e8d427790',
+    name: 'yolo11n-devices', version: '276e8d427790', classIndex: 67,
+  }
   let canvas = null
 
   function tensorFor(image) {
@@ -42,7 +45,7 @@ const PhoneYolo = (() => {
       const bottom = Math.min(SIZE, centerY + height / 2)
       if (right <= left || bottom <= top) continue
       candidates.push({
-        model: MODEL.name,
+        model: MODEL.name, modelVersion: MODEL.version,
         categories: [{ categoryName: 'handheld device', score }],
         boundingBox: { originX: left, originY: top, width: right - left, height: bottom - top },
       })

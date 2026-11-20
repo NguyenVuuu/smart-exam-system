@@ -11,6 +11,10 @@ const phoneResult = (score = 0.9) => ({ detections: [{
   categories: [{ categoryName: 'cell phone', score }],
   boundingBox: { originX: 100, originY: 160, width: 60, height: 120 },
 }] })
+const mosaicPhoneResult = (edge, score = 0.93) => ({ detections: [{
+  categories: [{ categoryName: 'cell phone', score }],
+  boundingBox: { originX: edge % 2 * 320 + 180, originY: Math.floor(edge / 2) * 320 + 120, width: 50, height: 70 },
+}] })
 const faceLandmarks = (centerX, centerY) => Array.from({ length: 60 }, (_, index) => ({
   x: centerX + Math.cos(index * Math.PI / 30) * 0.12,
   y: centerY + Math.sin(index * Math.PI / 30) * 0.16,
@@ -32,7 +36,8 @@ async function harness({ failGpu = false, failInference = false, mode = 'phone' 
       detectForVideo(image) {
         calls.push(kind); clock += duration
         if (failInference && options.baseOptions.delegate === 'GPU') throw new Error('Context lost')
-        return kind === 'face' ? faceResult : image.lastDraw?.length === 8 ? edgePhones(image.lastDraw) : phones
+        return kind === 'face' ? faceResult : image.lastDraws?.length === 4 ? edgePhones(image.lastDraws)
+          : image.lastDraw?.length === 8 ? edgePhones(image.lastDraw) : phones
       },
     }
   } })
@@ -42,7 +47,8 @@ async function harness({ failGpu = false, failInference = false, mode = 'phone' 
     Vision: { FilesetResolver: { forVisionTasks: async () => ({}) }, FaceLandmarker: task('face') },
     PhoneYolo: { create: async () => ({ delegate: 'WASM', close() {}, async detectForVideo(image) {
       calls.push('phone'); clock += duration
-      return image.darkened ? darkPhones : image.lastDraw?.length === 8 ? edgePhones(image.lastDraw) : phones
+      return image.darkened ? darkPhones : image.lastDraws?.length === 4 ? edgePhones(image.lastDraws)
+        : image.lastDraw?.length === 8 ? edgePhones(image.lastDraw) : phones
     } }) },
     OffscreenCanvas: class {
       constructor(width, height) { this.width = width; this.height = height }
@@ -50,8 +56,8 @@ async function harness({ failGpu = false, failInference = false, mode = 'phone' 
         const owner = this
         const context = {
           fillStyle: '',
-          drawImage: (...args) => { owner.darkened = false; owner.lastDraw = args.slice(1); draws.push(owner.lastDraw) },
-          fillRect() { if (context.fillStyle === 'rgba(0,0,0,0.3)') owner.darkened = true },
+          drawImage: (...args) => { owner.darkened = false; owner.lastDraw = args.slice(1); owner.lastDraws ??= []; owner.lastDraws.push(owner.lastDraw); draws.push(owner.lastDraw) },
+          fillRect() { if (context.fillStyle === '#000000') owner.lastDraws = []; if (context.fillStyle === 'rgba(0,0,0,0.3)') owner.darkened = true },
           strokeRect() {}, fillText: (value) => stamps.push(value),
         }
         return context
@@ -195,48 +201,25 @@ test('an upload failure allows another immediate detection', async () => {
   assert.equal(h.messages.filter((m) => m.evidence).length, 2)
 })
 
-test('detects a partly visible phone in a corner on the first frame', async () => {
-  const h = await harness()
-  h.setPhones({ detections: [] })
-  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 ? phoneResult(0.93) : { detections: [] })
-  const result = await h.frame(0)
-  assert.equal(result.evidence.metadata.confidence, 0.93)
-  assert.equal(result.evidence.metadata.observedDurationMs, 0)
-  assert.equal(h.calls.filter((call) => call === 'phone').length, 2)
-  const box = result.evidence.metadata.boundingBox
-  assert.ok(box.originX > 0 && box.originY > 0)
-})
-
-test('uses a tighter corner crop when only a small part of a phone is visible', async () => {
-  const h = await harness()
-  h.setPhones({ detections: [] })
-  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 && draw[2] <= 145 ? phoneResult(0.93) : { detections: [] })
-  const result = await h.frame(0)
-  assert.equal(result.evidence.metadata.observedDurationMs, 0)
-  assert.equal(result.evidence.metadata.confidence, 0.93)
-  assert.ok(result.evidence.metadata.boundingBox.originX > 400)
-  assert.ok(result.evidence.metadata.boundingBox.originY > 300)
-  assert.equal(h.calls.filter((call) => call === 'phone').length, 2)
-})
-
-test('corner scanning is bounded per frame and visits other corners', async () => {
-  const h = await harness()
-  h.setPhones({ detections: [] })
-  h.setEdgePhones(([sx, sy]) => sx === 0 && sy === 0 ? phoneResult(0.93) : { detections: [] })
-  let event = null
-  for (let timestamp = 0; timestamp <= 1500; timestamp += 250) {
-    const before = h.calls.filter((call) => call === 'phone').length
-    const result = await h.frame(timestamp)
-    assert.ok(h.calls.filter((call) => call === 'phone').length - before <= 3)
-    event ??= result.evidence
+test('one mosaic scan checks all four corners in the first frame', async () => {
+  for (let edge = 0; edge < 4; edge++) {
+    const h = await harness()
+    h.setPhones({ detections: [] })
+    h.setEdgePhones((draws) => Array.isArray(draws[0]) && draws.length === 4 ? mosaicPhoneResult(edge) : { detections: [] })
+    const result = await h.frame(0)
+    assert.ok(result.evidence)
+    assert.equal(result.evidence.metadata.observedDurationMs, 0)
+    assert.equal(h.calls.filter((call) => call === 'phone').length, 2)
+    const box = result.evidence.metadata.boundingBox
+    assert.equal(box.originX >= 320, edge % 2 === 1)
+    assert.equal(box.originY >= 240, edge >= 2)
   }
-  assert.ok(event)
 })
 
 test('a central weak match cannot skip a phone visible in a corner', async () => {
   const h = await harness()
   h.setPhones(phoneResult(0.55))
-  h.setEdgePhones((draw) => draw[0] > 0 && draw[1] > 0 && draw[2] <= 225 ? phoneResult(0.93) : { detections: [] })
+  h.setEdgePhones((draws) => Array.isArray(draws[0]) ? mosaicPhoneResult(3) : { detections: [] })
   const result = await h.frame(0)
   assert.equal(result.evidence.metadata.confidence, 0.93)
   assert.ok(result.evidence.metadata.boundingBox.originX > 400)
@@ -252,8 +235,9 @@ test('a single weak false match is rejected without same-frame corroboration', a
 test('a weak phone can be corroborated at a second scale in the same frame', async () => {
   const h = await harness()
   h.setPhones(phoneResult(0.6))
-  h.setEdgePhones(([sx, sy, sw, sh, dx, dy, dw, dh]) => {
-    if (sw === 224 || sw === 141) return { detections: [] }
+  h.setEdgePhones((draw) => {
+    if (Array.isArray(draw[0])) return { detections: [] }
+    const [sx, sy, sw, sh, dx, dy, dw, dh] = draw
     const result = phoneResult(0.8)
     result.detections[0].boundingBox = {
       originX: dx + (100 - sx) * dw / sw,
@@ -270,24 +254,23 @@ test('a weak phone can be corroborated at a second scale in the same frame', asy
 test('a small low-confidence phone at the edge is confirmed in the same captured frame', async () => {
   const h = await harness()
   h.setPhones({ detections: [] })
-  h.setEdgePhones(([sx, sy, sw, sh, dx, dy, dw, dh]) => {
-    const corner = sw === 224 && sx > 0 && sy > 0
-    const confirmation = sw < 100 && sx > 0 && sy > 0
-    if (!corner && !confirmation) return { detections: [] }
+  h.setEdgePhones((draw) => {
+    if (Array.isArray(draw[0])) return mosaicPhoneResult(3, 0.55)
+    const [sx, sy, sw, sh, dx, dy, dw, dh] = draw
+    if (!(sw < 100 && sx > 0 && sy > 0)) return { detections: [] }
     return { detections: [{
-      categories: [{ categoryName: 'cell phone', score: confirmation ? 0.8 : 0.55 }],
+      categories: [{ categoryName: 'cell phone', score: 0.8 }],
       boundingBox: {
-        originX: dx + (530 - sx) * dw / sw,
-        originY: dy + (350 - sy) * dh / sh,
-        width: 20 * dw / sw,
-        height: 35 * dh / sh,
+        originX: dx + (578 - sx) * dw / sw,
+        originY: dy + (410 - sy) * dh / sh,
+        width: 22 * dw / sw, height: 31 * dh / sh,
       },
     }] }
   })
   const result = await h.frame(0)
   assert.equal(result.evidence.metadata.confidence, 0.55)
   assert.deepEqual(JSON.parse(JSON.stringify(result.evidence.metadata.boundingBox)), {
-    originX: 530, originY: 350, width: 20, height: 35,
+    originX: 578, originY: 410, width: 22, height: 31,
   })
   assert.equal(result.evidence.metadata.observedDurationMs, 0)
 })
