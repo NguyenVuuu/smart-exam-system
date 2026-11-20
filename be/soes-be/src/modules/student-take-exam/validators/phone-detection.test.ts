@@ -15,12 +15,13 @@ test('phone metadata survives JSON and multipart validation', () => {
   assert.deepEqual(recordViolationBodySchema.parse({ ...body, metadata: JSON.stringify(metadata) }).metadata, metadata)
   assert.equal(recordViolationBodySchema.safeParse({ ...body, metadata: { ...metadata, model: 'yolo11n' } }).success, true)
   assert.equal(recordViolationBodySchema.safeParse({ ...body, metadata: {
-    ...metadata, model: 'yolo11n-devices', category: 'handheld device',
+    ...metadata, model: 'yolo11n-devices', modelVersion: '0123456789ab', category: 'handheld device',
   } }).success, true)
 })
 
 test('invalid or missing phone metadata is rejected', () => {
-  for (const value of [undefined, '{broken', { ...metadata, confidence: 2 }, { ...metadata, boundingBox: { ...metadata.boundingBox, width: -1 } }]) {
+  for (const value of [undefined, '{broken', { ...metadata, confidence: 2 }, { ...metadata, modelVersion: 'unknown' },
+    { ...metadata, boundingBox: { ...metadata.boundingBox, width: -1 } }]) {
     assert.equal(recordViolationBodySchema.safeParse({ ...body, metadata: value }).success, false)
   }
 })

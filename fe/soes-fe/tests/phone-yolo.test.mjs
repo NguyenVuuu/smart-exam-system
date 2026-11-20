@@ -29,6 +29,7 @@ test('decodes the handheld-device score and box without confusing another COCO c
   assert.equal(result.detections.length, 1)
   assert.equal(result.detections[0].categories[0].categoryName, 'handheld device')
   assert.equal(result.detections[0].model, 'yolo11n-devices')
+  assert.equal(result.detections[0].modelVersion, '276e8d427790')
   assert.ok(Math.abs(result.detections[0].categories[0].score - 0.85) < 0.000001)
   assert.deepEqual(JSON.parse(JSON.stringify(result.detections[0].boundingBox)), {
     originX: 280, originY: 240, width: 80, height: 160,

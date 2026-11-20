@@ -93,7 +93,8 @@ async function phoneEvidence(result, frame, capturedAt) {
   return {
     blob,
     metadata: {
-      model: detection.model ?? 'yolo11n-devices', category: category.categoryName, confidence: category.score,
+      model: detection.model ?? 'yolo11n-devices', modelVersion: detection.modelVersion,
+      category: category.categoryName, confidence: category.score,
       boundingBox: { originX, originY, width, height }, frameWidth: frame.width, frameHeight: frame.height,
       capturedAt: new Date(capturedAt).toISOString(), observedDurationMs: 0,
     },
