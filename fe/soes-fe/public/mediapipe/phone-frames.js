@@ -51,7 +51,7 @@ const PhoneFrames = (() => {
   }
 
   function confidence(detection) {
-    return detection.categories.find((category) => category.categoryName === 'cell phone')?.score ?? 0
+    return detection.categories[0]?.score ?? 0
   }
 
   function overlaps(first, second) {
@@ -63,7 +63,7 @@ const PhoneFrames = (() => {
     return intersection / Math.max(1, first.width * first.height + second.width * second.height - intersection) >= 0.45
   }
 
-  async function confirm(detector, frame, detection, timestamp) {
+  async function confirm(detector, frame, detection, timestamp, threshold = 0.75) {
     const box = detection.boundingBox
     const padding = Math.max(box.width, box.height) * 0.75
     const sourceX = Math.max(0, box.originX - padding)
@@ -73,8 +73,21 @@ const PhoneFrames = (() => {
     cropCanvas ??= new OffscreenCanvas(INPUT_SIZE, INPUT_SIZE)
     const crop = draw(frame, sourceX, sourceY, sourceWidth, sourceHeight, cropCanvas)
     const result = toOriginal(await detector.detectForVideo(crop.image, timestamp), crop)
-    return result.detections.some((item) => confidence(item) >= 0.75 && overlaps(box, item.boundingBox))
+    return result.detections.some((item) => confidence(item) >= threshold &&
+      item.categories[0]?.categoryName === detection.categories[0]?.categoryName && overlaps(box, item.boundingBox))
   }
 
-  return { full, corner, toOriginal, confidence, confirm }
+  async function confirmDark(detector, frame, detection, timestamp, threshold = 0.3) {
+    const crop = full(frame)
+    const context = crop.image.getContext('2d')
+    if (!context) return false
+    context.fillStyle = 'rgba(0,0,0,0.3)'
+    context.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE)
+    const result = toOriginal(await detector.detectForVideo(crop.image, timestamp), crop)
+    return result.detections.some((item) => confidence(item) >= threshold &&
+      item.categories[0]?.categoryName === detection.categories[0]?.categoryName &&
+      overlaps(detection.boundingBox, item.boundingBox))
+  }
+
+  return { full, corner, toOriginal, confidence, confirm, confirmDark }
 })()

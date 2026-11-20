@@ -67,7 +67,7 @@ async function captureEvidenceFrame(frame, capturedAt, phoneBox = null) {
 
 async function phoneEvidence(result, frame, capturedAt) {
   const candidates = result.detections.flatMap((item) => {
-    const category = item.categories.find((entry) => entry.categoryName === 'cell phone')
+    const category = item.categories[0]
     return item.boundingBox && category ? [{ detection: item, confidence: category.score }] : []
   }).sort((a, b) => b.confidence - a.confidence)
   const best = candidates[0]
@@ -88,12 +88,12 @@ async function phoneEvidence(result, frame, capturedAt) {
 
   const blob = await captureEvidenceFrame(frame, capturedAt, detection.boundingBox)
   phoneEpisodeActive = true
-  const category = detection.categories.find((item) => item.categoryName === 'cell phone')
+  const category = detection.categories[0]
   const { originX, originY, width, height } = detection.boundingBox
   return {
     blob,
     metadata: {
-      model: 'yolo11n', category: 'cell phone', confidence: category.score,
+      model: detection.model ?? 'yolo11n-devices', category: category.categoryName, confidence: category.score,
       boundingBox: { originX, originY, width, height }, frameWidth: frame.width, frameHeight: frame.height,
       capturedAt: new Date(capturedAt).toISOString(), observedDurationMs: 0,
     },

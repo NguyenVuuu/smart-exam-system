@@ -2,7 +2,7 @@
 
 ## Hanh vi
 
-- Dung YOLO11n (COCO class 67), chi lay nhan `cell phone`. Phat hien du tin cay tao su kien tu frame dau tien; ung vien yeu can duoc xac nhan o ty le khac cua cung frame.
+- Dung mot model `yolo11n-devices.onnx` da tinh chinh tu YOLO11n cho dien thoai va may tinh bang. Nhan COCO 67 duoc anh xa thanh `handheld device`. Phat hien du tin cay tao su kien tu frame dau tien; ung vien yeu can duoc xac nhan o ty le khac hoac tren ban giam sang cua cung frame.
 - Moi lan dien thoai xuat hien tao mot su kien. Mot luot quet dien thoai day du khong con phat hien se ket thuc lan xuat hien do; lan xuat hien tiep theo duoc ghi nhan ngay, khong khoa 10 giay.
 - Tao mot anh JPEG tu dung frame da phat hien, danh dau bounding box va timestamp ISO UTC tren anh. Upload duoc xep hang de khong bo qua su kien moi khi anh truoc dang gui.
 - Chi upload anh khi co su kien. Cac frame inference chi di chuyen noi bo trinh duyet.
@@ -16,15 +16,17 @@
 
 `StudentTakeExamPage` truyen cung `webcamStream` cho preview, live publisher va hai hook giam sat. Hai Worker `exam-face` va `exam-phone` xu ly doc lap, cung lay khung hinh tu stream da co va khong mo camera lan nua. YOLO chay cham khong chan nhan dien khuon mat.
 
-Worker khuon mat dung MediaPipe Face Landmarker; Worker dien thoai dung YOLO11n. Moi Worker chi gui frame moi sau khi co ket qua frame truoc. Khoang lay frame muc tieu 80-150ms cho khuon mat; thoi gian inference thuc te van gioi han toc do. Moi luot quet dien thoai xu ly toi da hai vung goc, uu tien goc duoi ben phai va luan phien cac goc khac. Xu ly khung hinh, khuon mat va YOLO duoc tach thanh cac tep rieng.
+Worker khuon mat dung MediaPipe Face Landmarker; Worker thiet bi dung mot model YOLO11n da tinh chinh. Moi Worker chi gui frame moi sau khi co ket qua frame truoc. Khoang lay frame muc tieu 80-150ms; thoi gian inference thuc te van gioi han toc do. Moi luot quet thiet bi xu ly khung hinh day du va toi da hai vung goc, uu tien goc duoi ben phai va luan phien cac goc khac. Vung nghi ngo co do tin cay thap duoc xac nhan bang mot lan chay model tren cung frame giam do sang 30%; khong doi them nhieu giay.
 
 Truoc phone inference, Worker giu nguyen ti le camera va them vien den vao canvas vuong 640x640 (letterbox). Khong cat mat phan nao cua khung hinh. Bounding box duoc bo offset, chia scale va gioi han trong kich thuoc anh goc. Anh bang chung van la frame goc, khong co vien den. Face Landmarker van nhan frame goc.
 
-Anh xem truoc bi thu nho trong giao dien khong du de danh gia chac chan mo hinh tren frame camera goc. Kiem tra voi anh xem truoc co dien thoai chi lo mot goc va anh khong co dien thoai cho diem du doan rat gan nhau; ha nguong se tang bao nham. Can thu nghiem tren frame camera goc va tap anh gom nhieu loai dien thoai, op lung, anh sang va goc che khuat truoc khi thay mo hinh hoac nguong nhan dien.
+Anh xem truoc bi thu nho trong giao dien khong du de danh gia chac chan mo hinh tren frame camera goc. Model nay duoc tinh chinh tu sau anh webcam nguoi dung va mot tap nho anh cong khai; mot anh op lung duoc giu rieng de kiem tra nhung van cung nguoi va camera. Kiem thu trinh duyet da tao bang chung cho anh mat lung, op lung, dien thoai o mep va hai anh tablet. Hai anh vat de nham khong tao su kien. Day khong phai thang do do chinh xac cho camera, nguoi va thiet bi khac; can bo sung tap anh doc lap da gan nhan va do precision/recall truoc khi dung cho quyet dinh tu dong.
 
 Face Landmarker thu GPU truoc va fallback CPU neu GPU loi; YOLO chay bang ONNX Runtime WASM. Neu Worker khong the tiep tuc, giao dien hien thong bao, live camera van hoat dong. Chi bat hook khi phase IN_PROGRESS va ca thi bat webcam; cleanup terminate Worker khi ket thuc. Tren Chromium headless thu nghiem, YOLO mat vai giay moi frame; khong the cam ket phat hien tuc thi voi cau hinh hien tai.
 
-Classic Worker duoc dung de tuong thich `importScripts` cua MediaPipe WASM loader. `predev`/`prebuild` dong bo bundle va WASM tu package dang cai, khong tai CDN luc thi. YOLO11n co giay phep AGPL-3.0; can xem xet giay phep truoc khi phan phoi he thong. Tai lieu: https://github.com/ultralytics/ultralytics
+Classic Worker duoc dung de tuong thich `importScripts` cua MediaPipe WASM loader. `predev`/`prebuild` dong bo bundle va WASM tu package dang cai, khong tai CDN luc thi. Model nen YOLO11n co giay phep AGPL-3.0; can xem xet giay phep truoc khi phan phoi he thong. Chi tiet nguon model va du lieu xem `public/models/DEVICE_DETECTOR_LICENSE.md`.
+
+Script `fe/soes-fe/scripts/train-device-detector.py` tai anh cong khai, gan nhan anh webcam va tinh chinh model. Anh webcam va tap tam nam ngoai repository. Script can Python voi Ultralytics va Pillow, tham so `--samples-dir`, `--work-dir`, `--model`, `--unified-class 67`; sau khi train can danh gia tren anh giu rieng va xuat ONNX 640x640 truoc khi thay model dang chay.
 
 ## Chuan bi chay
 
@@ -45,7 +47,7 @@ npm install
 npm run dev
 ```
 
-Can co `public/models/face_landmarker.task`, `public/models/yolo11n.onnx` va cac asset trong `public/yolo`. Khi deploy, dua model va asset WASM vao ban phat hanh. Su dung localhost hoac HTTPS de truy cap camera. Neu doi cong frontend, them dung origin vao ALLOWED_ORIGINS cua backend va khoi dong lai backend.
+Can co `public/models/face_landmarker.task`, `public/models/yolo11n-devices.onnx` va cac asset trong `public/yolo`. Khi deploy, dua model va asset WASM vao ban phat hanh. Su dung localhost hoac HTTPS de truy cap camera. Neu doi cong frontend, them dung origin vao ALLOWED_ORIGINS cua backend va khoi dong lai backend.
 
 ## Test tren giao dien
 
@@ -83,9 +85,9 @@ npx playwright install chromium
 npm run test:vision:browser
 ```
 
-Co the dat `VISION_TEST_URL` de dung cong Vite khac. Unit test dung ket qua model gia lap de kiem tra nguong, su kien xuat hien lai va fallback. Browser test nap hai model that tren frame rong, kiem tra GPU/CPU, mot getUserMedia, vong doi hook va bang nhat ky voi du lieu mau. Chung khong thay the test dien thoai vat ly tren webcam that.
+Co the dat `VISION_TEST_URL` de dung cong Vite khac. Unit test dung ket qua model gia lap de kiem tra nguong, su kien xuat hien lai va fallback. Browser test nap mot model thiet bi va model khuon mat tren frame rong, kiem tra GPU/CPU, mot getUserMedia, vong doi hook va bang nhat ky voi du lieu mau. Chung khong thay the test dien thoai vat ly tren webcam that.
 
-De chay them hai regression test model that voi anh dien thoai rieng, dat `VISION_TEST_IMAGE` thanh duong dan tuyet doi cua anh truoc khi chay Playwright. Hai test nay mac dinh skip khi khong co bien nay. Anh rieng khong duoc commit vao repository. Vi du PowerShell:
+De chay them hai regression test model that voi anh dien thoai rieng, dat `VISION_TEST_IMAGE` thanh duong dan tuyet doi cua anh truoc khi chay Playwright. Hai test nay mac dinh skip khi khong co bien nay. Anh rieng khong duoc commit vao repository. Co the dat `VISION_TEST_FRAMES=1` de kiem tra bat ngay o frame dau; `VISION_TEST_EXPECT_NONE=1` de kiem tra anh khong co thiet bi. Vi du PowerShell:
 
 ```powershell
 $env:VISION_TEST_IMAGE = 'D:/path/to/phone-reference.jpg'

@@ -1,6 +1,6 @@
 const PhoneScan = (() => {
   const MIN_CONFIDENCE = 0.75
-  const CANDIDATE_CONFIDENCE = 0.5
+  const CANDIDATE_CONFIDENCE = 0.3
   const STRONG_CONFIDENCE = 0.9
   const SWEEP = [
     [3, 0.35], [2, 0.22], [1, 0.22], [0, 0.22],
@@ -8,7 +8,7 @@ const PhoneScan = (() => {
   ]
   let sweepIndex = 0
 
-  async function run(detector, frame, timestamp, crop) {
+  async function run(detector, timestamp, crop) {
     return PhoneFrames.toOriginal(await detector.detectForVideo(crop.image, timestamp), crop)
   }
 
@@ -18,7 +18,7 @@ const PhoneScan = (() => {
   }
 
   async function full(detector, frame, timestamp) {
-    let result = await run(detector, frame, timestamp, PhoneFrames.full(frame))
+    let result = await run(detector, timestamp, PhoneFrames.full(frame))
     const strong = candidates(result, STRONG_CONFIDENCE)[0]
     if (strong) return result
 
@@ -32,7 +32,7 @@ const PhoneScan = (() => {
 
     const sweep = SWEEP[sweepIndex++ % SWEEP.length]
     for (const [edge, fraction] of [[3, 0.22], sweep]) {
-      result = await run(detector, frame, timestamp + (++cropIndex) * 0.01,
+      result = await run(detector, timestamp + (++cropIndex) * 0.01,
         PhoneFrames.corner(frame, edge, fraction))
       collected.push(...result.detections)
       if (candidates(result, STRONG_CONFIDENCE).length) return result
@@ -40,6 +40,10 @@ const PhoneScan = (() => {
 
     for (const candidate of candidates({ detections: collected }, CANDIDATE_CONFIDENCE).slice(0, 2)) {
       if (await PhoneFrames.confirm(detector, frame, candidate, timestamp + (++cropIndex) * 0.01)) {
+        return { detections: [{ ...candidate, confirmed: true }] }
+      }
+      const darkConfirmed = await PhoneFrames.confirmDark(detector, frame, candidate, timestamp + (++cropIndex) * 0.01)
+      if (darkConfirmed) {
         return { detections: [{ ...candidate, confirmed: true }] }
       }
     }

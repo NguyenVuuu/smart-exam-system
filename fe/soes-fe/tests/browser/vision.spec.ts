@@ -9,7 +9,7 @@ for (const fallback of [false, true]) {
     await page.route('**/vision-reference.jpg', route => route.fulfill({ contentType: 'image/jpeg', body: photo }))
     if (process.env.VISION_TEST_MODEL) {
       const model = await readFile(process.env.VISION_TEST_MODEL)
-      await page.route('**/models/yolo11n.onnx', route => route.fulfill({ contentType: 'application/octet-stream', body: model }))
+      await page.route('**/models/yolo11n-devices.onnx', route => route.fulfill({ contentType: 'application/octet-stream', body: model }))
     }
     await page.route('**/vision-reference-test', route => route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' }))
     if (fallback) {
@@ -26,7 +26,7 @@ for (const fallback of [false, true]) {
         process.env.VISION_TEST_CROP.split(',').map(Number))
     }
     await page.goto('/vision-reference-test')
-    const result = await page.evaluate(async () => {
+    const result = await page.evaluate(async (frameCount) => {
       const image = new Image(); image.src = '/vision-reference.jpg'; await image.decode()
       const crop = (window as Window & { visionTestCrop?: number[] }).visionTestCrop
       const canvas = crop ? document.createElement('canvas') : null
@@ -46,7 +46,7 @@ for (const fallback of [false, true]) {
       try {
         const ready = next(); worker.postMessage({ type: 'init', mode: 'phone', debug: true }); await ready
         const events = [], samples = []
-        for (let i = 0; i < 18; i++) {
+        for (let i = 0; i < frameCount; i++) {
           const frame = await createImageBitmap(source)
           const pending = next()
           worker.postMessage({ type: 'frame', frame, timestamp: 1000 + i * 250, capturedAt: Date.now() }, [frame])
@@ -60,11 +60,15 @@ for (const fallback of [false, true]) {
         }
         return { events, samples, width: canvas?.width ?? image.naturalWidth, height: canvas?.height ?? image.naturalHeight }
       } finally { worker.terminate() }
-    })
+    }, Number(process.env.VISION_TEST_FRAMES ?? 18))
     console.log(JSON.stringify({ fallback, samples: result.samples, events: result.events }))
+    if (process.env.VISION_TEST_EXPECT_NONE === '1') {
+      expect(result.events).toHaveLength(0)
+      return
+    }
     expect(result.events).toHaveLength(1)
     const event = result.events[0]
-    expect(event.metadata.confidence).toBeGreaterThanOrEqual(0.5)
+    expect(event.metadata.confidence).toBeGreaterThanOrEqual(0.3)
     expect(event.metadata.observedDurationMs).toBe(0)
     expect(event.width).toBe(result.width)
     expect(event.height).toBe(result.height)

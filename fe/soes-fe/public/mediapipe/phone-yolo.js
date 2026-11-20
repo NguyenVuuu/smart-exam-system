@@ -1,8 +1,8 @@
-/* YOLO11n COCO detector. Runs locally in the vision worker; class 67 is cell phone. */
+/* One local detector fine-tuned for phones and tablets. */
 const PhoneYolo = (() => {
   const SIZE = 640
-  const CLASS_INDEX = 67
   const MIN_SCORE = 0.25
+  const MODEL = { file: 'yolo11n-devices.onnx', name: 'yolo11n-devices', classIndex: 67 }
   let canvas = null
 
   function tensorFor(image) {
@@ -26,12 +26,12 @@ const PhoneYolo = (() => {
     const values = output.data
     const dimensions = output.dims
     const count = dimensions[2]
-    if (dimensions.length !== 3 || dimensions[1] < CLASS_INDEX + 5 || !count) {
+    if (dimensions.length !== 3 || dimensions[1] !== 84 || !count) {
       throw new Error('Unexpected YOLO output shape')
     }
     const candidates = []
     for (let index = 0; index < count; index++) {
-      const score = values[(4 + CLASS_INDEX) * count + index]
+      const score = values[(4 + MODEL.classIndex) * count + index]
       if (score < MIN_SCORE) continue
       const centerX = values[index], centerY = values[count + index]
       const width = values[2 * count + index], height = values[3 * count + index]
@@ -42,7 +42,8 @@ const PhoneYolo = (() => {
       const bottom = Math.min(SIZE, centerY + height / 2)
       if (right <= left || bottom <= top) continue
       candidates.push({
-        categories: [{ categoryName: 'cell phone', score }],
+        model: MODEL.name,
+        categories: [{ categoryName: 'handheld device', score }],
         boundingBox: { originX: left, originY: top, width: right - left, height: bottom - top },
       })
     }
@@ -53,17 +54,18 @@ const PhoneYolo = (() => {
   async function create() {
     ort.env.wasm.wasmPaths = new URL('../yolo/', self.location.href).href
     ort.env.wasm.numThreads = 1
-    const model = new URL('../models/yolo11n.onnx', self.location.href).href
-    const session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'] })
+    const session = await ort.InferenceSession.create(
+      new URL(`../models/${MODEL.file}`, self.location.href).href, { executionProviders: ['wasm'] })
+    async function detect(image) {
+      const input = tensorFor(image)
+      try {
+        const results = await session.run({ [session.inputNames[0]]: input })
+        return detectionsFrom(results[session.outputNames[0]])
+      } finally { input.dispose() }
+    }
     return {
       delegate: 'WASM',
-      async detectForVideo(image) {
-        const input = tensorFor(image)
-        try {
-          const results = await session.run({ [session.inputNames[0]]: input })
-          return detectionsFrom(results[session.outputNames[0]])
-        } finally { input.dispose() }
-      },
+      detectForVideo: detect,
       close() { void session.release() },
     }
   }

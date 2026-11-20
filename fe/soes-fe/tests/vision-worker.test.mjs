@@ -19,6 +19,7 @@ const faceLandmarks = (centerX, centerY) => Array.from({ length: 60 }, (_, index
 async function harness({ failGpu = false, failInference = false, mode = 'phone' } = {}) {
   const messages = [], calls = [], delegates = [], stamps = [], draws = []
   let phones = phoneResult()
+  let darkPhones = { detections: [] }
   let edgePhones = () => ({ detections: [] })
   let faceResult = { faceLandmarks: [[]], facialTransformationMatrixes: [] }
   let clock = 0
@@ -41,11 +42,20 @@ async function harness({ failGpu = false, failInference = false, mode = 'phone' 
     Vision: { FilesetResolver: { forVisionTasks: async () => ({}) }, FaceLandmarker: task('face') },
     PhoneYolo: { create: async () => ({ delegate: 'WASM', close() {}, async detectForVideo(image) {
       calls.push('phone'); clock += duration
-      return image.lastDraw?.length === 8 ? edgePhones(image.lastDraw) : phones
+      return image.darkened ? darkPhones : image.lastDraw?.length === 8 ? edgePhones(image.lastDraw) : phones
     } }) },
     OffscreenCanvas: class {
       constructor(width, height) { this.width = width; this.height = height }
-      getContext() { return { drawImage: (...args) => { this.lastDraw = args.slice(1); draws.push(this.lastDraw) }, fillRect() {}, strokeRect() {}, fillText: (value) => stamps.push(value) } }
+      getContext() {
+        const owner = this
+        const context = {
+          fillStyle: '',
+          drawImage: (...args) => { owner.darkened = false; owner.lastDraw = args.slice(1); draws.push(owner.lastDraw) },
+          fillRect() { if (context.fillStyle === 'rgba(0,0,0,0.3)') owner.darkened = true },
+          strokeRect() {}, fillText: (value) => stamps.push(value),
+        }
+        return context
+      }
       async convertToBlob() { return new Blob(['jpeg'], { type: 'image/jpeg' }) }
     },
   })
@@ -57,6 +67,7 @@ async function harness({ failGpu = false, failInference = false, mode = 'phone' 
   return {
     messages, calls, delegates, stamps, draws,
     setPhones: (value) => { phones = value },
+    setDarkPhones: (value) => { darkPhones = value },
     setEdgePhones: (value) => { edgePhones = value },
     setFace: (value) => { faceResult = value },
     retryPhone: () => self.onmessage({ data: { type: 'phone-upload-failed' } }),
@@ -152,6 +163,24 @@ test('low confidence does not create evidence', async () => {
   h.setPhones(phoneResult(0.39))
   await h.frame(0)
   assert.equal(h.messages.filter((m) => m.evidence).length, 0)
+})
+
+test('a weak rear-side device needs a matching darkened scan of the same frame', async () => {
+  const h = await harness()
+  h.setPhones(phoneResult(0.34))
+  h.setDarkPhones(phoneResult(0.38))
+  const event = await h.frame(0)
+  assert.equal(event.evidence.metadata.confidence, 0.34)
+  assert.equal(event.evidence.metadata.observedDurationMs, 0)
+})
+
+test('a weak lookalike at a different position is not evidence', async () => {
+  const h = await harness()
+  h.setPhones(phoneResult(0.34))
+  const shifted = phoneResult(0.7)
+  shifted.detections[0].boundingBox.originX = 430
+  h.setDarkPhones(shifted)
+  assert.equal((await h.frame(0)).evidence, null)
 })
 
 test('an upload failure allows another immediate detection', async () => {

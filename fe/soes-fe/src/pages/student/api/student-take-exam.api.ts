@@ -131,8 +131,8 @@ export interface RecordViolationPayload {
 }
 
 export interface PhoneDetectionMetadata {
-  model: 'efficientdet_lite0' | 'yolo11n'
-  category: 'cell phone'
+  model: 'efficientdet_lite0' | 'yolo11n' | 'yolo11n-devices'
+  category: 'cell phone' | 'handheld device'
   confidence: number
   boundingBox: { originX: number; originY: number; width: number; height: number }
   frameWidth: number

@@ -60,7 +60,7 @@ export function usePhoneViolationMonitor(input: {
           try {
             const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
               violationType: 'PHONE_DETECTED', severity: 'MEDIUM',
-              description: 'Possible phone detected. Evidence requires teacher review; this is not a conclusion of misconduct.',
+              description: `Possible ${evidence.metadata.category} detected. Evidence requires teacher review; this is not a conclusion of misconduct.`,
               detectedAt: evidence.metadata.capturedAt,
               metadata: evidence.metadata,
               evidenceFiles: [new File([evidence.blob], `phone-${Date.parse(evidence.metadata.capturedAt)}.jpg`, { type: 'image/jpeg' })],
