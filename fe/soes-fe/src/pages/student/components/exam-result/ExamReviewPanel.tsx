@@ -150,7 +150,7 @@ export default function ExamReviewPanel({ result, scheduleId, attemptId }: {
 
       {result.reviewItems.length === 0 ? (
         <div className="rounded-lg border border-gray-100 bg-white p-4 text-sm text-gray-500">
-          Chưa có dữ liệu bài làm để hiển thị.
+          Lượt thi này không có câu hỏi hoặc bài làm được ghi nhận. Hãy kiểm tra lại ca thi và lượt thi đã chọn.
         </div>
       ) : (
         <div className="space-y-3">

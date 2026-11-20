@@ -366,6 +366,7 @@ export function useFinalExamScheduleForm({
     const schedule: AdminExamSchedule = {
       id: editingSchedule?.id ?? `schedule-${Date.now()}`,
       examId: selectedExam.id,
+      durationMinutes: selectedExam.durationMinutes,
       examTitle: `${selectedExam.title} ${startTime}`,
       subjectName: selectedExam.subjectName,
       courseCodes: selectedCourses.map((course) => course.code),
@@ -446,6 +447,7 @@ export function useFinalExamScheduleForm({
       eligibleCourses,
       teachers,
       selectedExam: Boolean(selectedExam),
+      selectedExamDuration: selectedExam?.durationMinutes,
     },
     actions: {
       changeDepartment,

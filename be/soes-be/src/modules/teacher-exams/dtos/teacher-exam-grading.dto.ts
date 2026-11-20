@@ -22,6 +22,8 @@ export interface ExamSubmissionDto {
   manualScoreOverride: number | null
   finalScore: number | null
   status: string
+  endedBy: string | null
+  proctorActionReason: string | null
   violationCount: number
   violationsViewed: boolean
   violationsViewedAt: Date | null

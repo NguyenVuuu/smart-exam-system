@@ -41,6 +41,8 @@ export interface StudentScore {
   type: ExamType
   score: number
   publishedAt: string
+  endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | 'PROCTOR' | null
+  forceSubmitReason: string | null
   courseOfferingId: string
   courseCode: string
   subjectCode: string

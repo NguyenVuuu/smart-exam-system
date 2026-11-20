@@ -1,159 +1,132 @@
 /* Classic worker: MediaPipe's WASM loader uses importScripts. */
-importScripts('./vision_bundle.js')
-const vision = Vision
+let vision = null
 
 let face = null
 let phone = null
 let faceDelegate = 'GPU'
-let phoneDelegate = 'GPU'
+let phoneDelegate = 'WASM'
 let fileset = null
 let busy = false
-let nextTask = 'face'
-let intervalMs = 250
-let lastPhoneSampleAt = null
-let lastPhoneAlertAt = -Infinity
+let intervalMs = 150
+let phoneEpisodeActive = false
 let initialized = false
 let debug = false
-let lastPhoneSeenAt = null
-let phonePositiveMs = 0
-let previousPhonePositive = false
+let mode = null
 let phoneDiagnostics = null
-const PHONE_CONFIDENCE = 0.5
-const PHONE_MISSING_TOLERANCE_MS = 1200
-const PHONE_INPUT_SIZE = 720
-let phoneCanvas = null
+let lastFaceEvidenceIssue = null
+let lastFaceEvidenceAt = -Infinity
+let faceCandidateIssue = null
+let faceCandidateStartedAt = 0
+const FACE_CONFIRM_MS = { NO_FACE: 3000, MULTIPLE_FACES: 1000, LOOKING_AWAY: 1500 }
 
-function preparePhoneFrame(frame) {
-  phoneCanvas ??= new OffscreenCanvas(PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
-  const context = phoneCanvas.getContext('2d')
-  if (!context) throw new Error('Phone input canvas unavailable')
-  const scale = PHONE_INPUT_SIZE / Math.max(frame.width, frame.height)
-  const width = frame.width * scale
-  const height = frame.height * scale
-  const offsetX = Math.floor((PHONE_INPUT_SIZE - width) / 2)
-  const offsetY = Math.floor((PHONE_INPUT_SIZE - height) / 2)
-  // Preserve camera aspect ratio when passing a rectangular frame to a square model.
-  context.fillStyle = '#000000'
-  context.fillRect(0, 0, PHONE_INPUT_SIZE, PHONE_INPUT_SIZE)
-  context.drawImage(frame, offsetX, offsetY, width, height)
-  return { image: phoneCanvas, scale, offsetX, offsetY }
-}
-
-function phoneResultInOriginalFrame(result, transform, frame) {
-  return { ...result, detections: result.detections.flatMap((detection) => {
-    const box = detection.boundingBox
-    if (!box) return []
-    const x = Math.max(0, Math.min(frame.width, Math.round((box.originX - transform.offsetX) / transform.scale)))
-    const y = Math.max(0, Math.min(frame.height, Math.round((box.originY - transform.offsetY) / transform.scale)))
-    const right = Math.max(0, Math.min(frame.width, Math.round((box.originX + box.width - transform.offsetX) / transform.scale)))
-    const bottom = Math.max(0, Math.min(frame.height, Math.round((box.originY + box.height - transform.offsetY) / transform.scale)))
-    if (right <= x || bottom <= y) return []
-    return [{ ...detection, boundingBox: { originX: x, originY: y, width: right - x, height: bottom - y } }]
-  }) }
-}
-
-function resetPhoneObservation() {
-  lastPhoneSeenAt = null
-  phonePositiveMs = 0
-  previousPhonePositive = false
-}
-
-async function createTask(kind, delegate) {
+async function createFaceTask(delegate) {
   const baseOptions = {
-    modelAssetPath: new URL(kind === 'face' ? '../models/face_landmarker.task' : '../models/efficientdet_lite0.tflite', self.location.href).href,
+    modelAssetPath: new URL('../models/face_landmarker.task', self.location.href).href,
     delegate,
   }
   // Each task owns its WebGL context; inference is still serialized in this worker.
   const canvas = new OffscreenCanvas(1, 1)
-  if (kind === 'face') {
-    return vision.FaceLandmarker.createFromOptions(fileset, {
-      baseOptions, canvas, runningMode: 'VIDEO', numFaces: 3,
-      minFaceDetectionConfidence: 0.55, minFacePresenceConfidence: 0.55,
-      minTrackingConfidence: 0.55, outputFacialTransformationMatrixes: true,
-    })
-  }
-  return vision.ObjectDetector.createFromOptions(fileset, {
-    baseOptions, canvas, runningMode: 'VIDEO', scoreThreshold: 0.25,
-    categoryAllowlist: ['cell phone'], maxResults: 3,
+  return vision.FaceLandmarker.createFromOptions(fileset, {
+    baseOptions, canvas, runningMode: 'VIDEO', numFaces: 3,
+    minFaceDetectionConfidence: 0.55, minFacePresenceConfidence: 0.55,
+    minTrackingConfidence: 0.55, outputFacialTransformationMatrixes: true,
   })
 }
 
-function faceIssue(result) {
-  if (!result.faceLandmarks.length) return 'NO_FACE'
-  if (result.faceLandmarks.length > 1) return 'MULTIPLE_FACES'
-  const landmarks = result.faceLandmarks[0]
-  const nose = landmarks[1], left = landmarks[33], right = landmarks[263]
-  if (!nose || !left || !right) return null
-  const offset = Math.abs(nose.x - (left.x + right.x) / 2) / Math.max(0.001, Math.abs(right.x - left.x))
-  const matrix = result.facialTransformationMatrixes?.[0]?.data
-  const yaw = matrix?.length >= 16 ? Math.atan2(matrix[8], Math.hypot(matrix[0], matrix[4])) * 180 / Math.PI : null
-  return offset > 0.55 && (yaw === null || Math.abs(yaw) > 35) ? 'LOOKING_AWAY' : null
+function confirmedFaceIssue(result, timestamp) {
+  const candidate = FaceIssue.detect(result)
+  if (!candidate) {
+    faceCandidateIssue = null
+    return null
+  }
+  if (candidate !== faceCandidateIssue) {
+    faceCandidateIssue = candidate
+    faceCandidateStartedAt = timestamp
+  }
+  return timestamp - faceCandidateStartedAt >= FACE_CONFIRM_MS[candidate] ? candidate : null
 }
 
-async function phoneEvidence(result, frame, capturedAt, timestamp) {
-  const candidates = result.detections.flatMap((item) => {
-    const category = item.categories.find((entry) => entry.categoryName === 'cell phone')
-    return item.boundingBox && category ? [{ detection: item, confidence: category.score }] : []
-  }).sort((a, b) => b.confidence - a.confidence)
-  const best = candidates[0]
-  const detection = best?.confidence >= PHONE_CONFIDENCE ? best.detection : null
-  const sampleGap = lastPhoneSampleAt === null ? 0 : timestamp - lastPhoneSampleAt
-  if (sampleGap > 5000) resetPhoneObservation()
-  // A brief missed sample pauses confirmation instead of erasing all progress.
-  // Missing time never contributes to the three seconds of positive observation.
-  if (!previousPhonePositive && lastPhoneSeenAt !== null && timestamp - lastPhoneSeenAt > PHONE_MISSING_TOLERANCE_MS) resetPhoneObservation()
-  lastPhoneSampleAt = timestamp
-  if (detection) {
-    if (previousPhonePositive) phonePositiveMs += sampleGap
-    lastPhoneSeenAt = timestamp
-  } else if (lastPhoneSeenAt !== null && timestamp - lastPhoneSeenAt > PHONE_MISSING_TOLERANCE_MS) {
-    resetPhoneObservation()
-  }
-  previousPhonePositive = Boolean(detection)
-  phoneDiagnostics = {
-    confidence: best?.confidence ?? null, threshold: PHONE_CONFIDENCE,
-    positiveMs: phonePositiveMs,
-    cooldownRemainingMs: Math.max(0, 10000 - (timestamp - lastPhoneAlertAt)),
-    state: !detection ? (best ? 'below-threshold' : 'not-detected') : phonePositiveMs < 3000 ? 'confirming' : timestamp - lastPhoneAlertAt < 10000 ? 'cooldown' : 'confirmed',
-  }
-  if (!detection) return null
-  if (phonePositiveMs < 3000 || timestamp - lastPhoneAlertAt < 10000) return null
-
+async function captureEvidenceFrame(frame, capturedAt, phoneBox = null) {
   const canvas = new OffscreenCanvas(frame.width, frame.height)
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Evidence canvas unavailable')
   context.drawImage(frame, 0, 0)
+  if (phoneBox) {
+    context.strokeStyle = '#facc15'
+    context.lineWidth = Math.max(3, Math.round(frame.width / 180))
+    context.strokeRect(phoneBox.originX, phoneBox.originY, phoneBox.width, phoneBox.height)
+  }
   const fontSize = Math.max(12, Math.round(frame.width / 55))
   context.font = `${fontSize}px monospace`
   context.fillStyle = 'rgba(0,0,0,0.75)'
   context.fillRect(0, frame.height - fontSize * 2, frame.width, fontSize * 2)
   context.fillStyle = '#ffffff'
   context.fillText(new Date(capturedAt).toISOString(), 8, frame.height - fontSize * 0.6)
-  const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 })
-  lastPhoneAlertAt = timestamp
-  const category = detection.categories.find((item) => item.categoryName === 'cell phone')
+  return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 })
+}
+
+async function phoneEvidence(result, frame, capturedAt) {
+  const candidates = result.detections.flatMap((item) => {
+    const category = item.categories[0]
+    return item.boundingBox && category ? [{ detection: item, confidence: category.score }] : []
+  }).sort((a, b) => b.confidence - a.confidence)
+  const best = candidates[0]
+  const detection = best?.confidence >= PhoneScan.minConfidence || best?.detection.confirmed ? best.detection : null
+  phoneDiagnostics = {
+    confidence: best?.confidence ?? null, threshold: PhoneScan.minConfidence,
+    positiveMs: 0,
+    cooldownRemainingMs: 0,
+    state: !detection ? (best ? 'below-threshold' : 'not-detected') : phoneEpisodeActive ? 'same-appearance' : 'first-frame',
+  }
+  if (!detection) {
+    // A complete phone scan without a match ends the current appearance.
+    // The next appearance can be reported immediately, even within 10 seconds.
+    phoneEpisodeActive = false
+    return null
+  }
+  if (phoneEpisodeActive) return null
+
+  const blob = await captureEvidenceFrame(frame, capturedAt, detection.boundingBox)
+  phoneEpisodeActive = true
+  const category = detection.categories[0]
   const { originX, originY, width, height } = detection.boundingBox
   return {
     blob,
     metadata: {
-      model: 'efficientdet_lite0', category: 'cell phone', confidence: category.score,
+      model: detection.model ?? 'yolo11n-devices', category: category.categoryName, confidence: category.score,
       boundingBox: { originX, originY, width, height }, frameWidth: frame.width, frameHeight: frame.height,
-      capturedAt: new Date(capturedAt).toISOString(), observedDurationMs: Math.min(86400000, phonePositiveMs),
+      capturedAt: new Date(capturedAt).toISOString(), observedDurationMs: 0,
     },
   }
 }
 
 self.onmessage = async ({ data }) => {
+  if (data.type === 'phone-upload-failed') {
+    phoneEpisodeActive = false
+    return
+  }
   if (data.type === 'init') {
     if (initialized || busy) return
     debug = data.debug === true
+    mode = data.mode
+    if (mode !== 'face' && mode !== 'phone') {
+      self.postMessage({ type: 'error', message: 'Vision worker mode is required', fatal: true })
+      return
+    }
     busy = true
     try {
-      fileset = await vision.FilesetResolver.forVisionTasks(new URL('./wasm', self.location.href).href)
-      try { face = await createTask('face', 'GPU') }
-      catch { faceDelegate = 'CPU'; face = await createTask('face', 'CPU') }
-      try { phone = await createTask('phone', 'GPU') }
-      catch { phoneDelegate = 'CPU'; phone = await createTask('phone', 'CPU') }
+      if (mode === 'face') {
+        importScripts('./vision_bundle.js', './face-issue.js')
+        vision = Vision
+        fileset = await vision.FilesetResolver.forVisionTasks(new URL('./wasm', self.location.href).href)
+        try { face = await createFaceTask('GPU') }
+        catch { faceDelegate = 'CPU'; face = await createFaceTask('CPU') }
+      }
+      if (mode === 'phone') {
+        importScripts('../yolo/ort.min.js', './phone-yolo.js', './phone-frames.js', './phone-scan.js')
+        phone = await PhoneYolo.create()
+        phoneDelegate = phone.delegate
+      }
       initialized = true
       self.postMessage({ type: 'ready', faceDelegate, phoneDelegate })
     } catch (error) {
@@ -165,39 +138,43 @@ self.onmessage = async ({ data }) => {
   if (busy || !initialized) { data.frame.close(); return }
   busy = true
   const started = performance.now()
-  const kind = nextTask
-  nextTask = kind === 'face' ? 'phone' : 'face'
+  const kind = mode
   try {
     let result
     try {
       if (kind === 'face') {
         result = face.detectForVideo(data.frame, data.timestamp)
       } else {
-        const input = preparePhoneFrame(data.frame)
-        result = phoneResultInOriginalFrame(phone.detectForVideo(input.image, data.timestamp), input, data.frame)
+        result = await PhoneScan.full(phone, data.frame, data.timestamp)
       }
     } catch (error) {
-      if ((kind === 'face' ? faceDelegate : phoneDelegate) === 'CPU') throw error
+      if (kind === 'phone' || faceDelegate === 'CPU') throw error
       if (kind === 'face') {
-        face.close(); faceDelegate = 'CPU'; face = await createTask('face', 'CPU')
-      } else {
-        phone.close(); phoneDelegate = 'CPU'; phone = await createTask('phone', 'CPU')
+        face.close(); faceDelegate = 'CPU'; face = await createFaceTask('CPU')
       }
       // The next fresh frame is used after delegate recovery.
-      resetPhoneObservation()
       self.postMessage({ type: 'result', kind, skipped: true, intervalMs })
       return
     }
-    const evidence = kind === 'phone' ? await phoneEvidence(result, data.frame, data.capturedAt, data.timestamp) : null
+    const issue = kind === 'face' ? confirmedFaceIssue(result, data.timestamp) : null
+    let faceEvidence = null
+    if (kind === 'face') {
+      if (!issue) lastFaceEvidenceIssue = null
+      else if (issue !== lastFaceEvidenceIssue || data.timestamp - lastFaceEvidenceAt >= 15000) {
+        faceEvidence = await captureEvidenceFrame(data.frame, data.capturedAt).catch(() => null)
+        lastFaceEvidenceIssue = issue
+        lastFaceEvidenceAt = data.timestamp
+      }
+    }
+    const evidence = kind === 'phone' ? await phoneEvidence(result, data.frame, data.capturedAt) : null
     const duration = performance.now() - started
-    intervalMs = Math.round(Math.min(1000, Math.max(250, intervalMs * 0.75 + duration * 2 * 0.25)))
+    intervalMs = Math.round(Math.min(150, Math.max(80, intervalMs * 0.75 + duration * 0.25)))
     self.postMessage({
-      type: 'result', kind, issue: kind === 'face' ? faceIssue(result) : null,
-      evidence, intervalMs, capturedAt: data.capturedAt, inferenceMs: duration,
+      type: 'result', kind, issue,
+      evidence, faceEvidence, intervalMs, capturedAt: data.capturedAt, inferenceMs: duration,
       diagnostics: debug && kind === 'phone' ? phoneDiagnostics : undefined,
     })
   } catch (error) {
-    resetPhoneObservation()
     self.postMessage({ type: 'error', message: String(error), fatal: false })
   } finally {
     data.frame.close()

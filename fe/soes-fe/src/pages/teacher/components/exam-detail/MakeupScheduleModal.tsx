@@ -119,7 +119,9 @@ export default function MakeupScheduleModal({
   const defaultEnd = new Date(defaultStart.getTime() + (sourceSchedule.durationMinutes ?? 60) * 60_000)
   const [startTime, setStartTime] = useState(toLocalInputValue(defaultStart))
   const [endTime, setEndTime] = useState(toLocalInputValue(defaultEnd))
-  const [durationMinutes, setDurationMinutes] = useState(sourceSchedule.durationMinutes ?? 60)
+  const durationMinutes = selectedExamId
+    ? availableExams.find((exam) => exam.id === selectedExamId)?.defaultDurationMinutes ?? sourceSchedule.durationMinutes
+    : sourceSchedule.durationMinutes
   const [password, setPassword] = useState('')
   const [enableTabLock, setEnableTabLock] = useState(sourceSchedule.enableTabLock ?? true)
   const [requireFullscreen, setRequireFullscreen] = useState(sourceSchedule.requireFullscreen ?? false)
@@ -458,8 +460,9 @@ export default function MakeupScheduleModal({
                         type="number"
                         min={1}
                         value={durationMinutes}
-                        onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                        className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-blue-400 focus:outline-none"
+                        disabled
+                        title="Thời lượng được lấy từ đề thi đã chọn"
+                        className="mt-2 h-11 w-full cursor-not-allowed rounded-xl border border-gray-200 bg-slate-100 px-3 text-sm text-slate-500"
                       />
                     </label>
                     <label className="text-sm font-semibold text-gray-700">

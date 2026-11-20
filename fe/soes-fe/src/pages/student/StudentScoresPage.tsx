@@ -1,4 +1,4 @@
-import { BarChart3, RefreshCw, Search, Trophy, X } from 'lucide-react'
+import { BarChart3, ChevronLeft, ChevronRight, RefreshCw, Search, Trophy, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type React from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -17,6 +17,7 @@ const EXAM_TYPE_LABELS: Record<ExamType, string> = {
   FINAL: 'Cuối kỳ',
   QUIZ: 'Quiz',
 }
+const PAGE_SIZE = 10
 
 export default function StudentScoresPage() {
   const navigate = useNavigate()
@@ -28,6 +29,7 @@ export default function StudentScoresPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [keyword, setKeyword] = useState('')
+  const [page, setPage] = useState(1)
 
   const load = useCallback(async (semesterId?: string) => {
     setLoading(true)
@@ -51,6 +53,7 @@ export default function StudentScoresPage() {
       setSubjects(subjectData.items)
       setSelectedCourseOfferingId('ALL')
       setScores(scoreData.items)
+      setPage(1)
     } catch {
       setError('Không thể tải điểm số.')
     } finally {
@@ -64,6 +67,7 @@ export default function StudentScoresPage() {
   const handleSemesterChange = (semesterId: string) => {
     setSelectedSemesterId(semesterId)
     setKeyword('')
+    setPage(1)
     void load(semesterId)
   }
 
@@ -81,9 +85,9 @@ export default function StudentScoresPage() {
     })
   }, [keyword, scores, selectedCourseOfferingId])
 
-  const averageScore = selectedCourseOfferingId !== 'ALL'
-    ? calculateCourseWeightedAverage(filteredScores)
-    : null
+  const averageScore = calculateAverageScore(filteredScores)
+  const totalPages = Math.max(1, Math.ceil(filteredScores.length / PAGE_SIZE))
+  const visibleScores = filteredScores.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const highestScore = filteredScores.length
     ? Math.max(...filteredScores.map((item) => item.score))
@@ -150,7 +154,7 @@ export default function StudentScoresPage() {
                       label: `${subject.subjectCode} - ${subject.subjectName}`,
                     })),
                   ]}
-                  onChange={setSelectedCourseOfferingId}
+                  onChange={(value) => { setSelectedCourseOfferingId(value); setPage(1) }}
                   disabled={subjects.length === 0 || loading}
                   placeholder="Chọn môn học"
                   className="w-full sm:w-64"
@@ -160,12 +164,12 @@ export default function StudentScoresPage() {
                   <Search size={16} className="shrink-0 text-slate-400" />
                   <input
                     value={keyword}
-                    onChange={(event) => setKeyword(event.target.value)}
+                    onChange={(event) => { setKeyword(event.target.value); setPage(1) }}
                     placeholder="Tìm môn học hoặc bài thi..."
                     className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
                   />
                   {keyword && (
-                    <button type="button" onClick={() => setKeyword('')} className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-gray-100 hover:text-slate-700">
+                    <button type="button" onClick={() => { setKeyword(''); setPage(1) }} className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-gray-100 hover:text-slate-700">
                       <X size={14} />
                     </button>
                   )}
@@ -191,13 +195,19 @@ export default function StudentScoresPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredScores.map((item) => (
+                    {visibleScores.map((item) => (
                       <tr
                         key={`${item.courseOfferingId}-${item.examId}`}
                         onClick={() => openScoreDetail(item)}
                         className="cursor-pointer hover:bg-gray-50/70"
                       >
-                        <td className="px-5 py-4 font-bold text-slate-900">{item.title}</td>
+                        <td className="px-5 py-4 font-bold text-slate-900">
+                          {item.title}
+                          {item.endedBy === 'PROCTOR' && (
+                            <span className="mt-1 block w-fit rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">Giám thị buộc nộp</span>
+                          )}
+                          {item.forceSubmitReason && <span className="mt-1 block text-xs font-normal text-slate-500">Lý do: {item.forceSubmitReason}</span>}
+                        </td>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-slate-800">{item.courseCode}</p>
                           <p className="mt-0.5 text-xs text-slate-500">{item.subjectName}</p>
@@ -211,6 +221,16 @@ export default function StudentScoresPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {!loading && !error && filteredScores.length > PAGE_SIZE && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-5 py-4 text-sm text-slate-500">
+                <span>Hiển thị {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredScores.length)} trên {filteredScores.length} bài</span>
+                <div className="flex items-center gap-2">
+                  <button type="button" aria-label="Trang trước" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1} className="rounded-lg border border-gray-200 p-2 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16} /></button>
+                  <span className="min-w-16 text-center font-semibold text-slate-700">{page} / {totalPages}</span>
+                  <button type="button" aria-label="Trang sau" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages} className="rounded-lg border border-gray-200 p-2 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={16} /></button>
+                </div>
               </div>
             )}
           </section>
@@ -280,6 +300,20 @@ function calculateCourseWeightedAverage(items: ScoreRow[]) {
   const totalWeight = weightedParts.reduce((total, item) => total + item.weight, 0)
   const totalScore = weightedParts.reduce((total, item) => total + item.score * item.weight, 0)
   return totalScore / totalWeight
+}
+
+function calculateAverageScore(items: ScoreRow[]) {
+  const byCourse = new Map<string, ScoreRow[]>()
+  for (const item of items) {
+    const courseScores = byCourse.get(item.courseOfferingId) ?? []
+    courseScores.push(item)
+    byCourse.set(item.courseOfferingId, courseScores)
+  }
+  const courseAverages = [...byCourse.values()]
+    .map(calculateCourseWeightedAverage)
+    .filter((score): score is number => score !== null)
+  if (courseAverages.length === 0) return null
+  return courseAverages.reduce((sum, score) => sum + score, 0) / courseAverages.length
 }
 
 function formatDate(value: string) {

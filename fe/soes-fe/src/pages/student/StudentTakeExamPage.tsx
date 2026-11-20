@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { getSocket } from '../../api/socket'
 import ExamSubmitDialog from './components/take-exam/ExamSubmitDialog'
 import ExamWebcamPanel from './components/take-exam/ExamWebcamPanel'
 import QuestionCard from './components/take-exam/QuestionCard'
@@ -71,7 +72,9 @@ export default function StudentTakeExamPage() {
   const [runCodeErrorQuestionId, setRunCodeErrorQuestionId] = useState<string | null>(null)
   const previousWebcamStatusRef = useRef<ExamSessionWebcamStatus | null>(null)
   const previousScreenStatusRef = useRef<ExamSessionScreenShareStatus | null>(null)
+  const proctorEndedRef = useRef(false)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
+  const [proctorWarning, setProctorWarning] = useState<string | null>(null)
 
   const { data: session, isLoading, error } = useGetExamAttempt(scheduleId ?? '', attemptId, !!scheduleId && !!attemptId, faceVerificationId)
 
@@ -174,6 +177,42 @@ export default function StudentTakeExamPage() {
     onTimeExpired: handleTimeExpired,
     onSubmitted: handleSubmitted
   })
+
+  useEffect(() => {
+    if (!scheduleId || !attemptId || phase !== 'IN_PROGRESS') return
+    const socket = getSocket()
+    const handleWarning = (event: { scheduleId: string; message: string }) => {
+      if (event.scheduleId !== scheduleId) return
+      setProctorWarning(event.message)
+      toast.warning('Cảnh cáo từ giám thị', { description: event.message, duration: 12_000 })
+    }
+    const handleEnded = (event: { attemptId: string; scheduleId: string; status: string; reason: string }) => {
+      if (event.attemptId !== attemptId || event.scheduleId !== scheduleId || proctorEndedRef.current) return
+      proctorEndedRef.current = true
+      stopActiveExamScreenShareStream()
+      toast.error(event.status === 'INVALIDATED' ? 'Bài thi đã bị hủy' : 'Bài thi đã được buộc nộp', {
+        description: event.reason,
+        duration: 12_000,
+      })
+      navigate(resultPath, { replace: true, state: { attemptId } })
+    }
+    socket.on('proctoring:warning', handleWarning)
+    socket.on('proctoring:attempt-ended', handleEnded)
+    const interval = window.setInterval(() => {
+      void takeExamApi.getAttemptStatus(scheduleId, attemptId).then((status) => {
+        if (status.endedBy === 'PROCTOR' && status.status !== 'IN_PROGRESS') {
+          handleEnded({ attemptId, scheduleId, status: status.status, reason: status.status === 'INVALIDATED'
+            ? 'Giám thị đã hủy bài thi. Xem thông báo để biết lý do.'
+            : 'Giám thị đã kết thúc bài thi và giữ lại bài làm để chấm.' })
+        }
+      }).catch(() => undefined)
+    }, 5_000)
+    return () => {
+      socket.off('proctoring:warning', handleWarning)
+      socket.off('proctoring:attempt-ended', handleEnded)
+      window.clearInterval(interval)
+    }
+  }, [attemptId, navigate, phase, resultPath, scheduleId])
 
   useEffect(() => {
     if (phase !== 'IN_PROGRESS') stopActiveExamScreenShareStream()
@@ -450,6 +489,12 @@ export default function StudentTakeExamPage() {
 
   return (
     <div className="take-exam-workspace h-dvh min-h-0 w-full overflow-hidden bg-slate-50">
+      {proctorWarning && phase === 'IN_PROGRESS' && (
+        <div className="fixed left-1/2 top-4 z-[60] flex w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 items-start justify-between gap-4 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-xl" role="alert">
+          <div className="flex gap-2 text-sm text-amber-950"><ShieldAlert size={20} className="shrink-0" /><div><strong>Cảnh cáo từ giám thị</strong><p className="mt-1">{proctorWarning}</p></div></div>
+          <button type="button" onClick={() => setProctorWarning(null)} className="shrink-0 rounded-lg bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">Đã hiểu</button>
+        </div>
+      )}
       <ExamWebcamPanel
         required={session.integritySettings.enableWebcam}
         stream={webcamStream}

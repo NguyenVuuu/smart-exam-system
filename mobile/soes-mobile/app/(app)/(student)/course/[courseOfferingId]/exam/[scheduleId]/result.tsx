@@ -1,5 +1,5 @@
 import { BackToTopScrollView } from '../../../../../../../src/components/ui/BackToTop'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Modal, Alert } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { ArrowLeft, ArrowRight, CircleCheck, CircleX, Eye, FileText, Hourglass, Lightbulb, LockKeyhole, Ban, X } from 'lucide-react-native'
@@ -128,7 +128,7 @@ function ReviewQuestion({ item }: { item: AttemptReviewItem }) {
 
 export default function ExamResultScreen() {
   const { isInitialized, isAuthenticated } = useRequireAuth()
-  const { courseOfferingId, scheduleId, attemptId: qAttemptId } = useLocalSearchParams<{
+  const { scheduleId, attemptId: qAttemptId } = useLocalSearchParams<{
     courseOfferingId: string; scheduleId: string; attemptId?: string
   }>()
 
@@ -164,6 +164,7 @@ export default function ExamResultScreen() {
     }
   }, [scheduleId, attemptId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadData() }, [loadData])
 
   const hasAnyAppeal = appeals.length > 0
@@ -227,8 +228,26 @@ export default function ExamResultScreen() {
                 )}
               </View>
 
+              {status.status === 'INVALIDATED' && (
+                <View style={{ backgroundColor: '#fff1f2', borderRadius: 12, borderWidth: 1, borderColor: '#fecdd3', padding: 14, marginBottom: 14 }}>
+                  <Text style={{ color: '#9f1239', fontWeight: '700' }}>Giám thị hủy bài</Text>
+                  <Text style={{ color: '#9f1239', marginTop: 4 }}>Lý do: {status.invalidationReason || 'Xem thông báo để biết chi tiết.'}</Text>
+                </View>
+              )}
+              {status.endedBy === 'PROCTOR' && status.status !== 'INVALIDATED' && (
+                <View style={{ backgroundColor: '#fffbeb', borderRadius: 12, borderWidth: 1, borderColor: '#fde68a', padding: 14, marginBottom: 14 }}>
+                  <Text style={{ color: '#92400e', fontWeight: '700' }}>Giám thị buộc nộp</Text>
+                  <Text style={{ color: '#92400e', marginTop: 4 }}>Các câu trả lời đã lưu được giữ lại. Lý do: {status.forceSubmitReason || 'Xem thông báo để biết chi tiết.'}</Text>
+                </View>
+              )}
+              {status.totalQuestionCount === 0 && (
+                <View style={{ backgroundColor: '#fffbeb', borderRadius: 12, borderWidth: 1, borderColor: '#fde68a', padding: 14, marginBottom: 14 }}>
+                  <Text style={{ color: '#92400e' }}>Lượt thi này không được ghi nhận câu hỏi nào. Hãy kiểm tra lại ca thi hoặc lượt thi đã chọn.</Text>
+                </View>
+              )}
+
               {/* Score card */}
-              {result.available ? (
+              {status.totalQuestionCount === 0 ? null : result.available ? (
                 <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: '#d1fae5', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } }}>
                   <Text style={{ fontSize: 12, color: '#64748b', fontWeight: '600', marginBottom: 4 }}>Điểm bài thi</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
@@ -259,11 +278,11 @@ export default function ExamResultScreen() {
                 <SummaryCard label="Số câu đã làm" value={`${status.answeredCount}/${status.totalQuestionCount}`} />
                 <SummaryCard label="Thời gian làm" value={fmtDuration(status.startedAt, status.submittedAt)} />
                 <SummaryCard label="Nộp lúc" value={fmtDT(status.submittedAt)} />
-                <SummaryCard label="Kết thúc bởi" value={status.endedBy === 'STUDENT' ? 'Sinh viên' : status.endedBy === 'TIMEOUT' ? 'Hết giờ' : status.endedBy === 'SYSTEM' ? 'Hệ thống' : '—'} />
+                <SummaryCard label="Kết thúc bởi" value={status.endedBy === 'STUDENT' ? 'Sinh viên' : status.endedBy === 'TIMEOUT' ? 'Hết giờ' : status.endedBy === 'SYSTEM' ? 'Hệ thống' : status.endedBy === 'PROCTOR' ? 'Giám thị' : '—'} />
               </View>
 
               {/* Review section */}
-              {result.available && (
+              {result.available && status.totalQuestionCount > 0 && (
                 <View style={{ marginBottom: 16 }}>
                   <Text style={{ fontSize: 15, fontWeight: '800', color: '#0f172a', marginBottom: 12 }}>Chi tiết bài làm</Text>
                   {(result.reviewPolicy === 'NONE' || result.reviewPolicy === 'SCORE_ONLY') && (
@@ -283,11 +302,12 @@ export default function ExamResultScreen() {
                   {result.reviewAvailable && result.reviewItems.length > 0 && (
                     result.reviewItems.map(item => <ReviewQuestion key={item.questionId} item={item} />)
                   )}
+                  {result.reviewAvailable && result.reviewItems.length === 0 && <Text style={{ color: '#64748b' }}>Không có bài làm được ghi nhận cho lượt thi này.</Text>}
                 </View>
               )}
 
               {/* Grade Appeal section */}
-              {result.available && (
+              {result.available && status.status !== 'INVALIDATED' && status.totalQuestionCount > 0 && (
                 <View style={{ marginBottom: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <Text style={{ fontSize: 15, fontWeight: '800', color: '#0f172a' }}>Phúc khảo điểm</Text>

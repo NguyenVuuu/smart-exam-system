@@ -2,30 +2,31 @@
 
 ## Hanh vi
 
-- Dung EfficientDet-Lite0, chi lay nhan `cell phone`, confidence >= 0.5 de xac nhan. Ket qua >= 0.25 chi phuc vu chan doan.
-- Can it nhat 3 giay quan sat du confidence. Cho phep mat nhan dien ngan toi 1200ms; thoi gian mat nhan dien khong cong vao 3 giay. Mat lau hon se reset. Chi chup khi frame hien tai co dien thoai du confidence.
-- Tao mot anh JPEG tu dung frame da phat hien, co timestamp ISO UTC in tren anh.
-- Cooldown 10 giay tinh tu frame tao su kien truoc. Neu van thay dien thoai, tiep tuc tao mot su kien moi sau moi cooldown; khong gioi han o hai su kien.
+- Dung mot model `yolo11n-devices.onnx` da tinh chinh tu YOLO11n cho dien thoai va may tinh bang. Nhan COCO 67 duoc anh xa thanh `handheld device`. Phat hien du tin cay tao su kien tu frame dau tien; ung vien yeu can duoc xac nhan o ty le khac hoac tren ban giam sang cua cung frame.
+- Moi lan dien thoai xuat hien tao mot su kien. Mot luot quet dien thoai day du khong con phat hien se ket thuc lan xuat hien do; lan xuat hien tiep theo duoc ghi nhan ngay, khong khoa 10 giay.
+- Tao mot anh JPEG tu dung frame da phat hien, danh dau bounding box va timestamp ISO UTC tren anh. Upload duoc xep hang de khong bo qua su kien moi khi anh truoc dang gui.
 - Chi upload anh khi co su kien. Cac frame inference chi di chuyen noi bo trinh duyet.
 - Metadata: model, category, confidence, boundingBox (pixel tren frame goc khong lat guong), frameWidth, frameHeight, capturedAt, observedDurationMs.
-- `PHONE_DETECTED` la su kien tuc thoi, severity MEDIUM, reviewStatus PENDING. Khong tu tru diem, ket luan gian lan, huy bai hay buoc nop bai.
+- `PHONE_DETECTED` la tin hieu AI can giang vien xem anh va xac nhan; he thong khong tu ket luan gian lan hay tu buoc nop bai.
 - Su kien dien thoai khong dong su kien khuon mat dang mo.
 
 ## Camera va Worker
 
 `requestExamWebcam()` tai `exam-webcam.ts` giu mot active stream va mot pending promise, nen cac yeu cau dong thoi chi goi mot `getUserMedia`.
 
-`StudentTakeExamPage` truyen cung `webcamStream` cho preview, live publisher va `useWebcamViolationMonitor`. Hook tao video tu stream nay, gui ImageBitmap vao mot classic Worker `exam-vision`. Worker khong mo camera.
+`StudentTakeExamPage` truyen cung `webcamStream` cho preview, live publisher va hai hook giam sat. Hai Worker `exam-face` va `exam-phone` xu ly doc lap, cung lay khung hinh tu stream da co va khong mo camera lan nua. YOLO chay cham khong chan nhan dien khuon mat.
 
-Worker chay Face Landmarker va Object Detector xen ke. Chi gui frame moi sau khi co ket qua frame truoc. Khoang nghi ban dau 250ms, tu tang toi 1000ms theo thoi gian inference; moi model chay mot lan trong hai luot. May cham co the can hon 3 giay thoi gian thuc de xac nhan.
+Worker khuon mat dung MediaPipe Face Landmarker; Worker thiet bi dung mot model YOLO11n da tinh chinh. Moi Worker chi gui frame moi sau khi co ket qua frame truoc. Khoang lay frame muc tieu 80-150ms; thoi gian inference thuc te van gioi han toc do. Moi luot quet thiet bi xu ly khung hinh day du va toi da hai vung goc, uu tien goc duoi ben phai va luan phien cac goc khac. Vung nghi ngo co do tin cay thap duoc xac nhan bang mot lan chay model tren cung frame giam do sang 30%; khong doi them nhieu giay.
 
-Truoc phone inference, Worker giu nguyen ti le camera va them vien den vao canvas vuong 720x720 (letterbox). Khong cat mat phan nao cua khung hinh. Model van xu ly o kich thuoc native cua no. Bounding box duoc bo offset, chia scale va gioi han trong kich thuoc anh goc. Anh bang chung van la frame goc, khong co vien den. Face Landmarker van nhan frame goc.
+Truoc phone inference, Worker giu nguyen ti le camera va them vien den vao canvas vuong 640x640 (letterbox). Khong cat mat phan nao cua khung hinh. Bounding box duoc bo offset, chia scale va gioi han trong kich thuoc anh goc. Anh bang chung van la frame goc, khong co vien den. Face Landmarker van nhan frame goc.
 
-Da tai hien bang anh webcam local 1280x720 co dien thoai che mat: duong cu GPU chi tra confidence 0.292, CPU nham nhan. Sau letterbox, Worker tra 0.514 (GPU) va 0.527 (CPU), tao duoc anh bang chung sau 3000ms quan sat mo phong. Day la ket qua tren mot anh tham chieu, khong phai cam ket nhan ra moi dien thoai/anh sang. Khong ha nguong 0.5 trong lan sua nay.
+Anh xem truoc bi thu nho trong giao dien khong du de danh gia chac chan mo hinh tren frame camera goc. Model nay duoc tinh chinh tu sau anh webcam nguoi dung va mot tap nho anh cong khai; mot anh op lung duoc giu rieng de kiem tra nhung van cung nguoi va camera. Kiem thu trinh duyet da tao bang chung cho anh mat lung, op lung, dien thoai o mep va hai anh tablet. Hai anh vat de nham khong tao su kien. Day khong phai thang do do chinh xac cho camera, nguoi va thiet bi khac; can bo sung tap anh doc lap da gan nhan va do precision/recall truoc khi dung cho quyet dinh tu dong.
 
-Ca hai model thu GPU truoc, fallback CPU/WASM khi khoi tao hoac inference GPU loi. Neu Worker khong the tiep tuc, giao dien hien thong bao, live camera van hoat dong. Chi bat hook khi phase IN_PROGRESS va ca thi bat webcam; cleanup terminate Worker khi ket thuc.
+Face Landmarker thu GPU truoc va fallback CPU neu GPU loi; YOLO chay bang ONNX Runtime WASM. Neu Worker khong the tiep tuc, giao dien hien thong bao, live camera van hoat dong. Chi bat hook khi phase IN_PROGRESS va ca thi bat webcam; cleanup terminate Worker khi ket thuc. Tren Chromium headless thu nghiem, YOLO mat vai giay moi frame; khong the cam ket phat hien tuc thi voi cau hinh hien tai.
 
-Classic Worker duoc dung de tuong thich `importScripts` cua MediaPipe WASM loader. `predev`/`prebuild` dong bo bundle va WASM tu package dang cai, khong tai CDN luc thi. Tai lieu: https://developers.google.com/edge/mediapipe/solutions/vision/object_detector/web_js
+Classic Worker duoc dung de tuong thich `importScripts` cua MediaPipe WASM loader. `predev`/`prebuild` dong bo bundle va WASM tu package dang cai, khong tai CDN luc thi. Model nen YOLO11n co giay phep AGPL-3.0; can xem xet giay phep truoc khi phan phoi he thong. Chi tiet nguon model va du lieu xem `public/models/DEVICE_DETECTOR_LICENSE.md`.
+
+Script `fe/soes-fe/scripts/train-device-detector.py` tai anh cong khai, gan nhan anh webcam va tinh chinh model. Anh webcam va tap tam nam ngoai repository. Script can Python voi Ultralytics va Pillow, tham so `--samples-dir`, `--work-dir`, `--model`, `--unified-class 67`; sau khi train can danh gia tren anh giu rieng va xuat ONNX 640x640 truoc khi thay model dang chay.
 
 ## Chuan bi chay
 
@@ -46,18 +47,18 @@ npm install
 npm run dev
 ```
 
-Can co hai file `public/models/face_landmarker.task` va `public/models/efficientdet_lite0.tflite`. Khi deploy, dua ca file model dien thoai vao ban phat hanh. Su dung localhost hoac HTTPS de truy cap camera. Neu doi cong frontend, them dung origin vao ALLOWED_ORIGINS cua backend.
+Can co `public/models/face_landmarker.task`, `public/models/yolo11n-devices.onnx` va cac asset trong `public/yolo`. Khi deploy, dua model va asset WASM vao ban phat hanh. Su dung localhost hoac HTTPS de truy cap camera. Neu doi cong frontend, them dung origin vao ALLOWED_ORIGINS cua backend va khoi dong lai backend.
 
 ## Test tren giao dien
 
 1. Giang vien tao/chon ca thi co bat webcam. Dung tai khoan sinh vien trong trinh duyet/profile khac va bat dau lam bai. Tai khoan giang vien mo trang giam sat truc tiep cua ca thi.
-2. Cho tai xong model. Giu dien thoai ro rang, du sang, khong che mat truoc camera trong 3-5 giay. Trong nhat ky giang vien se xuat hien "Phat hien dien thoai", trang thai "Chua xem" va confidence.
+2. Cho tai xong model. Giu dien thoai ro rang, du sang truoc camera. Trong nhat ky giang vien se xuat hien "Phat hien dien thoai", trang thai "Chua xem" va confidence neu model nhan duoc.
 3. Bam "Xem anh": anh phai co dien thoai va timestamp UTC. Doi chieu voi thoi gian su kien tren giao dien (hien thi theo mui gio cua ung dung).
-4. Giu dien thoai trong khung hinh: khong co anh moi trong 10 giay cooldown; sau do co mot su kien/anh moi neu van phat hien.
-5. Dua dien thoai vao duoi 3 giay roi cat di: khong co su kien. Cat dien thoai sau mot su kien: khong lap lai khi khong thay. Dua vao lai: phai du 3 giay va het cooldown.
+4. Giu dien thoai trong khung hinh: mot lan xuat hien lien tuc chi tao mot su kien.
+5. Cat dien thoai sau mot su kien, de worker quet duoc it nhat mot frame khong co dien thoai, roi dua vao lai: su kien moi co the duoc tao ngay neu model nhan duoc.
 6. Thu khong mat, nhieu mat va nhin lech nhu truoc. Su kien dien thoai khong thay the hoac dong su kien khuon mat.
-7. Giang vien mo xem live camera trong khi detector chay: chi mot lan xin quyen camera, video van hien thi. Co the kiem tra DevTools > Sources > Threads co mot `exam-vision` Worker.
-8. Nop bai: Worker bien mat, khong con inference/upload tu hook. Truoc khi bat dau bai thi cung khong co Worker vision.
+7. Giang vien mo xem live camera trong khi detector chay: chi mot lan xin quyen camera, video van hien thi. Co the kiem tra DevTools > Sources > Threads co hai Worker `exam-face` va `exam-phone`.
+8. Nop bai: hai Worker bien mat, khong con inference/upload tu hook. Truoc khi bat dau bai thi cung khong co Worker vision.
 9. DevTools > Network: cac request POST `violations` chi xuat hien khi co su kien; multipart chua mot file evidence va JSON metadata, khong gui tung frame len server. Neu mat mang/upload loi, giao dien camera hien thong bao; lan phat hien tiep theo se thu gui anh moi.
 10. Giang vien co the danh dau da xem/bo qua/xac nhan sau khi xem bang chung. Phat hien tu dong khong tu chuyen sang CONFIRMED.
 
@@ -70,7 +71,7 @@ localStorage.setItem('soes:vision-debug', '1')
 location.reload()
 ```
 
-Loc Console theo `[exam-vision]`. `not-detected` nghia la chua co ung vien dien thoai >= 0.25; `below-threshold` la chua dat 0.5; `confirming` kem `positiveMs` la dang tich luy; `cooldown` la dang cho. `phone event saved` kem id xac nhan API da luu; `phone upload failed` la loi gui/luu su kien. Neu da saved ma giang vien chua thay, tai lai nhat ky va bo bo loc loai su kien. Log chi bat khi co co debug, khong gui frame them len server.
+Loc Console theo `[exam-vision]`. `not-detected` nghia la khong co ung vien dien thoai; `below-threshold` la ung vien chua du tin cay; `first-frame` la da phat hien; `same-appearance` la dien thoai van con trong khung. `phone event saved` kem id xac nhan API da luu; `phone upload failed` la loi gui/luu su kien. Neu da saved ma giang vien chua thay, tai lai nhat ky va bo bo loc loai su kien. Log chi bat khi co co debug, khong gui frame them len server.
 
 Tat log bang `localStorage.removeItem('soes:vision-debug')` roi tai lai trang. Anh chup preview khong cho biet confidence model; can ket qua debug de phan biet loi nhan dien va loi upload.
 
@@ -84,9 +85,9 @@ npx playwright install chromium
 npm run test:vision:browser
 ```
 
-Co the dat `VISION_TEST_URL` de dung cong Vite khac. Unit test dung ket qua model gia lap de kiem tra nguong, cooldown va fallback. Browser test nap hai model that tren frame rong, kiem tra GPU/CPU, mot getUserMedia, vong doi hook va bang nhat ky voi du lieu mau. Chung khong thay the test dien thoai vat ly tren webcam that.
+Co the dat `VISION_TEST_URL` de dung cong Vite khac. Unit test dung ket qua model gia lap de kiem tra nguong, su kien xuat hien lai va fallback. Browser test nap mot model thiet bi va model khuon mat tren frame rong, kiem tra GPU/CPU, mot getUserMedia, vong doi hook va bang nhat ky voi du lieu mau. Chung khong thay the test dien thoai vat ly tren webcam that.
 
-De chay them hai regression test model that voi anh dien thoai rieng, dat `VISION_TEST_IMAGE` thanh duong dan tuyet doi cua anh truoc khi chay Playwright. Hai test nay mac dinh skip khi khong co bien nay. Anh rieng khong duoc commit vao repository. Vi du PowerShell:
+De chay them hai regression test model that voi anh dien thoai rieng, dat `VISION_TEST_IMAGE` thanh duong dan tuyet doi cua anh truoc khi chay Playwright. Hai test nay mac dinh skip khi khong co bien nay. Anh rieng khong duoc commit vao repository. Co the dat `VISION_TEST_FRAMES=1` de kiem tra bat ngay o frame dau; `VISION_TEST_EXPECT_NONE=1` de kiem tra anh khong co thiet bi. Vi du PowerShell:
 
 ```powershell
 $env:VISION_TEST_IMAGE = 'D:/path/to/phone-reference.jpg'

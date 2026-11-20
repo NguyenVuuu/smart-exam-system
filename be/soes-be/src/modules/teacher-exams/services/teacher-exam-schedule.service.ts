@@ -138,7 +138,9 @@ export async function create(
   data: TeacherExamScheduleBody,
 ) {
   const { exam, course } = await context(teacherId, examId, data.courseOfferingId);
-  const input = await toWriteInput(teacherId, examId, exam.title, course.code, data);
+  const input = await toWriteInput(teacherId, examId, exam.title, course.code, {
+    ...data, durationMinutes: exam.defaultDurationMinutes,
+  });
   const row = await runSerializable(async (tx) => {
       await assertNoConflict(tx, teacherId, data.courseOfferingId, input);
       return scheduleRepo.createSchedule(tx, input, userId);
@@ -245,6 +247,7 @@ export async function createMakeup(
 
   // Nếu GV chọn đề khác thì verify đề đó, không thì dùng đề gốc
   const makeupExamId = data.makeupExamId ?? examId
+  let makeupDurationMinutes = source.durationMinutes
   if (makeupExamId !== examId) {
     // Kiểm tra đề mới: phải cùng môn học, đã anchor blockchain
     const makeupExam = await repo.findOwnedExam(teacherId, makeupExamId)
@@ -255,6 +258,7 @@ export async function createMakeup(
     if (makeupExam.status !== 'READY' || !makeupExam._count.examQuestions) {
       throw new ValidationError('Đề thi dự phòng phải ở trạng thái sẵn sàng và có câu hỏi')
     }
+    makeupDurationMinutes = makeupExam.defaultDurationMinutes
   }
   await requireVerifiedExamAnchor(makeupExamId)
 
@@ -273,7 +277,7 @@ export async function createMakeup(
     examId: makeupExamId,
     startTime: data.startTime,
     endTime: data.endTime,
-    durationMinutes: data.durationMinutes,
+    durationMinutes: makeupDurationMinutes,
     maxAttempts: 1,
     passwordHash,
     enableTabLock: data.enableTabLock,
@@ -341,6 +345,7 @@ export async function update(
       );
       if (!["DRAFT", "SCHEDULED"].includes(status) || current._count.attempts)
         throw new ConflictError("Exam schedule is locked");
+      input.durationMinutes = exam.defaultDurationMinutes;
       await assertNoConflict(
         tx,
         teacherId,

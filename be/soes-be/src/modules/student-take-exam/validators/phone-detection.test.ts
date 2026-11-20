@@ -13,6 +13,10 @@ const body = { violationType: 'PHONE_DETECTED', severity: 'MEDIUM', metadata }
 test('phone metadata survives JSON and multipart validation', () => {
   assert.deepEqual(recordViolationBodySchema.parse(body).metadata, metadata)
   assert.deepEqual(recordViolationBodySchema.parse({ ...body, metadata: JSON.stringify(metadata) }).metadata, metadata)
+  assert.equal(recordViolationBodySchema.safeParse({ ...body, metadata: { ...metadata, model: 'yolo11n' } }).success, true)
+  assert.equal(recordViolationBodySchema.safeParse({ ...body, metadata: {
+    ...metadata, model: 'yolo11n-devices', category: 'handheld device',
+  } }).success, true)
 })
 
 test('invalid or missing phone metadata is rejected', () => {

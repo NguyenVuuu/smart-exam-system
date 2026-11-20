@@ -151,6 +151,8 @@ export interface TeacherExamSubmissionDto {
   studentCode: string; studentName: string; submittedAt: string | null
   autoScore: number | null; manualScoreOverride: number | null; finalScore: number | null
   status: 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING' | 'GRADED' | 'PUBLISHED' | 'INVALIDATED'
+  endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | 'PROCTOR' | null
+  proctorActionReason: string | null
   violationCount: number
   violationsViewed: boolean
   violationsViewedAt: string | null

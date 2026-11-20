@@ -8,7 +8,7 @@ import * as lifecycleService from '../services/teacher-exam-lifecycle.service'
 import * as blockchainService from '../services/exam-blockchain.service'
 import { autoGenerateExamSchema, examApprovalQuerySchema, examBodySchema, examQuestionsSchema, examRejectionSchema, examsQuerySchema, examStudentVisibilitySchema, extendTimeBodySchema } from '../validators/teacher-exams.validator'
 import { teacherExamScheduleBodySchema, teacherMakeupScheduleBodySchema, teacherScheduleCancellationSchema } from '../validators/teacher-exam-schedule.validator'
-import { bulkFinalizeScoresSchema, finalizeScoreSchema, invalidateAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
+import { bulkFinalizeScoresSchema, finalizeScoreSchema, forceSubmitAttemptSchema, manualGradeSchema, resultReleaseSchema, submissionQuerySchema, violationQuerySchema, violationReviewSchema } from '../validators/teacher-exam-grading.validator'
 
 const idParam = z.object({ id: z.string().min(1) })
 const scheduleOnlyParam = z.object({ scheduleId: z.string().min(1) })
@@ -160,15 +160,10 @@ export const reviewViolation = async (req: Request, res: Response) => {
     violationReviewSchema.parse(req.body),
   ))
 }
-export const invalidateAttempt = async (req: Request, res: Response) => {
+export const forceSubmitAttempt = async (req: Request, res: Response) => {
   const { id, scheduleId, attemptId } = gradingParams.parse(req.params)
-  send(res, await gradingService.invalidateAttempt(
-    req.user!.profileId,
-    req.user!.id,
-    id,
-    scheduleId,
-    attemptId!,
-    invalidateAttemptSchema.parse(req.body),
+  send(res, await gradingService.forceSubmitAttempt(
+    req.user!.profileId, req.user!.id, id, scheduleId, attemptId!, forceSubmitAttemptSchema.parse(req.body),
   ))
 }
 export const gradeSubmission = async (req: Request, res: Response) => {

@@ -33,7 +33,17 @@ const BLOCKED_SHORTCUTS: Record<string, BlockedAction> = {
 const FULLSCREEN_GRACE_MS = 3_000
 const FULLSCREEN_COUNTDOWN_SECONDS = 5
 const FULLSCREEN_SEVERE_MS = 7_000
-const TAB_SWITCH_CAPTURE_DELAY_MS = 450
+// Let the shared monitor produce a frame after the browser changes the visible tab.
+const TAB_SWITCH_CAPTURE_DELAY_MS = 200
+const TAB_SWITCH_CAPTURE_TIMEOUT_MS = 2500
+
+function captureWithin<T>(capture: () => Promise<T>, timeoutMs: number): Promise<T | undefined> {
+  let timeoutId: number | undefined
+  return Promise.race([
+    capture(),
+    new Promise<undefined>((resolve) => { timeoutId = window.setTimeout(() => resolve(undefined), timeoutMs) }),
+  ]).finally(() => window.clearTimeout(timeoutId))
+}
 
 export function useExamIntegrityGuard({
   enabled,
@@ -58,6 +68,7 @@ export function useExamIntegrityGuard({
   const captureScreenEvidenceRef = useRef(captureScreenEvidence)
   const lastTabSwitchReportedAtRef = useRef(0)
   const tabSwitchTimeoutRef = useRef<number | null>(null)
+  const windowBlurTimeoutRef = useRef<number | null>(null)
   const [isFullscreenActive, setIsFullscreenActive] = useState(() => Boolean(document.fullscreenElement))
   const [fullscreenExitCountdown, setFullscreenExitCountdown] = useState<number | null>(null)
 
@@ -332,18 +343,26 @@ export function useExamIntegrityGuard({
       }
       if (tabSwitchTimeoutRef.current !== null) window.clearTimeout(tabSwitchTimeoutRef.current)
       tabSwitchTimeoutRef.current = window.setTimeout(() => {
-        void Promise.resolve(captureScreenEvidence?.()).then((evidenceFiles) => {
+        const isAway = () => document.visibilityState === 'hidden' || !document.hasFocus()
+        // Returning before the capture must never attach an image of the exam as
+        // evidence of the destination tab. The switch is still recorded.
+        const capture = isAway()
+          ? captureWithin(() => Promise.resolve().then(() => captureScreenEvidenceRef.current?.()), TAB_SWITCH_CAPTURE_TIMEOUT_MS)
+          : Promise.resolve(undefined)
+        void capture.then((evidenceFiles) => {
           void reportViolation({
             violationType: 'TAB_SWITCH',
             severity,
             description,
-            evidenceFiles,
+            detectedAt: new Date(now).toISOString(),
+            evidenceFiles: isAway() ? evidenceFiles : undefined,
           }, false)
         }).catch(() => {
           void reportViolation({
             violationType: 'TAB_SWITCH',
             severity,
             description,
+            detectedAt: new Date(now).toISOString(),
           }, false)
         })
       }, TAB_SWITCH_CAPTURE_DELAY_MS)
@@ -351,14 +370,20 @@ export function useExamIntegrityGuard({
 
     const handleVisibilityChange = () => {
       if (document.visibilityState !== 'hidden') return
+      if (windowBlurTimeoutRef.current !== null) window.clearTimeout(windowBlurTimeoutRef.current)
       reportTabSwitch('Student switched away from the exam tab.', 'MEDIUM')
     }
 
     const handleWindowBlur = () => {
-      reportTabSwitch(
-        fullscreenExitStartedAtRef.current ? 'Exam window lost focus after fullscreen exit.' : 'Exam window lost focus.',
-        'LOW',
-      )
+      // A tab switch emits blur before visibilitychange. Give the latter priority so
+      // the evidence is captured after the destination tab becomes visible.
+      windowBlurTimeoutRef.current = window.setTimeout(() => {
+        if (document.visibilityState === 'hidden') return
+        reportTabSwitch(
+          fullscreenExitStartedAtRef.current ? 'Exam window lost focus after fullscreen exit.' : 'Exam window lost focus.',
+          'LOW',
+        )
+      }, 120)
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -366,10 +391,11 @@ export function useExamIntegrityGuard({
 
     return () => {
       if (tabSwitchTimeoutRef.current !== null) window.clearTimeout(tabSwitchTimeoutRef.current)
+      if (windowBlurTimeoutRef.current !== null) window.clearTimeout(windowBlurTimeoutRef.current)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('blur', handleWindowBlur)
     }
-  }, [captureScreenEvidence, enableTabLock, enabled, reportSevereFullscreenExit, reportViolation])
+  }, [enableTabLock, enabled, reportSevereFullscreenExit, reportViolation])
 
   useEffect(() => {
     if (!enabled || inactivityMs <= 0) return

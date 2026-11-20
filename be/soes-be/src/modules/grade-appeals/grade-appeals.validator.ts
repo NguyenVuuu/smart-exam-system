@@ -6,6 +6,8 @@ export const createGradeAppealSchema = z.object({
 
 export const teacherGradeAppealQuerySchema = z.object({
   status: z.enum(['ALL', 'PENDING', 'IN_REVIEW', 'RESOLVED', 'REJECTED']).optional().default('ALL'),
+  subjectId: z.string().min(1).optional(),
+  examId: z.string().min(1).optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
 })

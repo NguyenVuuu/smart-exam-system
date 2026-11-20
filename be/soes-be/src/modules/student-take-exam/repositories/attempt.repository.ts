@@ -186,14 +186,20 @@ function shuffled<T>(items: T[]): T[] {
 }
 
 export async function createAttemptSafe(input: CreateAttemptInput) {
+  const questions = await prisma.examQuestion.findMany({
+    where: { examId: input.examId },
+    orderBy: { orderIndex: 'asc' },
+    select: { id: true, options: { orderBy: { orderIndex: 'asc' }, select: { id: true } } },
+  })
+  const ordered = input.shuffleQuestions ? shuffled(questions) : questions
+  const selected = input.randomQuestionCount ? ordered.slice(0, input.randomQuestionCount) : ordered
+  const attemptQuestions = selected.map((question, index) => ({
+    examQuestionId: question.id,
+    displayOrder: index + 1,
+    shuffledOptionIds: input.shuffleOptions ? shuffled(question.options.map((option) => option.id))
+      : question.options.map((option) => option.id),
+  }))
   return prisma.$transaction(async (transaction) => {
-    const questions = await transaction.examQuestion.findMany({
-      where: { examId: input.examId },
-      orderBy: { orderIndex: 'asc' },
-      select: { id: true, options: { orderBy: { orderIndex: 'asc' }, select: { id: true } } },
-    })
-    const ordered = input.shuffleQuestions ? shuffled(questions) : questions
-    const selected = input.randomQuestionCount ? ordered.slice(0, input.randomQuestionCount) : ordered
     const attempt = await transaction.examAttempt.create({
       data: {
         examScheduleId: input.scheduleId,
@@ -234,21 +240,13 @@ export async function createAttemptSafe(input: CreateAttemptInput) {
         lastScreenHeartbeatAt: input.screenShareStatus === 'ACTIVE' ? input.startedAt : null,
       },
     })
-    if (selected.length) {
+    if (attemptQuestions.length) {
       await transaction.examAttemptQuestion.createMany({
-        data: selected.map((question, index) => {
-          const optionIds = question.options.map((option) => option.id)
-          return {
-            attemptId: attempt.id,
-            examQuestionId: question.id,
-            displayOrder: index + 1,
-            shuffledOptionIds: input.shuffleOptions ? shuffled(optionIds) : optionIds,
-          }
-        }),
+        data: attemptQuestions.map((question) => ({ ...question, attemptId: attempt.id })),
       })
     }
     return attempt
-  })
+  }, { timeout: 15_000 })
 }
 
 export async function submitAttempt(
@@ -360,6 +358,8 @@ export async function findAttemptStatus(attemptId: string, scheduleId: string, s
       deadlineAt: true,
       submittedAt: true,
       endedBy: true,
+      invalidationReason: true,
+      forceSubmitReason: true,
       lastSavedAt: true,
       examSession: { select: { lastHeartbeat: true, webcamStatus: true, screenShareStatus: true } },
       _count: { select: { studentAnswers: true, attemptQuestions: true } },

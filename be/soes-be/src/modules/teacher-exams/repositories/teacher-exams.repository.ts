@@ -48,7 +48,7 @@ export function listOwnedExams(teacherId: string, query: ExamsQuery) {
     prisma.exam.findMany({
       where, include: examInclude,
       skip: (query.page - 1) * query.pageSize, take: query.pageSize,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
     }),
   ])
 }

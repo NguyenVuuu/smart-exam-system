@@ -78,7 +78,7 @@ function AssignExamToCourseModalContent({
         examDate: parsedStart.date,
         startTime: parsedStart.time,
         endTime: parsedEnd.time,
-        durationMinutes: editingTarget.durationMinutes,
+        durationMinutes: defaultConfig?.durationMinutes ?? editingTarget.durationMinutes,
         maxAttempts: editingTarget.maxAttempts ?? 1,
         password: editingTarget.password ?? '',
         resultReleaseMode: editingTarget.resultReleaseMode ?? 'MANUAL',

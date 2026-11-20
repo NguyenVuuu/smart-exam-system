@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { takeExamApi, type ExamViolationType, type RecordViolationPayload, type PhoneDetectionMetadata } from '../../api/student-take-exam.api'
+import { takeExamApi, type ExamViolationType, type RecordViolationPayload } from '../../api/student-take-exam.api'
 import type { ExamWebcamStatus } from './useExamWebcam'
 import { captureExamWebcamSnapshot, isExamWebcamStreamLive } from '../../utils/exam-webcam'
+import { usePhoneViolationMonitor } from './usePhoneViolationMonitor'
 
 type WebcamIssueType = Extract<
   ExamViolationType,
@@ -50,9 +51,9 @@ const THRESHOLDS_MS: Record<WebcamIssueType, number> = {
   CAMERA_DISCONNECTED: 0,
   CAMERA_PERMISSION_DENIED: 0,
   CAMERA_BLOCKED: 0,
-  NO_FACE: 5_000,
-  MULTIPLE_FACES: 3_000,
-  LOOKING_AWAY: 4_000,
+  NO_FACE: 0,
+  MULTIPLE_FACES: 0,
+  LOOKING_AWAY: 0,
 }
 
 const SEVERITY: Record<WebcamIssueType, RecordViolationPayload['severity']> = {
@@ -68,9 +69,9 @@ const DESCRIPTION: Record<WebcamIssueType, string> = {
   CAMERA_DISCONNECTED: 'Camera was disconnected or stopped during the exam.',
   CAMERA_PERMISSION_DENIED: 'Webcam permission was denied or revoked during the exam.',
   CAMERA_BLOCKED: 'Camera is blocked, muted, or not producing fresh frames.',
-  NO_FACE: 'No face was detected for longer than the configured threshold.',
-  MULTIPLE_FACES: 'Multiple faces were detected for longer than the configured threshold.',
-  LOOKING_AWAY: 'Student face direction moved away from the exam screen for longer than the configured threshold.',
+  NO_FACE: 'Face was not visible for at least 3 seconds. Teacher review is required.',
+  MULTIPLE_FACES: 'Two distinct faces remained visible for at least 1 second. Teacher review is required.',
+  LOOKING_AWAY: 'Looking away persisted for at least 1.5 seconds. Teacher review is required.',
 }
 
 function issueFromWebcamStatus(status: ExamWebcamStatus): WebcamIssueType | null {
@@ -144,8 +145,7 @@ interface VisionMessage {
   message?: string
   intervalMs?: number
   capturedAt?: number
-  evidence?: { blob: Blob; metadata: PhoneDetectionMetadata } | null
-  diagnostics?: { confidence: number | null; threshold: number; positiveMs: number; cooldownRemainingMs: number; state: string }
+  faceEvidence?: Blob | null
 }
 
 export function useWebcamViolationMonitor(input: {
@@ -155,14 +155,12 @@ export function useWebcamViolationMonitor(input: {
   stream: MediaStream | null
   webcamStatus: ExamWebcamStatus
 }) {
+  const phoneError = usePhoneViolationMonitor(input)
   const openViolationRef = useRef<OpenViolationState | null>(null)
   const issueStartedAtRef = useRef<Partial<Record<WebcamIssueType, number>>>({})
   const lastCreatedAtRef = useRef<Partial<Record<WebcamIssueType, number>>>({})
   const [visionError, setVisionError] = useState<string | null>(null)
   const [visionStatus, setVisionStatus] = useState<'RECOVERING' | 'READY' | 'UNAVAILABLE'>('RECOVERING')
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const phoneUploadRef = useRef(false)
-  const lastPhoneCreatedAtRef = useRef(0)
   const attemptKeyRef = useRef('')
   const webcamStatusRef = useRef(input.webcamStatus)
 
@@ -178,7 +176,7 @@ export function useWebcamViolationMonitor(input: {
     let worker: Worker | null = null
     let ready = false
     let busy = false
-    let intervalMs = 250
+    let intervalMs = 150
     let timer: number | undefined
     let watchdog: number | undefined
     let recoveryTimer: number | undefined
@@ -187,16 +185,14 @@ export function useWebcamViolationMonitor(input: {
     let unavailable = false
     let softErrors = 0
     let lastVideoTime = -1
+    let lastFrameSentAt = 0
     let observingFace = false
     let lastFaceObservedAt = 0
-    let visionDebug = false
-    try { visionDebug = window.localStorage.getItem('soes:vision-debug') === '1' } catch { /* Storage may be unavailable. */ }
     const attemptKey = `${input.scheduleId}:${input.attemptId}`
     if (attemptKeyRef.current !== attemptKey) {
       attemptKeyRef.current = attemptKey
       openViolationRef.current = null
       lastCreatedAtRef.current = {}
-      lastPhoneCreatedAtRef.current = 0
     }
     issueStartedAtRef.current = {}
     openViolationRef.current = openViolationRef.current ?? restoreOpenViolation(input.scheduleId, input.attemptId)
@@ -224,7 +220,7 @@ export function useWebcamViolationMonitor(input: {
       }
     }
 
-    const openViolation = async (type: WebcamIssueType, observedAt: number) => {
+    const openViolation = async (type: WebcamIssueType, observedAt: number, frameEvidence?: Blob | null) => {
       if (cancelled) return
       if (openViolationRef.current?.type === type) return
       const lastCreatedAt = lastCreatedAtRef.current[type] ?? 0
@@ -237,10 +233,9 @@ export function useWebcamViolationMonitor(input: {
       // A stopped stream can leave its last image in the video element. That image
       // cannot establish what the camera showed when the status issue occurred.
       const evidenceFiles = type === 'NO_FACE' || type === 'MULTIPLE_FACES' || type === 'LOOKING_AWAY'
-        ? await buildEvidenceFiles(video, input.stream)
+        ? frameEvidence ? [new File([frameEvidence], `face-${observedAt}.jpg`, { type: 'image/jpeg' })] : await buildEvidenceFiles(video, input.stream)
         : undefined
       if (cancelled) return
-      lastCreatedAtRef.current[type] = Date.now()
       const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
         violationType: type,
         severity: SEVERITY[type],
@@ -250,6 +245,7 @@ export function useWebcamViolationMonitor(input: {
       }).catch(() => null)
 
       if (!cancelled && response) {
+        lastCreatedAtRef.current[type] = Date.now()
         const nextOpenViolation = { id: response.id, type }
         openViolationRef.current = nextOpenViolation
         rememberOpenViolation(input.scheduleId, input.attemptId, nextOpenViolation)
@@ -258,7 +254,7 @@ export function useWebcamViolationMonitor(input: {
       }
     }
 
-    const observeIssue = async (type: WebcamIssueType | null, observedAt: number) => {
+    const observeIssue = async (type: WebcamIssueType | null, observedAt: number, frameEvidence?: Blob | null) => {
       if (!type) {
         issueStartedAtRef.current = {}
         await closeOpenViolation(new Date(observedAt).toISOString())
@@ -268,42 +264,21 @@ export function useWebcamViolationMonitor(input: {
       const startedAt = issueStartedAtRef.current[type] ?? observedAt
       issueStartedAtRef.current = { [type]: startedAt }
       if (observedAt - startedAt >= THRESHOLDS_MS[type]) {
-        await openViolation(type, startedAt)
+        await openViolation(type, startedAt, frameEvidence)
       }
     }
 
-    const schedule = () => {
-      if (!cancelled && !unavailable) timer = window.setTimeout(() => { void tick() }, intervalMs)
+    const schedule = (delayMs = intervalMs) => {
+      if (!cancelled && !unavailable) timer = window.setTimeout(() => { void tick() }, delayMs)
     }
 
-    const observeFace = async (type: WebcamIssueType | null, observedAt: number) => {
+    const observeFace = async (type: WebcamIssueType | null, observedAt: number, frameEvidence?: Blob | null) => {
       if (cancelled || observingFace) return
       if (observedAt - lastFaceObservedAt > 5000) issueStartedAtRef.current = {}
       lastFaceObservedAt = observedAt
       observingFace = true
-      try { await observeIssue(type, observedAt) }
+      try { await observeIssue(type, observedAt, frameEvidence) }
       finally { observingFace = false }
-    }
-
-    const recordPhone = async (evidence: NonNullable<VisionMessage['evidence']>) => {
-      const capturedAt = Date.parse(evidence.metadata.capturedAt)
-      if (cancelled || phoneUploadRef.current || capturedAt - lastPhoneCreatedAtRef.current < 10_000) return
-      phoneUploadRef.current = true
-      lastPhoneCreatedAtRef.current = capturedAt
-      try {
-        const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
-          violationType: 'PHONE_DETECTED', severity: 'MEDIUM',
-          description: 'Possible phone detected. Evidence requires teacher review; this is not a conclusion of misconduct.',
-          detectedAt: evidence.metadata.capturedAt,
-          metadata: evidence.metadata,
-          evidenceFiles: [new File([evidence.blob], `phone-${Date.parse(evidence.metadata.capturedAt)}.jpg`, { type: 'image/jpeg' })],
-        })
-        if (visionDebug) console.info('[exam-vision] phone event saved', { id: response.id })
-        if (!cancelled) setUploadError(null)
-      } catch (error) {
-        if (visionDebug) console.error('[exam-vision] phone upload failed', error)
-        if (!cancelled) setUploadError('Không gửi được ảnh bằng chứng. Hệ thống sẽ thử lại khi có sự kiện tiếp theo.')
-      } finally { phoneUploadRef.current = false }
     }
 
     const failWorker = () => {
@@ -328,13 +303,10 @@ export function useWebcamViolationMonitor(input: {
     function startWorker() {
       if (cancelled) return
       try {
-        worker = new Worker('/mediapipe/vision-worker.js', { name: 'exam-vision' })
+        worker = new Worker('/mediapipe/vision-worker.js', { name: 'exam-face' })
         worker.onerror = failWorker
         worker.onmessage = ({ data }: MessageEvent<VisionMessage>) => {
           if (cancelled) return
-          if (visionDebug && data.diagnostics) console.info('[exam-vision] phone', data.diagnostics)
-          if (visionDebug && data.type === 'error') console.error('[exam-vision] worker', data.message)
-          if (visionDebug && data.type === 'ready') console.info('[exam-vision] ready')
           window.clearTimeout(watchdog)
           if (data.type === 'ready') {
             ready = true
@@ -357,17 +329,17 @@ export function useWebcamViolationMonitor(input: {
                 if (Date.now() - healthySince > 60_000) failures = 0
                 setVisionStatus('READY')
                 setVisionError(null)
-                if (data.kind === 'face') void observeFace(data.issue ?? null, data.capturedAt ?? Date.now())
-                if (data.evidence) void recordPhone(data.evidence)
+                if (data.kind === 'face') void observeFace(data.issue ?? null, data.capturedAt ?? Date.now(), data.faceEvidence)
               }
             }
           } finally {
             busy = false
-            schedule()
+            // Inference time is already elapsed; do not add another full interval.
+            schedule(Math.max(0, intervalMs - (performance.now() - lastFrameSentAt)))
           }
         }
         watchdog = window.setTimeout(failWorker, 60_000)
-        worker.postMessage({ type: 'init', debug: visionDebug })
+        worker.postMessage({ type: 'init', mode: 'face' })
       } catch { failWorker() }
     }
 
@@ -394,6 +366,7 @@ export function useWebcamViolationMonitor(input: {
       try {
         const capturedAt = Date.now()
         const timestamp = performance.now()
+        lastFrameSentAt = timestamp
         lastVideoTime = video.currentTime
         frame = await createImageBitmap(video)
         if (cancelled) { frame.close(); return }
@@ -420,5 +393,5 @@ export function useWebcamViolationMonitor(input: {
       if (video) video.srcObject = null
     }
   }, [input.attemptId, input.enabled, input.scheduleId, input.stream])
-  return { visionError: input.enabled ? visionError ?? uploadError : null, visionStatus }
+  return { visionError: input.enabled ? visionError ?? phoneError : null, visionStatus }
 }

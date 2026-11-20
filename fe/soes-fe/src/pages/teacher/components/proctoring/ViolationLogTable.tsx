@@ -27,6 +27,10 @@ const reviewTone: Record<
   INVALIDATED: "rose",
 };
 
+const aiVisionSignals = new Set<ViolationRecord['type']>([
+  'PHONE_DETECTED', 'NO_FACE', 'MULTIPLE_FACES', 'LOOKING_AWAY',
+]);
+
 function formatViolationDuration(violation: ViolationRecord): string {
   if (violation.durationSeconds === null && violation.endedAt === null)
     return "Đang diễn ra";
@@ -161,10 +165,10 @@ export default function ViolationLogTable({
                 >
                   {violationTypeLabels[violation.type] ?? violation.type}
                 </AppBadge>
-                {violation.type === "PHONE_DETECTED" && (
+                {aiVisionSignals.has(violation.type) && (
                   <p className="mt-1 max-w-60 text-xs text-slate-500">
-                    Cần giảng viên xem xét
-                    {typeof violation.metadata?.confidence === "number" &&
+                    Tín hiệu AI · Cần giảng viên xem xét
+                    {violation.type === "PHONE_DETECTED" && typeof violation.metadata?.confidence === "number" &&
                       ` · Độ tin cậy ${(violation.metadata.confidence * 100).toFixed(0)}%`}
                   </p>
                 )}

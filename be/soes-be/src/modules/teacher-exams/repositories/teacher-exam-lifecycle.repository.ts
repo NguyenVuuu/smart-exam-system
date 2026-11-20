@@ -11,7 +11,7 @@ import { decryptField, decryptNullable } from '../../../lib/encryption'
 import { openExamOption } from '../../../lib/exam-option-secret'
 
 const copySuffix = ' - Bản sao'
-const toCopyTitle = (title: string) => `${title.replace(/( - Bản sao)+$/u, '')}${copySuffix}`
+const toCopyTitle = (title: string) => `${title}${copySuffix}`
 
 export const transitionExam = (
   id: string,

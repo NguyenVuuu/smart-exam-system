@@ -3,7 +3,7 @@ import { toPagination } from '../../../utils/pagination'
 import type { StudentExamSchedulesQuery, StudentScoresQuery, NotificationsQuery } from '../validators/student-portal.validator'
 import * as repo from '../repositories/student-portal.repository'
 
-const submittedStatuses = ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED', 'AUTO_SUBMITTED']
+const submittedStatuses = ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED', 'AUTO_SUBMITTED', 'INVALIDATED']
 type AggregatedExamStatus = 'OPEN' | 'UPCOMING' | 'COMPLETED' | 'EXPIRED'
 
 function examStatus(row: Awaited<ReturnType<typeof repo.listVisibleSchedules>>[number], now = new Date()): AggregatedExamStatus {
@@ -87,12 +87,13 @@ export async function getScores(studentId: string, query: StudentScoresQuery) {
       type: attempt.examSchedule.exam.type,
       score: Number(attempt.totalScore),
       publishedAt: attempt.examSchedule.resultsPublishedAt ?? attempt.examSchedule.publishedAt!,
+      endedBy: attempt.endedBy,
+      forceSubmitReason: attempt.endedBy === 'PROCTOR' ? attempt.forceSubmitReason : null,
       courseOfferingId: attempt.courseOffering.id,
       courseCode: attempt.courseOffering.code,
       subjectCode: attempt.courseOffering.subject.code,
       subjectName: attempt.courseOffering.subject.name,
     }))
-    .sort((a, b) => a.publishedAt.getTime() - b.publishedAt.getTime() || a.title.localeCompare(b.title, 'vi'))
 
   return { items }
 }

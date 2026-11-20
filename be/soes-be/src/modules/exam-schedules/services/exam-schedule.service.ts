@@ -77,6 +77,7 @@ async function validateContext(
   if (studentConflict) {
     throw new ConflictError(`Student ${studentConflict.student.studentCode} already has an overlapping scheduled exam`)
   }
+  return exam.defaultDurationMinutes
 }
 
 export async function list(query: SchedulesQuery) {
@@ -99,8 +100,8 @@ export async function create(createdById: string, data: ScheduleBody) {
   const input = await prepareInput(data)
   await requireVerifiedExamAnchor(input.examId)
   const row = await runSerializable(async (tx) => {
-    await validateContext(tx, input)
-    return repo.createSchedule(tx, input, createdById)
+    const durationMinutes = await validateContext(tx, input)
+    return repo.createSchedule(tx, { ...input, durationMinutes }, createdById)
   })
   return toExamScheduleDto(row)
 }
@@ -115,8 +116,8 @@ export async function update(id: string, data: ScheduleBody) {
     if (!['DRAFT', 'SCHEDULED'].includes(status) || current._count.attempts > 0) {
       throw new ConflictError('Exam schedule is locked and cannot be updated')
     }
-    await validateContext(tx, input, id)
-    return repo.updateSchedule(tx, id, input)
+    const examDurationMinutes = await validateContext(tx, input, id)
+    return repo.updateSchedule(tx, id, { ...input, durationMinutes: examDurationMinutes })
   })
   return toExamScheduleDto(row)
 }

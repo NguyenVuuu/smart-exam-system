@@ -58,6 +58,7 @@ export default function FinalExamScheduleForm({
         departmentId={formState.departmentId}
         subjectCode={formState.subjectCode}
         examId={formState.examId}
+        durationMinutes={options.selectedExamDuration}
         examDate={formState.examDate}
         startTime={formState.startTime}
         endTime={formState.endTime}

@@ -7,42 +7,12 @@ interface OpenViolationState {
   type: 'SCREEN_SHARE_STOPPED' | 'SCREEN_PERMISSION_DENIED'
 }
 
-interface ImageCaptureLike {
-  grabFrame: () => Promise<ImageBitmap>
-}
-
-type WindowWithImageCapture = Window & typeof globalThis & {
-  ImageCapture?: new (track: MediaStreamTrack) => ImageCaptureLike
-}
-
 async function canvasToEvidenceFile(canvas: HTMLCanvasElement): Promise<File | null> {
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, 'image/jpeg', 0.82)
   })
 
   return blob ? new File([blob], `screen-evidence-${Date.now()}.jpg`, { type: 'image/jpeg' }) : null
-}
-
-async function captureScreenTrackEvidence(stream: MediaStream): Promise<File | null> {
-  const track = stream.getVideoTracks()[0]
-  const ImageCaptureConstructor = (window as WindowWithImageCapture).ImageCapture
-  if (!track || !ImageCaptureConstructor) return null
-
-  const bitmap = await new ImageCaptureConstructor(track).grabFrame().catch(() => null)
-  if (!bitmap) return null
-
-  const canvas = document.createElement('canvas')
-  canvas.width = bitmap.width
-  canvas.height = bitmap.height
-  const context = canvas.getContext('2d')
-  if (!context) {
-    bitmap.close()
-    return null
-  }
-
-  context.drawImage(bitmap, 0, 0)
-  bitmap.close()
-  return canvasToEvidenceFile(canvas)
 }
 
 async function captureScreenVideoEvidence(stream: MediaStream): Promise<File | null> {
@@ -52,14 +22,37 @@ async function captureScreenVideoEvidence(stream: MediaStream): Promise<File | n
   video.srcObject = stream
 
   await video.play().catch(() => undefined)
-  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-    await new Promise<void>((resolve) => {
-      const timeoutId = window.setTimeout(resolve, 800)
-      video.onloadeddata = () => {
-        window.clearTimeout(timeoutId)
-        resolve()
+  // Ignore the initial decoded frame: the compositor may still have queued the
+  // exam tab. Require two newly presented frames after the capture starts.
+  const fresh = await new Promise<boolean>((resolve) => {
+    let frameId: number | undefined
+    let frames = 0
+    const finish = (ok: boolean) => {
+      window.clearTimeout(timeoutId)
+      if (frameId !== undefined) video.cancelVideoFrameCallback(frameId)
+      video.onloadeddata = null
+      resolve(ok)
+    }
+    const timeoutId = window.setTimeout(() => finish(false), 1200)
+    const onFrame = () => {
+      if (++frames >= 2) finish(true)
+      else frameId = video.requestVideoFrameCallback(onFrame)
+    }
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      frameId = video.requestVideoFrameCallback(onFrame)
+    } else {
+      // Older browsers: wait for actual playback progress, not just loaded data.
+      const initialTime = video.currentTime
+      video.ontimeupdate = () => {
+        if (video.currentTime > initialTime) finish(true)
       }
-    })
+    }
+  })
+  video.ontimeupdate = null
+  if (!fresh) {
+    video.pause()
+    video.srcObject = null
+    return null
   }
 
   if (video.videoWidth <= 0 || video.videoHeight <= 0) {
@@ -84,6 +77,29 @@ async function captureScreenVideoEvidence(stream: MediaStream): Promise<File | n
 
   const file = await canvasToEvidenceFile(canvas)
   return file
+}
+
+async function captureScreenTrackEvidence(stream: MediaStream): Promise<File | null> {
+  const track = stream.getVideoTracks()[0]
+  if (!track || !window.ImageCapture) return null
+  const capture = new window.ImageCapture(track)
+  // The first grab can still be queued from the exam tab. Read another frame
+  // after the compositor has had time to show the destination screen.
+  const first = await capture.grabFrame()
+  first.close()
+  await new Promise((resolve) => window.setTimeout(resolve, 150))
+  const frame = await capture.grabFrame()
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = frame.width
+    canvas.height = frame.height
+    const context = canvas.getContext('2d')
+    if (!context) return null
+    context.drawImage(frame, 0, 0)
+    return canvasToEvidenceFile(canvas)
+  } finally {
+    frame.close()
+  }
 }
 
 export async function captureScreenEvidence(stream: MediaStream | null): Promise<File[] | undefined> {

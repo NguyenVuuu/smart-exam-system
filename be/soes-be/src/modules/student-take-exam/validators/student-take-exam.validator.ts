@@ -102,8 +102,8 @@ export const violationTypeSchema = z.enum([
 export const severityLevelSchema = z.enum(['LOW', 'MEDIUM', 'HIGH'])
 
 const phoneMetadataSchema = z.object({
-  model: z.literal('efficientdet_lite0'),
-  category: z.literal('cell phone'),
+  model: z.enum(['efficientdet_lite0', 'yolo11n', 'yolo11n-devices']),
+  category: z.enum(['cell phone', 'handheld device']),
   confidence: z.number().min(0).max(1),
   boundingBox: z.object({
     originX: z.number().finite(),

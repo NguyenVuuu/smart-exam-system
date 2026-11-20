@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "node scripts/sync-vision-assets.mjs",
     "prebuild": "node scripts/sync-vision-assets.mjs",
-    "test:vision": "node --test tests/vision-worker.test.mjs",
+    "test:vision": "node --test tests/vision-worker.test.mjs tests/phone-yolo.test.mjs",
     "test:vision:browser": "playwright test",
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -27,6 +27,7 @@
     "dompurify": "^3.4.8",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^1.22.0",
+    "onnxruntime-web": "^1.31.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.80.0",

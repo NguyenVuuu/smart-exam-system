@@ -15,6 +15,19 @@ export interface AgentConversationTurn<TAnswer extends { summary: string; action
   createdAt: string
 }
 
+function usefulActions(summary: string, actions: string[]): string[] {
+  const normalize = (text: string) => text.toLocaleLowerCase('vi').replace(/[*_`]/g, '').replace(/\s+/g, ' ').replace(/[.!?\s]+$/g, '').trim()
+  const summaryText = normalize(summary)
+  const seen = new Set<string>()
+  return actions.filter((action) => {
+    const text = normalize(action)
+    if (!text || seen.has(text) || summaryText.includes(text)) return false
+    if (/^(xin chào|chào (bạn|em)|tôi (đã sẵn sàng|có thể giúp)|bạn muốn (trao đổi|hỏi))/u.test(text)) return false
+    seen.add(text)
+    return true
+  })
+}
+
 export default function AgentConversationHistory<TAnswer extends { summary: string; actions: string[]; caveat: string | null; evidenceIds?: string[]; sourceQuote?: string | null; sourceLocation?: string | null }>({
   conversations, currentId, turns, onSelect, source, pendingMessage, chatMode = false,
 }: {
@@ -40,12 +53,14 @@ export default function AgentConversationHistory<TAnswer extends { summary: stri
     </div>
     {(turns.length > 0 || chatMode) && <div className={`${chatMode ? 'min-h-64 max-h-[min(55vh,560px)]' : 'max-h-96'} space-y-3 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-3`} aria-live="polite">
       {chatMode && turns.length === 0 && !pendingMessage && <p className="py-12 text-center text-sm text-slate-500">Hãy đặt câu hỏi về tài liệu đã chọn. Trợ lý sẽ trả lời tại đây.</p>}
-      {turns.map((turn) => <div key={turn.id} className="space-y-2 text-sm">
+      {turns.map((turn) => {
+        const actions = usefulActions(turn.answer.summary, turn.answer.actions)
+        return <div key={turn.id} className="space-y-2 text-sm">
         <p className="ml-auto w-fit max-w-[90%] rounded-xl bg-blue-600 px-3 py-2 text-white">{turn.message}</p>
         <div className="max-w-[95%] rounded-xl border border-slate-200 bg-white p-3 text-slate-800">
           <AgentAnswerMarkdown text={turn.answer.summary} />
-          {turn.answer.actions.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5">
-            {turn.answer.actions.map((action, index) => <li key={index}>{action}</li>)}
+          {actions.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5">
+            {actions.map((action, index) => <li key={index}>{action}</li>)}
           </ul>}
           {turn.answer.caveat && <p className="mt-2 text-slate-500">{turn.answer.caveat}</p>}
           {source && turn.answer.evidenceIds?.includes(source.id) &&
@@ -54,7 +69,8 @@ export default function AgentConversationHistory<TAnswer extends { summary: stri
               {turn.answer.sourceQuote && <p className="mt-1 text-slate-600">“{turn.answer.sourceQuote}”</p>}
             </div>}
         </div>
-      </div>)}
+      </div>
+      })}
       {pendingMessage && <div className="space-y-2 text-sm">
         <p className="ml-auto w-fit max-w-[90%] rounded-xl bg-blue-600 px-3 py-2 text-white">{pendingMessage}</p>
         <p className="w-fit rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-500">Trợ lý đang trả lời…</p>

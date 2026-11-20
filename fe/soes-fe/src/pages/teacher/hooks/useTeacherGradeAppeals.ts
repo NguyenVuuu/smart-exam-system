@@ -5,6 +5,7 @@ import {
   getTeacherGradeAppeals,
   updateTeacherGradeAppeal,
   type TeacherGradeAppeal,
+  type TeacherGradeAppealFilters,
   type TeacherPaginationMeta,
 } from '../api/teacher-exams.api'
 
@@ -16,25 +17,31 @@ const EMPTY_PAGINATION: TeacherPaginationMeta = {
   totalItems: 0,
   totalPages: 1,
 }
+const EMPTY_FILTERS: TeacherGradeAppealFilters = { subjects: [], exams: [] }
 
 export function useTeacherGradeAppeals() {
   const [appeals, setAppeals] = useState<TeacherGradeAppeal[]>([])
   const [openCount, setOpenCount] = useState(0)
   const [pagination, setPagination] = useState(EMPTY_PAGINATION)
   const [status, setStatus] = useState<GradeAppealStatus>('ALL')
+  const [subjectId, setSubjectId] = useState('ALL')
+  const [examId, setExamId] = useState('ALL')
+  const [filters, setFilters] = useState<TeacherGradeAppealFilters>(EMPTY_FILTERS)
   const [replies, setReplies] = useState<Record<string, string>>({})
   const [refreshVersion, setRefreshVersion] = useState(0)
   const [loadedQueryKey, setLoadedQueryKey] = useState('')
 
-  const queryKey = `${status}:${pagination.page}:${refreshVersion}`
+  const queryKey = `${status}:${subjectId}:${examId}:${pagination.page}:${refreshVersion}`
 
   useEffect(() => {
     let active = true
-    getTeacherGradeAppeals({ status, page: pagination.page, pageSize: 10 })
+    getTeacherGradeAppeals({ status, subjectId: subjectId === 'ALL' ? undefined : subjectId,
+      examId: examId === 'ALL' ? undefined : examId, page: pagination.page, pageSize: 10 })
       .then((response) => {
         if (!active) return
         setAppeals(response.items)
         setOpenCount(response.openCount)
+        setFilters(response.filters)
         setPagination(response.pagination)
         setLoadedQueryKey(queryKey)
       })
@@ -44,7 +51,7 @@ export function useTeacherGradeAppeals() {
         toast.error('Không thể tải danh sách phúc khảo.')
       })
     return () => { active = false }
-  }, [pagination.page, queryKey, status])
+  }, [pagination.page, queryKey, status, subjectId, examId])
 
   useEffect(() => {
     const socket = getSocket()
@@ -58,6 +65,17 @@ export function useTeacherGradeAppeals() {
 
   const changeStatus = (nextStatus: GradeAppealStatus) => {
     setStatus(nextStatus)
+    setPagination((current) => ({ ...current, page: 1 }))
+  }
+
+  const changeSubject = (nextSubjectId: string) => {
+    setSubjectId(nextSubjectId)
+    setExamId('ALL')
+    setPagination((current) => ({ ...current, page: 1 }))
+  }
+
+  const changeExam = (nextExamId: string) => {
+    setExamId(nextExamId)
     setPagination((current) => ({ ...current, page: 1 }))
   }
 
@@ -80,10 +98,10 @@ export function useTeacherGradeAppeals() {
   }
 
   return {
-    appeals, openCount, pagination, status, replies,
+    appeals, openCount, pagination, status, subjectId, examId, filters, replies,
     loading: loadedQueryKey !== queryKey,
     setPage: (page: number) => setPagination((current) => ({ ...current, page })),
     refresh: () => setRefreshVersion((current) => current + 1),
-    changeStatus, updateReply, updateAppeal,
+    changeStatus, changeSubject, changeExam, updateReply, updateAppeal,
   }
 }

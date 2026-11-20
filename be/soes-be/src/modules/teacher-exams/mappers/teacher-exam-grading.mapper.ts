@@ -45,6 +45,8 @@ export function toExamSubmissionDto(row: SubmissionRow): ExamSubmissionDto {
     autoScore: row.autoScore === null ? null : Number(row.autoScore),
     manualScoreOverride: row.manualScore === null ? null : Number(row.manualScore),
     finalScore: row.totalScore === null ? null : Number(row.totalScore), status: row.status,
+    endedBy: row.endedBy,
+    proctorActionReason: row.status === 'INVALIDATED' ? row.invalidationReason : row.endedBy === 'PROCTOR' ? row.forceSubmitReason : null,
     violationCount: row._count.violations,
     violationsViewed: row._count.violations === 0 || row.violationsViewedAt !== null,
     violationsViewedAt: row.violationsViewedAt,

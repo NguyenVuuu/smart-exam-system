@@ -211,6 +211,12 @@ export function StudentSubmissionReviewModal({
         </div>
 
         <div className="p-6 space-y-4 overflow-hidden flex flex-col min-h-0">
+          {(submission.status === 'INVALIDATED' || submission.endedBy === 'PROCTOR') && (
+            <div className={`shrink-0 rounded-xl border px-4 py-3 text-sm ${submission.status === 'INVALIDATED' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+              <span className="font-bold">{submission.status === 'INVALIDATED' ? 'Bài thi bị hủy' : 'Giám thị buộc nộp'}</span>
+              <p className="mt-1">Lý do: {submission.proctorActionReason ?? 'Không có lý do được lưu cho lần làm bài này.'}</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
             <PreviewStat label="Chấm tự động" value={submission.autoScore === null ? '-' : `${submission.autoScore}đ`} />
             <PreviewStat label="Điểm phúc khảo" value={submission.manualScoreOverride != null ? `${submission.manualScoreOverride}đ` : '-'} />

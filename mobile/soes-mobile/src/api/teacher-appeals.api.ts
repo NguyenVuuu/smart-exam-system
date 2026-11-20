@@ -2,8 +2,12 @@ import { apiClient } from './client'
 import type { ApiResponse } from '../types/auth.types'
 import type { AppealPage, AppealStatus, TeacherAppeal, TeacherSubmission } from '../types/teacher-appeals.types'
 
-export async function listTeacherAppeals(page: number, status: AppealStatus | 'ALL') {
-  const { data } = await apiClient.get<ApiResponse<AppealPage>>('/teacher/grade-appeals', { params: { page, pageSize: 20, status } })
+export async function listTeacherAppeals(page: number, status: AppealStatus | 'ALL', subjectId = 'ALL', examId = 'ALL') {
+  const { data } = await apiClient.get<ApiResponse<AppealPage>>('/teacher/grade-appeals', { params: {
+    page, pageSize: 20, status,
+    subjectId: subjectId === 'ALL' ? undefined : subjectId,
+    examId: examId === 'ALL' ? undefined : examId,
+  } })
   return data.data
 }
 

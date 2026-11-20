@@ -148,7 +148,7 @@ async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
   await gradeObjectiveAnswers(attemptId, { finalStatus: 'AUTO_SUBMITTED' })
 }
 
-async function closeAttemptProctoring(attemptId: string, scheduleId: string, endedAt: Date) {
+export async function closeAttemptProctoring(attemptId: string, scheduleId: string, endedAt: Date) {
   try {
     const [sessions, violations] = await Promise.all([
       live.endAttemptLiveSessions(attemptId, scheduleId),
@@ -866,7 +866,7 @@ export async function getAttemptStatus(
 
   // ── 3. Compute isOnline from lastHeartbeat (NOT from ExamSession.isOnline) ─
   // ExamSession.isOnline is intentionally ignored per contract section 9.
-  const isOnline: boolean = data.examSession !== null
+  const isOnline: boolean = data.status === 'IN_PROGRESS' && data.examSession !== null
     && (now.getTime() - data.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
 
   return {
@@ -876,6 +876,8 @@ export async function getAttemptStatus(
     deadlineAt:         data.deadlineAt,
     submittedAt:        data.submittedAt,
     endedBy:            data.endedBy,
+    invalidationReason:  data.invalidationReason,
+    forceSubmitReason:   data.forceSubmitReason,
     remainingSeconds,
     lastSavedAt:        data.lastSavedAt,
     isOnline,

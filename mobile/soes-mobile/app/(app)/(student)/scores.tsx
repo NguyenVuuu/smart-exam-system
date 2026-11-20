@@ -77,6 +77,7 @@ export default function ScoresScreen() {
     }
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load() }, [load])
 
   const filtered = useMemo(() => {
@@ -191,6 +192,9 @@ export default function ScoresScreen() {
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={{ fontSize: 13, fontWeight: '700', color: '#0f172a' }} numberOfLines={1}>{item.title}</Text>
                   <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }} numberOfLines={1}>{item.courseCode} · {item.subjectName}</Text>
+                  {item.endedBy === 'PROCTOR' && <Text style={{ fontSize: 11, fontWeight: '700', color: '#b45309', marginTop: 3 }}>
+                    Giám thị buộc nộp{item.forceSubmitReason ? ` · ${item.forceSubmitReason}` : ''}
+                  </Text>}
                 </View>
                 <View style={{ width: 56, paddingHorizontal: 4, paddingVertical: 3, borderRadius: 6, backgroundColor: '#f1f5f9', alignItems: 'center' }}>
                   <Text style={{ fontSize: 10, fontWeight: '600', color: '#475569' }}>{EXAM_TYPE_LABELS[item.type]}</Text>

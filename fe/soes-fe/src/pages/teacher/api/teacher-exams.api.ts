@@ -338,7 +338,7 @@ export const reviewTeacherViolation = (
   examId: string,
   scheduleId: string,
   violationId: string,
-  payload: { reviewStatus: 'PENDING' | 'REVIEWED' | 'CONFIRMED' | 'DISMISSED' | 'WARNED' | 'FORCE_SUBMITTED' | 'INVALIDATED'; reviewNote?: string | null },
+  payload: { reviewStatus: 'PENDING' | 'REVIEWED' | 'CONFIRMED' | 'DISMISSED' | 'WARNED'; reviewNote?: string | null },
 ) => apiClient.patch(`/teacher/exams/${examId}/schedules/${scheduleId}/violations/${violationId}/review`, payload)
 
 export interface TeacherGradeAppeal {
@@ -363,9 +363,14 @@ export interface TeacherGradeAppeal {
   }
 }
 
-export const getTeacherGradeAppeals = (params: { status?: TeacherGradeAppeal['status'] | 'ALL'; page?: number; pageSize?: number } = {}) =>
-  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; openCount: number; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
-    params: { status: params.status ?? 'ALL', page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
+export interface TeacherGradeAppealFilters {
+  subjects: Array<{ id: string; code: string; name: string }>
+  exams: Array<{ id: string; title: string; subjectId: string }>
+}
+
+export const getTeacherGradeAppeals = (params: { status?: TeacherGradeAppeal['status'] | 'ALL'; subjectId?: string; examId?: string; page?: number; pageSize?: number } = {}) =>
+  apiClient.get<ApiResponse<{ items: TeacherGradeAppeal[]; openCount: number; filters: TeacherGradeAppealFilters; pagination: TeacherPaginationMeta }>>('/teacher/grade-appeals', {
+    params: { status: params.status ?? 'ALL', subjectId: params.subjectId, examId: params.examId, page: params.page ?? 1, pageSize: params.pageSize ?? 20 },
   }).then(({ data }) => data.data)
 
 export const getTeacherGradeAppeal = (appealId: string) =>
@@ -378,12 +383,14 @@ export const updateTeacherGradeAppeal = (
 ) => apiClient.patch<ApiResponse<TeacherGradeAppeal>>(`/teacher/grade-appeals/${appealId}`, payload)
   .then(({ data }) => data.data)
 
-export const invalidateTeacherAttempt = (
+export const forceSubmitTeacherAttempt = (
   examId: string,
   scheduleId: string,
   attemptId: string,
   reason: string,
-) => apiClient.post(`/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/invalidate`, { reason })
+) => apiClient.post<ApiResponse<{ gradingPending: boolean }>>(
+  `/teacher/exams/${examId}/schedules/${scheduleId}/submissions/${attemptId}/force-submit`, { reason },
+).then(({ data }) => data.data)
 
 export const gradeTeacherExamSubmission = (
   examId: string, scheduleId: string, attemptId: string, score: number, reason: string,

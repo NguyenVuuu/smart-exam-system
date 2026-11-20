@@ -115,9 +115,14 @@ export default function TeacherGradeExportPage() {
                   appeals={appeal.appeals}
                   pagination={appeal.pagination}
                   status={appeal.status}
+                  subjectId={appeal.subjectId}
+                  examId={appeal.examId}
+                  filters={appeal.filters}
                   replies={appeal.replies}
                   loading={appeal.loading}
                   onStatusChange={appeal.changeStatus}
+                  onSubjectChange={appeal.changeSubject}
+                  onExamChange={appeal.changeExam}
                   onPageChange={appeal.setPage}
                   onReplyChange={appeal.updateReply}
                   onReviewAppeal={(selectedAppeal) => navigate(`/teacher/grading-reports/appeals/${selectedAppeal.id}`)}

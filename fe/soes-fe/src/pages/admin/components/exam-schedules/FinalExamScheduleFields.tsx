@@ -12,6 +12,7 @@ interface FinalExamScheduleFieldsProps {
   departmentId: string
   subjectCode: string
   examId: string
+  durationMinutes?: number
   examDate: string
   startTime: string
   endTime: string
@@ -62,6 +63,7 @@ export default function FinalExamScheduleFields({
   departmentId,
   subjectCode,
   examId,
+  durationMinutes,
   examDate,
   startTime,
   endTime,
@@ -122,6 +124,10 @@ export default function FinalExamScheduleFields({
       </AdminField>
       <AdminField label="Đề cuối kỳ đã duyệt" error={fieldErrors.examId}>
         <AdminSelect value={examId} disabled={!subjectCode} onChange={onExamChange} options={examOptions} />
+      </AdminField>
+      <AdminField label="Thời gian làm bài">
+        <AdminInput value={durationMinutes ? `${durationMinutes} phút` : ''} disabled
+          placeholder="Chọn đề thi" title="Thời gian làm bài được lấy từ đề thi" />
       </AdminField>
       <AdminField label="Hình thức thi">
         <AdminSelect value={examMode} onChange={onExamModeChange} options={examModeOptions} />

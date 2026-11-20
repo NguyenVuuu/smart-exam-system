@@ -131,8 +131,8 @@ export interface RecordViolationPayload {
 }
 
 export interface PhoneDetectionMetadata {
-  model: 'efficientdet_lite0'
-  category: 'cell phone'
+  model: 'efficientdet_lite0' | 'yolo11n' | 'yolo11n-devices'
+  category: 'cell phone' | 'handheld device'
   confidence: number
   boundingBox: { originX: number; originY: number; width: number; height: number }
   frameWidth: number
@@ -200,7 +200,9 @@ export interface AttemptStatus {
   startedAt: string
   deadlineAt: string
   submittedAt: string | null
-  endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | null
+  endedBy: 'STUDENT' | 'TIMEOUT' | 'SYSTEM' | 'PROCTOR' | null
+  invalidationReason: string | null
+  forceSubmitReason: string | null
   remainingSeconds: number
   lastSavedAt: string | null
   isOnline: boolean
