@@ -185,7 +185,7 @@ export default function ExamDetailDialogs({
         onClose={onCloseAssignModal}
         examTitle={exam.title}
         defaultConfig={{
-          durationMinutes: editingSession?.durationMinutes ?? exam.defaultDurationMinutes,
+          durationMinutes: exam.defaultDurationMinutes,
           maxAttempts: editingSession?.maxAttempts ?? 1,
           password: editingSession?.password ?? '',
           resultReleaseMode: editingSession?.resultReleaseMode ?? resultReleaseMode,

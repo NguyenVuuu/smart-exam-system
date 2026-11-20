@@ -345,7 +345,7 @@ export async function update(
       );
       if (!["DRAFT", "SCHEDULED"].includes(status) || current._count.attempts)
         throw new ConflictError("Exam schedule is locked");
-      input.durationMinutes = current.durationMinutes;
+      input.durationMinutes = exam.defaultDurationMinutes;
       await assertNoConflict(
         tx,
         teacherId,

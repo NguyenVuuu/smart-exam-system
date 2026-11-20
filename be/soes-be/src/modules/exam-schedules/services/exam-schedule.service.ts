@@ -117,8 +117,7 @@ export async function update(id: string, data: ScheduleBody) {
       throw new ConflictError('Exam schedule is locked and cannot be updated')
     }
     const examDurationMinutes = await validateContext(tx, input, id)
-    const durationMinutes = input.examId === current.examId ? current.durationMinutes : examDurationMinutes
-    return repo.updateSchedule(tx, id, { ...input, durationMinutes })
+    return repo.updateSchedule(tx, id, { ...input, durationMinutes: examDurationMinutes })
   })
   return toExamScheduleDto(row)
 }
