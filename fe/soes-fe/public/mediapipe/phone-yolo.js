@@ -2,7 +2,7 @@
 const PhoneYolo = (() => {
   const SIZE = 640
   const MIN_SCORE = 0.25
-  const MODEL = { file: 'yolo11n-devices.onnx', name: 'yolo11n-devices', classIndex: 67 }
+  const MODEL = { file: 'yolo11n-devices.onnx?v=824e449d', name: 'yolo11n-devices', classIndex: 67 }
   let canvas = null
 
   function tensorFor(image) {

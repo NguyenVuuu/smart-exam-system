@@ -9,7 +9,7 @@ for (const fallback of [false, true]) {
     await page.route('**/vision-reference.jpg', route => route.fulfill({ contentType: 'image/jpeg', body: photo }))
     if (process.env.VISION_TEST_MODEL) {
       const model = await readFile(process.env.VISION_TEST_MODEL)
-      await page.route('**/models/yolo11n-devices.onnx', route => route.fulfill({ contentType: 'application/octet-stream', body: model }))
+      await page.route('**/models/yolo11n-devices.onnx*', route => route.fulfill({ contentType: 'application/octet-stream', body: model }))
     }
     await page.route('**/vision-reference-test', route => route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' }))
     if (fallback) {
@@ -37,7 +37,7 @@ for (const fallback of [false, true]) {
       const source = canvas ?? image
       const worker = new Worker('/mediapipe/vision-worker.js')
       const next = () => new Promise<{
-        type: string; message?: string; kind?: string; diagnostics?: unknown
+        type: string; message?: string; kind?: string; diagnostics?: unknown; inferenceMs?: number
         evidence?: { blob: Blob; metadata: PhoneDetectionMetadata }
       }>((resolve, reject) => {
         worker.onmessage = ({ data }) => data.type === 'error' ? reject(new Error(data.message)) : resolve(data)
@@ -51,7 +51,7 @@ for (const fallback of [false, true]) {
           const pending = next()
           worker.postMessage({ type: 'frame', frame, timestamp: 1000 + i * 250, capturedAt: Date.now() }, [frame])
           const message = await pending
-          if (message.kind === 'phone') samples.push(message.diagnostics)
+          if (message.kind === 'phone') samples.push({ diagnostics: message.diagnostics, inferenceMs: message.inferenceMs })
           if (message.evidence) {
             const bitmap = await createImageBitmap(message.evidence.blob)
             events.push({ metadata: message.evidence.metadata, width: bitmap.width, height: bitmap.height, mime: message.evidence.blob.type })
