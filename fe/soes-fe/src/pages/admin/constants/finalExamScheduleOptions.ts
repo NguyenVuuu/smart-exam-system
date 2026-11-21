@@ -13,7 +13,6 @@ export const distributionOptions = [
 export const releaseOptions = [
   { value: 'IMMEDIATE', label: 'Hiện điểm ngay sau khi nộp' },
   { value: 'MANUAL', label: 'Ẩn điểm, giảng viên công bố sau' },
-  { value: 'SCHEDULED', label: 'Tự động công bố theo thời gian' },
 ]
 
 export const PROCTOR_TURNOVER_MINUTES = 15
