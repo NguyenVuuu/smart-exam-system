@@ -1,7 +1,7 @@
 const PhoneScan = (() => {
-  const MIN_CONFIDENCE = 0.75
+  const MIN_CONFIDENCE = 0.6
   const CANDIDATE_CONFIDENCE = 0.3
-  const STRONG_CONFIDENCE = 0.9
+  const STRONG_CONFIDENCE = 0.82
 
   async function run(detector, timestamp, crop) {
     return PhoneFrames.toOriginal(await detector.detectForVideo(crop.image, timestamp), crop)
