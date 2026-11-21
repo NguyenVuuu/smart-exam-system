@@ -3,8 +3,8 @@ const PhoneYolo = (() => {
   const SIZE = 640
   const MIN_SCORE = 0.25
   const MODEL = {
-    file: 'yolo11n-devices.onnx?v=b3ca87f5b0aa',
-    name: 'yolo11n-devices', version: 'b3ca87f5b0aa', classIndex: 67,
+    file: 'yolo11n-devices.onnx?v=8df47a7b7eb2',
+    name: 'yolo11n-devices', version: '8df47a7b7eb2', classIndex: 67,
   }
   let canvas = null
 
