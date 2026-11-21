@@ -132,7 +132,7 @@ export interface TeacherExamSchedulePayload {
   allowedIpRanges: string[]
   distributionMode: TeacherExamScheduleDto['distributionMode']
   randomQuestionCount?: number | null
-  resultReleaseMode: 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED'
+  resultReleaseMode: 'IMMEDIATE' | 'MANUAL'
   resultReleaseAt?: string | null
   allowStudentReview: boolean
 }
@@ -194,5 +194,5 @@ export interface TeacherExamSubmissionDto {
 export interface TeacherSubmissionPage {
   items: TeacherExamSubmissionDto[]
   pagination: { page: number; pageSize: number; totalItems: number; totalPages: number }
-  resultRelease: { mode: 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED'; releaseAt: string | null; published: boolean }
+  resultRelease: { mode: 'IMMEDIATE' | 'MANUAL'; releaseAt: string | null; published: boolean }
 }

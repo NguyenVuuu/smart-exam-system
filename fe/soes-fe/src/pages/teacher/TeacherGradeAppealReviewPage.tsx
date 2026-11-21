@@ -64,6 +64,7 @@ export default function TeacherGradeAppealReviewPage() {
                 appeal={review.appeal}
                 exam={review.exam}
                 submission={review.submission}
+                violations={review.violations}
                 score={review.score}
                 conclusion={review.conclusion}
                 saving={review.saving}

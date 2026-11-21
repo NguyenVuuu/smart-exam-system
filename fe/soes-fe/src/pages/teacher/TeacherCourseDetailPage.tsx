@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import CourseDetailBanner from './components/course-detail/CourseDetailBanner'
@@ -17,7 +17,11 @@ import { useTeacherCourseCollections } from './hooks/useTeacherCourseCollections
 export default function TeacherCourseDetailPage() {
   const { courseOfferingId } = useParams<{ courseOfferingId: string }>()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<CourseTab>('materials')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<CourseTab>(() => {
+    const requestedTab = searchParams.get('tab')
+    return requestedTab === 'exams' ? 'exams' : 'materials'
+  })
   const { data, loading, error, retry, createPost, updatePost, pinPost, setPostStatus, deletePost, downloadAttachment, uploadMaterials, downloadMaterial, removeMaterial, toggleMaterialAi } = useTeacherCourseDetail(courseOfferingId)
   const [materials, setMaterials] = useState<CourseMaterial[]>([])
   const collections = useTeacherCourseCollections(courseOfferingId)
