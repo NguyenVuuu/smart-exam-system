@@ -11,10 +11,18 @@ const phoneResult = (score = 0.9) => ({ detections: [{
   categories: [{ categoryName: 'cell phone', score }],
   boundingBox: { originX: 100, originY: 160, width: 60, height: 120 },
 }] })
-const mosaicPhoneResult = (edge, score = 0.93) => ({ detections: [{
-  categories: [{ categoryName: 'cell phone', score }],
-  boundingBox: { originX: edge % 2 * 320 + 180, originY: Math.floor(edge / 2) * 320 + 120, width: 50, height: 70 },
-}] })
+const tilePhoneResult = (draws, column, box, score = 0.93) => {
+  const [sx, sy, sw, sh, dx, dy, dw, dh] = draws[column]
+  return { detections: [{
+    categories: [{ categoryName: 'cell phone', score }],
+    boundingBox: {
+      originX: dx + (box.originX - sx) * dw / sw,
+      originY: dy + (box.originY - sy) * dh / sh,
+      width: box.width * dw / sw,
+      height: box.height * dh / sh,
+    },
+  }] }
+}
 const faceLandmarks = (centerX, centerY) => Array.from({ length: 60 }, (_, index) => ({
   x: centerX + Math.cos(index * Math.PI / 30) * 0.12,
   y: centerY + Math.sin(index * Math.PI / 30) * 0.16,
@@ -180,6 +188,16 @@ test('a weak rear-side device needs a matching darkened scan of the same frame',
   assert.equal(event.evidence.metadata.observedDurationMs, 0)
 })
 
+test('a dark-screen candidate is checked before scanning the rest of the frame', async () => {
+  const h = await harness()
+  h.setPhones(phoneResult(0.8))
+  h.setDarkPhones(phoneResult(0.82))
+  const event = await h.frame(0)
+  assert.ok(event.evidence)
+  assert.equal(event.evidence.metadata.confidence, 0.8)
+  assert.equal(h.calls.length, 3)
+})
+
 test('a weak lookalike at a different position is not evidence', async () => {
   const h = await harness()
   h.setPhones(phoneResult(0.34))
@@ -201,25 +219,43 @@ test('an upload failure allows another immediate detection', async () => {
   assert.equal(h.messages.filter((m) => m.evidence).length, 2)
 })
 
-test('one mosaic scan checks all four corners in the first frame', async () => {
-  for (let edge = 0; edge < 4; edge++) {
+test('two mosaic scans cover all eight regions of the frame', async () => {
+  for (let region = 0; region < 8; region++) {
     const h = await harness()
     h.setPhones({ detections: [] })
-    h.setEdgePhones((draws) => Array.isArray(draws[0]) && draws.length === 4 ? mosaicPhoneResult(edge) : { detections: [] })
+    const row = Math.floor(region / 4), column = region % 4
+    const box = { originX: 55 + column * 145, originY: row ? 340 : 80, width: 35, height: 45 }
+    h.setEdgePhones((draws) => Array.isArray(draws[0]) && draws.length === 4 &&
+      (draws[0][1] > 0 ? 1 : 0) === row ? tilePhoneResult(draws, column, box) : { detections: [] })
     const result = await h.frame(0)
     assert.ok(result.evidence)
     assert.equal(result.evidence.metadata.observedDurationMs, 0)
-    assert.equal(h.calls.filter((call) => call === 'phone').length, 2)
-    const box = result.evidence.metadata.boundingBox
-    assert.equal(box.originX >= 320, edge % 2 === 1)
-    assert.equal(box.originY >= 240, edge >= 2)
+    assert.equal(h.calls.filter((call) => call === 'phone').length, row === 0 ? 2 : 3)
+    assert.deepEqual(JSON.parse(JSON.stringify(result.evidence.metadata.boundingBox)), box)
   }
 })
 
-test('a central weak match cannot skip a phone visible in a corner', async () => {
+test('magnified regions have no uncovered pixels on landscape and portrait frames', async () => {
+  for (const [width, height] of [[640, 480], [1280, 720], [480, 640]]) {
+    const h = await harness()
+    h.setPhones({ detections: [] })
+    await h.frame(0, width, height)
+    const regions = h.draws.slice(1).filter((draw) => draw.length === 8)
+    assert.equal(regions.length, 8)
+    for (let y = 0; y < height; y += 10) {
+      for (let x = 0; x < width; x += 10) {
+        assert.ok(regions.some(([sx, sy, sw, sh]) =>
+          x >= sx && x < sx + sw && y >= sy && y < sy + sh), `uncovered ${x},${y}`)
+      }
+    }
+  }
+})
+
+test('a central weak match cannot skip a phone visible in a tile', async () => {
   const h = await harness()
   h.setPhones(phoneResult(0.55))
-  h.setEdgePhones((draws) => Array.isArray(draws[0]) ? mosaicPhoneResult(3) : { detections: [] })
+  h.setEdgePhones((draws) => Array.isArray(draws[0]) ?
+    tilePhoneResult(draws, 3, { originX: 550, originY: 80, width: 30, height: 50 }) : { detections: [] })
   const result = await h.frame(0)
   assert.equal(result.evidence.metadata.confidence, 0.93)
   assert.ok(result.evidence.metadata.boundingBox.originX > 400)
@@ -255,7 +291,8 @@ test('a small low-confidence phone at the edge is confirmed in the same captured
   const h = await harness()
   h.setPhones({ detections: [] })
   h.setEdgePhones((draw) => {
-    if (Array.isArray(draw[0])) return mosaicPhoneResult(3, 0.55)
+    if (Array.isArray(draw[0])) return draw[0][1] > 0 ?
+      tilePhoneResult(draw, 3, { originX: 578, originY: 410, width: 22, height: 31 }, 0.55) : { detections: [] }
     const [sx, sy, sw, sh, dx, dy, dw, dh] = draw
     if (!(sw < 100 && sx > 0 && sy > 0)) return { detections: [] }
     return { detections: [{

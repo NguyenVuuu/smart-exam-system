@@ -38,6 +38,9 @@ HARD_NEGATIVE_IDS = (
     "4fe2fb3816b91c44", "6347108949f5cbe2", "8357a23d186680d7",
     "c48ad3322299db3e", "fa50309ada7120e0",
 )
+# These Open Images entries are labeled as tablets but show a monitor and a laptop.
+# They must not teach the detector that any large screen is a handheld device.
+REVIEWED_NON_HANDHELD_IDS = {"1bf773db87da415a", "4342a7037ea1bdea"}
 
 
 def download(url: str, target: Path) -> None:
@@ -174,6 +177,8 @@ def prepare(samples: Path, negative_samples: Path | None, positive_manifest: Pat
     with (work / "boxes.csv").open(encoding="utf-8") as source:
         for row in csv.DictReader(source):
             image_id = row["ImageID"]
+            if image_id in REVIEWED_NON_HANDHELD_IDS:
+                continue
             for name in TARGETS:
                 if row["LabelName"] == ids[name] and row["IsDepiction"] == "0":
                     selected[name].append(row)
@@ -201,6 +206,11 @@ def prepare(samples: Path, negative_samples: Path | None, positive_manifest: Pat
             write_example(image, box, target_ids[name], "val" if len(seen) % 5 == 0 else "train", data)
 
     used_negative_images = set()
+    for image_id in sorted(REVIEWED_NON_HANDHELD_IDS):
+        image = work / f"negative-reviewed-{image_id}.jpg"
+        download(f"https://open-images-dataset.s3.amazonaws.com/validation/{image_id}.jpg", image)
+        write_example(image, None, None, "train", data)
+        used_negative_images.add(image_id)
     for name, limit in HARD_NEGATIVE_TARGETS.items():
         class_count = 0
         for image_id in negative_candidates[name]:
