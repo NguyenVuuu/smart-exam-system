@@ -19,6 +19,7 @@ import {
   resolveAttemptResultReason,
   resolveAttemptReviewAccess,
 } from './attempt-result.policy'
+import { isResultReleased } from '../../exam-schedules/utils/result-release'
 import {
   isExamVisibleToStudents,
   STUDENT_STARTABLE_SCHEDULE_STATUSES,
@@ -148,6 +149,38 @@ async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
   await gradeObjectiveAnswers(attemptId, { finalStatus: 'AUTO_SUBMITTED' })
 }
 
+function continueAfterAttemptEnded(
+  attemptId: string,
+  scheduleId: string,
+  submittedAt: Date,
+  status: 'SUBMITTED' | 'AUTO_SUBMITTED' | 'GRADING',
+) {
+  void (async () => {
+    await closeAttemptProctoring(attemptId, scheduleId, submittedAt)
+    emitProctoringEvent(scheduleId, 'student:offline', {
+      attemptId,
+      scheduleId,
+      attemptStatus: status,
+      isOnline: false,
+    })
+    leaveAttemptRoom(attemptId)
+
+    if (status === 'AUTO_SUBMITTED') {
+      await gradeAutoSubmittedAttempt(attemptId)
+    } else if (status === 'SUBMITTED' || status === 'GRADING') {
+      await gradeProgrammingAnswers(attemptId)
+      await gradeObjectiveAnswers(attemptId, status === 'GRADING' ? { finalStatus: 'GRADING' } : undefined)
+    }
+  })().catch((error) => {
+    logger.error('Failed to finish post-submit processing', {
+      attemptId,
+      scheduleId,
+      status,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  })
+}
+
 export async function closeAttemptProctoring(attemptId: string, scheduleId: string, endedAt: Date) {
   try {
     const [sessions, violations] = await Promise.all([
@@ -170,16 +203,9 @@ export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date
   const result = await repo.autoSubmitAttemptWithAudit(attemptId, now)
   if (!result) return null
 
-  await closeAttemptProctoring(attemptId, result.scheduleId, now)
-
-  emitProctoringEvent(result.scheduleId, 'student:offline', {
-    attemptId,
-    scheduleId: result.scheduleId,
-    attemptStatus: 'AUTO_SUBMITTED',
-    isOnline: false,
-  })
-  leaveAttemptRoom(attemptId)
-  await gradeAutoSubmittedAttempt(attemptId)
+  // Trả kết quả ngay sau khi trạng thái DB đã chuyển sang AUTO_SUBMITTED.
+  // Đóng proctoring và chấm điểm tiếp tục ở nền để client không bị treo.
+  continueAfterAttemptEnded(attemptId, result.scheduleId, now, 'AUTO_SUBMITTED')
   logger.info('Exam attempt auto-submitted by timeout', {
     attemptId,
     submittedAt: now.toISOString(),
@@ -784,16 +810,8 @@ export async function submitExam(
 
   // ── Update succeeded → return success ─────────────────────────────────────
   if (updated.count > 0) {
-    await closeAttemptProctoring(attemptId, scheduleId, now)
-    emitProctoringEvent(scheduleId, 'student:offline', {
-      attemptId,
-      scheduleId,
-      attemptStatus: 'SUBMITTED',
-      isOnline: false,
-    })
-    leaveAttemptRoom(attemptId)
-    await gradeProgrammingAnswers(attemptId)
-    await gradeObjectiveAnswers(attemptId)
+    // Chỉ chờ transaction chuyển trạng thái; phần nặng chạy nền.
+    continueAfterAttemptEnded(attemptId, scheduleId, now, 'SUBMITTED')
     return { attemptId, submittedAt: now };
   }
 
@@ -905,10 +923,13 @@ export async function getAttemptResult(
   }
 
   const schedule = attempt.examSchedule
+  const releaseSchedule = isResultReleased(schedule)
+    ? schedule
+    : (schedule.makeupOfSchedule ?? schedule)
   const reason = resolveAttemptResultReason({
     status: attempt.status,
     hasScore: attempt.totalScore !== null,
-    ...schedule,
+    ...releaseSchedule,
   }, now)
   const available = reason === 'AVAILABLE'
   const maxScore = attempt.attemptQuestions.reduce(
@@ -925,8 +946,8 @@ export async function getAttemptResult(
 
   return {
     available,
-    releaseMode: schedule.resultReleaseMode,
-    releaseAt: schedule.resultReleaseAt,
+    releaseMode: releaseSchedule.resultReleaseMode,
+    releaseAt: releaseSchedule.resultReleaseAt,
     score: available ? Number(attempt.totalScore) : null,
     maxScore: available ? maxScore : null,
     reviewPolicy,

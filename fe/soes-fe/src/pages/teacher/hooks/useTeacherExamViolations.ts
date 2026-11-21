@@ -19,9 +19,10 @@ export function useTeacherExamViolations(examId: string, scheduleId: string) {
   const [result, setResult] = useState<{
     requestKey: string
     items: ViolationRecord[]
+    allItems: ViolationRecord[]
     pagination: TeacherPaginationMeta
     error: string | null
-  }>({ requestKey: '', items: [], pagination: emptyPagination, error: null })
+  }>({ requestKey: '', items: [], allItems: [], pagination: emptyPagination, error: null })
   const page = pageBySchedule.scheduleId === scheduleId ? pageBySchedule.page : 1
   const requestKey = `${examId}:${scheduleId}:${page}:${requestVersion}`
 
@@ -29,18 +30,19 @@ export function useTeacherExamViolations(examId: string, scheduleId: string) {
     if (!scheduleId) return
 
     let active = true
-    void getTeacherExamViolations(examId, scheduleId, {
-        page,
-        pageSize: PAGE_SIZE,
-      })
-      .then((data) => {
-        if (active) setResult({ requestKey, items: data.items, pagination: data.pagination, error: null })
+      void Promise.all([
+        getTeacherExamViolations(examId, scheduleId, { page, pageSize: PAGE_SIZE }),
+        getTeacherExamViolations(examId, scheduleId, { page: 1, pageSize: 500 }),
+      ])
+      .then(([data, allData]) => {
+        if (active) setResult({ requestKey, items: data.items, allItems: allData.items, pagination: data.pagination, error: null })
       })
       .catch(() => {
         if (active) {
           setResult({
             requestKey,
             items: [],
+            allItems: [],
             pagination: { ...emptyPagination, page },
             error: 'Không thể tải nhật ký vi phạm.',
           })
@@ -60,6 +62,7 @@ export function useTeacherExamViolations(examId: string, scheduleId: string) {
   const hasCurrentResult = Boolean(scheduleId) && result.requestKey === requestKey
   return {
     items: hasCurrentResult ? result.items : [],
+    allItems: hasCurrentResult ? result.allItems : [],
     pagination: hasCurrentResult ? result.pagination : { ...emptyPagination, page },
     loading: Boolean(scheduleId) && !hasCurrentResult,
     error: hasCurrentResult ? result.error : null,

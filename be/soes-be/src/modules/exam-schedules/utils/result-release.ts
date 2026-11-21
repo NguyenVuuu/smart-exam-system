@@ -12,9 +12,6 @@ export function isResultReleased(config: ResultReleaseConfig, now = new Date()):
       return true
     case 'MANUAL':
       return config.resultsPublishedAt !== null
-    case 'SCHEDULED':
-      return config.resultsPublishedAt !== null
-        || (config.resultReleaseAt !== null && config.resultReleaseAt <= now)
     default:
       return false
   }
@@ -25,13 +22,6 @@ export function releasedResultScheduleWhere(now = new Date()) {
     OR: [
       { resultReleaseMode: 'IMMEDIATE' as const },
       { resultReleaseMode: 'MANUAL' as const, resultsPublishedAt: { not: null } },
-      {
-        resultReleaseMode: 'SCHEDULED' as const,
-        OR: [
-          { resultsPublishedAt: { not: null } },
-          { resultReleaseAt: { lte: now } },
-        ],
-      },
     ],
   }
 }

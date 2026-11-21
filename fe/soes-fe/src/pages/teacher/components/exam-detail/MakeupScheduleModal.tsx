@@ -6,6 +6,75 @@ import type { TeacherExamDto } from '../../types/teacher-exam-api.types'
 import type { ExamSchedule, ExamSubmission } from '../../types/teacher-exam.types'
 import { getTeacherExamsBySubject, getTeacherMakeupEligibility, type MakeupEligibility } from '../../api/teacher-exams.api'
 
+// ── Confirm dialog cho SV đã có điểm ──────────────────────────────────────────
+
+function ConfirmPublishedStudentDialog({
+  students,
+  onConfirm,
+  onCancel,
+}: {
+  students: Array<{ studentCode: string; studentName: string; score: number | null }>
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-gray-900">Sinh viên đã có điểm chính thức</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {students.length === 1
+                ? 'Sinh viên sau đã có điểm chính thức từ ca thi gốc.'
+                : `${students.length} sinh viên sau đã có điểm chính thức từ ca thi gốc.`}
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-4 max-h-48 overflow-y-auto rounded-xl border border-amber-100 bg-amber-50 divide-y divide-amber-100">
+          {students.map((s) => (
+            <div key={s.studentCode} className="flex items-center justify-between px-4 py-2.5">
+              <div>
+                <span className="text-sm font-semibold text-gray-900">{s.studentCode}</span>
+                <span className="ml-2 text-sm text-gray-600">{s.studentName}</span>
+              </div>
+              <span className="text-sm font-semibold text-amber-700">
+                {s.score !== null ? `${s.score}đ` : '—'}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p className="mb-5 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+          <strong>Lưu ý:</strong> Nếu những sinh viên này thi lại ở ca dự phòng,{' '}
+          <strong>điểm ca dự phòng sẽ ghi đè điểm cũ</strong>, kể cả khi điểm mới thấp hơn.
+          Sinh viên tự nguyện chịu trách nhiệm về quyết định này.
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-600"
+          >
+            Xác nhận cho thi lại
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function toLocalInputValue(date: Date) {
@@ -112,6 +181,10 @@ export default function MakeupScheduleModal({
   const [studentIds, setStudentIds] = useState<string[]>(() =>
     submissions.filter((s) => !s.hasSubmitted).map((s) => s.studentId),
   )
+  // Dialog xác nhận SV đã có điểm
+  const [confirmPublishedStudents, setConfirmPublishedStudents] = useState<
+    Array<{ studentCode: string; studentName: string; score: number | null }> | null
+  >(null)
 
   // Step 3 — config
   const sourceEndTime = new Date(sourceSchedule.endTime)
@@ -180,6 +253,24 @@ export default function MakeupScheduleModal({
     setStudentIds(submissions.filter((s) => !s.hasSubmitted).map((s) => s.studentId))
   }
 
+  // Trước khi sang step 3: kiểm tra SV đã có điểm PUBLISHED — hiển thị confirm dialog
+  const goToStep3 = () => {
+    const publishedStudents = submissions.filter(
+      (s) => studentIds.includes(s.studentId) && s.hasSubmitted && s.finalScore !== null,
+    )
+    if (publishedStudents.length > 0) {
+      setConfirmPublishedStudents(
+        publishedStudents.map((s) => ({
+          studentCode: s.studentCode,
+          studentName: s.studentName,
+          score: s.finalScore,
+        })),
+      )
+    } else {
+      setStep(3)
+    }
+  }
+
   const submit = async () => {
     if (!studentIds.length) { toast.warning('Chọn ít nhất một sinh viên.'); return }
     if (new Date(endTime) <= new Date(startTime)) { toast.error('Thời gian kết thúc phải sau thời gian bắt đầu.'); return }
@@ -210,6 +301,7 @@ export default function MakeupScheduleModal({
   const selectedExam = availableExams.find((e) => e.id === selectedExamId)
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
 
@@ -239,14 +331,10 @@ export default function MakeupScheduleModal({
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-center space-y-3">
               <AlertTriangle size={28} className="mx-auto text-amber-500" />
               <p className="text-sm font-semibold text-amber-900">
-                {eligibility.reason === 'already_published' && 'Điểm ca thi đã được chốt'}
                 {eligibility.reason === 'deadline_passed' && 'Đã quá 48 giờ kể từ khi ca thi kết thúc'}
                 {eligibility.reason === 'makeup_exists' && 'Ca thi này đã có ca dự phòng'}
                 {eligibility.reason === 'not_found' && 'Không tìm thấy ca thi'}
               </p>
-              {eligibility.reason === 'already_published' && (
-                <p className="text-xs text-amber-700">Điểm đã chốt không thể tạo ca dự phòng nữa.</p>
-              )}
               {eligibility.reason === 'deadline_passed' && (
                 <p className="text-xs text-amber-700">Hạn tạo ca dự phòng là 48 giờ sau khi ca gốc kết thúc.</p>
               )}
@@ -530,7 +618,7 @@ export default function MakeupScheduleModal({
             {step < 3 ? (
               <button
                 type="button"
-                onClick={() => setStep((s) => (s + 1) as 2 | 3)}
+                onClick={() => step === 2 ? goToStep3() : setStep((s) => (s + 1) as 2 | 3)}
                 disabled={step === 2 && studentIds.length === 0}
                 className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -560,5 +648,18 @@ export default function MakeupScheduleModal({
         )}
       </div>
     </div>
+
+    {/* Dialog xác nhận SV đã có điểm PUBLISHED */}
+    {confirmPublishedStudents && (
+      <ConfirmPublishedStudentDialog
+        students={confirmPublishedStudents}
+        onConfirm={() => {
+          setConfirmPublishedStudents(null)
+          setStep(3)
+        }}
+        onCancel={() => setConfirmPublishedStudents(null)}
+      />
+    )}
+  </>
   )
 }

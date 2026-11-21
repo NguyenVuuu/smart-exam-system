@@ -26,9 +26,6 @@ test('one proctor cannot supervise two course offerings in the same schedule', (
   if (!result.success) assert.ok(result.error.issues.some((issue) => issue.path[0] === 'courses'))
 })
 
-test('exam duration and scheduled release stay within the permitted time window', () => {
+test('exam duration stays within the permitted time window', () => {
   assert.equal(scheduleBodySchema.safeParse({ ...validSchedule(), durationMinutes: 91 }).success, false)
-  assert.equal(scheduleBodySchema.safeParse({
-    ...validSchedule(), resultReleaseMode: 'SCHEDULED', resultReleaseAt: endTime,
-  }).success, false)
 })

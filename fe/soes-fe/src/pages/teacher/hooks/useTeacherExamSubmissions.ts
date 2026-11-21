@@ -150,6 +150,7 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
    */
   const prepareFinalize = async (
     scoreOverrides: Record<string, string>,
+    excludedStudentIds: string[] = [],
   ): Promise<Array<{
     attemptId: string;
     studentCode: string;
@@ -163,8 +164,9 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
       await getAllTeacherExamSubmissions(examId, scheduleId)
     ).map(toExamSubmission);
 
+    const excluded = new Set(excludedStudentIds);
     return allSubmissions
-      .filter((s) => s.status !== "PUBLISHED")
+      .filter((s) => s.status !== "PUBLISHED" && !excluded.has(s.studentId))
       .map((s) => {
         const auto = s.autoScore ?? 0;
         const raw = scoreOverrides[s.attemptId];
@@ -185,6 +187,7 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
 
   const finalizeMany = async (
     scoreOverrides: Array<{ attemptId: string; score: number; reason?: string; adjustmentType?: string; evidenceUrls?: string[]; violationIds?: string[] }>,
+    excludedStudentIds: string[] = [],
   ) => {
     const overrideMap = new Map(
       scoreOverrides.map((item) => [item.attemptId, item]),
@@ -192,8 +195,9 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     const allSubmissions = (
       await getAllTeacherExamSubmissions(examId, scheduleId)
     ).map(toExamSubmission);
+    const excluded = new Set(excludedStudentIds);
     const readyToFinalize = allSubmissions.filter(
-      (submission) => submission.status !== "PUBLISHED",
+      (submission) => submission.status !== "PUBLISHED" && !excluded.has(submission.studentId),
     );
     const blockedCount = readyToFinalize.filter(
       (submission) =>
@@ -219,6 +223,12 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     return itemsToFinalize.length;
   };
 
+  const loadAllSubmissions = useCallback(async () => {
+    if (!scheduleId) return [] as ExamSubmission[];
+    const allSubmissions = await getAllTeacherExamSubmissions(examId, scheduleId);
+    return allSubmissions.map(toExamSubmission);
+  }, [examId, scheduleId]);
+
   return {
     items: scheduleId ? items : [],
     pagination: scheduleId ? pagination : EMPTY_PAGINATION,
@@ -229,6 +239,7 @@ export function useTeacherExamSubmissions(examId: string, scheduleId: string) {
     setPage,
     release,
     reload,
+    loadAllSubmissions,
     markViolationsViewed,
     finalizeOne,
     prepareFinalize,

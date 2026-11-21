@@ -87,7 +87,9 @@ export const toExamSchedule = (dto: TeacherExamScheduleDto): ExamSchedule => {
     subjectName: dto.exam.subject.name, startTime: dto.startTime, endTime: dto.endTime,
     durationMinutes: dto.durationMinutes, maxAttempts: dto.maxAttempts, password: '',
     participantCount: dto.participantCount, submissionCount: dto.submissionCount,
-    resultReleaseMode: dto.resultReleaseMode === 'NEVER' ? 'MANUAL' : dto.resultReleaseMode,
+    resultReleaseMode: dto.resultReleaseMode === 'NEVER' || dto.resultReleaseMode === 'SCHEDULED'
+      ? 'MANUAL'
+      : dto.resultReleaseMode,
     resultReleaseAt: dto.resultReleaseAt ?? undefined,
     allowStudentReview: dto.reviewPolicy !== 'NONE',
     enableTabLock: dto.enableTabLock,
@@ -136,6 +138,6 @@ export const toTeacherSchedulePayload = (schedule: ExamSchedule): TeacherExamSch
   distributionMode: schedule.distributionMode ?? 'FIXED_ORDER',
   randomQuestionCount: schedule.distributionMode === 'RANDOM_SUBSET' ? schedule.randomQuestionCount : null,
   resultReleaseMode: schedule.resultReleaseMode ?? 'MANUAL',
-  resultReleaseAt: schedule.resultReleaseMode === 'SCHEDULED' ? schedule.resultReleaseAt : null,
+  resultReleaseAt: null,
   allowStudentReview: schedule.allowStudentReview ?? false,
 })

@@ -379,7 +379,7 @@ export function useFinalExamScheduleForm({
         distributionOptions.find((item) => item.value === distributionMode)?.label ?? '',
       randomQuestionCount: distributionMode === 'RANDOM_SUBSET' ? randomQuestionCount : null,
       releaseMode: releaseOptions.find((item) => item.value === releaseMode)?.label ?? '',
-      resultReleaseAt: releaseMode === 'SCHEDULED' ? releaseAt : undefined,
+      resultReleaseAt: undefined,
       allowStudentReview,
       enableTabLock,
       requireFullscreen,

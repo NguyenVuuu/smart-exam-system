@@ -46,7 +46,17 @@ export async function createStudentAppeal(
   body: CreateGradeAppealBody,
 ) {
   const attempt = await prisma.examAttempt.findFirst({
-    where: { id: attemptId, examScheduleId: scheduleId, studentId },
+    where: {
+      id: attemptId,
+      studentId,
+      // Cho phép mở phúc khảo bằng ca gốc khi attempt thuộc ca dự phòng của ca đó.
+      examSchedule: {
+        OR: [
+          { id: scheduleId },
+          { makeupOfScheduleId: scheduleId },
+        ],
+      },
+    },
     include: {
       student: { include: { user: true } },
       courseOffering: { include: { teacher: { include: { user: true } } } },
@@ -94,7 +104,18 @@ export async function createStudentAppeal(
 }
 
 export async function listStudentAppeals(studentId: string, scheduleId: string, attemptId: string) {
-  const attempt = await prisma.examAttempt.findFirst({ where: { id: attemptId, examScheduleId: scheduleId, studentId } })
+  const attempt = await prisma.examAttempt.findFirst({
+    where: {
+      id: attemptId,
+      studentId,
+      examSchedule: {
+        OR: [
+          { id: scheduleId },
+          { makeupOfScheduleId: scheduleId },
+        ],
+      },
+    },
+  })
   if (!attempt) throw new NotFoundError('Exam attempt not found')
   const rows = await prisma.gradeAppeal.findMany({
     where: { attemptId, studentId },

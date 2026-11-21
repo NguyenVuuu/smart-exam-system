@@ -169,10 +169,6 @@ export async function getMakeupEligibility(
   const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000
   const deadline = new Date(schedule.endTime.getTime() + FORTY_EIGHT_HOURS_MS)
 
-  // Đã chốt điểm → không cho tạo
-  if (schedule.resultsPublishedAt) {
-    return { eligible: false, reason: 'already_published' as const, deadline }
-  }
   // Quá 48h → không cho tạo
   if (now > deadline) {
     return { eligible: false, reason: 'deadline_passed' as const, deadline }
@@ -221,11 +217,6 @@ export async function createMakeup(
   const sourceStatus = computeScheduleStatus(source.status, source.startTime, source.endTime)
   if (sourceStatus !== 'CLOSED') {
     throw new ConflictError('Ca gốc chưa kết thúc, không thể tạo ca dự phòng')
-  }
-
-  // Đã chốt điểm
-  if (source.resultsPublishedAt) {
-    throw new ConflictError('Điểm đã được chốt, không thể tạo ca dự phòng')
   }
 
   // Quá 48h kể từ khi ca gốc kết thúc

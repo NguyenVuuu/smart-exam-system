@@ -17,6 +17,7 @@ import type {
 } from '../../types/teacher-exam.types'
 import type { useTeacherExamSubmissions } from '../../hooks/useTeacherExamSubmissions'
 import type { useTeacherExamViolations } from '../../hooks/useTeacherExamViolations'
+import { resolveApiMediaUrl } from '../../../../utils/media-url'
 
 interface ExamDetailTabContentProps {
   isFinalManagementView: boolean
@@ -212,9 +213,9 @@ export default function ExamDetailTabContent({
           }
           onViewSubmission={onViewSubmission}
           onViewViolations={onViewViolations}
-          violationsByStudentId={[...violationData.items, ...(makeupViolationData?.items ?? [])].reduce<Record<string, Array<{ id: string; evidenceImageUrl: string }>>>((acc, v) => {
+          violationsByStudentId={[...violationData.allItems, ...(makeupViolationData?.allItems ?? [])].reduce<Record<string, Array<{ id: string; evidenceImageUrl: string }>>>((acc, v) => {
             if (v.evidenceImageUrl) {
-              acc[v.studentId] = [...(acc[v.studentId] ?? []), { id: v.id, evidenceImageUrl: v.evidenceImageUrl }]
+              acc[v.studentId] = [...(acc[v.studentId] ?? []), { id: v.id, evidenceImageUrl: resolveApiMediaUrl(v.evidenceImageUrl) }]
             }
             return acc
           }, {})}

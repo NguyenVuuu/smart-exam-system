@@ -141,9 +141,6 @@ function AssignExamToCourseModalContent({
     if (passwordLength > 0 && (passwordLength < 4 || passwordLength > 100)) {
       validationErrors.password = 'Mật khẩu phải có từ 4 đến 100 ký tự.'
     }
-    if (draftSession.resultReleaseMode === 'SCHEDULED' && !draftSession.resultReleaseAt) {
-      validationErrors.resultReleaseAt = 'Vui lòng chọn thời gian công bố điểm.'
-    }
     if (draftSession.ipMode === 'CAMPUS' && !draftSession.allowedIpRange.trim()) {
       validationErrors.allowedIpRange = 'Vui lòng nhập dải IP được phép.'
     }
@@ -188,8 +185,7 @@ function AssignExamToCourseModalContent({
       maxAttempts: draftSession.maxAttempts,
       password: draftSession.password.trim() || undefined,
       resultReleaseMode: draftSession.resultReleaseMode,
-      resultReleaseAt:
-        draftSession.resultReleaseMode === 'SCHEDULED' ? draftSession.resultReleaseAt : undefined,
+      resultReleaseAt: undefined,
       allowStudentReview: draftSession.allowStudentReview,
       enableTabLock: draftSession.enableTabLock,
       requireFullscreen: draftSession.requireFullscreen,

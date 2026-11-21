@@ -4,6 +4,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { getSocket } from '../../api/socket'
+import { refreshAccessToken } from '../../api/axios'
 import ExamSubmitDialog from './components/take-exam/ExamSubmitDialog'
 import ExamWebcamPanel from './components/take-exam/ExamWebcamPanel'
 import QuestionCard from './components/take-exam/QuestionCard'
@@ -313,6 +314,28 @@ export default function StudentTakeExamPage() {
 
     return () => window.clearInterval(intervalId)
   }, [attemptId, phase, scheduleId, screenStatus, screenStream, sendHeartbeat, session, webcamStatus, webcamStream, visionStatus])
+
+  useEffect(() => {
+    if (phase !== 'IN_PROGRESS') return
+
+    const refreshDuringExam = () => {
+      void refreshAccessToken().catch(() => undefined)
+    }
+
+    // Keep the exam session alive even when the student is only thinking.
+    const intervalId = window.setInterval(refreshDuringExam, 10 * 60 * 1_000)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshDuringExam()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    refreshDuringExam()
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [phase])
 
   useEffect(() => {
     if (phase !== 'IN_PROGRESS' || !session?.integritySettings.enableWebcam) return

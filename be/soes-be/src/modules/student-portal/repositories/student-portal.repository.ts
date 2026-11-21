@@ -89,13 +89,18 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
     where: {
       studentId,
       totalScore: { not: null },
-      attemptQuestions: { some: {} },
-      status: { in: ['AUTO_SUBMITTED', 'GRADED', 'PUBLISHED'] },
+      // Chỉ điểm đã công bố mới là điểm chính thức của sinh viên.
+      status: 'PUBLISHED',
       courseOfferingId: query.courseOfferingId,
       courseOffering: {
         semesterId: query.semesterId,
       },
-      examSchedule: releasedResultScheduleWhere(),
+      examSchedule: {
+        OR: [
+          releasedResultScheduleWhere(),
+          { makeupOfSchedule: releasedResultScheduleWhere() },
+        ],
+      },
       ...(query.keyword
         ? {
             OR: [
@@ -117,6 +122,7 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
       examSchedule: {
         select: {
           id: true,
+          makeupOfScheduleId: true,
           title: true,
           resultsPublishedAt: true,
           publishedAt: true,

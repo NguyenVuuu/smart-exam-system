@@ -1,12 +1,14 @@
 import { Save } from 'lucide-react'
 import type { TeacherGradeAppeal } from '../../api/teacher-exams.api'
-import type { Exam, ExamSubmission } from '../../types/teacher-exam.types'
+import type { Exam, ExamSubmission, ViolationRecord } from '../../types/teacher-exam.types'
 import SubmissionAnswerList from '../exam-detail/SubmissionAnswerList'
+import { resolveApiMediaUrl } from '../../../../utils/media-url'
 
 interface GradeAppealReviewPanelProps {
   appeal: TeacherGradeAppeal
   exam: Exam
   submission: ExamSubmission
+  violations: ViolationRecord[]
   score: number
   conclusion: string
   saving: boolean
@@ -19,6 +21,7 @@ export default function GradeAppealReviewPanel({
   appeal,
   exam,
   submission,
+  violations,
   score,
   conclusion,
   saving,
@@ -44,6 +47,7 @@ export default function GradeAppealReviewPanel({
           conclusion={conclusion}
           editable={editable}
           saving={saving}
+          violations={violations}
           onScoreChange={onScoreChange}
           onConclusionChange={onConclusionChange}
           onSave={onSave}
@@ -73,6 +77,7 @@ function ScoreSummary({ appeal, submission }: { appeal: TeacherGradeAppeal; subm
 
 function ReviewForm({
   appeal,
+  violations,
   score,
   conclusion,
   editable,
@@ -82,6 +87,7 @@ function ReviewForm({
   onSave,
 }: {
   appeal: TeacherGradeAppeal
+  violations: ViolationRecord[]
   score: number
   conclusion: string
   editable: boolean
@@ -121,6 +127,7 @@ function ReviewForm({
           placeholder="Nêu kết quả kiểm tra và lý do điều chỉnh điểm..."
         />
       </Field>
+      <ViolationList violations={violations} />
       {editable ? (
         <button type="button" onClick={onSave} disabled={saving} className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
           <Save size={16} /> {saving ? 'Đang lưu...' : 'Lưu kết quả phúc khảo'}
@@ -132,6 +139,46 @@ function ReviewForm({
       )}
     </aside>
   )
+}
+
+function ViolationList({ violations }: { violations: ViolationRecord[] }) {
+  return (
+    <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-bold text-rose-900">Vi phạm trong bài thi</h3>
+        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">{violations.length}</span>
+      </div>
+      {violations.length === 0 ? (
+        <p className="mt-2 text-xs text-rose-700">Không ghi nhận vi phạm.</p>
+      ) : (
+        <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
+          {violations.map((violation) => (
+            <div key={violation.id} className="rounded-md border border-rose-100 bg-white p-2">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-800">{formatViolationType(violation.type)}</span>
+                <span className="text-[10px] font-semibold uppercase text-rose-600">{violation.severity}</span>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">{new Date(violation.timestamp).toLocaleString('vi-VN')}</p>
+              {violation.evidenceImageUrl ? (
+                <img src={resolveApiMediaUrl(violation.evidenceImageUrl)} alt="Bằng chứng vi phạm" className="mt-2 h-20 w-28 rounded border border-slate-200 object-cover" />
+              ) : (
+                <p className="mt-1 text-[11px] text-slate-500">Không có ảnh bằng chứng.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function formatViolationType(type: ViolationRecord['type']) {
+  const labels: Partial<Record<ViolationRecord['type'], string>> = {
+    TAB_SWITCH: 'Chuyển tab', FULLSCREEN_EXIT: 'Thoát toàn màn hình', COPY_PASTE: 'Sao chép / dán',
+    NO_FACE: 'Không thấy khuôn mặt', MULTIPLE_FACES: 'Nhiều khuôn mặt', PHONE_DETECTED: 'Phát hiện điện thoại',
+    CAMERA_BLOCKED: 'Camera bị chặn', SCREEN_SHARE_STOPPED: 'Dừng chia sẻ màn hình', INACTIVITY: 'Không hoạt động',
+  }
+  return labels[type] ?? type
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

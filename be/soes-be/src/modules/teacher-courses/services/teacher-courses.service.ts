@@ -79,8 +79,13 @@ export async function getGradebook(teacherId: string, courseOfferingId: string, 
   if (!data) throw new NotFoundError('Course offering not found')
   const attempts = new Map<string, number | null>()
   for (const attempt of data.attempts) {
-    const key = `${attempt.studentId}:${attempt.examScheduleId}`
-    if (!attempts.has(key)) attempts.set(key, attempt.totalScore === null ? null : Number(attempt.totalScore))
+    const scheduleId = attempt.examSchedule.makeupOfScheduleId ?? attempt.examScheduleId
+    const key = `${attempt.studentId}:${scheduleId}`
+    const isMakeup = Boolean(attempt.examSchedule.makeupOfScheduleId)
+    // Nếu có cả hai bài, điểm dự phòng là điểm hiệu lực.
+    if (!attempts.has(key) || isMakeup) {
+      attempts.set(key, attempt.totalScore === null ? null : Number(attempt.totalScore))
+    }
   }
   const maxScores = new Map(data.schedules.map(({ id, exam }) => [id, Number(exam.totalPoints)]))
   const students = data.enrollments.map(({ student }) => {
