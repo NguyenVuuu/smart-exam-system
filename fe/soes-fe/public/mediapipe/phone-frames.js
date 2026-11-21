@@ -87,10 +87,10 @@ const PhoneFrames = (() => {
     const right = Math.min(first.originX + first.width, second.originX + second.width)
     const bottom = Math.min(first.originY + first.height, second.originY + second.height)
     const intersection = Math.max(0, right - left) * Math.max(0, bottom - top)
-    return intersection / Math.max(1, first.width * first.height + second.width * second.height - intersection) >= 0.45
+    return intersection / Math.max(1, first.width * first.height + second.width * second.height - intersection) >= 0.35
   }
 
-  async function confirm(detector, frame, detection, timestamp, threshold = 0.75) {
+  async function confirm(detector, frame, detection, timestamp, threshold = 0.65) {
     const box = detection.boundingBox
     const padding = Math.max(box.width, box.height) * 0.75
     const sourceX = Math.max(0, box.originX - padding)
