@@ -103,6 +103,7 @@ export const severityLevelSchema = z.enum(['LOW', 'MEDIUM', 'HIGH'])
 
 const phoneMetadataSchema = z.object({
   model: z.enum(['efficientdet_lite0', 'yolo11n', 'yolo11n-devices']),
+  modelVersion: z.string().regex(/^[a-f0-9]{12}$/).optional(),
   category: z.enum(['cell phone', 'handheld device']),
   confidence: z.number().min(0).max(1),
   boundingBox: z.object({

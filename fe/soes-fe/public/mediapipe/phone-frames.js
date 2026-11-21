@@ -2,6 +2,7 @@ const PhoneFrames = (() => {
   const INPUT_SIZE = 640
   let fullCanvas
   let cropCanvas
+  let tileCanvas
 
   function draw(frame, sourceX, sourceY, sourceWidth, sourceHeight, canvas) {
     const context = canvas.getContext('2d')
@@ -26,19 +27,45 @@ const PhoneFrames = (() => {
     return draw(frame, 0, 0, frame.width, frame.height, fullCanvas)
   }
 
-  function corner(frame, edge, fraction) {
-    cropCanvas ??= new OffscreenCanvas(INPUT_SIZE, INPUT_SIZE)
-    const sourceWidth = Math.max(1, Math.round(frame.width * fraction))
-    const sourceHeight = Math.max(1, Math.round(frame.height * fraction))
-    const sourceX = edge % 2 === 0 ? 0 : frame.width - sourceWidth
-    const sourceY = edge < 2 ? 0 : frame.height - sourceHeight
-    return draw(frame, sourceX, sourceY, sourceWidth, sourceHeight, cropCanvas)
+  function tileRow(frame, row) {
+    // Two overlapping rows of four crops cover every source pixel at a larger scale.
+    tileCanvas ??= new OffscreenCanvas(INPUT_SIZE, INPUT_SIZE)
+    const context = tileCanvas.getContext('2d')
+    if (!context) throw new Error('Phone tile canvas unavailable')
+    context.fillStyle = '#000000'
+    context.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE)
+    const sourceWidth = Math.max(1, Math.round(frame.width * 0.28))
+    const sourceHeight = Math.max(1, Math.round(frame.height * 0.55))
+    const scale = (INPUT_SIZE / 2) / Math.max(sourceWidth, sourceHeight)
+    const width = sourceWidth * scale, height = sourceHeight * scale
+    const tiles = []
+    for (let column = 0; column < 4; column++) {
+      const sourceX = Math.round((frame.width - sourceWidth) * column / 3)
+      const sourceY = row === 0 ? 0 : frame.height - sourceHeight
+      const tileX = column % 2 * (INPUT_SIZE / 2)
+      const tileY = Math.floor(column / 2) * (INPUT_SIZE / 2)
+      const offsetX = tileX + Math.floor((INPUT_SIZE / 2 - width) / 2)
+      const offsetY = tileY + Math.floor((INPUT_SIZE / 2 - height) / 2)
+      context.drawImage(frame, sourceX, sourceY, sourceWidth, sourceHeight, offsetX, offsetY, width, height)
+      tiles.push({ sourceX, sourceY, sourceWidth, sourceHeight, offsetX, offsetY, scale, tileX, tileY })
+    }
+    return { image: tileCanvas, tiles }
   }
 
   function toOriginal(result, transform) {
     return { ...result, detections: result.detections.flatMap((detection) => {
       const box = detection.boundingBox
       if (!box) return []
+      if (transform.tiles) {
+        const centerX = box.originX + box.width / 2
+        const centerY = box.originY + box.height / 2
+        const tile = transform.tiles.find((item) => centerX >= item.tileX && centerX < item.tileX + INPUT_SIZE / 2 &&
+          centerY >= item.tileY && centerY < item.tileY + INPUT_SIZE / 2)
+        if (!tile || box.originX < tile.tileX || box.originY < tile.tileY ||
+          box.originX + box.width > tile.tileX + INPUT_SIZE / 2 ||
+          box.originY + box.height > tile.tileY + INPUT_SIZE / 2) return []
+        return toOriginal({ detections: [detection] }, tile).detections
+      }
       const clampX = (value) => Math.max(transform.sourceX, Math.min(transform.sourceX + transform.sourceWidth,
         Math.round(transform.sourceX + (value - transform.offsetX) / transform.scale)))
       const clampY = (value) => Math.max(transform.sourceY, Math.min(transform.sourceY + transform.sourceHeight,
@@ -89,5 +116,5 @@ const PhoneFrames = (() => {
       overlaps(detection.boundingBox, item.boundingBox))
   }
 
-  return { full, corner, toOriginal, confidence, confirm, confirmDark }
+  return { full, tileRow, toOriginal, confidence, confirm, confirmDark }
 })()

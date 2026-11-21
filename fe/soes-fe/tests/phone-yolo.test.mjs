@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 import test from 'node:test'
@@ -16,7 +17,7 @@ test('YOLO model accepts the webcam input shape and has the expected COCO output
   } finally { await session.release() }
 })
 
-test('decodes the handheld-device score and box without confusing another COCO class', () => {
+test('decodes the handheld-device score and box without confusing another COCO class', async () => {
   const context = vm.createContext({ OffscreenCanvas: class {}, ort: {}, URL, self: { location: { href: 'http://localhost/mediapipe/vision-worker.js' } } })
   vm.runInContext(`${source}\nthis.decode = PhoneYolo.detectionsFrom`, context)
   const count = 2
@@ -29,6 +30,9 @@ test('decodes the handheld-device score and box without confusing another COCO c
   assert.equal(result.detections.length, 1)
   assert.equal(result.detections[0].categories[0].categoryName, 'handheld device')
   assert.equal(result.detections[0].model, 'yolo11n-devices')
+  const version = createHash('sha256').update(await readFile(model)).digest('hex').slice(0, 12)
+  assert.equal(result.detections[0].modelVersion, version)
+  assert.ok(source.includes(`yolo11n-devices.onnx?v=${version}`))
   assert.ok(Math.abs(result.detections[0].categories[0].score - 0.85) < 0.000001)
   assert.deepEqual(JSON.parse(JSON.stringify(result.detections[0].boundingBox)), {
     originX: 280, originY: 240, width: 80, height: 160,

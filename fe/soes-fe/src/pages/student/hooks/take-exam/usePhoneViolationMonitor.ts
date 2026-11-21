@@ -47,7 +47,7 @@ export function usePhoneViolationMonitor(input: {
     let debug = false
     try { debug = localStorage.getItem('soes:vision-debug') === '1' } catch { /* Storage may be unavailable. */ }
 
-    const schedule = (delay = 150) => {
+    const schedule = (delay = 50) => {
       if (!cancelled) timer = window.setTimeout(() => { void tick() }, delay)
     }
 
