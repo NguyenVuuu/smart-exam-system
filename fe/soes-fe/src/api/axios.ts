@@ -1,6 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { tokenStorage } from '../utils/token'
 import { useAuthStore } from '../store/authStore'
+import { updateSocketAuthToken } from './socket'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
 
@@ -29,6 +30,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 // Track whether a refresh is in-flight to avoid concurrent refresh calls
 let isRefreshing = false
+let proactiveRefreshPromise: Promise<string> | null = null
 let pendingQueue: Array<{
   resolve: (token: string) => void
   reject: (err: unknown) => void
@@ -40,6 +42,27 @@ function processPendingQueue(error: unknown, token: string | null) {
     else resolve(token!)
   })
   pendingQueue = []
+}
+
+/** Refresh used by an active exam without changing refresh behavior elsewhere. */
+export function refreshAccessToken() {
+  if (proactiveRefreshPromise) return proactiveRefreshPromise
+
+  proactiveRefreshPromise = apiClient.post<{
+    success: boolean
+    data: { accessToken: string }
+  }>('/auth/refresh-token')
+    .then(({ data }) => {
+      const newToken = data.data.accessToken
+      useAuthStore.getState().setAccessToken(newToken)
+      updateSocketAuthToken(newToken)
+      return newToken
+    })
+    .finally(() => {
+      proactiveRefreshPromise = null
+    })
+
+  return proactiveRefreshPromise
 }
 
 apiClient.interceptors.response.use(
@@ -83,6 +106,7 @@ apiClient.interceptors.response.use(
 
       const newToken = data.data.accessToken
       useAuthStore.getState().setAccessToken(newToken)
+      updateSocketAuthToken(newToken)
 
       processPendingQueue(null, newToken)
       originalRequest.headers.Authorization = `Bearer ${newToken}`

@@ -191,7 +191,7 @@ export default function StudentExamResultPage() {
                   <p className="mt-1">Lý do: {status.forceSubmitReason ?? 'Xem thông báo để biết chi tiết.'}</p>
                 </div>
               )}
-              {result && status.totalQuestionCount > 0 && <ExamScorePanel result={result} />}
+              {result && <ExamScorePanel result={result} />}
               {result && status.totalQuestionCount > 0 && scheduleId && attemptId && <ExamReviewPanel result={result} scheduleId={scheduleId} attemptId={attemptId} />}
               {result?.available && status.status !== 'INVALIDATED' && status.totalQuestionCount > 0 && (
                 <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
