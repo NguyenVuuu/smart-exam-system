@@ -25,7 +25,7 @@ export const scheduleBodySchema = z.object({
   allowedIpRanges: z.array(z.string().trim().min(1)).max(50).default([]),
   distributionMode: z.enum(['FIXED_ORDER', 'SHUFFLE_QUESTIONS', 'SHUFFLE_OPTIONS', 'SHUFFLE_QUESTIONS_AND_OPTIONS', 'RANDOM_SUBSET']).default('FIXED_ORDER'),
   randomQuestionCount: z.coerce.number().int().min(1).optional().nullable(),
-  resultReleaseMode: z.enum(['IMMEDIATE', 'MANUAL', 'SCHEDULED', 'NEVER']).default('MANUAL'),
+  resultReleaseMode: z.enum(['IMMEDIATE', 'MANUAL', 'NEVER']).default('MANUAL'),
   resultReleaseAt: z.coerce.date().optional().nullable(),
   reviewPolicy: z.enum(['NONE', 'SCORE_ONLY', 'ANSWERS_NO_KEY', 'FULL_AFTER_RELEASE']).default('NONE'),
   reviewStartAt: z.coerce.date().optional().nullable(), reviewEndAt: z.coerce.date().optional().nullable(),
@@ -44,8 +44,6 @@ export const scheduleBodySchema = z.object({
   if (new Set(allTeacherIds).size !== allTeacherIds.length) ctx.addIssue({ code: 'custom', path: ['courses'], message: 'A proctor can only supervise one course offering in a schedule' })
   if (data.locationMode === 'CAMPUS' && !data.allowedIpRanges.length) ctx.addIssue({ code: 'custom', path: ['allowedIpRanges'], message: 'Campus exam requires allowed IP ranges' })
   if (data.distributionMode === 'RANDOM_SUBSET' && !data.randomQuestionCount) ctx.addIssue({ code: 'custom', path: ['randomQuestionCount'], message: 'Random question count is required' })
-  if (data.resultReleaseMode === 'SCHEDULED' && !data.resultReleaseAt) ctx.addIssue({ code: 'custom', path: ['resultReleaseAt'], message: 'Result release time is required' })
-  if (data.resultReleaseMode === 'SCHEDULED' && data.resultReleaseAt && data.resultReleaseAt <= data.endTime) ctx.addIssue({ code: 'custom', path: ['resultReleaseAt'], message: 'Result release time must be after the schedule ends' })
   if (data.reviewStartAt && data.reviewEndAt && data.reviewEndAt <= data.reviewStartAt) ctx.addIssue({ code: 'custom', path: ['reviewEndAt'], message: 'Review end time must be after review start time' })
 })
 

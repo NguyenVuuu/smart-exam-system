@@ -1,6 +1,7 @@
 import { RefreshCw, ShieldAlert, X } from 'lucide-react'
 import { useState } from 'react'
 import type { ExamSubmission, ViolationRecord } from '../../types/teacher-exam.types'
+import { resolveApiMediaUrl } from '../../../../utils/media-url'
 
 export interface SubmissionViolationsModalProps {
   submission: ExamSubmission | null
@@ -42,7 +43,7 @@ function ViolationList({
             {violation.evidenceImageUrl && (
               <button
                 type="button"
-                onClick={() => onViewEvidence(violation.evidenceImageUrl!)}
+                onClick={() => onViewEvidence(resolveApiMediaUrl(violation.evidenceImageUrl!))}
                 className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
               >
                 Xem bằng chứng

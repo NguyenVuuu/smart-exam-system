@@ -370,33 +370,31 @@ export async function forceSubmitAttempt(
 ) {
   const result = await repo.forceSubmitAttempt({ teacherId, userId, examId, scheduleId, attemptId, reason: data.reason })
   if (!result) throw new ConflictError('Attempt is no longer in progress or is not accessible')
-  await closeAttemptProctoring(attemptId, scheduleId, result.submittedAt)
   const event = { attemptId, scheduleId, status: 'GRADING', reason: data.reason }
   emitAttemptEvent(attemptId, 'proctoring:attempt-ended', event)
   emitStudentEvent(result.studentId, 'proctoring:attempt-ended', event)
   emitProctoringEvent(scheduleId, 'student:offline', { attemptId, scheduleId, attemptStatus: 'GRADING', isOnline: false })
   leaveAttemptRoom(attemptId)
-  try {
-    await notifyUsers([result.student.userId], 'Bài thi đã được buộc nộp',
-      `Bài thi "${result.examSchedule.title}" đã được giám thị buộc nộp. Các câu trả lời đã lưu được giữ lại để chấm và xem xét. Lý do: ${data.reason}`)
-  } catch (error) {
-    logger.warn('Could not deliver force-submit notification', { attemptId, error })
-  }
-  let gradingPending = false
-  try {
-    await gradeProgrammingAnswers(attemptId)
-  } catch (error) {
-    gradingPending = true
-    logger.error('Force-submitted programming answers need grading retry', { attemptId, error })
-  }
-  try {
-    const graded = await gradeObjectiveAnswers(attemptId, gradingPending ? { finalStatus: 'GRADING' } : undefined)
-    gradingPending ||= graded.status === 'GRADING'
-  } catch (error) {
-    gradingPending = true
-    logger.error('Force-submitted objective answers need grading retry', { attemptId, error })
-  }
-  return { ...result, gradingPending }
+  void (async () => {
+    await closeAttemptProctoring(attemptId, scheduleId, result.submittedAt)
+    try {
+      await notifyUsers([result.student.userId], 'Bài thi đã được buộc nộp',
+        `Bài thi "${result.examSchedule.title}" đã được giám thị buộc nộp. Các câu trả lời đã lưu được giữ lại để chấm và xem xét. Lý do: ${data.reason}`)
+    } catch (error) {
+      logger.warn('Could not deliver force-submit notification', { attemptId, error })
+    }
+    try {
+      await gradeProgrammingAnswers(attemptId)
+      await gradeObjectiveAnswers(attemptId, { finalStatus: 'GRADING' })
+    } catch (error) {
+      logger.error('Force-submitted attempt needs grading retry', {
+        attemptId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  })().catch((error) => logger.error('Failed to finish force-submit processing', { attemptId, error }))
+
+  return { ...result, gradingPending: true }
 }
 
 export async function cameraReport(teacherId: string, examId: string, scheduleId: string) {
@@ -516,16 +514,11 @@ export async function finalizeScores(
   const invalid = data.items.find((item) => item.score > totalPoints)
   if (invalid) throw new ValidationError('Score cannot exceed exam total points')
 
-  // Block chốt nếu có ca dự phòng đang chạy (SCHEDULED hoặc OPEN)
-  const activeMakeup = await repo.findActiveMakeupSchedule(scheduleId)
-  if (activeMakeup) {
-    throw new ConflictError(
-      `Ca thi dự phòng "${activeMakeup.title}" chưa kết thúc. Vui lòng đợi ca dự phòng kết thúc trước khi chốt điểm.`,
-    )
-  }
-
   const result = await repo.finalizeScores({ teacherId, userId, examId, scheduleId, items: data.items })
   if (!result) throw new NotFoundError('Exam submissions not found')
+  if (result.blockedMakeupAttemptIds.length) {
+    throw new ConflictError('Sinh viên được phép thi ca dự phòng chỉ được chốt điểm ở ca dự phòng')
+  }
   if (result.blockedAttemptIds.length) {
     throw new ConflictError('Some submissions have violations that must be opened before finalizing scores')
   }
@@ -539,11 +532,11 @@ export async function finalizeScores(
     [item.student.userId],
     'Điểm đã được chốt',
     `Điểm chính thức của bài thi "${schedule.exam.title}" đã được giảng viên chốt. Bạn có thể xem trong mục điểm.`,
-    { link: `/student/course-offerings/${item.courseOfferingId}/exam-schedules/${scheduleId}/result?attemptId=${item.id}` },
+    { link: `/student/course-offerings/${item.courseOfferingId}/exam-schedules/${item.examSchedule.id}/result?attemptId=${item.id}` },
   )))
   result.updated.forEach((item) => {
     emitStudentEvent(item.student.userId, 'exam_score:finalized', {
-      scheduleId,
+      scheduleId: item.examSchedule.id,
       attemptId: item.id,
       score: Number(item.totalScore),
     })
@@ -561,9 +554,6 @@ export async function release(
   data: ResultReleaseBody,
 ) {
   await requireClosedSchedule(teacherId, examId, scheduleId)
-  if (data.mode === 'SCHEDULED' && !data.releaseAt) {
-    throw new ValidationError('Release time is required for scheduled results')
-  }
   const result = await repo.updateResultRelease(teacherId, examId, scheduleId, {
     ...data, releaseAt: data.releaseAt ? new Date(data.releaseAt) : null,
   })
@@ -574,7 +564,7 @@ export async function release(
       [target.userId],
       'Điểm đã được công bố',
       `Điểm bài thi "${result.title}" đã được công bố. Bạn có thể xem trong mục điểm.`,
-      { link: `/student/course-offerings/${target.courseOfferingId}/exam-schedules/${scheduleId}/result?attemptId=${target.attemptId}` },
+      { link: `/student/course-offerings/${target.courseOfferingId}/exam-schedules/${target.scheduleId}/result?attemptId=${target.attemptId}` },
     )))
   }
   return {

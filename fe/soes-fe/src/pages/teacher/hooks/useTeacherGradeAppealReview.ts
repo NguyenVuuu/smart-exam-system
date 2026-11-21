@@ -4,16 +4,18 @@ import {
   getAllTeacherExamSubmissions,
   getTeacherExam,
   getTeacherGradeAppeal,
+  getTeacherExamViolations,
   gradeTeacherExamSubmission,
   type TeacherGradeAppeal,
 } from '../api/teacher-exams.api'
 import { toExamDetail, toExamSubmission } from '../mappers/teacher-exam.mapper'
-import type { Exam, ExamSubmission } from '../types/teacher-exam.types'
+import type { Exam, ExamSubmission, ViolationRecord } from '../types/teacher-exam.types'
 
 export function useTeacherGradeAppealReview(appealId: string) {
   const [appeal, setAppeal] = useState<TeacherGradeAppeal | null>(null)
   const [exam, setExam] = useState<Exam | null>(null)
   const [submission, setSubmission] = useState<ExamSubmission | null>(null)
+  const [violations, setViolations] = useState<ViolationRecord[]>([])
   const [score, setScore] = useState(0)
   const [conclusion, setConclusion] = useState('')
   const [loading, setLoading] = useState(true)
@@ -24,9 +26,14 @@ export function useTeacherGradeAppealReview(appealId: string) {
     let active = true
     getTeacherGradeAppeal(appealId)
       .then(async (appealResponse) => {
-        const [examResponse, submissions] = await Promise.all([
+        const [examResponse, submissions, violationResponse] = await Promise.all([
           getTeacherExam(appealResponse.exam.examId),
           getAllTeacherExamSubmissions(appealResponse.exam.examId, appealResponse.exam.scheduleId),
+          getTeacherExamViolations(appealResponse.exam.examId, appealResponse.exam.scheduleId, {
+            page: 1,
+            pageSize: 500,
+            studentId: appealResponse.student.id,
+          }),
         ])
         if (!active) return
         const matchedSubmission = submissions.find((entry) => entry.attemptId === appealResponse.attemptId)
@@ -35,6 +42,7 @@ export function useTeacherGradeAppealReview(appealId: string) {
         setAppeal(appealResponse)
         setExam(toExamDetail(examResponse))
         setSubmission(mappedSubmission)
+        setViolations(violationResponse.items)
         setScore(mappedSubmission.manualScoreOverride ?? mappedSubmission.finalScore ?? mappedSubmission.autoScore ?? 0)
         setConclusion(appealResponse.teacherReply ?? '')
       })
@@ -87,7 +95,7 @@ export function useTeacherGradeAppealReview(appealId: string) {
   }
 
   return {
-    appeal, exam, submission, score, conclusion, loading, saving, error,
+    appeal, exam, submission, violations, score, conclusion, loading, saving, error,
     setScore, setConclusion, save,
   }
 }

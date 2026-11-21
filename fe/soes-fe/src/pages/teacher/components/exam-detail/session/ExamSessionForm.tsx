@@ -147,21 +147,9 @@ export function ExamSessionForm({
             options={[
               { value: 'IMMEDIATE', label: 'Hiện điểm ngay sau khi nộp' },
               { value: 'MANUAL', label: 'Ẩn điểm, giảng viên công bố sau' },
-              { value: 'SCHEDULED', label: 'Tự động công bố theo thời gian' },
             ]}
           />
         </Field>
-
-        {draft.resultReleaseMode === 'SCHEDULED' && (
-          <Field label="Thời gian công bố điểm" error={fieldErrors.resultReleaseAt}>
-            <input
-              type="datetime-local"
-              value={draft.resultReleaseAt}
-              onChange={(event) => update('resultReleaseAt', event.target.value)}
-              className={inputClassName}
-            />
-          </Field>
-        )}
       </div>
 
       <SectionTitle icon={<Eye size={15} className="text-blue-600" />} title="Xem lại bài làm" />
@@ -225,10 +213,10 @@ export function ExamSessionForm({
           buttonClassName={selectButtonClassName}
           menuClassName="z-50"
           options={[
-              { value: 'FIXED_ORDER', label: 'Giữ nguyên thứ tự câu hỏi' },
-              { value: 'SHUFFLE_QUESTIONS', label: 'Xáo thứ tự câu hỏi' },
-              { value: 'SHUFFLE_QUESTIONS_AND_OPTIONS', label: 'Xáo câu hỏi và phương án' },
-              { value: 'RANDOM_SUBSET', label: 'Chọn tập câu hỏi ngẫu nhiên theo phần' },
+            { value: 'FIXED_ORDER', label: 'Giữ nguyên thứ tự câu hỏi' },
+            { value: 'SHUFFLE_QUESTIONS', label: 'Xáo thứ tự câu hỏi' },
+            { value: 'SHUFFLE_QUESTIONS_AND_OPTIONS', label: 'Xáo câu hỏi và phương án' },
+            { value: 'RANDOM_SUBSET', label: 'Chọn tập câu hỏi ngẫu nhiên theo phần' },
           ]}
         />
         {draft.distributionMode === 'RANDOM_SUBSET' && (

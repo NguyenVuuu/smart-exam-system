@@ -39,7 +39,6 @@ export const questionTypeLabel: Record<QuestionType, string> = {
 }
 
 export const releaseLabel: Record<ResultReleaseMode, string> = {
-  IMMEDIATE: 'Hiện điểm ngay sau khi nộp',
+  IMMEDIATE: 'Hiện điểm ngay (tự động chốt)',
   MANUAL: 'Giảng viên công bố sau',
-  SCHEDULED: 'Tự động công bố theo thời gian',
 }

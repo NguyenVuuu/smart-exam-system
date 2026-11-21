@@ -20,7 +20,7 @@ export const teacherExamScheduleBodySchema = z.object({
     'SHUFFLE_QUESTIONS_AND_OPTIONS', 'RANDOM_SUBSET',
   ]).default('FIXED_ORDER'),
   randomQuestionCount: z.coerce.number().int().min(1).optional().nullable(),
-  resultReleaseMode: z.enum(['IMMEDIATE', 'MANUAL', 'SCHEDULED']).default('MANUAL'),
+  resultReleaseMode: z.enum(['IMMEDIATE', 'MANUAL']).default('MANUAL'),
   resultReleaseAt: z.coerce.date().optional().nullable(),
   allowStudentReview: z.boolean().default(false),
 }).superRefine((data, ctx) => {
@@ -28,7 +28,6 @@ export const teacherExamScheduleBodySchema = z.object({
   if (data.endTime <= data.startTime) ctx.addIssue({ code: 'custom', path: ['endTime'], message: 'End time must be after start time' })
   if (data.locationMode === 'CAMPUS' && !data.allowedIpRanges.length) ctx.addIssue({ code: 'custom', path: ['allowedIpRanges'], message: 'Campus exam requires allowed IP ranges' })
   if (data.distributionMode === 'RANDOM_SUBSET' && !data.randomQuestionCount) ctx.addIssue({ code: 'custom', path: ['randomQuestionCount'], message: 'Random question count is required' })
-  if (data.resultReleaseMode === 'SCHEDULED' && !data.resultReleaseAt) ctx.addIssue({ code: 'custom', path: ['resultReleaseAt'], message: 'Result release time is required' })
 })
 
 export const teacherScheduleCancellationSchema = z.object({ reason: z.string().trim().min(5).max(1000) })

@@ -350,7 +350,16 @@ export async function findAttemptIdentity(attemptId: string) {
 
 export async function findAttemptStatus(attemptId: string, scheduleId: string, studentId: string) {
   return prisma.examAttempt.findFirst({
-    where: { id: attemptId, examScheduleId: scheduleId, studentId },
+    where: {
+      id: attemptId,
+      studentId,
+      examSchedule: {
+        OR: [
+          { id: scheduleId },
+          { makeupOfScheduleId: scheduleId },
+        ],
+      },
+    },
     select: {
       id: true,
       status: true,
@@ -369,7 +378,17 @@ export async function findAttemptStatus(attemptId: string, scheduleId: string, s
 
 export async function findAttemptResult(attemptId: string, scheduleId: string, studentId: string) {
   return prisma.examAttempt.findFirst({
-    where: { id: attemptId, examScheduleId: scheduleId, studentId },
+    where: {
+      id: attemptId,
+      studentId,
+      // Cho phép mở bằng ca gốc khi attempt thực tế thuộc ca dự phòng của ca đó.
+      examSchedule: {
+        OR: [
+          { id: scheduleId },
+          { makeupOfScheduleId: scheduleId },
+        ],
+      },
+    },
     select: {
       id: true,
       status: true,
@@ -416,6 +435,13 @@ export async function findAttemptResult(attemptId: string, scheduleId: string, s
           resultReleaseAt: true,
           resultsPublishedAt: true,
           reviewPolicy: true,
+          makeupOfSchedule: {
+            select: {
+              resultReleaseMode: true,
+              resultReleaseAt: true,
+              resultsPublishedAt: true,
+            },
+          },
         },
       },
       scoreAdjustments: {

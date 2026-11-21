@@ -120,20 +120,22 @@ export function useTakeExam({
     if (expirationHandledRef.current) return
     expirationHandledRef.current = true
 
-    try {
-      await saveAnswersToServer()
-    } catch {
-      // Continue to submit after timeout even if the final autosave fails.
-    }
-
-    try {
-      await submitExamApi({ scheduleId, attemptId })
-    } catch {
-      // The backend timeout job may have already finalized this attempt.
-    }
-
+    // Kết thúc UI ngay tại deadline; việc lưu/chốt ở server chạy tiếp nền.
     setPhase('EXPIRED')
     onTimeExpired?.()
+
+    void (async () => {
+      try {
+        await saveAnswersToServer()
+      } catch {
+        // Continue to submit after timeout even if the final autosave fails.
+      }
+      try {
+        await submitExamApi({ scheduleId, attemptId })
+      } catch {
+        // The backend timeout job may have already finalized this attempt.
+      }
+    })()
   }, [attemptId, onTimeExpired, saveAnswersToServer, scheduleId, submitExamApi])
 
   useEffect(() => {

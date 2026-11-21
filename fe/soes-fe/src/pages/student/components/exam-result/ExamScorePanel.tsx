@@ -5,7 +5,7 @@ import type { AttemptResult } from '../../api/student-take-exam.api'
 const pendingMessages: Record<AttemptResult['reason'], string> = {
   AVAILABLE: '',
   GRADING: 'Bài làm đang được chấm. Điểm sẽ hiển thị khi hoàn tất.',
-  PENDING_RELEASE: 'Điểm chưa được công bố theo cấu hình của ca thi.',
+  PENDING_RELEASE: 'Điểm chưa được công bố. Giảng viên sẽ công bố sau.',
   NEVER: 'Ca thi này không công bố điểm cho sinh viên.',
 }
 
@@ -23,12 +23,9 @@ function formatDateTime(value: string | null) {
 
 export default function ExamScorePanel({ result }: { result: AttemptResult }) {
   if (!result.available) {
-    const releaseAt = result.reason === 'PENDING_RELEASE' && result.releaseMode === 'SCHEDULED'
-      ? formatDateTime(result.releaseAt)
-      : null
     return (
       <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-        {releaseAt ? `Điểm sẽ được công bố lúc ${releaseAt}.` : pendingMessages[result.reason]}
+        {pendingMessages[result.reason]}
       </div>
     )
   }

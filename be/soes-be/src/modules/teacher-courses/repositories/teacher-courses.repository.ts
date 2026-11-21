@@ -223,7 +223,12 @@ export async function getCourseGradebook(
       orderBy: { student: { studentCode: 'asc' } },
     }),
     prisma.examSchedule.findMany({
-      where: { scheduleCourses: { some: { courseOfferingId } }, status: { not: 'CANCELLED' } },
+      where: {
+        scheduleCourses: { some: { courseOfferingId } },
+        status: { not: 'CANCELLED' },
+        // Ca dự phòng thay thế ca gốc, không phải một cột điểm độc lập.
+        makeupOfScheduleId: null,
+      },
       select: {
         id: true, title: true, resultsPublishedAt: true,
         exam: { select: { type: true, totalPoints: true } },
@@ -237,7 +242,13 @@ export async function getCourseGradebook(
       courseOfferingId, studentId: { in: studentIds },
       status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] },
     },
-    select: { studentId: true, examScheduleId: true, totalScore: true, attemptNo: true },
+        select: {
+          studentId: true,
+          examScheduleId: true,
+          totalScore: true,
+          attemptNo: true,
+          examSchedule: { select: { makeupOfScheduleId: true } },
+        },
     orderBy: { attemptNo: 'desc' },
   }) : []
   return { total, enrollments, schedules, attempts }

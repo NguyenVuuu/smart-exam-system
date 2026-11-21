@@ -73,7 +73,6 @@ export default function FinalExamScheduleFields({
   distributionMode,
   randomQuestionCount,
   releaseMode,
-  releaseAt,
   allowStudentReview,
   enableTabLock,
   requireFullscreen,
@@ -100,7 +99,6 @@ export default function FinalExamScheduleFields({
   onDistributionModeChange,
   onRandomQuestionCountChange,
   onReleaseModeChange,
-  onReleaseAtChange,
   onAllowStudentReviewChange,
   onEnableTabLockChange,
   onRequireFullscreenChange,
@@ -169,11 +167,6 @@ export default function FinalExamScheduleFields({
       <AdminField label="Công bố kết quả">
         <AdminSelect value={releaseMode} onChange={onReleaseModeChange} options={releaseOptions} />
       </AdminField>
-      {releaseMode === 'SCHEDULED' && (
-        <AdminField label="Thời gian công bố kết quả" error={fieldErrors.releaseAt}>
-          <AdminInput type="datetime-local" value={releaseAt} onChange={(event) => onReleaseAtChange(event.target.value)} />
-        </AdminField>
-      )}
 
       <ScheduleRulesPanel
         allowStudentReview={allowStudentReview}

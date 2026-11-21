@@ -181,6 +181,7 @@ function TeacherExamDetailContent({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
+  const [makeupSubmissions, setMakeupSubmissions] = useState<ExamSubmission[]>([]);
   const [editingSession, setEditingSession] = useState<ExamSchedule | null>(
     null,
   );
@@ -209,18 +210,16 @@ function TeacherExamDetailContent({
 
   const resultReleaseText =
     resultReleaseMode === "IMMEDIATE"
-      ? "Sinh viên thấy điểm ngay sau khi nộp bài"
-      : resultReleaseMode === "SCHEDULED"
-        ? `Tự động công bố điểm lúc ${resultReleaseAt}`
-        : isResultsPublished
-          ? "Đã công bố điểm thủ công cho sinh viên"
-          : "Đang ẩn điểm, giảng viên sẽ công bố sau";
+      ? "Hiện điểm ngay sau khi nộp bài (tự động chốt điểm)"
+      : isResultsPublished
+        ? "Đã công bố điểm cho sinh viên"
+        : "Đang ẩn điểm, đợi giảng viên chốt";
 
   const changeResultReleaseMode = (mode: ResultReleaseMode) => {
     void submissionData
       .release({
         mode,
-        releaseAt: mode === "SCHEDULED" ? resultReleaseAt : "",
+        releaseAt: "",
         published: mode === "IMMEDIATE",
       })
       .catch(() => toast.error("Không thể cập nhật cấu hình công bố điểm."));
@@ -270,6 +269,15 @@ function TeacherExamDetailContent({
     }
   };
 
+  const openMakeupModal = async () => {
+    try {
+      setMakeupSubmissions(await submissionData.loadAllSubmissions());
+      setIsMakeupModalOpen(true);
+    } catch {
+      toast.error("Không thể tải đầy đủ danh sách sinh viên.");
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-800">
       <TeacherSidebar />
@@ -278,7 +286,7 @@ function TeacherExamDetailContent({
         <main className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-7xl space-y-6">
             <ExamDetailBackButton
-              onBack={() => navigate("/teacher/exams")}
+              onBack={() => navigate(`/teacher/courses/${courseOfferingId}?tab=exams`)}
               label={
                 isCourseSubmissionView
                   ? "Quay lại danh sách bài thi"
@@ -364,7 +372,7 @@ function TeacherExamDetailContent({
                 if (targetSession) setCancellingSession(targetSession);
               }}
               onChangeResultReleaseMode={changeResultReleaseMode}
-              onOpenMakeupModal={isCourseSubmissionView && selectedSessionClosed ? () => setIsMakeupModalOpen(true) : undefined}
+              onOpenMakeupModal={isCourseSubmissionView && selectedSessionClosed ? () => void openMakeupModal() : undefined}
               onViewSubmission={setViewingSubmission}
               onViewViolations={(submission) =>
                 void openSubmissionViolations(submission)
@@ -391,7 +399,7 @@ function TeacherExamDetailContent({
         onClosePreview={() => setIsPreviewOpen(false)}
         isMakeupModalOpen={isMakeupModalOpen}
         onCloseMakeupModal={() => setIsMakeupModalOpen(false)}
-        submissions={submissionData.items}
+        submissions={makeupSubmissions}
         selectedSession={selectedSession}
         examDefaults={examDefaults}
         onRefresh={onRefresh}

@@ -130,7 +130,6 @@ export default function TeacherLiveProctorPage() {
     debouncedViolationSearch,
     selectedViolationStudentId,
     selectedViolationType,
-    refreshVersion,
   ].join(':')
   const loading = Boolean(scheduleId) && loadedRequestKey !== requestKey
 
@@ -167,7 +166,7 @@ export default function TeacherLiveProctorPage() {
     return () => {
       active = false
     }
-  }, [debouncedViolationSearch, requestKey, scheduleId, selectedViolationStudentId, selectedViolationType, violationPage])
+  }, [debouncedViolationSearch, refreshVersion, requestKey, scheduleId, selectedViolationStudentId, selectedViolationType, violationPage])
 
   const handleReviewViolation = useCallback(async (
     violationId: string,

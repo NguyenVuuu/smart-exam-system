@@ -1,5 +1,5 @@
 import { AlertTriangle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Eye, HelpCircle, MessageSquare, RefreshCw, ShieldAlert, Wrench } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import AppBadge from "../../../../components/common/AppBadge";
 import AppSelect from "../../../../components/common/AppSelect";
@@ -344,7 +344,6 @@ export function ExamSubmissionsTab({
   onPrepareFinalize,
   onFinalizeAll,
   pendingFinalizeCount,
-  hasPendingMakeup = false,
   makeupSessionStudents,
   makeupSession,
   onOpenMakeupModal,
@@ -371,7 +370,7 @@ export function ExamSubmissionsTab({
   onViewViolations: (submission: ExamSubmission) => void;
   violationsByStudentId?: Record<string, Array<{ id: string; evidenceImageUrl: string }>>;
   onFinalizeOne: (submission: ExamSubmission, score: number, reason?: string, adjustmentType?: string, evidenceUrls?: string[], violationIds?: string[]) => Promise<void>;
-  onPrepareFinalize: (scoreOverrides: Record<string, string>) => Promise<Array<{
+  onPrepareFinalize: (scoreOverrides: Record<string, string>, excludedStudentIds?: string[]) => Promise<Array<{
     attemptId: string;
     studentCode: string;
     studentName: string;
@@ -382,6 +381,7 @@ export function ExamSubmissionsTab({
   }>>;
   onFinalizeAll: (
     items: Array<{ attemptId: string; score: number; reason?: string }>,
+    excludedStudentIds?: string[],
   ) => Promise<number>;
   pendingFinalizeCount: number;
   /** true nếu đang có ca thi dự phòng chưa kết thúc — block chốt điểm */
@@ -411,6 +411,13 @@ export function ExamSubmissionsTab({
   const [showMakeupStudents, setShowMakeupStudents] = useState(false);
   // Tổng số bài chưa chốt trong toàn ca (từ API, không phải trang hiện tại)
   const [totalPendingInCa, setTotalPendingInCa] = useState(pendingFinalizeCount);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!makeupSession) return;
+    const intervalId = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(intervalId);
+  }, [makeupSession]);
 
   // Sync khi pendingFinalizeCount thay đổi (lần đầu load hoặc sau chốt)
   useEffect(() => {
@@ -469,7 +476,22 @@ export function ExamSubmissionsTab({
     return Math.abs(score - auto) > 0.001;
   };
 
+  const makeupTargetIds = useMemo(
+    () => new Set((makeupSessionStudents ?? []).map((student) => student.id)),
+    [makeupSessionStudents],
+  );
+  const makeupIsBlocking = Boolean(
+    makeupSession &&
+    makeupSession.status !== "CANCELLED" &&
+    new Date(makeupSession.endTime).getTime() > now,
+  );
+  const isMakeupTarget = (submission: ExamSubmission) => makeupIsBlocking && makeupTargetIds.has(submission.studentId);
+
   const handleFinalizeOne = async (submission: ExamSubmission) => {
+    if (isMakeupTarget(submission)) {
+      toast.info("Sinh viên này được phép thi ca dự phòng; chỉ chốt điểm ở ca dự phòng.");
+      return;
+    }
     if (!ensureViolationViewed(submission)) return;
     const score = parsedScore(submission);
     if (!Number.isFinite(score)) {
@@ -486,8 +508,9 @@ export function ExamSubmissionsTab({
     try {
       await onFinalizeOne(submission, score);
       toast.success(`Đã chốt điểm ${score} cho ${submission.studentName}.`);
-    } catch {
-      toast.error("Không thể chốt điểm. Kiểm tra lại các bài có vi phạm chưa mở xem.");
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || "Không thể chốt điểm.";
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -500,8 +523,9 @@ export function ExamSubmissionsTab({
       await onFinalizeOne(reasonModal.submission, reasonModal.score, reason, adjustmentType, evidenceUrls, violationIds);
       toast.success("Đã chốt điểm.");
       setReasonModal(null);
-    } catch {
-      toast.error("Không thể chốt điểm.");
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || "Không thể chốt điểm.";
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -696,7 +720,7 @@ export function ExamSubmissionsTab({
           type="number"
           min={0}
           step={0.01}
-          disabled={s.status === "PUBLISHED"}
+          disabled={s.status === "PUBLISHED" || isMakeupTarget(s)}
           value={scores[s.attemptId] ?? ""}
           onChange={(event) =>
             setScores((current) => ({
@@ -773,9 +797,11 @@ export function ExamSubmissionsTab({
             <button
               type="button"
               onClick={() => void handleFinalizeOne(submission)}
-              disabled={saving || submission.status === "PUBLISHED"}
+              disabled={saving || submission.status === "PUBLISHED" || isMakeupTarget(submission)}
               title={
-                isScoreChanged(submission, parsedScore(submission))
+                isMakeupTarget(submission)
+                  ? "Sinh viên sẽ thi ở ca dự phòng"
+                  : isScoreChanged(submission, parsedScore(submission))
                   ? "Chốt điểm (đã chỉnh sửa — cần lý do)"
                   : "Chốt điểm"
               }
@@ -868,8 +894,7 @@ export function ExamSubmissionsTab({
               <button
                 type="button"
                 onClick={() => void handleFinalizeAll()}
-                disabled={saving || preparing || pendingFinalizeCount === 0 || hasPendingMakeup}
-                title={hasPendingMakeup ? "Ca thi dự phòng chưa kết thúc — không thể chốt điểm" : undefined}
+                disabled={saving || preparing || pendingFinalizeCount === 0 || makeupIsBlocking}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <CheckCircle2 size={17} />
@@ -879,7 +904,7 @@ export function ExamSubmissionsTab({
           </div>
 
           {/* Banner cảnh báo ca dự phòng chưa kết thúc */}
-          {hasPendingMakeup && (
+          {makeupIsBlocking && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 space-y-3">
               <div className="flex items-start gap-3">
                 <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />

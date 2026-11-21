@@ -637,19 +637,29 @@ export function finalizeScores(input: {
 }) {
   return prisma.$transaction(async (tx) => {
     const attemptIds = input.items.map((item) => item.attemptId)
+
     const attempts = await tx.examAttempt.findMany({
       where: {
         id: { in: attemptIds },
-        examSchedule: { OR: [{ id: input.scheduleId }, { makeupOfScheduleId: input.scheduleId }], examId: input.examId, ...gradingAccess(input.teacherId) },
+        examSchedule: {
+          OR: [
+            { id: input.scheduleId },
+            { makeupOfScheduleId: input.scheduleId },
+            { makeupSchedules: { some: { id: input.scheduleId } } },
+          ],
+          ...gradingAccess(input.teacherId),
+        },
         courseOffering: { teacherId: input.teacherId },
         status: { in: ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADING', 'GRADED'] },
       },
       select: {
         id: true,
+        studentId: true,
+        courseOfferingId: true,
+        examSchedule: { select: { id: true, makeupOfScheduleId: true } },
         totalScore: true,
         autoScore: true,
         manualScore: true,
-        courseOfferingId: true,
         student: { select: { userId: true } },
         _count: { select: { violations: true } },
         violationsViewedAt: true,
@@ -657,9 +667,34 @@ export function finalizeScores(input: {
     })
     if (attempts.length !== attemptIds.length) return null
 
-    const blocked = attempts.filter((attempt) => attempt._count.violations > 0 && !attempt.violationsViewedAt)
-    if (blocked.length) {
-      return { blockedAttemptIds: blocked.map((attempt) => attempt.id), requiresReason: [], updated: [] }
+    // Sinh viên đã được cấp quyền ở ca dự phòng không được chốt lại điểm ca gốc.
+    // Giữ kiểm tra này ở repository để không thể bypass bằng cách gọi API trực tiếp.
+    const makeupSchedules = await tx.examSchedule.findMany({
+      where: { makeupOfScheduleId: input.scheduleId, status: { not: 'CANCELLED' } },
+      select: { endTime: true, targetStudents: { select: { studentId: true } } },
+    })
+    const makeupStudentIds = new Set(
+      makeupSchedules
+        .filter((schedule) => schedule.endTime > new Date())
+        .flatMap((schedule) => schedule.targetStudents.map((target) => target.studentId)),
+    )
+    const blockedMakeupAttemptIds = attempts
+      .filter((attempt) => !attempt.examSchedule.makeupOfScheduleId && makeupStudentIds.has(attempt.studentId))
+      .map((attempt) => attempt.id)
+    if (blockedMakeupAttemptIds.length > 0) {
+      return { blockedAttemptIds: [], blockedMakeupAttemptIds, requiresReason: [], updated: [] }
+    }
+
+    // Tự động đánh dấu violationsViewedAt cho các bài đang được chốt nếu chưa xem
+    const unviewedViolationAttempts = attempts.filter((attempt) => attempt._count.violations > 0 && !attempt.violationsViewedAt)
+    if (unviewedViolationAttempts.length > 0) {
+      await tx.examAttempt.updateMany({
+        where: { id: { in: unviewedViolationAttempts.map((a) => a.id) } },
+        data: {
+          violationsViewedAt: new Date(),
+          violationsViewedById: input.userId,
+        },
+      })
     }
 
     // Kiểm tra: nếu điểm chốt khác điểm hệ thống thì phải có lý do
@@ -673,7 +708,26 @@ export function finalizeScores(input: {
       })
       .map((attempt) => attempt.id)
     if (requiresReason.length) {
-      return { blockedAttemptIds: [], requiresReason, updated: [] }
+      return { blockedAttemptIds: [], blockedMakeupAttemptIds: [], requiresReason, updated: [] }
+    }
+
+    // Nếu là ca dự phòng: tìm attempt PUBLISHED của ca gốc để ghi đè
+    const makeupAttempts = attempts.filter((attempt) => Boolean(attempt.examSchedule.makeupOfScheduleId))
+    let originalAttemptsByStudentId = new Map<string, string>() // studentId → original attemptId
+    if (makeupAttempts.length > 0) {
+      const sourceScheduleIds = [...new Set(makeupAttempts.map((attempt) => attempt.examSchedule.makeupOfScheduleId!))]
+      const studentIds = attempts.map((a) => a.studentId)
+      const originalAttempts = await tx.examAttempt.findMany({
+        where: {
+          examScheduleId: { in: sourceScheduleIds },
+          studentId: { in: studentIds },
+          status: 'PUBLISHED',
+        },
+        select: { id: true, studentId: true, totalScore: true },
+      })
+      for (const orig of originalAttempts) {
+        originalAttemptsByStudentId.set(orig.studentId, orig.id)
+      }
     }
 
     const updated = []
@@ -696,9 +750,34 @@ export function finalizeScores(input: {
           id: true,
           totalScore: true,
           courseOfferingId: true,
+          examSchedule: { select: { id: true } },
           student: { select: { userId: true } },
         },
       }))
+
+      // Nếu ca dự phòng: ghi đè attempt PUBLISHED của ca gốc (đánh dấu superseded)
+      const originalAttemptId = originalAttemptsByStudentId.get(attempt.studentId)
+      if (originalAttemptId) {
+        await tx.examAttempt.update({
+          where: { id: originalAttemptId },
+          data: {
+            status: 'GRADED', // Đưa về GRADED để không hiển thị là điểm chính thức
+            version: { increment: 1 },
+          },
+        })
+        await writeAuditLog(tx, {
+          userId: input.userId,
+          action: 'OVERRIDE_EXAM_SCORE',
+          entityType: 'ExamAttempt',
+          entityId: originalAttemptId,
+          metadata: {
+            reason: 'Ghi đè bởi ca thi dự phòng',
+            makeupAttemptId: attempt.id,
+            makeupScheduleId: input.scheduleId,
+            newScore: score,
+          },
+        })
+      }
 
       // Lưu ScoreAdjustment khi điểm thay đổi và có lý do
       if (scoreChanged && item.reason?.trim()) {
@@ -729,16 +808,21 @@ export function finalizeScores(input: {
           reason: item.reason ?? null,
           adjustmentType: item.adjustmentType ?? null,
           examScheduleId: input.scheduleId,
+          isMakeupSession: Boolean(attempt.examSchedule.makeupOfScheduleId),
         },
       })
     }
 
     await tx.examSchedule.update({
       where: { id: input.scheduleId },
-      data: { resultsPublishedAt: new Date(), resultReleaseMode: 'MANUAL' },
+      data: { resultsPublishedAt: new Date() },
+    })
+    await tx.examSchedule.updateMany({
+      where: { makeupOfScheduleId: input.scheduleId },
+      data: { resultsPublishedAt: new Date() },
     })
 
-    return { blockedAttemptIds: [], requiresReason: [], updated }
+    return { blockedAttemptIds: [], blockedMakeupAttemptIds: [], requiresReason: [], updated }
   })
 }
 
@@ -746,7 +830,7 @@ export function updateResultRelease(
   teacherId: string,
   examId: string,
   scheduleId: string,
-  data: { mode: 'IMMEDIATE' | 'MANUAL' | 'SCHEDULED'; releaseAt?: Date | null; published: boolean },
+  data: { mode: 'IMMEDIATE' | 'MANUAL'; releaseAt?: Date | null; published: boolean },
 ) {
   return prisma.$transaction(async (tx) => {
     const schedule = await tx.examSchedule.findFirst({
@@ -757,12 +841,30 @@ export function updateResultRelease(
     await tx.examSchedule.update({
       where: { id: scheduleId },
       data: {
-        resultReleaseMode: data.mode, resultReleaseAt: data.mode === 'SCHEDULED' ? data.releaseAt : null,
+        resultReleaseMode: data.mode,
         resultsPublishedAt,
       },
     })
+    await tx.examSchedule.updateMany({
+      where: { makeupOfScheduleId: scheduleId },
+      data: { resultsPublishedAt },
+    })
     await tx.examAttempt.updateMany({
-      where: { examScheduleId: scheduleId, status: resultsPublishedAt ? 'GRADED' : 'PUBLISHED' },
+      where: {
+        examScheduleId: scheduleId,
+        status: resultsPublishedAt ? { in: ['GRADED', 'AUTO_SUBMITTED'] } : 'PUBLISHED',
+        // Không hồi sinh điểm ca gốc đã được thay thế bởi một bài dự phòng đã công bố.
+        ...(resultsPublishedAt ? {
+          student: {
+            examAttempts: {
+              none: {
+                status: 'PUBLISHED',
+                examSchedule: { makeupOfScheduleId: scheduleId },
+              },
+            },
+          },
+        } : {}),
+      },
       data: { status: resultsPublishedAt ? 'PUBLISHED' : 'GRADED' },
     })
     return tx.examSchedule.findUniqueOrThrow({
@@ -786,12 +888,16 @@ export async function listScheduleStudentUserIds(scheduleId: string) {
 
 export async function listScheduleStudentNotificationTargets(scheduleId: string) {
   const rows = await prisma.examAttempt.findMany({
-    where: { examScheduleId: scheduleId, status: 'PUBLISHED' },
-    select: { id: true, courseOfferingId: true, student: { select: { userId: true } } },
+    where: {
+      status: 'PUBLISHED',
+      examSchedule: { OR: [{ id: scheduleId }, { makeupOfScheduleId: scheduleId }] },
+    },
+    select: { id: true, courseOfferingId: true, examScheduleId: true, student: { select: { userId: true } } },
   })
   return rows.map((row) => ({
     attemptId: row.id,
     courseOfferingId: row.courseOfferingId,
+    scheduleId: row.examScheduleId,
     userId: row.student.userId,
   }))
 }
