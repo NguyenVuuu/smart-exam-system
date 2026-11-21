@@ -52,7 +52,7 @@ export const bulkFinalizeScoresSchema = z.object({
   })).min(1),
 })
 export const resultReleaseSchema = z.object({
-  mode: z.enum(['IMMEDIATE', 'MANUAL', 'SCHEDULED']),
+  mode: z.enum(['IMMEDIATE', 'MANUAL']),
   releaseAt: z.coerce.date().optional().nullable(),
   published: z.boolean().default(false),
 })

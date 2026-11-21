@@ -73,13 +73,16 @@ export async function getExamSchedules(studentId: string, query: StudentExamSche
 
 export async function getScores(studentId: string, query: StudentScoresQuery) {
   const attempts = await repo.listReleasedScores(studentId, query)
-  const seenSchedules = new Set<string>()
-  const items = attempts
-    .filter((attempt) => {
-      if (seenSchedules.has(attempt.examSchedule.id)) return false
-      seenSchedules.add(attempt.examSchedule.id)
-      return true
-    })
+  const selectedByOriginalSchedule = new Map<string, typeof attempts[number]>()
+  for (const attempt of attempts) {
+    const originalScheduleId = attempt.examSchedule.makeupOfScheduleId ?? attempt.examSchedule.id
+    const current = selectedByOriginalSchedule.get(originalScheduleId)
+    const isMakeup = Boolean(attempt.examSchedule.makeupOfScheduleId)
+    if (!current || (isMakeup && !current.examSchedule.makeupOfScheduleId)) {
+      selectedByOriginalSchedule.set(originalScheduleId, attempt)
+    }
+  }
+  const items = [...selectedByOriginalSchedule.values()]
     .map((attempt) => ({
       examId: attempt.examSchedule.id,
       attemptId: attempt.id,

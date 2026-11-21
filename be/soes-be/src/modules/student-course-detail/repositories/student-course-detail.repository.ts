@@ -491,6 +491,7 @@ export class StudentCourseDetailRepository {
         examSchedule: {
           select: {
             id: true,
+            makeupOfScheduleId: true,
             title: true,
             resultsPublishedAt: true,
             publishedAt: true,
@@ -501,13 +502,16 @@ export class StudentCourseDetailRepository {
       orderBy: { updatedAt: 'desc' },
     })
 
-    const seenSchedules = new Set<string>()
-    const rawScores = attempts
-      .filter((attempt) => {
-        if (seenSchedules.has(attempt.examSchedule.id)) return false
-        seenSchedules.add(attempt.examSchedule.id)
-        return true
-      })
+    const selectedByOriginalSchedule = new Map<string, typeof attempts[number]>()
+    for (const attempt of attempts) {
+      const originalScheduleId = attempt.examSchedule.makeupOfScheduleId ?? attempt.examSchedule.id
+      const current = selectedByOriginalSchedule.get(originalScheduleId)
+      const isMakeup = Boolean(attempt.examSchedule.makeupOfScheduleId)
+      if (!current || (isMakeup && !current.examSchedule.makeupOfScheduleId)) {
+        selectedByOriginalSchedule.set(originalScheduleId, attempt)
+      }
+    }
+    const rawScores = [...selectedByOriginalSchedule.values()]
       .map((attempt): ScoreRow => {
         const schedule = attempt.examSchedule
         return {

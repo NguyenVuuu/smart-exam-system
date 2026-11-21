@@ -46,14 +46,6 @@ describe('resolveAttemptResultReason', () => {
       'AVAILABLE',
     )
   })
-
-  it('releases a scheduled result only after its release time', () => {
-    const releaseAt = new Date('2026-09-24T10:00:00.000Z')
-    const input = { ...baseInput, resultReleaseMode: 'SCHEDULED' as const, resultReleaseAt: releaseAt }
-
-    assert.equal(resolveAttemptResultReason(input, new Date('2026-09-24T09:59:59.000Z')), 'PENDING_RELEASE')
-    assert.equal(resolveAttemptResultReason(input, releaseAt), 'AVAILABLE')
-  })
 })
 
 describe('resolveAttemptReviewAccess', () => {
