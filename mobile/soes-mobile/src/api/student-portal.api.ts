@@ -32,6 +32,27 @@ export async function markAllNotificationsRead(): Promise<void> {
   await apiClient.patch('/student/notifications/read-all')
 }
 
+export interface StudentExamSchedule {
+  id: string; title: string; courseOfferingId: string; courseCode: string
+  subjectCode: string; subjectName: string; teacherName: string
+  startTime: string; endTime: string; durationMinutes: number; publishedAt: string
+  attemptId: string | null
+  status: 'OPEN' | 'UPCOMING' | 'COMPLETED' | 'EXPIRED'
+  canStart: boolean; canResume: boolean; requiresPassword: boolean
+  enableWebcam: boolean; enableScreenMonitoring: boolean
+}
+
+export async function getStudentExamSchedules(params: {
+  page?: number; pageSize?: number
+  status?: 'ALL' | 'OPEN' | 'UPCOMING' | 'COMPLETED' | 'EXPIRED'
+  semesterId?: string; keyword?: string
+} = {}): Promise<{ items: StudentExamSchedule[]; pagination: Pagination }> {
+  const { data } = await apiClient.get<ApiResponse<{ items: StudentExamSchedule[]; pagination: Pagination }>>(
+    '/student/exam-schedules', { params },
+  )
+  return data.data
+}
+
 // ── Scores ────────────────────────────────────────────────────────────────────
 
 export interface StudentScore {
