@@ -297,6 +297,7 @@ export async function createViolation(input: CreateViolationInput) {
       durationSeconds: true,
       evidences: {
         select: {
+          id: true,
           objectName: true,
           storageProvider: true,
         },
@@ -332,6 +333,7 @@ export async function createViolation(input: CreateViolationInput) {
         durationSeconds: true,
         evidences: {
           select: {
+            id: true,
             objectName: true,
             storageProvider: true,
           },
@@ -372,6 +374,7 @@ export async function createViolation(input: CreateViolationInput) {
       durationSeconds: true,
       evidences: {
         select: {
+          id: true,
           objectName: true,
           storageProvider: true,
         },
@@ -387,6 +390,7 @@ export async function createViolation(input: CreateViolationInput) {
     endedAt: violation.endedAt,
     durationSeconds: violation.durationSeconds,
     evidenceUrls: violation.evidences.map((evidence) => evidence.objectName),
+    evidenceIds: violation.evidences.map((evidence) => evidence.id),
   }
 }
 

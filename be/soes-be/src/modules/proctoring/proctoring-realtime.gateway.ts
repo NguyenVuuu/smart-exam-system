@@ -66,7 +66,14 @@ async function configureRedisAdapter(server: Server) {
   try {
     const pubClient = redis.duplicate()
     const subClient = redis.duplicate()
-    await Promise.all([pubClient.connect(), subClient.connect()])
+    const waitUntilReady = (client: typeof pubClient) => {
+      if (client.status === 'ready') return Promise.resolve()
+      return new Promise<void>((resolve, reject) => {
+        client.once('ready', resolve)
+        client.once('error', reject)
+      })
+    }
+    await Promise.all([waitUntilReady(pubClient), waitUntilReady(subClient)])
     server.adapter(createAdapter(pubClient, subClient))
     logger.info('Socket.IO Redis adapter connected')
   } catch (error) {

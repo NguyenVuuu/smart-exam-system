@@ -77,9 +77,10 @@ function isAlreadySubmittedStatus(status: string) {
   return ALREADY_SUBMITTED_STATUSES.includes(status as typeof ALREADY_SUBMITTED_STATUSES[number])
 }
 
-function firstEvidenceUrl(evidences: Array<{ objectName: string; storageProvider?: string }>) {
+function firstEvidenceUrl(scheduleId: string, violationId: string, evidences: Array<{ id?: string; objectName: string; storageProvider?: string }>) {
   const firstEvidence = evidences[0]
   if (!firstEvidence) return Promise.resolve(null)
+  if (firstEvidence.id) return Promise.resolve(`/api/teacher/proctoring/schedules/${scheduleId}/violations/${violationId}/evidence/${firstEvidence.id}`)
   return firstEvidence.storageProvider === 'LOCAL'
     ? Promise.resolve(getLocalViolationEvidenceUrl(firstEvidence.objectName))
     : getViolationEvidenceUrl(firstEvidence.objectName)
@@ -99,12 +100,12 @@ async function emitViolationCreatedFromAttempt(
     detectedAt: Date
     endedAt?: Date | null
     durationSeconds?: number | null
-    evidences?: Array<{ objectName: string; storageProvider?: string }>
+    evidences?: Array<{ id?: string; objectName: string; storageProvider?: string }>
     metadata?: Prisma.InputJsonObject
   },
   note?: string | null,
 ) {
-  const evidenceImageUrl = await firstEvidenceUrl(violation.evidences ?? []).catch(() => null)
+  const evidenceImageUrl = await firstEvidenceUrl(scheduleId, violation.id, violation.evidences ?? []).catch(() => null)
   emitProctoringEvent(scheduleId, 'violation:created', {
     id: violation.id,
     scheduleId,
@@ -1162,7 +1163,8 @@ export async function recordViolation(
     {
       ...violation,
       metadata: input.metadata,
-      evidences: violation.evidenceUrls.map((objectName) => ({
+      evidences: violation.evidenceUrls.map((objectName, index) => ({
+        id: violation.evidenceIds[index],
         objectName,
         storageProvider: evidenceStorageProvider,
       })),

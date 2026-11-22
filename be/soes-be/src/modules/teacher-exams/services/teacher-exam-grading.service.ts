@@ -1,7 +1,7 @@
 import type { ScreenShareStatus, WebcamStatus } from '@prisma/client'
 import { ConflictError, NotFoundError, ValidationError } from '../../../errors/AppError'
 import { examConfig, minioConfig } from '../../../config'
-import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
+import { getLocalViolationEvidenceUrl, getViolationEvidenceObject, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
 import { logger } from '../../../lib/logger'
 import { toPagination } from '../../../utils/pagination'
 import { computeScheduleStatus } from '../../exam-schedules/mappers/exam-schedule.mapper'
@@ -70,19 +70,7 @@ export async function listViolations(teacherId: string, examId: string, schedule
     const firstEvidence = row.evidences[0] ?? null
     let evidenceImageUrl: string | null = null
 
-    if (firstEvidence) {
-      try {
-        evidenceImageUrl = firstEvidence.storageProvider === 'LOCAL'
-          ? getLocalViolationEvidenceUrl(firstEvidence.objectName)
-          : await getViolationEvidenceUrl(firstEvidence.objectName)
-      } catch (error) {
-        logger.error('Failed to create violation evidence URL', {
-          violationId: row.id,
-          objectName: firstEvidence.objectName,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-    }
+    if (firstEvidence) evidenceImageUrl = `/api/teacher/proctoring/schedules/${scheduleId}/violations/${row.id}/evidence/${firstEvidence.id}`
 
     return {
       id: row.id, scheduleId, attemptId: row.attemptId, studentId: row.attempt.studentId,
@@ -180,6 +168,15 @@ export async function listLiveProctoringViolations(teacherId: string, scheduleId
   const schedule = await repo.findViolationScheduleAccessBySchedule(teacherId, scheduleId)
   if (!schedule) throw new NotFoundError('Exam schedule not found')
   return listViolations(teacherId, schedule.examId, scheduleId, query)
+}
+
+export async function getViolationEvidence(teacherId: string, scheduleId: string, violationId: string, evidenceId: string) {
+  const evidence = await repo.findViolationEvidenceForTeacher(teacherId, scheduleId, violationId, evidenceId)
+  if (!evidence) throw new NotFoundError('Evidence not found')
+  if (evidence.storageProvider === 'LOCAL') {
+    return { storageProvider: 'LOCAL' as const, objectName: evidence.objectName, contentType: evidence.contentType, fileName: evidence.fileName }
+  }
+  return { storageProvider: 'MINIO' as const, stream: await getViolationEvidenceObject(evidence.objectName), contentType: evidence.contentType, fileName: evidence.fileName }
 }
 
 export async function requestLiveCamera(teacherId: string, attemptId: string) {
