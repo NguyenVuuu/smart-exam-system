@@ -116,6 +116,11 @@ export async function getViolationEvidenceUrl(objectName: string): Promise<strin
   )
 }
 
+export async function getViolationEvidenceObject(objectName: string) {
+  await ensureEvidenceBucket()
+  return getClient().getObject(minioConfig.evidenceBucket, objectName)
+}
+
 export async function saveViolationEvidenceFilesLocal(input: {
   attemptId: string
   violationType: string

@@ -127,6 +127,20 @@ export const findViolationScheduleAccessBySchedule = (teacherId: string, schedul
     },
   })
 
+export const findViolationEvidenceForTeacher = (teacherId: string, scheduleId: string, violationId: string, evidenceId: string) =>
+  prisma.violationEvidence.findFirst({
+    where: {
+      id: evidenceId,
+      violation: {
+        id: violationId,
+        attempt: {
+          examSchedule: { id: scheduleId, ...violationAccess(teacherId) },
+        },
+      },
+    },
+    select: { id: true, objectName: true, storageProvider: true, contentType: true, fileName: true },
+  })
+
 export const findAttemptAccessForLiveProctoring = (teacherId: string, attemptId: string) =>
   prisma.examAttempt.findFirst({
     where: {
@@ -341,7 +355,7 @@ export function listViolations(
         evidences: {
           orderBy: { capturedAt: 'asc' },
           take: 1,
-          select: { objectName: true, storageProvider: true },
+          select: { id: true, objectName: true, storageProvider: true },
         },
         attempt: { include: { student: { include: { user: { select: { fullName: true } } } } } },
       },

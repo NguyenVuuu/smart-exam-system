@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express'
+import path from 'path'
 import { z } from 'zod'
 import { sendSuccess as send } from '../../../utils/httpResponse'
 import * as service from '../services/teacher-exams.service'
@@ -111,6 +112,17 @@ export const listLiveProctoringSessions = async (req: Request, res: Response) =>
 export const listLiveProctoringViolations = async (req: Request, res: Response) => {
   const { scheduleId } = scheduleOnlyParam.parse(req.params)
   send(res, await gradingService.listLiveProctoringViolations(req.user!.profileId, scheduleId, violationQuerySchema.parse(req.query)))
+}
+export const getViolationEvidence = async (req: Request, res: Response) => {
+  const params = z.object({ scheduleId: z.string().min(1), violationId: z.string().min(1), evidenceId: z.string().min(1) }).parse(req.params)
+  const evidence = await gradingService.getViolationEvidence(req.user!.profileId, params.scheduleId, params.violationId, params.evidenceId)
+  res.setHeader('Content-Type', evidence.contentType || 'image/jpeg')
+  res.setHeader('Content-Disposition', `inline; filename="${path.basename(evidence.fileName)}"`)
+  if (evidence.storageProvider === 'LOCAL') {
+    res.sendFile(path.resolve(process.cwd(), 'uploads', 'evidence', evidence.objectName))
+    return
+  }
+  evidence.stream.pipe(res)
 }
 export const requestLiveCamera = async (req: Request, res: Response) => {
   const { attemptId } = liveAttemptParam.parse(req.params)

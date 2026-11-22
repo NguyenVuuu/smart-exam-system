@@ -1,5 +1,6 @@
 import { CalendarClock, BookOpen, UsersRound } from 'lucide-react-native'
-import { StyleSheet, Text, View } from 'react-native'
+import { router } from 'expo-router'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { InvigilationAssignment } from '../../../types/teacher-invigilation.types'
 import { formatDateTime } from '../../../utils/date'
 import { StatusBadge } from '../../ui/StatusBadge'
@@ -7,12 +8,12 @@ import { StatusBadge } from '../../ui/StatusBadge'
 const labels = { SCHEDULED: 'Sắp tới', OPEN: 'Đang diễn ra', CLOSED: 'Đã kết thúc' }
 
 export function InvigilationCard({ assignment }: { assignment: InvigilationAssignment }) {
-  return <View style={styles.card}>
+  return <Pressable onPress={() => router.push(`/(app)/(teacher)/proctoring/${assignment.scheduleId}` as never)} style={styles.card} accessibilityRole="button">
     <View style={styles.heading}><Text style={styles.title}>{assignment.title}</Text><StatusBadge label={labels[assignment.status]} tone={assignment.status === 'OPEN' ? 'success' : 'neutral'} /></View>
     <View style={styles.row}><BookOpen size={16} color="#64748b" /><Text style={styles.meta}>{assignment.courseOffering.subjectName} · {assignment.courseOffering.code}</Text></View>
     <View style={styles.row}><CalendarClock size={16} color="#64748b" /><Text style={styles.meta}>{formatDateTime(assignment.startTime)} – {formatDateTime(assignment.endTime)}</Text></View>
     <View style={styles.row}><UsersRound size={16} color="#64748b" /><Text style={styles.meta}>{assignment.source === 'ASSIGNED' ? 'Được phân công coi thi' : 'Ca thi bạn tạo'}</Text></View>
-  </View>
+  </Pressable>
 }
 
 const styles = StyleSheet.create({
