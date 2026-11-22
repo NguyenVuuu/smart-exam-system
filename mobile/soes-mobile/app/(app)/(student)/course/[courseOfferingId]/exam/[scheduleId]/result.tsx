@@ -8,6 +8,7 @@ import {
   getAttemptStatus, getAttemptResult, listGradeAppeals, createGradeAppeal,
   type AttemptStatus, type AttemptResult, type GradeAppeal, type AttemptReviewItem,
 } from '../../../../../../../src/api/student-take-exam.api'
+import { getStudentScores } from '../../../../../../../src/api/student-portal.api'
 import StudentLayout from '../../../../../../../src/components/student/StudentLayout'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -128,12 +129,13 @@ function ReviewQuestion({ item }: { item: AttemptReviewItem }) {
 
 export default function ExamResultScreen() {
   const { isInitialized, isAuthenticated } = useRequireAuth()
-  const { scheduleId, attemptId: qAttemptId } = useLocalSearchParams<{
+  const { courseOfferingId, scheduleId, attemptId: qAttemptId } = useLocalSearchParams<{
     courseOfferingId: string; scheduleId: string; attemptId?: string
   }>()
 
   const [status, setStatus] = useState<AttemptStatus | null>(null)
   const [result, setResult] = useState<AttemptResult | null>(null)
+  const [fallbackPublishedScore, setFallbackPublishedScore] = useState<number | null>(null)
   const [appeals, setAppeals] = useState<GradeAppeal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -156,7 +158,12 @@ export default function ExamResultScreen() {
         getAttemptResult(scheduleId, attemptId),
         listGradeAppeals(scheduleId, attemptId),
       ])
-      setStatus(s); setResult(r); setAppeals(a)
+      let fallbackScore: number | null = null
+      if (!r.available && courseOfferingId) {
+        const scoreData = await getStudentScores({ courseOfferingId })
+        fallbackScore = scoreData.items.find((item) => item.attemptId === attemptId)?.score ?? null
+      }
+      setStatus(s); setResult(r); setFallbackPublishedScore(fallbackScore); setAppeals(a)
     } catch {
       setError('Không thể tải kết quả bài thi.')
     } finally {
@@ -195,6 +202,8 @@ export default function ExamResultScreen() {
   if (!isInitialized || !isAuthenticated) return null
 
   const statusCfg = status ? (STATUS_COLOR[status.status] ?? { bg: '#f1f5f9', color: '#475569' }) : null
+  const hasPublishedScore = Boolean(result?.available || fallbackPublishedScore !== null)
+  const displayedScore = fallbackPublishedScore ?? result?.score ?? null
 
   return (
     <StudentLayout activeRoute="scores">
@@ -240,20 +249,20 @@ export default function ExamResultScreen() {
                   <Text style={{ color: '#92400e', marginTop: 4 }}>Các câu trả lời đã lưu được giữ lại. Lý do: {status.forceSubmitReason || 'Xem thông báo để biết chi tiết.'}</Text>
                 </View>
               )}
-              {status.totalQuestionCount === 0 && (
+              {status.totalQuestionCount === 0 && fallbackPublishedScore === null && (
                 <View style={{ backgroundColor: '#fffbeb', borderRadius: 12, borderWidth: 1, borderColor: '#fde68a', padding: 14, marginBottom: 14 }}>
                   <Text style={{ color: '#92400e' }}>Lượt thi này không được ghi nhận câu hỏi nào. Hãy kiểm tra lại ca thi hoặc lượt thi đã chọn.</Text>
                 </View>
               )}
 
               {/* Score card */}
-              {status.totalQuestionCount === 0 ? null : result.available ? (
+              {hasPublishedScore ? (
                 <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: '#d1fae5', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } }}>
                   <Text style={{ fontSize: 12, color: '#64748b', fontWeight: '600', marginBottom: 4 }}>Điểm bài thi</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                    <Text style={{ fontSize: 40, fontWeight: '900', color: result.score !== null ? scoreColor(result.score) : '#94a3b8' }}>
-                      {result.score !== null ? fmtScore(result.score) : '—'}
-                      <Text style={{ fontSize: 20, color: '#94a3b8', fontWeight: '400' }}>/{result.maxScore}</Text>
+                    <Text style={{ fontSize: 40, fontWeight: '900', color: displayedScore !== null ? scoreColor(displayedScore) : '#94a3b8' }}>
+                      {displayedScore !== null ? fmtScore(displayedScore) : '—'}
+                      {(result.maxScore ?? 0) > 0 && <Text style={{ fontSize: 20, color: '#94a3b8', fontWeight: '400' }}>/{result.maxScore}</Text>}
                     </Text>
                     {result.scoreAdjustments.length > 0 && (
                       <TouchableOpacity onPress={() => setShowAdjModal(true)} style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#eff6ff', borderRadius: 8 }}>
