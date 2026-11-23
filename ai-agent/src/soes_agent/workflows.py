@@ -180,6 +180,8 @@ def create_workflow(model: ChatGoogleGenerativeAI | None, role: str):
                 "Trả lời như một cuộc trò chuyện liên tục: hiểu câu hỏi tiếp nối từ history, "
                 "phản hồi trực tiếp vào điều người dùng vừa hỏi, tránh lời dẫn và mẫu câu lặp lại. "
                 "Trả lời bằng tiếng Việt có dấu, format Markdown đẹp mắt (in đậm từ khóa, code block có ngôn ngữ, bảng nếu cần so sánh). "
+                "Định dạng văn bản: Dùng ký tự trực tiếp (ví dụ: → thay cho $\\rightarrow$, <= thay cho $\\le$, >= thay cho $\\ge$, != thay cho $\\neq$). "
+                "Tuyệt đối không dùng ký hiệu LaTeX toán học ($...$) trong văn bản giải thích lập trình. "
                 "Chỉ điền actions khi có bước học tập hoặc thao tác cụ thể liên quan trực tiếp tới câu hỏi. "
                 "Nếu người dùng chỉ chào hỏi hoặc câu hỏi lý thuyết thông thường, actions có thể là mảng rỗng []. "
                 "Giữ summary dưới 3500 ký tự, tối đa 5 actions và mỗi action dưới 500 ký tự. "

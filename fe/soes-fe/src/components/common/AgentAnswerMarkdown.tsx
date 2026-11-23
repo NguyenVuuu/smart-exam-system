@@ -2,7 +2,25 @@ import ReactMarkdown from 'react-markdown'
 
 // Older answers put numbered Markdown items on one line. Keep them readable when reopened.
 function formatAnswer(text: string) {
-  return text.replace(/\\"/g, '"')
+  return text
+    .replace(/\\"/g, '"')
+    .replace(/\$\\(?:right|longright)arrow\$/gi, '→')
+    .replace(/\\(?:right|longright)arrow\b/gi, '→')
+    .replace(/\$\\(?:left|longleft)arrow\$/gi, '←')
+    .replace(/\\(?:left|longleft)arrow\b/gi, '←')
+    .replace(/\$\\(?:Right|Longright)arrow\$/gi, '⇒')
+    .replace(/\\(?:Right|Longright)arrow\b/gi, '⇒')
+    .replace(/\$\\le\$/gi, '<=')
+    .replace(/\\le\b/gi, '<=')
+    .replace(/\$\\ge\$/gi, '>=')
+    .replace(/\\ge\b/gi, '>=')
+    .replace(/\$\\neq\$/gi, '!=')
+    .replace(/\\neq\b/gi, '!=')
+    .replace(/\$\\times\$/gi, '×')
+    .replace(/\\times\b/gi, '×')
+    .replace(/\$\\approx\$/gi, '≈')
+    .replace(/\\approx\b/gi, '≈')
+    .replace(/\$([a-zA-Z0-9_]{1,10})\$/g, '$1')
     .replace(/\s+(\d{1,2})\.\s+(?=\*\*)/g, (_match, number: string) => `${number === '1' ? '\n\n' : '\n'}${number}. `)
 }
 
