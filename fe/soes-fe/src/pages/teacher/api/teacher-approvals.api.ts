@@ -33,6 +33,23 @@ export interface ExamApprovalDetailDto extends ExamApprovalDto {
   snapshot: ExamReviewSnapshot
 }
 
+export interface ExamReviewHistoryItem {
+  id: string
+  version: number
+  status: 'WAITING_FOR_REVIEWERS' | 'PENDING' | 'APPROVED' | 'REVISION_REQUESTED'
+  submittedAt: string
+  decidedAt: string | null
+  snapshot: ExamReviewSnapshot
+  submittedBy: { id: string; fullName: string }
+  decision: {
+    type: 'APPROVE' | 'REQUEST_REVISION'
+    reason: string | null
+    questionFeedback: Array<{ questionId: string; order: number; title: string; note: string }> | null
+    createdAt: string
+    reviewer: { id: string; fullName: string }
+  } | null
+}
+
 export async function getPendingQuestionApprovals() {
   const response = await apiClient.get<ApiResponse<{ items: QuestionApprovalDto[] }>>('/teacher/question-approvals', {
     params: { status: 'PENDING', page: 1, pageSize: 100 },
@@ -52,10 +69,15 @@ export async function getExamApprovalDetail(id: string) {
   return response.data.data
 }
 
+export async function getExamReviewHistory(id: string) {
+  const response = await apiClient.get<ApiResponse<ExamReviewHistoryItem[]>>(`/teacher/exams/${id}/review-history`)
+  return response.data.data
+}
+
 const post = (path: string, data?: unknown) => apiClient.post(path, data)
 export const approveQuestion = (id: string) => post(`/teacher/question-approvals/${id}/approve`)
 export const rejectQuestion = (id: string, reason: string) => post(`/teacher/question-approvals/${id}/reject`, { reason })
 export const approveExam = (id: string) => post(`/teacher/exam-approvals/${id}/approve`)
 export interface ExamQuestionRevisionNote { questionId: string; note: string }
-export const rejectExam = (id: string, questionNotes: ExamQuestionRevisionNote[]) =>
-  post(`/teacher/exam-approvals/${id}/reject`, { questionNotes })
+export const rejectExam = (id: string, reason: string, questionNotes: ExamQuestionRevisionNote[]) =>
+  post(`/teacher/exam-approvals/${id}/reject`, { reason: reason.trim() || undefined, questionNotes })
