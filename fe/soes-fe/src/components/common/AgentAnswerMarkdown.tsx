@@ -21,7 +21,7 @@ function formatAnswer(text: string) {
     .replace(/\$\\approx\$/gi, '≈')
     .replace(/\\approx\b/gi, '≈')
     .replace(/\$([a-zA-Z0-9_]{1,10})\$/g, '$1')
-    .replace(/\s+(\d{1,2})\.\s+(?=\*\*)/g, (_match, number: string) => `${number === '1' ? '\n\n' : '\n'}${number}. `)
+    .replace(/\s+(\d{1,2})\.\s+(?=\*\*)/g, (_match, number: string) => `\n\n${number}. `)
 }
 
 export default function AgentAnswerMarkdown({ text }: { text: string }) {
@@ -35,7 +35,7 @@ export default function AgentAnswerMarkdown({ text }: { text: string }) {
         p: ({ children }) => <p className="mb-2 leading-relaxed last:mb-0">{children}</p>,
         strong: ({ children }) => <strong className="font-semibold text-slate-950">{children}</strong>,
         em: ({ children }) => <em className="italic text-slate-700">{children}</em>,
-        ol: ({ children }) => <ol className="my-2 list-decimal space-y-1.5 pl-5 marker:font-semibold marker:text-blue-600">{children}</ol>,
+        ol: ({ children, start }) => <ol start={start} className="my-2 list-decimal space-y-1.5 pl-5 marker:font-semibold marker:text-blue-600">{children}</ol>,
         ul: ({ children }) => <ul className="my-2 list-disc space-y-1 pl-5 marker:text-blue-600">{children}</ul>,
         li: ({ children }) => <li className="pl-1 leading-relaxed">{children}</li>,
         code: ({ children }) => <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.875em] text-blue-700">{children}</code>,
