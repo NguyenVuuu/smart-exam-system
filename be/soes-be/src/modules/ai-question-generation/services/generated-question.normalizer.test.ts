@@ -9,6 +9,11 @@ describe('generated-question.normalizer', () => {
       const escaped = 'In ra \\"YES\\" nếu đúng, ngược lại in ra \\"NO\\". Tham số \\$N\\$.'
       assert.equal(cleanEscapedText(escaped), 'In ra "YES" nếu đúng, ngược lại in ra "NO". Tham số $N$.')
     })
+
+    it('cleans LaTeX relational operators to clean Unicode symbols', () => {
+      const latex = 'Cho số nguyên $N$ (với $1 \\le N \\le 100$), phần tử $A[i] \\ge 0$.'
+      assert.equal(cleanEscapedText(latex), 'Cho số nguyên $N$ (với $1 ≤ N ≤ 100$), phần tử $A[i] ≥ 0$.')
+    })
   })
 
   describe('safeTruncate', () => {

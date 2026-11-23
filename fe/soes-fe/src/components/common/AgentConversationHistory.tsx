@@ -29,7 +29,7 @@ function usefulActions(summary: string, actions: string[]): string[] {
 }
 
 export default function AgentConversationHistory<TAnswer extends { summary: string; actions: string[]; caveat: string | null; evidenceIds?: string[]; sourceQuote?: string | null; sourceLocation?: string | null }>({
-  conversations, currentId, turns, onSelect, source, pendingMessage, chatMode = false,
+  conversations, currentId, turns, onSelect, source: _source, pendingMessage, chatMode = false,
 }: {
   conversations: AgentConversationSummary[]
   currentId: string

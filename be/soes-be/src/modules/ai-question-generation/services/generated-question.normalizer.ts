@@ -3,7 +3,14 @@ export function cleanEscapedText(text: string): string {
   return text
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
-    .replace(/\\\$/g, "$");
+    .replace(/\\\$/g, "$")
+    .replace(/\\(?:le|leq)\b/g, '≤')
+    .replace(/\\(?:ge|geq)\b/g, '≥')
+    .replace(/\\(?:ne|neq)\b/g, '≠')
+    .replace(/\\(?:times)\b/g, '×')
+    .replace(/\\(?:pm)\b/g, '±')
+    .replace(/\\(?:dots|ldots)\b/g, '...')
+    .replace(/\\(?:in)\b/g, '∈');
 }
 
 export function safeTruncate(text: string, maxLength = 200): string {
