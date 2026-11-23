@@ -110,10 +110,12 @@ async def generate_programming_practice(model: ChatGoogleGenerativeAI,
     except ValueError:
         full_source = ""
     query = request.instruction or request.material.title
+    web_text = ""
+    web_urls: list[str] = []
     with measure_stage("programming.retrieve"):
         if full_source and len(full_source.strip()) >= 300:
             material_source = await retrieve_material(full_source, query, title=request.material.title)
-            web_source, web_urls = "", []
+            web_source = ""
         else:
             (web_text, web_urls), material_source = await asyncio.gather(
                 retrieve_programming_web(query, request.language, getattr(model, "model", "gemini-3.5-flash-lite")),
@@ -205,5 +207,5 @@ async def generate_programming_practice(model: ChatGoogleGenerativeAI,
     return ProgrammingPracticeDraft(questions=[question.model_copy(update={
         "sourceLocation": (source_location(full_source, question.supportQuote, request.material.mimeType)
                            if normalize(question.supportQuote) in normalize(full_source) else None),
-        "sourceUrls": web_urls if normalize(question.supportQuote) in normalize(web_text) else [],
+        "sourceUrls": web_urls if web_text and normalize(question.supportQuote) in normalize(web_text) else [],
     }) for question in accepted[:request.count]])

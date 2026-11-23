@@ -88,6 +88,28 @@ async def test_programming_practice_uses_selected_material_and_requested_count()
 
 
 @pytest.mark.asyncio
+async def test_programming_practice_with_large_material_does_not_raise_unbound_web_text():
+    large_source = "Kiến thức Java cơ bản về vòng lặp và điều kiện trong lập trình. " * 10
+    req = request().model_copy(update={
+        "material": StudyMaterial(
+            materialId="material-large", title="Java Big", mimeType="text/plain",
+            contentBase64=base64.b64encode(large_source.encode()).decode(),
+        ),
+    })
+
+    class Model:
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, messages):
+            return {"questions": [question().model_copy(update={"supportQuote": "EVIDENCE_0001"}).model_dump()]}
+
+    result = await generate_programming_practice(Model(), req)
+    assert len(result.questions) == 1
+    assert result.questions[0].sourceUrls == []
+
+
+@pytest.mark.asyncio
 async def test_programming_practice_accepts_grounded_web_when_course_material_has_no_topic(monkeypatch):
     web_source = "Vòng lặp for trong Java duyệt lần lượt từng giá trị từ điểm bắt đầu đến điểm kết thúc."
 
