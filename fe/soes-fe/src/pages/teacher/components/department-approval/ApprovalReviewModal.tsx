@@ -5,6 +5,7 @@ import HtmlContent from '../../../../components/common/HtmlContent'
 import type { Exam } from '../../types/teacher-exam.types'
 import type { Question } from '../../types/teacher-question-bank.types'
 import type { ApprovalItem } from '../../types/teacher-approval.types'
+import type { ExamReviewHistoryItem } from '../../api/teacher-approvals.api'
 import {
   difficultyLabel,
   examCategoryLabel,
@@ -13,6 +14,7 @@ import {
 
 interface ApprovalReviewModalProps {
   item: ApprovalItem
+  history?: ExamReviewHistoryItem[]
   questionNotes: Record<string, string>
   onQuestionNoteChange: (questionId: string, note: string) => void
   onClose: () => void
@@ -22,6 +24,7 @@ interface ApprovalReviewModalProps {
 
 export default function ApprovalReviewModal({
   item,
+  history = [],
   questionNotes,
   onQuestionNoteChange,
   onClose,
@@ -51,6 +54,7 @@ export default function ApprovalReviewModal({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-6">
+          {item.kind === 'EXAM' && <ReviewHistory history={history} />}
           {exam && <ExamReviewContent exam={exam} questionNotes={questionNotes} onQuestionNoteChange={onQuestionNoteChange} />}
           {question && <QuestionReviewContent question={question} />}
         </div>
@@ -74,14 +78,71 @@ export default function ApprovalReviewModal({
   )
 }
 
-function ExamReviewContent({
+export function ReviewHistory({ history }: { history: ExamReviewHistoryItem[] }) {
+  if (!history.length) return null
+  return (
+    <section className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-sm font-semibold text-slate-900">Lịch sử gửi và xử lý</h4>
+          <p className="mt-1 text-xs text-slate-500">Các vòng gửi duyệt và phản hồi của nhóm duyệt đề.</p>
+        </div>
+        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">{history.length} vòng</span>
+      </div>
+      <div className="mt-3 max-h-36 space-y-2 overflow-y-auto">
+        {history.map((round) => {
+          const decision = round.decision
+          const isApproved = decision?.type === 'APPROVE' || round.status === 'APPROVED'
+          return (
+            <div key={round.id} className="rounded-lg border border-white bg-white px-3 py-2 text-xs">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="font-semibold text-slate-900">Lần gửi {round.version}</span>
+                <span className={isApproved ? 'font-semibold text-emerald-700' : decision ? 'font-semibold text-amber-700' : 'font-semibold text-blue-700'}>
+                  {isApproved ? 'Đã duyệt' : decision ? 'Yêu cầu sửa' : 'Đang chờ xử lý'}
+                </span>
+                <span className="text-slate-500">Gửi bởi {round.submittedBy.fullName}</span>
+                <span className="text-slate-400">{formatHistoryDate(round.submittedAt)}</span>
+              </div>
+              {decision && (
+                <div className="mt-1 text-slate-600">
+                  <p>
+                    Xử lý bởi <strong>{decision.reviewer.fullName}</strong>
+                    {decision.reason ? ` · ${decision.reason}` : ''}
+                    {decision.questionFeedback?.length ? ` · ${decision.questionFeedback.length} góp ý theo câu` : ''}
+                  </p>
+                  {decision.questionFeedback?.length ? (
+                    <div className="mt-2 space-y-1.5 border-l-2 border-amber-200 pl-3">
+                      {decision.questionFeedback.map((feedback) => (
+                        <p key={`${round.id}-${feedback.questionId}`}>
+                          <strong>Câu {feedback.order}:</strong> {feedback.note}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function formatHistoryDate(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+}
+
+export function ExamReviewContent({
   exam,
   questionNotes,
   onQuestionNoteChange,
+  interactiveNotes = true,
 }: {
   exam: Exam
   questionNotes: Record<string, string>
   onQuestionNoteChange: (questionId: string, note: string) => void
+  interactiveNotes?: boolean
 }) {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
   const orderedQuestions = exam.questions.slice().sort((a, b) => a.order - b.order)
@@ -118,7 +179,7 @@ function ExamReviewContent({
                   <AppBadge tone="amber" shape="rounded">
                     {item.points} điểm
                   </AppBadge>
-                  <button
+                  {interactiveNotes && <button
                     type="button"
                     onClick={() => setActiveNoteId((current) => (current === questionId ? null : questionId))}
                     aria-label={`Ghi chú yêu cầu sửa câu ${item.order}`}
@@ -129,11 +190,11 @@ function ExamReviewContent({
                   >
                     {note.trim() ? <MessageSquareText size={16} /> : <MessageSquarePlus size={16} />}
                     <span>Góp ý sửa</span>
-                  </button>
+                  </button>}
                 </div>
                 <HtmlContent content={item.question.content} className="text-sm font-medium leading-7 text-gray-900" />
                 <QuestionAnswerBlock question={item.question} />
-                {noteOpen && (
+                {interactiveNotes && noteOpen && (
                   <label className="block rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-xs font-semibold text-amber-800">
                     Nội dung cần sửa ở câu {item.order}
                     <textarea

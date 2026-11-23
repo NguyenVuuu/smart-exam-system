@@ -1,4 +1,5 @@
-﻿import { ChevronDown, ChevronUp, Code, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Code, Eye, EyeOff, GripVertical, Plus, Trash2 } from "lucide-react"
+import { useState } from "react"
 import AppSelect from '../../../../../components/common/AppSelect'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../../constants/programmingLanguages'
 import type { TestCase } from '../../../types/teacher-question-bank.types'
@@ -30,6 +31,7 @@ export function QuestionProgrammingEditor({
   expandedTcIds: string[]
   onToggleExpandTc: (id: string) => void
 }) {
+  const [draggedTcId, setDraggedTcId] = useState<string | null>(null)
   const handleAddTestCase = () => {
     const newId = `tc-${Date.now()}`
     onTestCasesChange([
@@ -49,6 +51,18 @@ export function QuestionProgrammingEditor({
 
   const handleUpdateTestCase = (id: string, updates: Partial<TestCase>) => {
     onTestCasesChange(testCases.map((tc) => (tc.id === id ? { ...tc, ...updates } : tc)))
+  }
+
+  const handleDropTestCase = (targetId: string) => {
+    if (!draggedTcId || draggedTcId === targetId) return
+    const fromIndex = testCases.findIndex((tc) => tc.id === draggedTcId)
+    const targetIndex = testCases.findIndex((tc) => tc.id === targetId)
+    if (fromIndex < 0 || targetIndex < 0) return
+    const next = [...testCases]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(targetIndex, 0, moved)
+    onTestCasesChange(next)
+    setDraggedTcId(null)
   }
 
   return (
@@ -131,10 +145,19 @@ export function QuestionProgrammingEditor({
             return (
               <div key={tc.id} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-2xs">
                 <div
+                  draggable
+                  onDragStart={() => setDraggedTcId(tc.id)}
+                  onDragEnd={() => setDraggedTcId(null)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    handleDropTestCase(tc.id)
+                  }}
                   onClick={() => onToggleExpandTc(tc.id)}
-                  className="p-3 bg-gray-50/80 hover:bg-gray-100/80 flex items-center justify-between cursor-pointer transition-colors"
+                  className="p-3 bg-gray-50/80 hover:bg-gray-100/80 flex items-center justify-between cursor-grab transition-colors"
                 >
                   <div className="flex items-center gap-2">
+                    <GripVertical size={15} className="text-gray-400" aria-label="Kéo để sắp xếp test case" />
                     <span className="text-xs font-bold text-purple-700">TC #{idx + 1}</span>
                     {tc.isHidden ? (
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">

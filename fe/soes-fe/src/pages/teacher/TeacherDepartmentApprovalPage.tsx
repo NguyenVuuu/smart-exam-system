@@ -5,6 +5,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import DataTable, { type ColumnDef } from '../../components/common/DataTable'
@@ -12,9 +13,7 @@ import TeacherPageHeader from './components/TeacherPageHeader'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import { useTeacherApprovals } from './hooks/useTeacherApprovals'
-import { getExamApprovalDetail } from './api/teacher-approvals.api'
 import { useReviewGroupAccess } from './hooks/useReviewGroupAccess'
-import { toReviewExam } from './mappers/teacher-review-snapshot.mapper'
 import { formatDateTime } from '../../utils/date.utils'
 import type { ApprovalItem, ApprovalKind } from './types/teacher-approval.types'
 import ApprovalTabs from './components/department-approval/ApprovalTabs'
@@ -29,8 +28,8 @@ export default function TeacherDepartmentApprovalPage() {
 
   const [selectedKind, setSelectedKind] = useState<ApprovalKind>('QUESTION')
   const activeKind = canReviewQuestions && (selectedKind === 'QUESTION' || !canReviewExams) ? 'QUESTION' : 'EXAM'
+  const navigate = useNavigate()
   const [reviewing, setReviewing] = useState<ApprovalItem | null>(null)
-  const [openingId, setOpeningId] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<ApprovalItem | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({})
@@ -96,7 +95,6 @@ export default function TeacherDepartmentApprovalPage() {
         <div className="flex justify-end gap-2">
           <button
             onClick={() => void openReview(item)}
-            disabled={openingId === item.id}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
             aria-label="Xem nội dung"
             title="Xem nội dung"
@@ -104,10 +102,10 @@ export default function TeacherDepartmentApprovalPage() {
             <Eye size={17} />
           </button>
           <button
-            onClick={() => approve(item)}
+            onClick={() => item.kind === 'EXAM' ? openReview(item) : approve(item)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
-            aria-label="Duyệt"
-            title="Duyệt"
+            aria-label={item.kind === 'EXAM' ? 'Mở đề để duyệt' : 'Duyệt'}
+            title={item.kind === 'EXAM' ? 'Mở đề để duyệt' : 'Duyệt'}
           >
             <CheckCircle2 size={17} />
           </button>
@@ -124,27 +122,17 @@ export default function TeacherDepartmentApprovalPage() {
     },
   ]
 
-  const openReview = async (item: ApprovalItem) => {
+  const openReview = (item: ApprovalItem) => {
     if (item.kind === 'QUESTION') {
       setReviewing(item)
       return
     }
-    setOpeningId(item.id)
-    try {
-      const detail = await getExamApprovalDetail(item.id)
-      setQuestionNotes({})
-      setRejectionReason('')
-      setReviewing({ ...item, source: toReviewExam(detail), version: detail.reviewRound.version })
-    } catch {
-      toast.error('Không thể tải phiên bản đề đã gửi duyệt. Vui lòng thử lại.')
-    } finally {
-      setOpeningId(null)
-    }
+    navigate(`/teacher/department-approvals/${item.id}`)
   }
 
-  const openReject = async (item: ApprovalItem) => {
+  const openReject = (item: ApprovalItem) => {
     if (item.kind === 'EXAM') {
-      await openReview(item)
+      navigate(`/teacher/department-approvals/${item.id}`)
       return
     }
     setRejecting(item)
@@ -178,7 +166,7 @@ export default function TeacherDepartmentApprovalPage() {
       .map(([questionId, note]) => ({ questionId, note: note.trim() }))
     if (rejecting.kind === 'EXAM' ? notes.length === 0 : rejectionReason.trim().length < 5) return
     try {
-      if (rejecting.kind === 'EXAM') await approvals.rejectExam(rejecting.id, notes)
+      if (rejecting.kind === 'EXAM') await approvals.rejectExam(rejecting.id, rejectionReason, notes)
       else await approvals.rejectQuestion(rejecting.id, rejectionReason.trim())
       setRejecting(null)
       setRejectionReason('')
@@ -247,10 +235,6 @@ export default function TeacherDepartmentApprovalPage() {
           onClose={() => { setReviewing(null); setQuestionNotes({}); setRejectionReason('') }}
           onApprove={() => approve(reviewing)}
           onReject={() => {
-            if (reviewing.kind === 'EXAM' && !Object.values(questionNotes).some((note) => note.trim())) {
-              toast.error('Hãy ghi góp ý ở ít nhất một câu trước khi yêu cầu sửa đề.')
-              return
-            }
             setRejecting(reviewing)
             setReviewing(null)
           }}

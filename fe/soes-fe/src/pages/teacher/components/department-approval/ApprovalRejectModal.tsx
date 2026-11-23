@@ -40,9 +40,24 @@ export default function ApprovalRejectModal({
         </div>
         <div className="space-y-4 overflow-y-auto p-5">
           {item.kind === 'EXAM' ? (
-            <p className="text-sm text-gray-700">
-              Xác nhận gửi yêu cầu sửa đề với {noteCount} góp ý theo câu hỏi cho người ra đề?
-            </p>
+            <>
+              <label className="block text-xs font-semibold text-gray-700">
+                Góp ý chung cho toàn đề <span className="font-normal text-gray-400">(không bắt buộc)</span>
+                <textarea
+                  value={reason}
+                  onChange={(event) => onReasonChange(event.target.value)}
+                  rows={4}
+                  placeholder="Ví dụ: Cần bổ sung nội dung chương 3 hoặc thêm câu hỏi phân loại mức độ vận dụng."
+                  className="mt-2 w-full rounded-xl border border-gray-200 p-3 text-sm font-normal outline-none transition-colors focus:border-blue-500"
+                />
+              </label>
+              <p className="text-sm text-gray-700">
+                Đề sẽ được gửi lại tác giả với {noteCount} góp ý theo câu hỏi và góp ý chung ở trên.
+              </p>
+              {!reason.trim() && noteCount === 0 && (
+                <p className="text-xs text-rose-600">Cần nhập góp ý chung hoặc ít nhất một góp ý theo câu hỏi.</p>
+              )}
+            </>
           ) : (
             <label className="block text-xs font-semibold text-gray-700">
               Lý do từ chối
@@ -64,7 +79,9 @@ export default function ApprovalRejectModal({
             Hủy
           </button>
           <button
-            disabled={item.kind === 'EXAM' ? !Object.values(questionNotes).some((note) => note.trim()) : reason.trim().length < 5}
+            disabled={item.kind === 'EXAM'
+              ? !reason.trim() && noteCount === 0
+              : reason.trim().length < 5}
             onClick={onSubmit}
             className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
           >

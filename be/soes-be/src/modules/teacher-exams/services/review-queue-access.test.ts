@@ -33,7 +33,11 @@ test('review queue exposes snapshots only to current group members, including th
       return examId === 'exam' ? round : null
     },
     findExam: async (examId: string) => examId === 'exam' ? { id: 'exam', createdById: 'teacher' } : { id: examId, createdById: 'another-teacher' },
-    findOwnedReviewHistory: async () => [{ id: 'round', version: 1, status: 'PENDING' }],
+    findReviewHistoryForGroup: async (groupId: string, examId: string) => {
+      assert.equal(groupId, 'group')
+      return examId === 'exam' ? [{ id: 'round', version: 1, status: 'PENDING', snapshot: { title: 'Exam snapshot' } }] : []
+    },
+    findOwnedReviewHistory: async () => [{ id: 'round', version: 1, status: 'PENDING', snapshot: { title: 'Exam snapshot' } }],
   })
   stub(mapperId, { toTeacherExamDto: (exam: { id: string }) => ({ id: exam.id }) })
   delete require.cache[serviceId]

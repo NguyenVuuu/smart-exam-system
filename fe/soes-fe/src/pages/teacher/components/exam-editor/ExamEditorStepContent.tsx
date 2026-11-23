@@ -48,6 +48,7 @@ interface ExamEditorStepContentProps {
   sectionStats: SectionStat[]
   visibleQuestions: ExamQuestionItem[]
   revisionNotes: Map<string, string>
+  revisionReason?: string
   questions: ExamQuestionItem[]
   setQuestions: Dispatch<SetStateAction<ExamQuestionItem[]>>
   collapsedQuestionIds: string[]
@@ -89,6 +90,7 @@ export default function ExamEditorStepContent({
   sectionStats,
   visibleQuestions,
   revisionNotes,
+  revisionReason,
   questions,
   setQuestions,
   collapsedQuestionIds,
@@ -150,6 +152,7 @@ export default function ExamEditorStepContent({
           setActiveSectionId={setActiveSectionId}
           visibleQuestions={visibleQuestions}
           revisionNotes={revisionNotes}
+          revisionReason={revisionReason}
           questions={questions}
           setQuestions={setQuestions}
           collapsedQuestionIds={collapsedQuestionIds}

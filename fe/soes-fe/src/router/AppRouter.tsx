@@ -35,6 +35,7 @@ import TeacherCourseDetailPage from '../pages/teacher/TeacherCourseDetailPage'
 import TeacherCoursesPage from '../pages/teacher/TeacherCoursesPage'
 import TeacherDashboard from '../pages/teacher/TeacherDashboard'
 import TeacherDepartmentApprovalPage from '../pages/teacher/TeacherDepartmentApprovalPage'
+import TeacherExamApprovalDetailPage from '../pages/teacher/TeacherExamApprovalDetailPage'
 import TeacherExamDetailPage from '../pages/teacher/TeacherExamDetailPage'
 import TeacherExamEditorPage from '../pages/teacher/TeacherExamEditorPage'
 import TeacherExamsPage from '../pages/teacher/TeacherExamsPage'
@@ -318,6 +319,14 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
               <TeacherReviewAccessRoute permission="canReview"><TeacherDepartmentApprovalPage /></TeacherReviewAccessRoute>
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/teacher/department-approvals/:examId"
+          element={
+            <RoleRoute allowedRoles={['TEACHER', 'DEPARTMENT_HEAD']}>
+              <TeacherReviewAccessRoute permission="canReview"><TeacherExamApprovalDetailPage /></TeacherReviewAccessRoute>
             </RoleRoute>
           }
         />

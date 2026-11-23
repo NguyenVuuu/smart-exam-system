@@ -43,6 +43,7 @@ export interface TeacherExamDto {
 }
 
 export interface TeacherExamDetailDto extends TeacherExamDto {
+  revisionReason?: string | null
   revisionFeedback?: Array<{ questionId: string; order: number; title: string; note: string }>
   questions: Array<{
     id: string

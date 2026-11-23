@@ -1,10 +1,10 @@
-import { Database, ListChecks, Plus, Sparkles } from 'lucide-react'
+import { AlertTriangle, Database, ListChecks, Plus, Sparkles } from 'lucide-react'
 import type { ExamQuestionItem, ExamSection, ExamType } from '../../../types/teacher-exam.types'
 import type { Question } from '../../../types/teacher-question-bank.types'
 import { StepCard } from '../ExamEditorPrimitives'
 import { QuestionRow } from '../QuestionRow'
 import type { ApiFieldErrors } from '../../../../../api/errors'
-import { normalizePoint } from '../../../utils/ExamEditorUtils'
+import { balanceQuestionPointsBySection } from '../../../utils/ExamEditorUtils'
 import { useQuestionDrag } from '../useQuestionDrag'
 
 export function StepQuestions(props: {
@@ -14,6 +14,7 @@ export function StepQuestions(props: {
   setActiveSectionId: (value: string) => void
   visibleQuestions: ExamQuestionItem[]
   revisionNotes: Map<string, string>
+  revisionReason?: string
   questions: ExamQuestionItem[]
   setQuestions: (value: ExamQuestionItem[]) => void
   collapsedQuestionIds: string[]
@@ -29,22 +30,15 @@ export function StepQuestions(props: {
   const drag = useQuestionDrag({
     questions: props.questions,
     sections: props.sections,
-    setQuestions: props.setQuestions,
+    setQuestions: (value) => props.setQuestions(balanceQuestionPointsBySection(value, props.sections)),
     setActiveSectionId: props.setActiveSectionId,
   })
-
-  const updateQuestionPoints = (index: number, points: number) => {
-    props.onFieldChange?.('items')
-    const updated = [...props.questions]
-    updated[index] = { ...updated[index], points: normalizePoint(points) }
-    props.setQuestions(updated)
-  }
 
   const updateQuestionSection = (questionId: string, sectionId: string) => {
     const updated = props.questions.map((item) =>
       item.questionId === questionId ? { ...item, sectionId } : item,
     )
-    props.setQuestions(updated)
+    props.setQuestions(balanceQuestionPointsBySection(updated, props.sections))
   }
 
   return (
@@ -54,6 +48,21 @@ export function StepQuestions(props: {
       icon={<ListChecks size={18} className="text-blue-600" />}
     >
       <div className="space-y-4">
+        {props.revisionReason && (
+          <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-lg bg-amber-100 p-2 text-amber-700">
+                <AlertTriangle size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-amber-950">{'Y\u00eau c\u1ea7u s\u1eeda t\u1ed5ng th\u1ec3'}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-amber-900">{props.revisionReason}</p>
+                <p className="mt-2 text-xs font-semibold text-amber-800">{'H\u00e3y ki\u1ec3m tra n\u1ed9i dung n\u00e0y tr\u01b0\u1edbc khi g\u1eedi l\u1ea1i \u0111\u1ec1.'}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {props.sections.map((section) => {
@@ -113,7 +122,6 @@ export function StepQuestions(props: {
         )}
         <div className="space-y-3">
           {props.visibleQuestions.map((item, sectionIndex) => {
-            const globalIndex = props.questions.findIndex((q) => q.questionId === item.questionId)
             return (
               <div
                 key={item.questionId}
@@ -141,10 +149,12 @@ export function StepQuestions(props: {
                   sections={props.sections}
                   isCollapsed={props.collapsedQuestionIds.includes(item.questionId)}
                   onToggleCollapse={() => props.onToggleQuestionCollapse(item.questionId)}
-                  onPointChange={(points) => updateQuestionPoints(globalIndex, points)}
                   onSectionChange={(sectionId) => updateQuestionSection(item.questionId, sectionId)}
                   onEdit={() => props.onEdit(item.question)}
-                  onRemove={() => props.setQuestions(props.questions.filter((question) => question.questionId !== item.questionId))}
+                  onRemove={() => props.setQuestions(balanceQuestionPointsBySection(
+                    props.questions.filter((question) => question.questionId !== item.questionId),
+                    props.sections,
+                  ))}
                 />
               </div>
             )

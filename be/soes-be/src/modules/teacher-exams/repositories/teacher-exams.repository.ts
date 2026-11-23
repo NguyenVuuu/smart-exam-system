@@ -63,7 +63,27 @@ export function findOwnedReviewHistory(examId: string, teacherId: string) {
     where: { examId, exam: { createdById: teacherId } },
     select: {
       id: true, version: true, status: true, submittedAt: true, decidedAt: true,
+      snapshot: true,
+      submittedBy: { select: { id: true, user: { select: { fullName: true } } } },
       decision: { select: { type: true, reason: true, questionFeedback: true, createdAt: true, reviewer: { select: { id: true, user: { select: { fullName: true } } } } } },
+    },
+    orderBy: { version: 'desc' },
+  })
+}
+
+export function findReviewHistoryForGroup(groupId: string, examId: string) {
+  return prisma.examReviewRound.findMany({
+    where: { examId, groupId, exam: { type: 'FINAL' } },
+    select: {
+      id: true, version: true, status: true, submittedAt: true, decidedAt: true,
+      snapshot: true,
+      submittedBy: { select: { id: true, user: { select: { fullName: true } } } },
+      decision: {
+        select: {
+          type: true, reason: true, questionFeedback: true, createdAt: true,
+          reviewer: { select: { id: true, user: { select: { fullName: true } } } },
+        },
+      },
     },
     orderBy: { version: 'desc' },
   })
@@ -72,7 +92,7 @@ export function findLatestRevisionFeedback(examId: string, teacherId: string) {
   return prisma.examReviewRound.findFirst({
     where: { examId, status: 'REVISION_REQUESTED', exam: { createdById: teacherId } },
     orderBy: { version: 'desc' },
-    select: { decision: { select: { questionFeedback: true } } },
+    select: { decision: { select: { reason: true, questionFeedback: true } } },
   })
 }
 export const hasClosedCourseExamAccess = (teacherId: string, examId: string) => prisma.examScheduleCourse.count({
