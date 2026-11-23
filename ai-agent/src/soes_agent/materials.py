@@ -162,9 +162,19 @@ def select_material_excerpt(text: str, query: str) -> str:
     return "\n[...]\n".join(chunks[index] for index in chosen)[:MAX_TEXT_CHARS]
 
 
+_ROMAN_NUMERALS = {
+    "i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5",
+    "vi": "6", "vii": "7", "viii": "8", "ix": "9", "x": "10",
+    "xi": "11", "xii": "12", "xiii": "13", "xiv": "14", "xv": "15",
+}
+
+
 def requested_chapter_text(text: str, query: str) -> str | None:
     """Scope retrieval to requested chapters without discarding their later pages."""
-    chapter_groups = re.findall(r"chương\s+(\d+(?:\s*(?:,|và)\s*\d+)*)", query.casefold())
+    cleaned_query = query.casefold()
+    for roman, arabic in _ROMAN_NUMERALS.items():
+        cleaned_query = re.sub(rf"\bchương\s+{roman}\b", f"chương {arabic}", cleaned_query)
+    chapter_groups = re.findall(r"chương\s+(\d+(?:\s*(?:,|và)\s*\d+)*)", cleaned_query)
     requested = list(dict.fromkeys(number for group in chapter_groups for number in re.findall(r"\d+", group)))
     headings = _body_chapter_headings(text)
     toc_pages = _toc_chapter_pages(text)

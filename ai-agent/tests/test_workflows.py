@@ -235,3 +235,28 @@ async def test_greeting_without_evidence_returns_friendly_greeting():
     assert "Xin chào" in answer.summary
     assert answer.actions == []
     assert answer.evidenceIds == []
+
+
+@pytest.mark.asyncio
+async def test_learning_query_with_material_preserves_answer_when_model_omits_evidence_id():
+    class Model:
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            # Model returns detailed content answer but omits evidenceIds
+            return {"summary": "Nội dung chương 2 gồm các kiểu dữ liệu cơ bản.", "actions": [], "evidenceIds": []}
+
+    model = Model()
+    answer = await run_student(model, StudentRequest(
+        message="cho tôi biết nội dung chương 2", analyzedAttemptCount=0,
+        limitedToRecentAttempts=False, topics=[],
+        material={
+            "materialId": "java-note-1",
+            "title": "giaotrinh JAVA",
+            "mimeType": "text/plain",
+            "contentBase64": "Q0jGr8agTkcgMjogQ8OhYyBraMOhaSBuacOqbSBjxqEgYuG6o24=",
+        },
+    ))
+    assert "chương 2" in answer.summary
+    assert answer.evidenceIds == ["java-note-1"]
