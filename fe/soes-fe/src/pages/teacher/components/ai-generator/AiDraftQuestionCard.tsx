@@ -176,7 +176,7 @@ export const AiDraftQuestionCard: React.FC<AiDraftQuestionCardProps> = ({
                 value={question.content || question.title}
                 onChange={(event) => {
                   onUpdateField(question.id, 'content', event.target.value)
-                  onUpdateField(question.id, 'title', event.target.value)
+                  onUpdateField(question.id, 'title', event.target.value.slice(0, 200))
                 }}
                 className="w-full resize-y rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm font-semibold leading-6 text-gray-950 outline-none focus:border-blue-500"
               />

@@ -82,6 +82,11 @@ async def generate_question_draft(model: ChatGoogleGenerativeAI, request: Questi
         if not isinstance(result, dict) or not isinstance(result.get("questions"), list):
             raise ValueError("Question model returned an invalid draft")
         questions = result["questions"]
+        for q in questions:
+            if isinstance(q, dict) and "title" in q and isinstance(q["title"], str):
+                title = q["title"].strip()
+                if len(title) > 200:
+                    q["title"] = title[:197].rsplit(" ", 1)[0] + "..." if " " in title[:197] else title[:197] + "..."
         with measure_stage("question.verify", len(questions)):
             verified = await verify_instruction_fulfillment(
                 model, requirement, questions, evidence=source_evidence,

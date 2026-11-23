@@ -172,7 +172,7 @@ function questionCreateData(
     source: "AI_GENERATED",
     aiReviewStatus: "APPROVED",
     title: encryptField(question.title),
-    content: encryptField(programming ? question.content : question.title),
+    content: encryptField(programming ? question.content : (question.content?.trim() || question.title)),
     explanation: encryptNullable(question.explanation || null),
     type: question.type,
     difficulty: question.difficulty,

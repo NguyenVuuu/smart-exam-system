@@ -1,3 +1,12 @@
+export function safeTruncate(text: string, maxLength = 200): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  const targetLen = maxLength - 3;
+  const lastSpace = trimmed.lastIndexOf(" ", targetLen);
+  const cutPoint = lastSpace >= Math.max(10, targetLen - 30) ? lastSpace : targetLen;
+  return `${trimmed.slice(0, cutPoint).trimEnd()}...`;
+}
+
 export function normalizeObjectiveFields(payload: unknown) {
   if (!payload || typeof payload !== "object") return payload;
   const questions = (payload as { questions?: unknown }).questions;
@@ -33,8 +42,12 @@ export function normalizeObjectiveFields(payload: unknown) {
             ? q.title.trim()
             : "";
       if (primaryText) {
-        q.title = primaryText;
         q.content = primaryText;
+        const candidateTitle =
+          typeof q.title === "string" && q.title.trim() && q.title.trim().length <= 200
+            ? q.title.trim()
+            : primaryText;
+        q.title = safeTruncate(candidateTitle, 200);
       }
 
       Object.assign(question, {
@@ -52,6 +65,10 @@ export function normalizeObjectiveFields(payload: unknown) {
           if (label === "true" || label === "đúng") option.content = "Đúng";
           if (label === "false" || label === "sai") option.content = "Sai";
         });
+      }
+    } else {
+      if (typeof q.title === "string" && q.title.trim()) {
+        q.title = safeTruncate(q.title.trim(), 200);
       }
     }
   }
