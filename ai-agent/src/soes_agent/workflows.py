@@ -111,7 +111,15 @@ async def retrieve_evidence(state: AgentState) -> AgentState:
             full_text = await asyncio.to_thread(extract_material, StudyMaterial.model_validate(material))
             history = state["request"].get("history", [])
             message = state["request"]["message"]
-            query = (f"{history[-1]['message']} {message}" if history and len(message.split()) < 10 else message)
+            has_reference_words = any(w in message.casefold() for w in [
+                "nó", "phần này", "file này", "chương này", "cái này", "ở trên", "hay là", "gì á",
+                "chi tiết", "giải thích", "tiếp", "thế nào", "tại sao", "như thế nào", "ôn gì", "làm gì",
+            ])
+            query = (
+                f"{history[-1]['message']} {message}"
+                if history and (len(message.split()) < 20 or has_reference_words)
+                else message
+            )
             excerpt = await retrieve_material(full_text, query, title=material["title"], max_chars=40_000)
         return {"evidence": {**evidence, "material": {**evidence["material"], "content": excerpt}}}
     return {}
@@ -174,6 +182,10 @@ def create_workflow(model: ChatGoogleGenerativeAI | None, role: str):
                 "(2) Phân tích chi tiết các đặc điểm, cơ chế hoặc cú pháp bằng gạch đầu dòng rõ ràng; "
                 "(3) Đưa ra ví dụ minh họa hoặc đoạn mã ngắn chuẩn xác (nếu là câu hỏi lập trình/kỹ thuật); "
                 "(4) Lưu ý thực tế hoặc các điểm dễ nhầm lẫn. "
+                "Khi người dùng hỏi về phạm vi tài liệu, các dạng bài lập trình để ôn tập hoặc tạo bài luyện, hoặc hỏi phân vân tài liệu có nói về những chủ đề/dạng nào (ví dụ: 'có nói về mảng hay vòng lặp hay gì', 'file này gồm những phần nào để tạo bài luyện', 'có con trỏ không'): "
+                "hãy trả lời trực diện, bao quát và phân loại rõ ràng tất cả các chủ đề/dạng bài lập trình cốt lõi có trong tài liệu (ví dụ: Cấu trúc điều khiển & Vòng lặp, Mảng & Chuỗi, Lập trình hướng đối tượng OOP, Xử lý Luồng & Tập tin...). "
+                "Làm rõ tính chất ngôn ngữ: nêu rõ tài liệu/Java CÓ những gì và KHÔNG CÓ những gì (ví dụ: Java có mảng, vòng lặp, OOP, nhưng Java KHÔNG CÓ con trỏ - pointer trực tiếp như C/C++ mà dùng cơ chế tham chiếu reference và bộ thu gom rác tự động Garbage Collector). "
+                "Gợi ý cụ thể các dạng bài tập lập trình tương ứng để người dùng có định hướng rõ ràng khi ôn luyện hoặc tạo bài luyện. "
                 "Khi có material, ưu tiên giải thích bám sát tài liệu học tập đã chọn; nếu tài liệu chỉ nêu khái niệm cơ bản, "
                 "hãy vận dụng kiến thức chuyên môn chuẩn để giải thích sâu sắc, trọn vẹn câu hỏi. "
                 "Nếu câu hỏi ngắn như 'chương 3' hoặc 'ôn gì', dùng tài liệu đã chọn và "
