@@ -19,7 +19,8 @@ export const objectiveRules = [
 
 export const programmingRules = [
   'LẬP TRÌNH:',
-  '- Yêu cầu viết chương trình console hoàn chỉnh đọc stdin và in stdout. title là tên bài toán ngắn gọn, tối đa 200 ký tự (ví dụ: "Kiểm tra số nguyên tố", "Tìm phần tử lớn thứ hai trong mảng"); options = []; language chọn JAVA/C/CPP theo tài liệu.',
+  '- Yêu cầu viết chương trình console hoàn chỉnh đọc stdin và in stdout.',
+  '- title là tên bài toán bằng TIẾNG VIỆT CÓ DẤU ĐẦY ĐỦ, chuẩn ngữ pháp, tối đa 200 ký tự (ví dụ: "Kiểm tra số nguyên tố", "Tính tổng các phần tử ở chỉ số chẵn", "Tìm phần tử lớn thứ hai trong mảng"); TUYỆT ĐỐI KHÔNG viết tiếng Việt không dấu (không viết "Tinh tong cac phan tu..."). options = []; language chọn JAVA/C/CPP theo tài liệu.',
   '- content bằng Markdown chuẩn có cấu trúc rõ ràng với các đề mục:',
   '  ### Mô tả bài toán',
   '  (nêu rõ yêu cầu bài toán cần giải quyết)',

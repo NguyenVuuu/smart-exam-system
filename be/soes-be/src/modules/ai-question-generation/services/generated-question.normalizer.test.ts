@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { cleanEscapedText, normalizeObjectiveFields, safeTruncate } from './generated-question.normalizer'
+import { cleanEscapedText, normalizeObjectiveFields, restoreVietnameseDiacritics, safeTruncate } from './generated-question.normalizer'
 import { generatedQuestionSchema } from '../schemas/generated-question.schema'
 
 describe('generated-question.normalizer', () => {
@@ -13,6 +13,28 @@ describe('generated-question.normalizer', () => {
     it('cleans LaTeX relational operators to clean Unicode symbols', () => {
       const latex = 'Cho số nguyên $N$ (với $1 \\le N \\le 100$), phần tử $A[i] \\ge 0$.'
       assert.equal(cleanEscapedText(latex), 'Cho số nguyên $N$ (với $1 ≤ N ≤ 100$), phần tử $A[i] ≥ 0$.')
+    })
+  })
+
+  describe('restoreVietnameseDiacritics', () => {
+    it('restores unaccented Vietnamese programming titles to accented Vietnamese', () => {
+      assert.equal(
+        restoreVietnameseDiacritics('Tinh tong cac phan tu o chi so chan'),
+        'Tính tổng các phần tử ở chỉ số chẵn'
+      )
+      assert.equal(
+        restoreVietnameseDiacritics('Kiem tra so nguyen to trong mang'),
+        'Kiểm tra số nguyên tố trong mảng'
+      )
+      assert.equal(
+        restoreVietnameseDiacritics('Dem so luong phan tu lon hon trung binh cong'),
+        'Đếm số lượng phần tử lớn hơn trung bình cộng'
+      )
+    })
+
+    it('keeps already accented Vietnamese text unchanged', () => {
+      const accented = 'Tính tổng các phần tử chẵn'
+      assert.equal(restoreVietnameseDiacritics(accented), accented)
     })
   })
 

@@ -87,9 +87,11 @@ export const AiDraftQuestionCard: React.FC<AiDraftQuestionCardProps> = ({
               {difficultyLabel[question.difficulty]}
             </span>
           </div>
-          <p className={`mt-1.5 text-sm font-semibold text-gray-950 ${isCollapsed ? 'truncate' : 'line-clamp-2'}`}>
-            {question.title || (typeof question.content === 'string' ? question.content.replace(/<[^>]+>/g, '') : '') || 'Chưa có tiêu đề'}
-          </p>
+          {isCollapsed && (
+            <p className="mt-1.5 truncate text-sm font-semibold text-gray-950">
+              {question.title || (typeof question.content === 'string' ? question.content.replace(/<[^>]+>/g, '') : '') || 'Chưa có tiêu đề'}
+            </p>
+          )}
           <button type="button" onClick={() => onEditTopics(question)}
             className={`mt-2 inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold ${question.topics?.length
               ? 'border-blue-200 bg-blue-50 text-blue-700'
