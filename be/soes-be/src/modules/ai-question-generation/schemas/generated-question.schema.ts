@@ -130,7 +130,7 @@ export const generatedQuestionsJsonSchema = {
           "testCases",
         ],
         properties: {
-          title: { type: "string" },
+          title: { type: "string", description: "Tiêu đề câu hỏi hoặc bài toán bằng tiếng Việt có đầy đủ dấu thanh, tuyệt đối không viết không dấu" },
           content: { type: "string" },
           explanation: { type: "string" },
           type: {

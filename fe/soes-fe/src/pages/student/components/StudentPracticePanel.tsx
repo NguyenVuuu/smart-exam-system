@@ -124,11 +124,21 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
       {creating && <div role="status" className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
         <LoaderCircle size={18} className="mt-0.5 shrink-0 animate-spin" />
         <p>{kind === 'PROGRAMMING'
-          ? 'AI đang sinh bài; hệ thống sẽ chạy lời giải với các test case trên Judge trước khi hiển thị.'
+          ? 'AI đang sinh bài tập lập trình và thiết kế bộ test case theo tài liệu...'
           : 'AI đang sinh câu hỏi và kiểm tra đáp án theo tài liệu trước khi hiển thị.'}</p>
       </div>}
       <p className="text-xs text-slate-500">Bài luyện không tính vào điểm hoặc lượt thi chính thức. Đối chiếu đáp án với tài liệu sau khi nộp.</p>
     {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+    {sets.length > 0 && <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800"><ClipboardList size={17} /> Lịch sử bài luyện</h3>
+      <AppSelect value={current?.id ?? ''} options={sets.map((set) => ({
+        value: set.id,
+        label: `${set.subject.name} · ${set.kind === 'PROGRAMMING' ? 'Lập trình' : 'Trắc nghiệm'} · ${new Date(set.createdAt).toLocaleString('vi-VN')} · ${set.completedAt ? `${set.score}/${set._count.items} câu đúng` : 'Chưa nộp'}`,
+      }))} onChange={(id) => void open(id)} disabled={busy} placeholder="Chọn bài luyện để xem lại"
+        ariaLabel="Chọn bài luyện trong lịch sử" className="w-full sm:max-w-xl"
+        buttonClassName="h-11 border-slate-200 bg-white" />
+      <p className="text-xs text-slate-500">Chọn bài chưa nộp để làm tiếp hoặc bài đã nộp để xem đáp án và giải thích.</p>
+    </div>}
     {current && !creating && <div className="space-y-4">
       {current.completedAt && <p className="font-semibold text-blue-700">Kết quả: {current.score}/{current.items.length} câu đúng</p>}
       {current.items.slice(page * 5, (page + 1) * 5).map((item) => <fieldset key={item.id} className="space-y-2 rounded-xl border border-slate-200 p-4">
@@ -159,16 +169,6 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
       </nav>}
       {!current.completedAt && <button type="button" disabled={busy || current.items.some((item) => item.kind === 'PROGRAMMING' ? !(codes[item.id] ?? item.starterCode).trim() : choices[item.id] === undefined)}
         onClick={() => void submit()} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Nộp bài luyện</button>}
-    </div>}
-    {sets.length > 0 && <div className="space-y-2 border-t border-slate-100 pt-5">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800"><ClipboardList size={17} /> Lịch sử bài luyện</h3>
-      <AppSelect value={current?.id ?? ''} options={sets.map((set) => ({
-        value: set.id,
-        label: `${set.subject.name} · ${set.kind === 'PROGRAMMING' ? 'Lập trình' : 'Trắc nghiệm'} · ${new Date(set.createdAt).toLocaleString('vi-VN')} · ${set.completedAt ? `${set.score}/${set._count.items} câu đúng` : 'Chưa nộp'}`,
-      }))} onChange={(id) => void open(id)} disabled={busy} placeholder="Chọn bài luyện để xem lại"
-        ariaLabel="Chọn bài luyện trong lịch sử" className="w-full sm:max-w-xl"
-        buttonClassName="h-11 border-slate-200" />
-      <p className="text-xs text-slate-500">Chọn bài chưa nộp để làm tiếp hoặc bài đã nộp để xem đáp án và giải thích.</p>
     </div>}
     </div>
   </section>

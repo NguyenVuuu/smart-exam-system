@@ -29,7 +29,7 @@ function usefulActions(summary: string, actions: string[]): string[] {
 }
 
 export default function AgentConversationHistory<TAnswer extends { summary: string; actions: string[]; caveat: string | null; evidenceIds?: string[]; sourceQuote?: string | null; sourceLocation?: string | null }>({
-  conversations, currentId, turns, onSelect, source, pendingMessage, chatMode = false,
+  conversations, currentId, turns, onSelect, source: _source, pendingMessage, chatMode = false,
 }: {
   conversations: AgentConversationSummary[]
   currentId: string
@@ -63,11 +63,6 @@ export default function AgentConversationHistory<TAnswer extends { summary: stri
             {actions.map((action, index) => <li key={index}>{action}</li>)}
           </ul>}
           {turn.answer.caveat && <p className="mt-2 text-slate-500">{turn.answer.caveat}</p>}
-          {source && turn.answer.evidenceIds?.includes(source.id) &&
-            <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-blue-700">
-              <p>Nguồn: {source.label}{turn.answer.sourceLocation ? ` · ${turn.answer.sourceLocation}` : ''}</p>
-              {turn.answer.sourceQuote && <p className="mt-1 text-slate-600">“{turn.answer.sourceQuote}”</p>}
-            </div>}
         </div>
       </div>
       })}

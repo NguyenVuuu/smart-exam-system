@@ -1,12 +1,12 @@
 import type { GeneratedQuestionDto } from '../types/teacher-question-api.types'
 import type { AIDraftQuestion, Question } from '../types/teacher-question-bank.types'
-import { formatPlainTextToHtml } from './formatHtml.utils'
+import { formatPlainTextToHtml, restoreVietnameseDiacritics } from './formatHtml.utils'
 
 export function mapGeneratedQuestion(question: GeneratedQuestionDto): Question {
   return {
     id: question.id, subjectId: question.subjectId, subjectName: question.subjectName,
     teacherId: '', teacherName: 'AI', type: question.type, difficulty: question.difficulty,
-    aiDifficultyReason: question.difficultyReason, title: question.title,
+    aiDifficultyReason: question.difficultyReason, title: restoreVietnameseDiacritics(question.title),
     content: question.type === 'PROGRAMMING' ? formatPlainTextToHtml(question.content) : question.content,
     explanation: question.explanation,
     options: question.options.map((option, i) => ({ ...option, id: `${question.id}-option-${i}` })),
@@ -22,7 +22,7 @@ export function toApprovedAiPayload(item: AIDraftQuestion) {
     generationId: item.generationId!, subjectId: item.subjectId,
     topicIds: item.topics?.map((topic) => topic.id) ?? [],
     question: {
-      title: item.type === 'PROGRAMMING' ? item.title : item.content,
+      title: item.type === 'PROGRAMMING' ? restoreVietnameseDiacritics(item.title) : item.content,
       content: item.type === 'PROGRAMMING' ? formatPlainTextToHtml(item.content) : item.content,
       explanation: item.explanation ?? '', type: item.type, difficulty: item.difficulty,
       difficultyReason: item.aiDifficultyReason ?? 'Giảng viên đã rà soát mức độ khó.',
