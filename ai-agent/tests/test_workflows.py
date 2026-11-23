@@ -211,7 +211,7 @@ async def test_invalid_model_answer_is_retried_with_a_shorter_response():
         async def ainvoke(self, _messages):
             self.calls += 1
             if self.calls == 1:
-                return {"summary": "too long " * 200, "actions": [], "evidenceIds": ["join"]}
+                return {"summary": "too long " * 500, "actions": [], "evidenceIds": ["join"]}
             return {"summary": "Ôn JOIN.", "actions": [], "evidenceIds": ["join"]}
 
     model = Model()
@@ -224,3 +224,14 @@ async def test_invalid_model_answer_is_retried_with_a_shorter_response():
     ))
     assert model.calls == 2
     assert answer.summary == "Ôn JOIN."
+
+
+@pytest.mark.asyncio
+async def test_greeting_without_evidence_returns_friendly_greeting():
+    answer = await run_student(None, StudentRequest(
+        message="Xin chào bạn!", analyzedAttemptCount=0,
+        limitedToRecentAttempts=False, topics=[],
+    ))
+    assert "Xin chào" in answer.summary
+    assert answer.actions == []
+    assert answer.evidenceIds == []
