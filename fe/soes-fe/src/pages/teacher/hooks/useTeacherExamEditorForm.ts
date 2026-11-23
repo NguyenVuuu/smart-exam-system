@@ -30,7 +30,7 @@ import type { TeacherExamQuestionInput } from '../api/teacher-exams.api'
 
 const toExamQuestionInput = (item: ExamQuestionItem): TeacherExamQuestionInput => {
   const placement = { points: normalizePoint(item.points), sectionId: item.sectionId }
-  if (item.sourceQuestionId) {
+  if (item.sourceQuestionId && !item.questionEdited) {
     return { ...placement, source: 'QUESTION_BANK', questionId: item.sourceQuestionId }
   }
 
@@ -136,10 +136,13 @@ export function useTeacherExamEditorForm({
     setDurationMinutes(sourceExam.defaultDurationMinutes)
     setTargetTotalPoints(sourceExam.totalPoints)
     setQuestions(
-      sourceExam.questions.map((item) => ({
-        ...item,
-        question: { ...item.question },
-      })),
+      balanceQuestionPointsBySection(
+        sourceExam.questions.map((item) => ({
+          ...item,
+          question: { ...item.question },
+        })),
+        nextSections,
+      ),
     )
   }, [isCopy, openQuestions, sourceExam])
 
@@ -202,7 +205,16 @@ export function useTeacherExamEditorForm({
   }
 
   const updateExamType = (nextType: ExamType) => {
-    const nextSections = buildInitialSections(nextType)
+    const defaultSections = buildInitialSections(nextType)
+    const nextSectionPoints = splitPointsPrecisely(normalizePoint(targetTotalPoints), defaultSections.length)
+    const nextSections = defaultSections.map((section, index) => {
+      const existingSection = sections.find((item) => item.type === section.type)
+      return {
+        ...section,
+        id: existingSection?.id ?? section.id,
+        targetPoints: nextSectionPoints[index],
+      }
+    })
     setSearchParams(
       (prev) => {
         const nextParams = new URLSearchParams(prev)
@@ -256,7 +268,8 @@ export function useTeacherExamEditorForm({
           item.questionId === editingQuestion.id
             ? {
                 ...item,
-                sourceQuestionId: null,
+                sourceQuestionId: item.sourceQuestionId,
+                questionEdited: true,
                 question: { ...item.question, ...savedQ } as Question,
                 sectionId: inferSectionId({ ...item.question, ...savedQ } as Question, sections),
               }
@@ -458,6 +471,7 @@ export function useTeacherExamEditorForm({
     totalPoints,
     visibleQuestions,
     revisionNotes,
+    revisionReason: !isCopy ? sourceExam?.revisionReason : undefined,
     sectionStats,
     // handlers
     clearFieldError,

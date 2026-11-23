@@ -26,6 +26,7 @@ export interface ExamQuestionItem {
   questionId: string
   snapshotQuestionId?: string
   sourceQuestionId?: string | null
+  questionEdited?: boolean
   question: Question
   points: number
   order: number
@@ -104,6 +105,7 @@ export interface Exam {
   totalPoints: number
   createdAt: string
   rejectionReason?: string
+  revisionReason?: string
   revisionFeedback?: Array<{ questionId: string; order: number; title: string; note: string }>
   lockedReason?: string
   // Blockchain integrity

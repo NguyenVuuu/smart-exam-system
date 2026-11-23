@@ -4,6 +4,7 @@ import type { ExamQuestionItem, ExamSection } from '../../types/teacher-exam.typ
 import type { Question } from '../../types/teacher-question-bank.types'
 import { questionTypeLabel } from '../../constants/ExamEditorConfig'
 import { canPlaceQuestionInSection } from '../../utils/ExamQuestionReorder'
+import { formatPoint } from '../../utils/ExamEditorUtils'
 
 export function QuestionRow({
   item,
@@ -12,7 +13,6 @@ export function QuestionRow({
   sections,
   isCollapsed,
   onToggleCollapse,
-  onPointChange,
   onSectionChange,
   onEdit,
   onRemove,
@@ -23,7 +23,6 @@ export function QuestionRow({
   sections: ExamSection[]
   isCollapsed: boolean
   onToggleCollapse: () => void
-  onPointChange: (points: number) => void
   onSectionChange: (sectionId: string) => void
   onEdit: () => void
   onRemove: () => void
@@ -47,7 +46,7 @@ export function QuestionRow({
             {item.question.title || item.question.content}
           </p>
           <span className="shrink-0 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-700">
-            {item.points} điểm
+            {formatPoint(item.points)} điểm
           </span>
         </div>
         {revisionNote && <RevisionFeedback note={revisionNote} />}
@@ -103,17 +102,9 @@ export function QuestionRow({
               label: section.title,
             }))}
           />
-          <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
-            Điểm
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              value={item.points}
-              onChange={(e) => onPointChange(Number(e.target.value))}
-              className="w-20 bg-white border border-gray-200 rounded-lg p-2 text-xs font-bold focus:outline-none focus:border-blue-300 shadow-2xs"
-            />
-          </label>
+          <span className="text-right text-xs font-semibold text-gray-600">
+            {formatPoint(item.points)} điểm/câu
+          </span>
           <div className="flex justify-end gap-1">
             <button onClick={onEdit} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
               <Edit size={14} />
@@ -130,20 +121,26 @@ export function QuestionRow({
 }
 
 function RevisionFeedback({ note }: { note: string }) {
-  return <div className="mt-3 flex gap-2 rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2.5 text-xs text-slate-700">
-    <MessageSquareText size={15} className="mt-0.5 shrink-0 text-blue-600" />
-    <div>
-      <p className="font-semibold text-slate-900">Góp ý từ nhóm duyệt</p>
-      <p className="mt-1 whitespace-pre-wrap leading-relaxed">{note}</p>
+  return (
+    <div role="alert" className="mt-4 flex gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-3.5 py-3 text-xs text-amber-950 shadow-sm">
+      <div className="mt-0.5 rounded-lg bg-amber-100 p-1.5 text-amber-700">
+        <MessageSquareText size={16} />
+      </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-bold text-amber-950">{"G\u00f3p \u00fd c\u1ea7n x\u1eed l\u00fd"}</p>
+        </div>
+        <p className="mt-1 whitespace-pre-wrap leading-relaxed text-amber-900">{note}</p>
+      </div>
     </div>
-  </div>
+  )
 }
 
 export function QuestionAnswerPreview({ question }: { question: Question }) {
-  if (question.type === 'PROGRAMMING') {
+  if (question.type === "PROGRAMMING") {
     return (
       <p className="text-xs text-gray-500 flex items-center gap-1">
-        <Code size={13} /> {question.programmingLanguage} • {question.testCases?.length || 0} test case
+        <Code size={13} /> {question.programmingLanguage} - {question.testCases?.length || 0} test case
       </p>
     )
   }

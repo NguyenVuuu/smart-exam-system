@@ -88,6 +88,7 @@ export default function TeacherExamEditorPage() {
                 sectionStats={form.sectionStats}
                 visibleQuestions={form.visibleQuestions}
                 revisionNotes={form.revisionNotes}
+                revisionReason={form.revisionReason}
                 questions={form.questions}
                 setQuestions={form.setQuestions}
                 collapsedQuestionIds={form.collapsedQuestionIds}
