@@ -32,8 +32,8 @@ export function buildGenerationResponseSchema(requirements: GenerationRequiremen
           properties: {
             ...Object.fromEntries(Object.entries(questionSchema.properties).filter(([field]) => !omitted.has(field))),
             title: { type: 'string', description: objectiveOnly
-              ? 'Câu hỏi hoặc mệnh đề đầy đủ, ưu tiên 120-170 ký tự, bắt buộc không quá 200 ký tự; không trả content.'
-              : 'Tiêu đề từ 3 đến 200 ký tự.' },
+              ? 'Câu hỏi hoặc mệnh đề đầy đủ bằng TIẾNG VIỆT CÓ ĐẦY ĐỦ DẤU, ưu tiên 120-170 ký tự, bắt buộc không quá 200 ký tự; không trả content.'
+              : 'Tiêu đề bài toán bằng TIẾNG VIỆT CÓ ĐẦY ĐỦ DẤU THANH VÀ DẤU NGỮ PHÁP (ví dụ: "Tính tổng các phần tử ở chỉ số chẵn", tuyệt đối KHÔNG viết tiếng Việt không dấu), từ 3 đến 200 ký tự.' },
             type: { type: 'string', enum: allowedTypes(targetQuestionType) },
             difficulty: {
               type: 'string',

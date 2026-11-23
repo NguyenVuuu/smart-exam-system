@@ -48,7 +48,7 @@ export const questionBodySchema = z.object({
   }
 }).transform((data) => ({
   ...data,
-  content: data.type === 'PROGRAMMING' ? data.content!.trim() : data.title,
+  content: data.type === 'PROGRAMMING' ? data.content!.trim() : (data.content?.trim() || data.title),
 }))
 
 export const approvalQuerySchema = z.object({

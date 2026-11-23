@@ -51,7 +51,7 @@ class ModelSelection(BaseModel):
 
 class ConversationTurn(BaseModel):
     message: str = Field(min_length=1, max_length=500)
-    summary: str = Field(max_length=1500)
+    summary: str = Field(max_length=4000)
 
 
 class StudentRequest(ModelSelection):
@@ -197,7 +197,7 @@ class ProgrammingReview(BaseModel):
 
 
 class AgentAnswer(BaseModel):
-    summary: str = Field(max_length=1500)
+    summary: str = Field(max_length=4000)
     actions: list[Annotated[str, Field(max_length=500)]] = Field(max_length=5)
     evidenceIds: list[Annotated[str, Field(max_length=100)]] = Field(max_length=20)
     caveat: str | None = Field(default=None, max_length=500)
