@@ -6,7 +6,7 @@ interface ApiResponse<T> { success: boolean; data: T }
 interface QuestionApprovalDto { id: string; question: TeacherQuestionDto }
 
 export interface ExamApprovalDto extends TeacherExamDto {
-  reviewRound: { id: string; version: number; status: 'PENDING' | 'APPROVED' | 'REVISION_REQUESTED'; submittedAt: string }
+  reviewRound: { id: string; version: number; status: 'PENDING' | 'APPROVED' | 'REVISION_REQUESTED'; submittedAt: string; reviewerName: string | null }
 }
 
 export interface ExamReviewSnapshot {
@@ -57,12 +57,15 @@ export async function getPendingQuestionApprovals() {
   return response.data.data.items
 }
 
-export async function getPendingExamApprovals() {
+export async function getExamApprovals(status: 'PENDING' | 'APPROVED') {
   const response = await apiClient.get<ApiResponse<{ items: ExamApprovalDto[] }>>('/teacher/exam-approvals', {
-    params: { status: 'PENDING', page: 1, pageSize: 100 },
+    params: { status, page: 1, pageSize: 100 },
   })
   return response.data.data.items
 }
+
+export const getPendingExamApprovals = () => getExamApprovals('PENDING')
+export const getApprovedExamApprovals = () => getExamApprovals('APPROVED')
 
 export async function getExamApprovalDetail(id: string) {
   const response = await apiClient.get<ApiResponse<ExamApprovalDetailDto>>(`/teacher/exam-approvals/${id}`)

@@ -1,7 +1,7 @@
 import type { Exam } from './teacher-exam.types'
 import type { Question } from './teacher-question-bank.types'
 
-export type ApprovalKind = 'QUESTION' | 'EXAM'
+export type ApprovalKind = 'QUESTION' | 'EXAM' | 'APPROVED_EXAM'
 
 export type ApprovalItem =
   | {
@@ -23,5 +23,6 @@ export type ApprovalItem =
       authorName: string
       createdAt: string
       version: number
+      reviewerName?: string | null
       source: Exam
     }

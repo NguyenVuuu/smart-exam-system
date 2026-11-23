@@ -354,7 +354,10 @@ export function listApprovals(groupId: string, query: ExamApprovalQuery) {
     prisma.examReviewRound.count({ where }),
     prisma.examReviewRound.findMany({
       where,
-      include: { exam: { include: examInclude } },
+      include: {
+        exam: { include: examInclude },
+        decision: { include: { reviewer: { include: { user: { select: { fullName: true } } } } } },
+      },
       skip: (query.page - 1) * query.pageSize, take: query.pageSize,
       orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }],
     }),

@@ -27,7 +27,11 @@ export default function TeacherDepartmentApprovalPage() {
   const approvals = useTeacherApprovals(canReviewQuestions, canReviewExams)
 
   const [selectedKind, setSelectedKind] = useState<ApprovalKind>('QUESTION')
-  const activeKind = canReviewQuestions && (selectedKind === 'QUESTION' || !canReviewExams) ? 'QUESTION' : 'EXAM'
+  const activeKind = canReviewQuestions && (selectedKind === 'QUESTION' || !canReviewExams)
+    ? 'QUESTION'
+    : canReviewExams && selectedKind === 'APPROVED_EXAM'
+      ? 'APPROVED_EXAM'
+      : 'EXAM'
   const navigate = useNavigate()
   const [reviewing, setReviewing] = useState<ApprovalItem | null>(null)
   const [rejecting, setRejecting] = useState<ApprovalItem | null>(null)
@@ -54,10 +58,27 @@ export default function TeacherDepartmentApprovalPage() {
     authorName: exam.authorName,
     createdAt: exam.reviewRound.submittedAt,
     version: exam.reviewRound.version,
+    reviewerName: exam.reviewRound.reviewerName,
+    source: exam,
+  }))
+  const approvedExamItems: ApprovalItem[] = approvals.approvedExams.map((exam) => ({
+    kind: 'EXAM',
+    id: exam.id,
+    title: exam.title,
+    subjectName: exam.subjectName,
+    authorId: exam.authorId,
+    authorName: exam.authorName,
+    createdAt: exam.reviewRound.submittedAt,
+    version: exam.reviewRound.version,
+    reviewerName: exam.reviewRound.reviewerName,
     source: exam,
   }))
 
-  const activeItems = activeKind === 'QUESTION' ? questionItems : examItems
+  const activeItems = activeKind === 'QUESTION'
+    ? questionItems
+    : activeKind === 'APPROVED_EXAM'
+      ? approvedExamItems
+      : examItems
 
   const columns: ColumnDef<ApprovalItem>[] = [
     {
@@ -78,13 +99,18 @@ export default function TeacherDepartmentApprovalPage() {
       render: (item) => <span className="text-sm font-normal text-gray-700">{item.subjectName}</span>,
     },
     {
-      header: 'Người gửi',
-      width: '18%',
+      header: "Nguoi tao de",
+      width: "18%",
       render: (item) => <span className="text-sm font-normal text-gray-700">{item.authorName}</span>,
     },
     {
-      header: 'Ngày gửi',
-      width: '14%',
+      header: "Nguoi duyet cuoi",
+      width: "18%",
+      render: (item) => <span className="text-sm font-normal text-gray-700">{item.kind === "EXAM" ? item.reviewerName ?? "-" : "-"}</span>,
+    },
+    {
+      header: "Ngay gui",
+      width: "12%",
       render: (item) => <span className="text-sm font-normal text-gray-600">{formatDateTime(item.createdAt)}</span>,
     },
     {
@@ -101,22 +127,22 @@ export default function TeacherDepartmentApprovalPage() {
           >
             <Eye size={17} />
           </button>
-          <button
+          {activeKind !== 'APPROVED_EXAM' && <button
             onClick={() => item.kind === 'EXAM' ? openReview(item) : approve(item)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
             aria-label={item.kind === 'EXAM' ? 'Mở đề để duyệt' : 'Duyệt'}
             title={item.kind === 'EXAM' ? 'Mở đề để duyệt' : 'Duyệt'}
           >
             <CheckCircle2 size={17} />
-          </button>
-          <button
+          </button>}
+          {activeKind !== 'APPROVED_EXAM' && <button
             onClick={() => void openReject(item)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
             aria-label={item.kind === 'EXAM' ? 'Mở đề để góp ý sửa' : 'Từ chối'}
             title={item.kind === 'EXAM' ? 'Mở đề để góp ý sửa' : 'Từ chối'}
           >
             <XCircle size={17} />
-          </button>
+          </button>}
         </div>
       ),
     },
@@ -212,6 +238,7 @@ export default function TeacherDepartmentApprovalPage() {
         canReviewExams={canReviewExams}
         questionCount={questionItems.length}
         examCount={examItems.length}
+        approvedExamCount={approvedExamItems.length}
       />
 
       <DataTable
