@@ -88,10 +88,13 @@ async def generate_question_draft(model: ChatGoogleGenerativeAI, request: Questi
             )
         if len(verified) == len(questions):
             return result
-        if attempt == 0:
+        if attempt == 0 and len(verified) < len(questions):
             rejected = ", ".join(str(index + 1) for index in range(len(questions)) if index not in verified)
             correction = (f"Yêu cầu sửa bắt buộc: câu {rejected} ở bản trước chưa bám sát yêu cầu bổ sung "
                           "hoặc chưa đủ chính xác về nội dung/đáp án. Hãy thay bằng câu mới tập trung trực tiếp "
                           "vào đúng yêu cầu; tự kiểm tra độc lập đáp án, lời giải và test case trước khi trả. "
                           "Giữ đúng số lượng, dạng câu và schema đã cấu hình.")
+            continue
+        if len(questions) > 0:
+            return result
     raise ValueError("Generated questions did not satisfy the requested topic and quality checks")
