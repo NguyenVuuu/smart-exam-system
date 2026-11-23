@@ -9,6 +9,7 @@ import type { Question } from '../types/teacher-question-bank.types'
 export function useTeacherApprovals(questionsEnabled: boolean, examsEnabled: boolean) {
   const [questions, setQuestions] = useState<Array<{ itemId: string; question: Question }>>([])
   const [exams, setExams] = useState<Array<Exam & { reviewRound: api.ExamApprovalDto['reviewRound'] }>>([])
+  const [approvedExams, setApprovedExams] = useState<Array<Exam & { reviewRound: api.ExamApprovalDto['reviewRound'] }>>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -16,20 +17,24 @@ export function useTeacherApprovals(questionsEnabled: boolean, examsEnabled: boo
     if (!questionsEnabled && !examsEnabled) {
       setQuestions([])
       setExams([])
+      setApprovedExams([])
       return
     }
     setLoading(true)
     setError(null)
     try {
-      const [questionResult, examResult] = await Promise.allSettled([
+      const [questionResult, examResult, approvedExamResult] = await Promise.allSettled([
         questionsEnabled ? api.getPendingQuestionApprovals() : Promise.resolve([]),
         examsEnabled ? api.getPendingExamApprovals() : Promise.resolve([]),
+        examsEnabled ? api.getApprovedExamApprovals() : Promise.resolve([]),
       ])
       setQuestions(questionResult.status === 'fulfilled'
         ? questionResult.value.map((row) => ({ itemId: row.id, question: toQuestion(row.question) })) : [])
       setExams(examResult.status === 'fulfilled'
         ? examResult.value.map((row) => ({ ...toExam(row), reviewRound: row.reviewRound })) : [])
-      if (questionResult.status === 'rejected' || examResult.status === 'rejected') {
+      setApprovedExams(approvedExamResult.status === 'fulfilled'
+        ? approvedExamResult.value.map((row) => ({ ...toExam(row), reviewRound: row.reviewRound })) : [])
+      if (questionResult.status === 'rejected' || examResult.status === 'rejected' || approvedExamResult.status === 'rejected') {
         setError('Không thể tải một phần hàng đợi duyệt chuyên môn.')
       }
     } catch { setError('Không thể tải hàng đợi duyệt chuyên môn.') }
@@ -49,7 +54,7 @@ export function useTeacherApprovals(questionsEnabled: boolean, examsEnabled: boo
 
   const mutate = async (action: () => Promise<unknown>) => { await action(); await load() }
   return {
-    questions, exams, loading, error, retry: load,
+    questions, exams, approvedExams, loading, error, retry: load,
     approveQuestion: (id: string) => mutate(() => api.approveQuestion(id)),
     rejectQuestion: (id: string, reason: string) => mutate(() => api.rejectQuestion(id, reason)),
     approveExam: (id: string) => mutate(() => api.approveExam(id)),

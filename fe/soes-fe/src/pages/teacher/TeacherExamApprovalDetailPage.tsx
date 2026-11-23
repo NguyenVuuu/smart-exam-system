@@ -51,6 +51,8 @@ export default function TeacherExamApprovalDetailPage() {
   }, [examId, accessQuery.data?.canReview])
 
   const selectedRound = history.find((round) => round.id === selectedHistoryId) ?? null
+  const readOnly = detail?.reviewRound.status === 'APPROVED'
+  const finalApproval = history.find((round) => round.decision?.type === 'APPROVE')?.decision ?? null
   const selectedRoundIndex = selectedRound ? history.findIndex((round) => round.id === selectedRound.id) : -1
   const previousRound = selectedRoundIndex >= 0 ? history[selectedRoundIndex + 1] ?? null : null
   const selectedHistoryExam = useMemo(() => {
@@ -117,8 +119,8 @@ export default function TeacherExamApprovalDetailPage() {
   return (
     <TeacherShell>
       <TeacherPageHeader
-        title="Duyệt đề thi cuối kỳ"
-        description="Xem toàn bộ nội dung, lịch sử xử lý và gửi quyết định duyệt chuyên môn."
+        title={readOnly ? "L\u1ecbch s\u1eed duy\u1ec7t \u0111\u1ec1" : "Duy\u1ec7t \u0111\u1ec1 thi cu\u1ed1i k\u1ef3"}
+        description={readOnly ? "Xem l\u1ea1i c\u00e1c phi\u00ean b\u1ea3n v\u00e0 quy\u1ebft \u0111\u1ecbnh duy\u1ec7t c\u1ee7a \u0111\u1ec1." : "Xem to\u00e0n b\u1ed9 n\u1ed9i dung, l\u1ecbch s\u1eed x\u1eed l\u00fd v\u00e0 g\u1eedi quy\u1ebft \u0111\u1ecbnh duy\u1ec7t chuy\u00ean m\u00f4n."}
         icon={<ShieldCheck size={21} />}
         actions={
           <button type="button" onClick={() => navigate('/teacher/department-approvals')} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
@@ -138,23 +140,24 @@ export default function TeacherExamApprovalDetailPage() {
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">ĐỀ THI CUỐI KỲ - LẦN GỬI {approvalItem.version}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{readOnly ? `L\u1ecbch s\u1eed duy\u1ec7t \u0111\u1ec1 - L\u1ea7n g\u1eedi ${approvalItem.version}` : `Duy\u1ec7t \u0111\u1ec1 thi cu\u1ed1i k\u1ef3 - L\u1ea7n g\u1eedi ${approvalItem.version}`}</p>
                 <h2 className="mt-1 text-xl font-semibold text-slate-950">{exam.title}</h2>
-                <p className="mt-1 text-sm text-slate-500">{exam.subjectName} - Người ra đề: {exam.authorName}</p>
+                <p className="mt-1 text-sm text-slate-500">{exam.subjectName} - {"Ng\u01b0\u1eddi ra \u0111\u1ec1"}: {exam.authorName}</p>
+                {readOnly && finalApproval && <p className="mt-1 text-xs font-semibold text-emerald-700">{"\u0110\u01b0\u1ee3c duy\u1ec7t b\u1edfi"} {finalApproval.reviewer.fullName}</p>}
               </div>
-              <div className="rounded-xl bg-blue-50 px-4 py-3 text-right text-xs text-blue-800">
-                <p className="font-semibold">Đang chờ xử lý</p>
-                <p className="mt-1">{exam.questions.length} câu - {exam.totalPoints} điểm - {exam.defaultDurationMinutes} phút</p>
+              <div className={`rounded-xl px-4 py-3 text-right text-xs ${readOnly ? "bg-emerald-50 text-emerald-800" : "bg-blue-50 text-blue-800"}`}>
+                <p className="font-semibold">{readOnly ? "\u0110\u00e3 duy\u1ec7t" : "\u0110ang ch\u1edd x\u1eed l\u00fd"}</p>
+                <p className="mt-1">{exam.questions.length} cau - {exam.totalPoints} diem - {exam.defaultDurationMinutes} phut</p>
               </div>
             </div>
           </section>
 
           <div className="inline-flex rounded-xl bg-slate-100 p-1">
-            <button type="button" onClick={() => setActiveTab('CURRENT')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'CURRENT' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
-              Đề gửi duyệt hiện tại
+            <button type="button" onClick={() => setActiveTab("CURRENT")} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === "CURRENT" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>
+              {readOnly ? "N\u1ed9i dung \u0111\u1ec1 \u0111\u00e3 duy\u1ec7t" : "\u0110\u1ec1 g\u1eedi duy\u1ec7t hi\u1ec7n t\u1ea1i"}
             </button>
-            <button type="button" onClick={() => setActiveTab('HISTORY')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === 'HISTORY' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
-              Lịch sử yêu cầu sửa ({history.length})
+            <button type="button" onClick={() => setActiveTab("HISTORY")} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === "HISTORY" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>
+              {readOnly ? `L\u1ecbch s\u1eed c\u00e1c phi\u00ean b\u1ea3n (${history.length})` : `L\u1ecbch s\u1eed y\u00eau c\u1ea7u s\u1eeda (${history.length})`}
             </button>
           </div>
 
@@ -164,6 +167,7 @@ export default function TeacherExamApprovalDetailPage() {
                 exam={exam}
                 questionNotes={questionNotes}
                 onQuestionNoteChange={(questionId, note) => setQuestionNotes((current) => ({ ...current, [questionId]: note }))}
+                interactiveNotes={!readOnly}
               />
             </section>
           ) : (
@@ -176,7 +180,7 @@ export default function TeacherExamApprovalDetailPage() {
             />
           )}
 
-          {activeTab === 'CURRENT' && <div className="sticky bottom-4 flex justify-end gap-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur">
+          {activeTab === 'CURRENT' && !readOnly && <div className="sticky bottom-4 flex justify-end gap-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur">
             <button type="button" disabled={saving} onClick={() => setRejecting(true)} className="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-5 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50">
               <XCircle size={17} /> Yêu cầu sửa đề
             </button>

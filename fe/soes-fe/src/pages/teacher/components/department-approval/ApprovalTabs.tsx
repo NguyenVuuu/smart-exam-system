@@ -7,6 +7,7 @@ interface ApprovalTabsProps {
   canReviewExams: boolean
   questionCount: number
   examCount: number
+  approvedExamCount: number
 }
 
 export default function ApprovalTabs({
@@ -16,6 +17,7 @@ export default function ApprovalTabs({
   canReviewExams,
   questionCount,
   examCount,
+  approvedExamCount,
 }: ApprovalTabsProps) {
   return (
     <div className="inline-flex w-full max-w-md rounded-full bg-white p-1 shadow-sm ring-1 ring-gray-100">
@@ -43,6 +45,19 @@ export default function ApprovalTabs({
           }`}
         >
           Đề cuối kỳ ({examCount})
+        </button>
+      )}
+      {canReviewExams && (
+        <button
+          type="button"
+          onClick={() => onSelectKind('APPROVED_EXAM')}
+          className={`min-w-0 flex-1 rounded-full px-4 py-2.5 text-xs font-semibold transition-all ${
+            activeKind === 'APPROVED_EXAM'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+          }`}
+        >
+          Đề đã duyệt ({approvedExamCount})
         </button>
       )}
     </div>

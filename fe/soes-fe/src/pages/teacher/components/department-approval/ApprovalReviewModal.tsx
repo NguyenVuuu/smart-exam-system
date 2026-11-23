@@ -157,10 +157,6 @@ export function ExamReviewContent({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-100">
-        <div className="shrink-0 border-b border-gray-100 bg-gray-50 px-4 py-3">
-          <p className="text-sm font-semibold text-gray-900">{exam.title}</p>
-          <p className="mt-0.5 text-xs text-gray-500">{exam.description}</p>
-        </div>
         <div className="min-h-0 flex-1 divide-y divide-gray-100 overflow-y-auto pb-4">
           {orderedQuestions.map((item) => {
             const questionId = item.snapshotQuestionId ?? item.questionId
