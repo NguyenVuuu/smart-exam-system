@@ -1,3 +1,11 @@
+export function cleanEscapedText(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'")
+    .replace(/\\\$/g, "$");
+}
+
 export function safeTruncate(text: string, maxLength = 200): string {
   const trimmed = text.trim();
   if (trimmed.length <= maxLength) return trimmed;
@@ -17,10 +25,29 @@ export function normalizeObjectiveFields(payload: unknown) {
     const q = question as {
       title?: string;
       content?: string;
+      explanation?: string;
       type?: string;
       difficultyReason?: string;
       options?: Array<{ content?: string; isCorrect?: boolean }>;
+      testCases?: Array<{ input?: string; expectedOutput?: string; isHidden?: boolean }>;
     };
+
+    if (typeof q.title === "string") q.title = cleanEscapedText(q.title);
+    if (typeof q.content === "string") q.content = cleanEscapedText(q.content);
+    if (typeof q.explanation === "string") q.explanation = cleanEscapedText(q.explanation);
+
+    if (Array.isArray(q.options)) {
+      for (const opt of q.options) {
+        if (opt && typeof opt.content === "string") opt.content = cleanEscapedText(opt.content);
+      }
+    }
+
+    if (Array.isArray(q.testCases)) {
+      for (const tc of q.testCases) {
+        if (tc && typeof tc.input === "string") tc.input = cleanEscapedText(tc.input);
+        if (tc && typeof tc.expectedOutput === "string") tc.expectedOutput = cleanEscapedText(tc.expectedOutput);
+      }
+    }
 
     if (typeof q.difficultyReason === "string") {
       q.difficultyReason = q.difficultyReason

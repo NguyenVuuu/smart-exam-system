@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { normalizeObjectiveFields, safeTruncate } from './generated-question.normalizer'
+import { cleanEscapedText, normalizeObjectiveFields, safeTruncate } from './generated-question.normalizer'
 import { generatedQuestionSchema } from '../schemas/generated-question.schema'
 
 describe('generated-question.normalizer', () => {
+  describe('cleanEscapedText', () => {
+    it('cleans escaped double and single quotes and math symbols', () => {
+      const escaped = 'In ra \\"YES\\" nếu đúng, ngược lại in ra \\"NO\\". Tham số \\$N\\$.'
+      assert.equal(cleanEscapedText(escaped), 'In ra "YES" nếu đúng, ngược lại in ra "NO". Tham số $N$.')
+    })
+  })
+
   describe('safeTruncate', () => {
     it('keeps text under 200 characters unchanged', () => {
       const text = 'Một câu hỏi ngắn gọn dưới 200 ký tự.'
