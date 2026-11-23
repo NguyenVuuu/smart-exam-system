@@ -233,19 +233,27 @@ export async function get(teacherId: string, examId: string) {
   if (exam.createdById !== teacherId || exam.type !== 'FINAL' || exam.approvalStatus !== 'REJECTED') return detail;
   const round = await repo.findLatestRevisionFeedback(examId, teacherId);
   const feedback = round?.decision?.questionFeedback;
+  const revisionReason = round?.decision?.reason ?? undefined;
   const revisionFeedback = Array.isArray(feedback)
     ? feedback.filter((item): item is { questionId: string; order: number; title: string; note: string } =>
         item !== null && typeof item === 'object' && !Array.isArray(item)
         && typeof item.questionId === 'string' && typeof item.order === 'number'
         && typeof item.title === 'string' && typeof item.note === 'string')
     : [];
-  return { ...detail, revisionFeedback };
+  return { ...detail, revisionReason, revisionFeedback };
 }
 
 export async function getReviewHistory(teacherId: string, examId: string) {
   const exam = await repo.findExam(examId)
-  if (!exam || exam.createdById !== teacherId) throw new NotFoundError('Exam not found')
-  return repo.findOwnedReviewHistory(examId, teacherId)
+  if (!exam) throw new NotFoundError('Exam not found')
+  if (exam.createdById === teacherId) {
+    const history = await repo.findOwnedReviewHistory(examId, teacherId)
+    return history.map((round) => ({ ...round, snapshot: openReviewSnapshot(round.snapshot) }))
+  }
+  const groupId = await reviewerGroupId(teacherId)
+  const history = await repo.findReviewHistoryForGroup(groupId, examId)
+  if (!history.length) throw new NotFoundError('Review history not found')
+  return history.map((round) => ({ ...round, snapshot: openReviewSnapshot(round.snapshot) }))
 }
 
 async function validateSubject(teacherId: string, subjectId: string) {
