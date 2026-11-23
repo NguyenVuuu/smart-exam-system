@@ -248,12 +248,26 @@ export async function getReviewHistory(teacherId: string, examId: string) {
   if (!exam) throw new NotFoundError('Exam not found')
   if (exam.createdById === teacherId) {
     const history = await repo.findOwnedReviewHistory(examId, teacherId)
-    return history.map((round) => ({ ...round, snapshot: openReviewSnapshot(round.snapshot) }))
+    return history.map(toReviewHistoryItem)
   }
   const groupId = await reviewerGroupId(teacherId)
   const history = await repo.findReviewHistoryForGroup(groupId, examId)
   if (!history.length) throw new NotFoundError('Review history not found')
-  return history.map((round) => ({ ...round, snapshot: openReviewSnapshot(round.snapshot) }))
+  return history.map(toReviewHistoryItem)
+}
+
+function toReviewHistoryItem(round: Awaited<ReturnType<typeof repo.findOwnedReviewHistory>>[number]) {
+  return {
+    ...round,
+    submittedBy: { id: round.submittedBy.id, fullName: round.submittedBy.user.fullName },
+    decision: round.decision
+      ? {
+          ...round.decision,
+          reviewer: { id: round.decision.reviewer.id, fullName: round.decision.reviewer.user.fullName },
+        }
+      : null,
+    snapshot: openReviewSnapshot(round.snapshot),
+  }
 }
 
 async function validateSubject(teacherId: string, subjectId: string) {
@@ -504,7 +518,13 @@ export async function listApprovals(
   return {
     items: rows.map((round) => ({
       ...toTeacherExamDto(round.exam, teacherId),
-      reviewRound: { id: round.id, version: round.version, status: round.status, submittedAt: round.submittedAt },
+      reviewRound: {
+        id: round.id,
+        version: round.version,
+        status: round.status,
+        submittedAt: round.submittedAt,
+        reviewerName: round.decision?.reviewer.user.fullName ?? null,
+      },
     })),
     pagination: toPagination(query.page, query.pageSize, total),
   };
