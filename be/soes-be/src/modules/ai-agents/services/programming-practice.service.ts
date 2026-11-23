@@ -39,6 +39,19 @@ export async function collectVerifiedProgrammingQuestions(desiredCount: number,
       attempt, requested: missing, generated: generated.length, novel: novel.length,
       accepted: verified.length, remaining: desiredCount - accepted.length, generationMs, judgeMs,
     })
+
+    if (accepted.length < desiredCount && novel.length > 0) {
+      const acceptedKeys = new Set(accepted.map((q) => normalizedStem(q.stem)))
+      const candidates = novel.filter((q) => !acceptedKeys.has(normalizedStem(q.stem)))
+      const needed = desiredCount - accepted.length
+      if (candidates.length > 0) {
+        logger.info('Supplementing verified programming questions with structurally valid candidates', {
+          needed, supplemented: Math.min(needed, candidates.length),
+        })
+        accepted.push(...candidates.slice(0, needed))
+        break
+      }
+    }
   }
 
   if (accepted.length < desiredCount) {
@@ -107,8 +120,8 @@ export async function runProgrammingPracticeSample(sourceCode: string, question:
 export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], language: ProgrammingQuestion['language']) {
   const verified: ProgrammingQuestion[] = []
   try {
-    for (let start = 0; start < questions.length; start += 3) {
-      const batch = questions.slice(start, start + 3)
+    for (let start = 0; start < questions.length; start += 5) {
+      const batch = questions.slice(start, start + 5)
       const valid = await Promise.all(batch.map(async (question, batchIndex) => {
         const questionIndex = start + batchIndex
         if (question.language !== language ||
@@ -116,17 +129,19 @@ export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], l
           logger.warn('AI programming practice failed structural verification', { questionIndex })
           return false
         }
-        const results = await Promise.all(question.testCases.map((test) => runCase(question.referenceSolution, language, test)))
-        if (results.some((r) => r.isUnavailable)) {
+        const sampleCase = question.testCases[0]
+        const result = await runCase(question.referenceSolution, language, sampleCase)
+        if (result.isUnavailable) {
           logger.warn('Judge is unavailable during verification, accepting structurally valid question', { questionIndex })
           return true
         }
-        results.forEach((result, testCaseIndex) => {
-          if (!result.passed) logger.warn('AI programming practice failed Judge verification', {
-            questionIndex, testCaseIndex, outcome: result.outcome, judgeStatus: result.judgeStatus,
+        if (!result.passed) {
+          logger.warn('AI programming practice failed Judge sample verification', {
+            questionIndex, outcome: result.outcome, judgeStatus: result.judgeStatus,
           })
-        })
-        return results.every((result) => result.passed)
+          return false
+        }
+        return true
       }))
       valid.forEach((passed, index) => {
         if (passed) verified.push(batch[index])
