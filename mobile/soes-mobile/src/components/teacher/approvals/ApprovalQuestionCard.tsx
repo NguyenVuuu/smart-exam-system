@@ -4,7 +4,7 @@ import type { ApprovalSnapshot } from '../../../types/teacher-approvals.types'
 import type { ExamQuestion } from '../../../types/teacher-exams.types'
 
 type SnapshotQuestion = ApprovalSnapshot['examQuestions'][number]
-interface Props { question: SnapshotQuestion; number: number; note: string; onNoteChange: (value: string) => void }
+interface Props { question: SnapshotQuestion; number: number; note?: string; onNoteChange?: (value: string) => void }
 
 export function ApprovalQuestionCard({ question, number, note, onNoteChange }: Props) {
   const displayQuestion: ExamQuestion = {
@@ -15,12 +15,13 @@ export function ApprovalQuestionCard({ question, number, note, onNoteChange }: P
       maxCodeSizeKb: question.programmingConfig.maxCodeSizeKb,
     } : null,
   }
-  return <ExamQuestionCard question={displayQuestion} number={number} footer={<View style={styles.note}>
+  const footer = onNoteChange ? <View style={styles.note}>
     <Text style={styles.label}>Góp ý sửa câu này</Text>
-    <TextInput value={note} onChangeText={onNoteChange} multiline maxLength={1000}
+    <TextInput value={note ?? ''} onChangeText={onNoteChange} multiline maxLength={1000}
       placeholder="Nhập nội dung cần chỉnh sửa..." placeholderTextColor="#94a3b8"
       style={styles.input} textAlignVertical="top" accessibilityLabel={`Góp ý sửa câu ${number}`} />
-  </View>} />
+  </View> : undefined
+  return <ExamQuestionCard question={displayQuestion} number={number} footer={footer} />
 }
 
 const styles = StyleSheet.create({
