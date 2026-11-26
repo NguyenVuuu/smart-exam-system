@@ -6,7 +6,8 @@ import { startExamAnchorJobs } from './jobs/exam-anchor.jobs'
 import { logger } from './lib/logger'
 import { assertExamEncryptionConfigured } from './lib/encryption'
 import { initializeSystemSettings } from './modules/admin-system-settings/services/admin-system-settings.service'
-import { initProctoringRealtime } from './modules/proctoring/proctoring-realtime.gateway'
+import { initProctoringRealtime, realtimeConnectionCount } from './modules/proctoring/proctoring-realtime.gateway'
+import { startPerformanceReporting } from './lib/performance'
 import { assertFaceVerificationConfigured } from './config'
 import { assertFaceImageEncryptionConfigured } from './modules/student-face/services/face-image.crypto'
 import { startFaceReviewImageJobs } from './jobs/face-review-image.jobs'
@@ -24,6 +25,7 @@ async function startServer(): Promise<void> {
   void initProctoringRealtime(httpServer)
 
   httpServer.listen(PORT, () => {
+    startPerformanceReporting(realtimeConnectionCount)
     startExamAttemptJobs()
     startExamAnchorJobs()
     if (process.env.FACE_VERIFICATION_ENABLED === 'true') startFaceReviewImageJobs()

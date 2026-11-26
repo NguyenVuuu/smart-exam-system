@@ -24,6 +24,7 @@ type CandidatePayload = {
 }
 
 let io: Server | null = null
+export const realtimeConnectionCount = () => io?.engine.clientsCount
 
 const teacherRoom = (teacherId: string) => `proctoring:teacher:${teacherId}`
 const studentRoom = (studentId: string) => `proctoring:student:${studentId}`

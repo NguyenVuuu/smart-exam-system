@@ -37,3 +37,21 @@ jobs:
 
       - name: Build project
         run: npm run build
+
+      - name: Test vision workers
+        run: npm run test:vision
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile/soes-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/soes-mobile/package-lock.json
+      - run: npm ci
+      - run: node node_modules/typescript/bin/tsc --noEmit

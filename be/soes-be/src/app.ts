@@ -33,10 +33,12 @@ import {
 import { aiQuestionGenerationRoutes } from './modules/ai-question-generation'
 import { corsConfig, proxyConfig } from './config'
 import { auditRequestContext } from './middlewares/auditRequestContext'
+import { requestPerformance } from './middlewares/requestPerformance'
 import { allRoleNotificationsRoutes, notificationsRoutes } from './modules/notifications'
 
 const app = express()
 app.set('trust proxy', proxyConfig.trustProxy)
+app.use(requestPerformance)
 
 // ── Core Middlewares ──────────────────────────────────────
 app.use(

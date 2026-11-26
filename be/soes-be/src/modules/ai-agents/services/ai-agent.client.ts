@@ -1,6 +1,7 @@
 import { aiAgentConfig } from '../../../config'
 import { AppError } from '../../../errors/AppError'
 import { logger } from '../../../lib/logger'
+import { currentRequestId } from '../../../lib/performance'
 import { getStoredAiSettings } from '../../admin-system-settings/services/ai-settings-reader'
 import { z } from 'zod'
 import { agentAnswerSchema, examDraftProposalSchema, practiceDraftSchema, programmingPracticeDraftSchema, programmingReviewAnswerSchema, topicSuggestionSchema } from '../validators/ai-agent.validator'
@@ -14,18 +15,20 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
   const body = z.record(z.string(), z.unknown()).parse(payload)
   const model = typeof body.model === 'string' ? body.model : (await getStoredAiSettings()).model
   const startedAt = Date.now()
+  const requestId = currentRequestId()
   try {
     const response = await fetch(new URL(path, aiAgentConfig.baseUrl), {
       method: 'POST',
       headers: {
         authorization: `Bearer ${aiAgentConfig.sharedSecret}`,
         'content-type': 'application/json',
+        ...(requestId ? { 'x-request-id': requestId } : {}),
       },
       body: JSON.stringify({ ...body, model }),
       signal: AbortSignal.timeout(timeoutMs),
     })
     if (!response.ok) {
-      logger.warn('AI agent returned an error', { workflow: path, status: response.status, elapsedMs: Date.now() - startedAt })
+      logger.warn('AI agent returned an error', { requestId, workflow: path, status: response.status, elapsedMs: Date.now() - startedAt })
       if (response.status === 429) throw new AppError(429, 'AI provider rate limit reached')
       if (response.status === 503) throw new AppError(503, 'AI provider is temporarily unavailable')
       if (response.status === 422 && path === '/v1/teacher/insights') {
@@ -68,11 +71,11 @@ async function requestAgent<T extends z.ZodType>(path: AgentPath, payload: unkno
       throw new AppError(503, 'AI assistant is temporarily unavailable')
     }
     const answer = schema.parse(await response.json())
-    logger.info('AI agent request completed', { workflow: path, model, elapsedMs: Date.now() - startedAt })
+    logger.info('AI agent request completed', { requestId, workflow: path, model, elapsedMs: Date.now() - startedAt })
     return answer
   } catch (error) {
     if (error instanceof AppError) throw error
-    logger.warn('AI agent request failed', { workflow: path, elapsedMs: Date.now() - startedAt,
+    logger.warn('AI agent request failed', { requestId, workflow: path, elapsedMs: Date.now() - startedAt,
       cause: error instanceof Error ? error.name : 'Unknown' })
     throw new AppError(503, 'AI assistant is temporarily unavailable')
   }

@@ -1,9 +1,11 @@
 import { judge0Config } from "../config";
+import { currentRequestId, performanceEnabled } from "./performance";
+import { logger } from "./logger";
 
 async function httpPostJson(
   urlStr: string,
   headers: Record<string, string>,
-  bodyObj: any,
+  bodyObj: unknown,
   timeoutMs = 30000,
 ): Promise<{ status: number; body: string }> {
   const controller = new AbortController();
@@ -75,7 +77,7 @@ export class Judge0Error extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
-    public readonly response?: any,
+    public readonly response?: unknown,
   ) {
     super(message);
     this.name = "Judge0Error";
@@ -195,6 +197,28 @@ export class Judge0Service {
   async submitAndPoll(
     submission: Judge0Submission,
     timeoutMs = 30000,
+  ): Promise<Judge0SubmissionResult> {
+    if (!performanceEnabled) return this.pollSubmission(submission, timeoutMs);
+    const startedAt = performance.now();
+    let completed = false;
+    try {
+      const judgeResult = await this.pollSubmission(submission, timeoutMs);
+      completed = true;
+      return judgeResult;
+    } finally {
+      if (!process.stdout.writableNeedDrain) {
+        logger.info("Judge0 performance", {
+          requestId: currentRequestId(),
+          completed,
+          elapsedMs: Math.round(performance.now() - startedAt),
+        });
+      }
+    }
+  }
+
+  private async pollSubmission(
+    submission: Judge0Submission,
+    timeoutMs: number,
   ): Promise<Judge0SubmissionResult> {
     const payload = this.buildSubmissionPayload(submission, false);
 

@@ -3,6 +3,7 @@ import logging
 from hmac import compare_digest
 from pathlib import Path
 from time import perf_counter
+from uuid import UUID
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -68,10 +69,22 @@ async def log_agent_request(request: Request, call_next):
         status = response.status_code
         return response
     finally:
-        if request.url.path.startswith("/v1/"):
-            logger.info("AI workflow=%s status=%s elapsed_ms=%s model=%s",
-                        request.url.path, status, round((perf_counter() - started) * 1000),
-                        getattr(request.state, "model", os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")))
+        route = request.scope.get("route")
+        if route and route.path.startswith("/v1/"):
+            logger.info("AI workflow=%s status=%s elapsed_ms=%s model=%s request_id=%s",
+                        route.path, status, round((perf_counter() - started) * 1000),
+                        getattr(request.state, "model", os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")),
+                        request_id_for_log(request))
+
+
+def request_id_for_log(request: Request) -> str:
+    raw_id = request.headers.get("x-request-id", "")
+    if len(raw_id) != 36:
+        return "-"
+    try:
+        return str(UUID(raw_id))
+    except ValueError:
+        return "-"
 
 
 def require_service(authorization: str = Header(default="")) -> None:
