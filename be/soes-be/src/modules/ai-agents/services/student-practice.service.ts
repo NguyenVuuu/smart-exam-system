@@ -11,6 +11,7 @@ import { studentInsights } from '../../learning-analytics/services/learning-anal
 import { selectWeakPracticeTopic } from './practice-focus'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
 import { collectVerifiedProgrammingQuestions, gradeProgrammingPractice, practiceLanguage, runProgrammingPracticeSample, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
+import { assertPracticeGenerationLease, withPracticeGenerationLease } from './practice-generation.lease'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
 type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
@@ -33,6 +34,10 @@ async function assertOutsideExam(studentId: string) {
 }
 
 export async function createStudentPractice(studentId: string, userId: string, input: z.infer<typeof createPracticeSchema>) {
+  return withPracticeGenerationLease(studentId, token => createPractice(studentId, userId, input, token))
+}
+
+async function createPractice(studentId: string, userId: string, input: z.infer<typeof createPracticeSchema>, token: string) {
   await assertOutsideExam(studentId)
   const recent = await prisma.practiceSet.count({
     where: { studentId, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
@@ -68,6 +73,7 @@ export async function createStudentPractice(studentId: string, userId: string, i
   if (questions.length !== input.count) throw new ValidationError('Invalid practice draft')
   await assertOutsideExam(studentId)
   const set = await prisma.$transaction(async (tx) => {
+    await assertPracticeGenerationLease(tx, studentId, token)
     const created = await tx.practiceSet.create({ data: { studentId, subjectId: material.subjectId }, select: { id: true } })
     await tx.practiceItem.createMany({ data: questions.map((question, index: number) => ({
       practiceSetId: created.id, sourceQuestionId: null, orderIndex: index + 1, points: 1,

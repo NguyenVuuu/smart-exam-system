@@ -25,6 +25,7 @@ type CandidatePayload = {
 }
 
 let io: Server | null = null
+const adapterClients: Array<typeof redis> = []
 export const realtimeConnectionCount = () => io?.engine.clientsCount
 
 const teacherRoom = (teacherId: string) => `proctoring:teacher:${teacherId}`
@@ -70,6 +71,7 @@ async function configureRedisAdapter(server: Server) {
   try {
     await Promise.all([waitForRedisReady(pubClient), waitForRedisReady(subClient)])
     server.adapter(createAdapter(pubClient, subClient))
+    adapterClients.push(pubClient, subClient)
     logger.info('Socket.IO Redis adapter connected')
   } catch (error) {
     pubClient.disconnect()
@@ -78,6 +80,13 @@ async function configureRedisAdapter(server: Server) {
       error: error instanceof Error ? error.message : String(error),
     })
   }
+}
+
+export async function stopProctoringRealtime() {
+  const server = io
+  io = null
+  if (server) await new Promise<void>(resolve => server.close(() => resolve()))
+  for (const client of adapterClients.splice(0)) client.disconnect()
 }
 
 export async function initProctoringRealtime(httpServer: HttpServer) {

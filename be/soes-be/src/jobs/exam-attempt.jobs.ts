@@ -7,16 +7,14 @@ import {
 const JOB_INTERVAL_MS = 15_000
 
 let started = false
-let running = false
+let timer: NodeJS.Timeout | undefined
+let activeRun: Promise<void> | undefined
 
 export function startExamAttemptJobs(): void {
   if (started) return
   started = true
 
   const run = async () => {
-    if (running) return
-    running = true
-
     try {
       await Promise.all([
         processExpiredAttempts(),
@@ -26,17 +24,19 @@ export function startExamAttemptJobs(): void {
       logger.error('Exam attempt background jobs failed', {
         error: error instanceof Error ? error.message : String(error),
       })
-    } finally {
-      running = false
     }
   }
-
-  setInterval(() => {
-    void run()
-  }, JOB_INTERVAL_MS)
-
-  void run()
+  const tick = () => { activeRun ??= run().finally(() => { activeRun = undefined }) }
+  timer = setInterval(tick, JOB_INTERVAL_MS)
+  tick()
   logger.info('Exam attempt background jobs started', {
     intervalMs: JOB_INTERVAL_MS,
   })
+}
+
+export async function stopExamAttemptJobs() {
+  if (timer) clearInterval(timer)
+  timer = undefined
+  started = false
+  await activeRun
 }

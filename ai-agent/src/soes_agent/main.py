@@ -1,5 +1,7 @@
 import os
 import logging
+import asyncio
+from contextlib import suppress
 from hmac import compare_digest
 from pathlib import Path
 from time import perf_counter
@@ -74,6 +76,9 @@ async def log_agent_request(request: Request, call_next):
         response = await call_next(request)
         status = response.status_code
         return response
+    except asyncio.CancelledError:
+        status = 499
+        raise
     finally:
         route = request.scope.get("route")
         if route and route.path.startswith("/v1/"):
@@ -93,16 +98,32 @@ def request_id_for_log(request: Request) -> str:
         return "-"
 
 
-async def require_service(authorization: str = Header(default="")) -> AsyncIterator[None]:
+async def require_service(http_request: Request, authorization: str = Header(default="")) -> AsyncIterator[None]:
     secret = os.environ.get("AI_AGENT_SHARED_SECRET", "")
     if not secret or not compare_digest(authorization, f"Bearer {secret}"):
         raise HTTPException(status_code=401, detail="Unauthorized")
     if not _request_slots.acquire(blocking=False):
         raise HTTPException(status_code=503, detail="AI service is busy; please retry later")
+    owner = asyncio.current_task()
+
+    async def cancel_disconnected():
+        while True:
+            await asyncio.sleep(0.25)
+            if await http_request.is_disconnected():
+                if owner is not None:
+                    owner.cancel()
+                return
+
+    monitor = asyncio.create_task(cancel_disconnected())
     try:
         yield
     finally:
-        _request_slots.release()
+        try:
+            monitor.cancel()
+            with suppress(asyncio.CancelledError):
+                await monitor
+        finally:
+            _request_slots.release()
 
 
 def get_model(timeout_seconds: int = 60, max_output_tokens: int | None = None,

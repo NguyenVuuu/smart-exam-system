@@ -19,7 +19,7 @@ export function startPerformanceReporting(connectionCount: () => number | undefi
   if (!performanceEnabled) return
   const eventLoop = monitorEventLoopDelay({ resolution: 20 })
   eventLoop.enable()
-  setInterval(() => {
+  const timer = setInterval(() => {
     logger.info('Runtime performance', {
       eventLoopP99Ms: eventLoop.percentile(99) / 1e6,
       ...process.memoryUsage(),
@@ -31,4 +31,5 @@ export function startPerformanceReporting(connectionCount: () => number | undefi
     queryCount = 0
     queryDurationMs = 0
   }, 30_000).unref()
+  return () => { clearInterval(timer); eventLoop.disable() }
 }

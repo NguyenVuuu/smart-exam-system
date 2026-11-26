@@ -7,6 +7,7 @@ const env = {
   DATABASE_URL: 'postgresql://unused:unused@127.0.0.1:1/unused',
   TEST_DATABASE_URL: '',
   REDIS_URL: 'redis://127.0.0.1:1',
+  REDIS_RETRY_LIMIT: '3',
 }
 delete env.FACE_INTEGRATION_TEST
 

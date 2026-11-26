@@ -5,6 +5,7 @@ import type {
 import { Judge0Service, judge0Service } from '../../../lib/judge0'
 import { decryptField } from '../../../lib/encryption'
 import type { Judge0SubmissionResult } from '../../../lib/judge0'
+import { AppError } from '../../../errors/AppError'
 import * as repo from '../repositories/programming-grading.repository'
 
 const BATCH_SIZE = 5
@@ -106,5 +107,6 @@ export async function gradeProgrammingAnswers(attemptId: string) {
         errorMessage: result.stderr ?? result.compile_output ?? result.message,
       })),
     })
+    if (status === 'SYSTEM_ERROR') throw new AppError(503, 'Judge is temporarily unavailable')
   }
 }

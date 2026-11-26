@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
+import { findSubmissionPage } from './submission-page.repository'
 
 /** Tìm ca dự phòng đang còn chạy (chưa kết thúc) của ca gốc */
 export const findActiveMakeupSchedule = (sourceScheduleId: string) =>
@@ -279,54 +280,18 @@ async function ensureZeroAttemptsForAbsentees(scheduleId: string, courseOffering
 
 export async function listSubmissions(scheduleId: string, courseOfferingIds: string[], page: number, pageSize: number) {
   await ensureZeroAttemptsForAbsentees(scheduleId, courseOfferingIds)
-  const makeupSchedules = await prisma.examSchedule.findMany({
-    where: { makeupOfScheduleId: scheduleId },
-    select: { id: true, targetStudents: { select: { studentId: true } } },
-  })
-  const scheduleIds = [scheduleId, ...makeupSchedules.map((schedule) => schedule.id)]
-  // Tập hợp studentId được phép thi ca dự phòng (để lọc bỏ phantom attempt của SV không được phép)
-  const makeupTargetStudentIds = new Set(
-    makeupSchedules.flatMap((s) => s.targetStudents.map((t) => t.studentId)),
-  )
-  const where: Prisma.ExamAttemptWhereInput = {
-    examScheduleId: { in: scheduleIds },
-    courseOfferingId: { in: courseOfferingIds },
-    status: { not: 'IN_PROGRESS' },
-  }
-  const rows = await prisma.examAttempt.findMany({
-    where,
-    select: {
-      id: true, studentId: true,
-      student: { select: { studentCode: true } },
-      examSchedule: { select: { makeupOfScheduleId: true } },
-    },
-    orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }],
-  })
-  const byStudent = new Map<string, (typeof rows)[number]>()
-  for (const row of rows) {
-    const isMakeup = row.examSchedule.makeupOfScheduleId === scheduleId
-    // Bỏ qua attempt của ca dự phòng nếu SV đó không có trong whitelist
-    if (isMakeup && makeupTargetStudentIds.size > 0 && !makeupTargetStudentIds.has(row.studentId)) {
-      continue
-    }
-    const current = byStudent.get(row.studentId)
-    const currentIsMakeup = current?.examSchedule.makeupOfScheduleId === scheduleId
-    if (!current || (isMakeup && !currentIsMakeup)) {
-      byStudent.set(row.studentId, row)
-    }
-  }
-  const merged = [...byStudent.values()].sort((a, b) =>
-    a.student.studentCode.localeCompare(b.student.studentCode),
-  )
-  const selected = merged.slice((page - 1) * pageSize, page * pageSize)
-  if (!selected.length) return [merged.length, []] as const
+  const { total, ids } = await findSubmissionPage(scheduleId, courseOfferingIds, page, pageSize)
+  if (!ids.length) return [total, []] as const
   const submissions = await prisma.examAttempt.findMany({
-    where: { ...where, id: { in: selected.map(row => row.id) } },
+    where: {
+      id: { in: ids }, courseOfferingId: { in: courseOfferingIds }, status: { not: 'IN_PROGRESS' },
+      examSchedule: { OR: [{ id: scheduleId }, { makeupOfScheduleId: scheduleId }] },
+    },
     include: submissionInclude,
   })
   const byId = new Map(submissions.map(row => [row.id, row]))
-  return [merged.length, selected.flatMap(row => {
-    const submission = byId.get(row.id)
+  return [total, ids.flatMap(id => {
+    const submission = byId.get(id)
     return submission ? [submission] : []
   })] as const
 }

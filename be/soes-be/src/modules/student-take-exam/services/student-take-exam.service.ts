@@ -1,20 +1,18 @@
-import { ConflictError, ForbiddenError, NotFoundError, TooManyRequestsError, ValidationError } from "../../../errors/AppError";
-import { randomUUID } from 'crypto'
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../../errors/AppError";
 import bcrypt from 'bcrypt'
-import type { Prisma, ScreenShareStatus, ViolationEvidenceType, ViolationSource, ViolationType, WebcamStatus } from '@prisma/client'
-import { examConfig, minioConfig } from "../../../config";
+import type { ScreenShareStatus, WebcamStatus } from '@prisma/client'
+import { examConfig } from "../../../config";
 import { logger } from '../../../lib/logger'
 import { decryptField, decryptNullable } from '../../../lib/encryption'
 import { openExamOption } from '../../../lib/exam-option-secret'
-import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl, saveViolationEvidenceFilesLocal, uploadViolationEvidenceFiles } from '../../../lib/minio'
+import { getLocalViolationEvidenceUrl, getViolationEvidenceUrl } from '../../../lib/minio'
 import prisma from '../../../lib/prisma'
-import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult, RecordViolationResult } from "../types";
-import type { SendHeartbeatResult, RunCodeResult, RunCodeTestCase } from '../types'
-import { judge0Service, Judge0Service } from '../../../lib/judge0'
-import type { Judge0Submission, Judge0SubmissionResult } from '../../../lib/judge0'
+import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult } from "../types";
+import type { SendHeartbeatResult } from '../types'
 import * as repo from "../repositories/student-take-exam.repository";
 import { gradeObjectiveAnswers } from '../repositories/attempt-grading.repository'
 import { gradeProgrammingAnswers } from './programming-grading.service'
+import { emitViolationEnded } from './violation-events'
 import {
   resolveAttemptResultReason,
   resolveAttemptReviewAccess,
@@ -26,129 +24,15 @@ import {
 } from '../../student-common/exam-visibility.policy'
 import * as live from '../../proctoring-live/proctoring-live.service'
 import { emitAttemptEvent, emitProctoringEvent, emitTeacherEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
-import { studentViolationSeverity } from './violation.policy'
 import { normalizeScreenHeartbeat, normalizeWebcamHeartbeat } from './heartbeat.policy'
-import redis from '../../../lib/redis'
 
-/**
- * Chạy async function theo lô (batch) để giới hạn số request đồng thời.
- * Ví dụ: 10 test case → 2 lô × 5 cái song song.
- */
-async function runInBatches<T, R>(
-  items: T[],
-  batchSize: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = []
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize)
-    const batchResults = await Promise.all(batch.map(fn))
-    results.push(...batchResults)
-  }
-  return results
-}
+export { recordViolation, endViolation } from './violation-report.service'
+export { runCode } from './run-code.service'
+export { requireLiveAttempt, getPendingLiveCameraRequest, submitLiveCameraOffer,
+  getStudentLiveSession, addStudentLiveCandidate, getStudentLiveCandidates, endStudentLiveSession,
+} from './student-live-session.service'
+import { isAlreadySubmittedStatus } from './attempt-status.policy'
 
-const JUDGE0_RUN_BATCH_SIZE = 5
-const ALREADY_SUBMITTED_STATUSES = ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED'] as const
-
-type RunCodeAttempt = {
-  deadlineAt: Date
-  examSession: { lastHeartbeat: Date } | null
-}
-
-type RunCodeTest = {
-  id: string
-  input: string
-  expectedOutput: string
-  isSample: boolean
-  isHidden: boolean
-}
-
-function remainingSecondsUntil(endAt: Date, now: Date) {
-  return Math.max(0, Math.floor((endAt.getTime() - now.getTime()) / 1000))
-}
-
-function isAttemptOnline(attempt: RunCodeAttempt, now: Date) {
-  return attempt.examSession !== null &&
-    (now.getTime() - attempt.examSession.lastHeartbeat.getTime()) <= examConfig.heartbeatTimeoutMs
-}
-
-function isAlreadySubmittedStatus(status: string) {
-  return ALREADY_SUBMITTED_STATUSES.includes(status as typeof ALREADY_SUBMITTED_STATUSES[number])
-}
-
-function firstEvidenceUrl(scheduleId: string, violationId: string, evidences: Array<{ id?: string; objectName: string; storageProvider?: string }>) {
-  const firstEvidence = evidences[0]
-  if (!firstEvidence) return Promise.resolve(null)
-  if (firstEvidence.id) return Promise.resolve(`/api/teacher/proctoring/schedules/${scheduleId}/violations/${violationId}/evidence/${firstEvidence.id}`)
-  return firstEvidence.storageProvider === 'LOCAL'
-    ? Promise.resolve(getLocalViolationEvidenceUrl(firstEvidence.objectName))
-    : getViolationEvidenceUrl(firstEvidence.objectName)
-}
-
-async function emitViolationCreatedFromAttempt(
-  scheduleId: string,
-  attemptId: string,
-  attempt: {
-    studentId: string
-    student: { studentCode: string; user: { fullName: string } }
-  },
-  violation: {
-    id: string
-    violationType: string
-    severity: string
-    detectedAt: Date
-    endedAt?: Date | null
-    durationSeconds?: number | null
-    evidences?: Array<{ id?: string; objectName: string; storageProvider?: string }>
-    metadata?: Prisma.InputJsonObject
-  },
-  note?: string | null,
-) {
-  const evidenceImageUrl = await firstEvidenceUrl(scheduleId, violation.id, violation.evidences ?? []).catch(() => null)
-  emitProctoringEvent(scheduleId, 'violation:created', {
-    id: violation.id,
-    scheduleId,
-    attemptId,
-    studentId: attempt.studentId,
-    studentCode: attempt.student.studentCode,
-    studentName: attempt.student.user.fullName,
-    type: violation.violationType,
-    timestamp: violation.detectedAt.toISOString(),
-    severity: violation.severity,
-    endedAt: violation.endedAt ? violation.endedAt.toISOString() : null,
-    durationSeconds: violation.durationSeconds,
-    evidenceImageUrl,
-    metadata: violation.metadata ?? null,
-    reviewStatus: 'PENDING',
-    note: note ?? null,
-  })
-}
-
-function emitViolationEnded(scheduleId: string, violation: {
-  id: string
-  violationType: string
-  severity: string
-  detectedAt: Date
-  endedAt?: Date | null
-  durationSeconds?: number | null
-  evidenceUrls?: string[]
-}) {
-  emitProctoringEvent(scheduleId, 'violation:ended', {
-    id: violation.id,
-    violationType: violation.violationType,
-    severity: violation.severity,
-    detectedAt: violation.detectedAt,
-    endedAt: violation.endedAt,
-    durationSeconds: violation.durationSeconds,
-    evidenceUrls: violation.evidenceUrls ?? [],
-  })
-}
-
-async function gradeAutoSubmittedAttempt(attemptId: string): Promise<void> {
-  await gradeProgrammingAnswers(attemptId)
-  await gradeObjectiveAnswers(attemptId, { finalStatus: 'AUTO_SUBMITTED' })
-}
 
 function continueAfterAttemptEnded(
   attemptId: string,
@@ -166,12 +50,8 @@ function continueAfterAttemptEnded(
     })
     leaveAttemptRoom(attemptId)
 
-    if (status === 'AUTO_SUBMITTED') {
-      await gradeAutoSubmittedAttempt(attemptId)
-    } else if (status === 'SUBMITTED' || status === 'GRADING') {
-      await gradeProgrammingAnswers(attemptId)
-      await gradeObjectiveAnswers(attemptId, status === 'GRADING' ? { finalStatus: 'GRADING' } : undefined)
-    }
+    await gradeProgrammingAnswers(attemptId)
+    await gradeObjectiveAnswers(attemptId, status === 'SUBMITTED' ? undefined : { finalStatus: status })
   })().catch((error) => {
     logger.error('Failed to finish post-submit processing', {
       attemptId,
@@ -216,21 +96,24 @@ export async function autoSubmitExpiredAttempt(attemptId: string, now = new Date
 }
 
 export async function processExpiredAttempts(now = new Date(), limit = 50): Promise<number> {
-  const expiredAttempts = await repo.findExpiredInProgressAttemptIds(now, limit)
   let processed = 0
-
-  for (const { id } of expiredAttempts) {
-    try {
-      const result = await autoSubmitExpiredAttempt(id, now)
-      if (result) processed++
-    } catch (error) {
-      logger.error('Failed to auto-submit expired exam attempt', {
-        attemptId: id,
-        error: error instanceof Error ? error.message : String(error),
-      })
+  const startedAt = performance.now()
+  for (let batch = 0; batch < 8 && performance.now() - startedAt < 5_000; batch += 1) {
+    const expiredAttempts = await repo.findExpiredInProgressAttemptIds(now, limit)
+    let advanced = 0
+    for (const { id } of expiredAttempts) {
+      try {
+        const result = await autoSubmitExpiredAttempt(id, now)
+        if (result) advanced += 1
+      } catch (error) {
+        logger.error('Failed to auto-submit expired exam attempt', {
+          attemptId: id, error: error instanceof Error ? error.message : String(error),
+        })
+      }
     }
+    processed += advanced
+    if (!advanced || expiredAttempts.length < limit) break
   }
-
   return processed
 }
 
@@ -303,143 +186,6 @@ function buildReviewItems(
       ...(includeAnswerKey ? { explanation: decryptNullable(question.explanation) } : {}),
     }
   })
-}
-
-function systemErrorResult(error: unknown): Judge0SubmissionResult {
-  return {
-    stdout: null,
-    stderr: null,
-    compile_output: 'System error during code execution',
-    message: error instanceof Error ? error.message : 'Unknown error',
-    status: { id: 13, description: 'System Error' },
-    time: null,
-    memory: null,
-  }
-}
-
-function buildRunCodeSubmissions(
-  sourceCode: string,
-  language: string,
-  tests: RunCodeTest[],
-  config: { timeLimitMs?: number; memoryLimitKb?: number } | null,
-): Judge0Submission[] {
-  const timeLimitMs = config?.timeLimitMs ?? 2000
-  const memoryLimitKb = config?.memoryLimitKb ?? 256 * 1024
-
-  return tests.map((test) => ({
-    source_code: sourceCode,
-    language_id: language,
-    stdin: test.input,
-    expected_output: test.expectedOutput,
-    cpu_time_limit: timeLimitMs / 1000,
-    memory_limit: memoryLimitKb,
-  }))
-}
-
-async function runJudge0Submissions(submissions: Judge0Submission[]) {
-  return runInBatches(
-    submissions,
-    JUDGE0_RUN_BATCH_SIZE,
-    async (submission) => {
-      try {
-        return await judge0Service.submitAndPoll(submission)
-      } catch (error) {
-        return systemErrorResult(error)
-      }
-    },
-  )
-}
-
-function buildEmptyRunCodeResult(
-  questionId: string,
-  attempt: RunCodeAttempt,
-  now: Date,
-): RunCodeResult {
-  return {
-    questionId,
-    remainingSeconds: remainingSecondsUntil(attempt.deadlineAt, now),
-    isOnline: isAttemptOnline(attempt, now),
-    compilationStatus: 'COMPILED',
-    compilerOutput: null,
-    runtimeError: null,
-    hasSystemError: false,
-    summary: {
-      passedCount: 0,
-      totalCount: 0,
-      message: 'Không có test case nào để kiểm tra',
-    },
-    hiddenTestCaseCount: 0,
-    testCases: [],
-  }
-}
-
-function buildRunCodeResult(
-  questionId: string,
-  attempt: RunCodeAttempt,
-  tests: RunCodeTest[],
-  judge0Results: Judge0SubmissionResult[],
-  now: Date,
-): RunCodeResult {
-  let compilationStatus: RunCodeResult['compilationStatus'] = 'COMPILED'
-  let compilerOutput: string | null = null
-  let runtimeError: string | null = null
-  let passedCount = 0
-  const testCases: RunCodeTestCase[] = []
-  const hiddenTestCaseCount = tests.filter((test) => !test.isSample || test.isHidden).length
-
-  for (const [index, test] of tests.entries()) {
-    const result = judge0Results[index]
-    if (result.status.id === 6) {
-      compilationStatus = 'COMPILE_ERROR'
-      compilerOutput = result.compile_output || result.stderr || 'Compilation failed'
-      break
-    }
-
-    const status = Judge0Service.mapResultToInternal(result, test.expectedOutput)
-    if (status === 'PASSED') passedCount++
-    if (!runtimeError && test.isSample && ['RUNTIME_ERROR', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED'].includes(status)) {
-      runtimeError = result.stderr || result.message || 'Runtime error occurred'
-    }
-
-    const shouldRevealTestCase = test.isSample && !test.isHidden
-
-    if (shouldRevealTestCase) {
-      testCases.push({
-        testCaseId: test.id,
-        isSample: true,
-        status,
-        input: test.input,
-        expectedOutput: test.expectedOutput,
-        actualOutput: result.stdout,
-        executionTimeMs: parseFloat(result.time || '0') * 1000,
-        memoryUsedKb: result.memory || 0,
-      })
-    }
-  }
-
-  const hasSystemError =
-    compilationStatus !== 'COMPILE_ERROR' &&
-    judge0Results.some((result) => result.status.id === 13)
-  const totalCount = compilationStatus === 'COMPILE_ERROR' ? 0 : tests.length
-
-  return {
-    questionId,
-    remainingSeconds: remainingSecondsUntil(attempt.deadlineAt, now),
-    isOnline: isAttemptOnline(attempt, now),
-    compilationStatus,
-    compilerOutput,
-    runtimeError,
-    hasSystemError,
-    summary: {
-      passedCount: compilationStatus === 'COMPILE_ERROR' ? 0 : passedCount,
-      totalCount,
-      message: compilationStatus === 'COMPILE_ERROR'
-        ? 'Biên dịch thất bại'
-        : `Bạn đã pass ${passedCount}/${tests.length} test cases`,
-    },
-    hiddenTestCaseCount: compilationStatus === 'COMPILE_ERROR' ? 0 : hiddenTestCaseCount,
-    testCases,
-  }
 }
 
 export async function startExam(
@@ -1057,305 +803,3 @@ export async function sendHeartbeat(
 }
 
 // ─── API 7: Run Code ─────────────────────────────────────────────────────────
-
-
-export async function recordViolation(
-  scheduleId: string,
-  attemptId: string,
-  studentId: string,
-  input: {
-    violationType: string
-    description?: string
-    metadata?: Prisma.InputJsonObject
-  },
-  evidenceFiles: Express.Multer.File[] = [],
-): Promise<RecordViolationResult> {
-  const attempt = await repo.findAttemptForViolation(attemptId, scheduleId, studentId)
-  if (!attempt) {
-    throw new NotFoundError('Attempt not found')
-  }
-
-  const now = new Date()
-  if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
-    throw new ConflictError('Exam attempt has ended')
-  }
-  const severity = studentViolationSeverity(input.violationType as ViolationType, attempt.examSchedule)
-  if (input.violationType === 'PHONE_DETECTED' && evidenceFiles.length !== 1) {
-    throw new ValidationError('Phone detection requires one evidence image')
-  }
-  // Camera status reports may arrive after the browser has frozen on its last
-  // frame. An image from that frame is not evidence of the blocked interval.
-  const evidenceFilesToStore = ['CAMERA_BLOCKED', 'CAMERA_DISCONNECTED', 'CAMERA_PERMISSION_DENIED'].includes(input.violationType)
-    ? []
-    : evidenceFiles
-  const rateKey = `proctoring:violations:${attemptId}`
-  const count = await redis.incr(rateKey)
-  if (count === 1) await redis.expire(rateKey, 60)
-  if (count > 30) throw new TooManyRequestsError('Too many violation reports; retry shortly')
-
-  const detectedAt = now
-
-  const source = getViolationSource(input.violationType as ViolationType)
-  const evidenceType = getViolationEvidenceType(input.violationType as ViolationType)
-  const violationId = randomUUID()
-  let evidenceObjectNames: string[] = []
-  let evidenceStorageProvider: 'MINIO' | 'LOCAL' = 'MINIO'
-  try {
-    evidenceObjectNames = await uploadViolationEvidenceFiles({
-      attemptId,
-      violationType: input.violationType,
-      detectedAt,
-      files: evidenceFilesToStore,
-      storagePrefix: attempt.examSchedule.proctoringStoragePath,
-      violationId,
-    })
-  } catch (error) {
-    logger.error('Failed to upload violation evidence', {
-      attemptId,
-      violationType: input.violationType,
-      error: error instanceof Error ? error.message : String(error),
-    })
-    if (minioConfig.requireEvidenceStorage) {
-      throw new ValidationError('Evidence storage is not available')
-    }
-    evidenceStorageProvider = 'LOCAL'
-    evidenceObjectNames = await saveViolationEvidenceFilesLocal({
-      attemptId,
-      violationType: input.violationType,
-      detectedAt,
-      files: evidenceFilesToStore,
-      storagePrefix: attempt.examSchedule.proctoringStoragePath,
-      violationId,
-    })
-  }
-
-  const evidences = evidenceObjectNames.map((objectName, index) => {
-      const file = evidenceFilesToStore[index]
-      return {
-        evidenceType,
-        bucket: minioConfig.evidenceBucket,
-        objectName,
-        storagePath: objectName.split('/').slice(0, -1).join('/'),
-        fileName: file?.originalname ?? objectName.split('/').pop() ?? 'evidence.jpg',
-        contentType: file?.mimetype ?? 'image/jpeg',
-        fileSize: file?.size,
-        storageProvider: evidenceStorageProvider,
-      }
-    })
-
-  const violation = await repo.createViolation({
-    id: violationId,
-    attemptId,
-    violationType: input.violationType as ViolationType,
-    source,
-    severity,
-    description: input.description,
-    metadata: input.metadata,
-    detectedAt,
-    evidences,
-  })
-  await emitViolationCreatedFromAttempt(
-    scheduleId,
-    attemptId,
-    attempt,
-    {
-      ...violation,
-      metadata: input.metadata,
-      evidences: violation.evidenceUrls.map((objectName, index) => ({
-        id: violation.evidenceIds[index],
-        objectName,
-        storageProvider: evidenceStorageProvider,
-      })),
-    },
-    input.description ?? null,
-  )
-  return violation
-}
-
-export async function endViolation(
-  scheduleId: string,
-  attemptId: string,
-  studentId: string,
-  violationId: string,
-): Promise<RecordViolationResult> {
-  const endedAt = new Date()
-
-  const violation = await repo.endViolation({
-    scheduleId,
-    attemptId,
-    studentId,
-    violationId,
-    endedAt,
-  })
-
-  if (!violation) {
-    throw new NotFoundError('Violation not found')
-  }
-
-  emitViolationEnded(scheduleId, violation)
-  return violation
-}
-
-function getViolationSource(violationType: ViolationType): ViolationSource {
-  if (
-    [
-      'NO_FACE',
-      'MULTIPLE_FACES',
-      'LOOKING_AWAY',
-      'PHONE_DETECTED',
-      'CAMERA_BLOCKED',
-      'CAMERA_DISCONNECTED',
-      'CAMERA_PERMISSION_DENIED',
-    ].includes(violationType)
-  ) {
-    return 'WEBCAM'
-  }
-
-  if (['SCREEN_SHARE_STOPPED', 'SCREEN_PERMISSION_DENIED'].includes(violationType)) {
-    return 'SCREEN'
-  }
-
-  if (['PROCTOR_WEBCAM_CAPTURE', 'PROCTOR_SCREEN_CAPTURE'].includes(violationType)) {
-    return 'PROCTOR'
-  }
-
-  return 'BROWSER'
-}
-
-function getViolationEvidenceType(violationType: ViolationType): ViolationEvidenceType {
-  return getViolationSource(violationType) === 'WEBCAM' || violationType === 'PROCTOR_WEBCAM_CAPTURE'
-    ? 'WEBCAM_IMAGE'
-    : 'SCREEN_IMAGE'
-}
-
-export async function runCode(
-  scheduleId: string,
-  attemptId: string,
-  questionId: string,
-  studentId: string,
-  sourceCode: string,
-): Promise<RunCodeResult> {
-  const now = new Date()
-
-  const data = await repo.findProgrammingQuestionWithTestCases(
-    questionId,
-    attemptId,
-    scheduleId,
-    studentId,
-  )
-  if (!data) {
-    throw new NotFoundError("Attempt not found")
-  }
-
-  const { attempt, question } = data
-
-  if (!question) throw new NotFoundError("Question not found in this attempt")
-
-  if (attempt.status !== "IN_PROGRESS") {
-    if (isAlreadySubmittedStatus(attempt.status)) {
-      throw new ConflictError("Exam attempt has already been submitted")
-    }
-    throw new ConflictError("Exam attempt has ended")
-  }
-
-  if (now >= attempt.deadlineAt) {
-    throw new ConflictError("Exam attempt has ended")
-  }
-
-  if (question.type !== "PROGRAMMING") {
-    throw new ValidationError("Question is not a programming question")
-  }
-  if (!['JAVA', 'C', 'CPP'].includes(question.language)) {
-    throw new ValidationError("Unsupported programming language")
-  }
-
-  const maxCodeSizeKb = question.programmingQuestionConfig?.maxCodeSizeKb ?? 64
-  if (Buffer.byteLength(sourceCode, 'utf8') > maxCodeSizeKb * 1024) {
-    throw new ValidationError("Source code exceeds maximum allowed size")
-  }
-
-  await repo.saveAnswer(attemptId, questionId, [], sourceCode)
-
-  const testCases = question.programmingTestCases
-  if (testCases.length === 0) {
-    return buildEmptyRunCodeResult(questionId, attempt, now)
-  }
-
-  const submissions = buildRunCodeSubmissions(
-    sourceCode,
-    question.language,
-    testCases,
-    question.programmingQuestionConfig,
-  )
-  const judge0Results = await runJudge0Submissions(submissions)
-  return buildRunCodeResult(questionId, attempt, testCases, judge0Results, now)
-}
-
-export async function requireLiveAttempt(scheduleId: string, attemptId: string, studentId: string) {
-  const attempt = await repo.findAttemptForViolation(attemptId, scheduleId, studentId)
-  if (!attempt) throw new NotFoundError('Attempt not found')
-  const now = new Date()
-  if (attempt.status !== 'IN_PROGRESS' || now >= attempt.deadlineAt) {
-    throw new ConflictError('Exam attempt has ended')
-  }
-  return attempt
-}
-
-export async function getPendingLiveCameraRequest(scheduleId: string, attemptId: string, studentId: string) {
-  await requireLiveAttempt(scheduleId, attemptId, studentId)
-  return live.getPendingStudentRequest(attemptId, scheduleId)
-}
-
-export async function submitLiveCameraOffer(
-  scheduleId: string,
-  attemptId: string,
-  studentId: string,
-  sessionId: string,
-  offer: Record<string, unknown>,
-) {
-  await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const session = await live.submitStudentOffer({ scheduleId, attemptId, sessionId, offer })
-  if (!session) throw new NotFoundError('Live session not found')
-  return session
-}
-
-export async function getStudentLiveSession(scheduleId: string, attemptId: string, studentId: string, sessionId: string) {
-  await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const session = await live.getStudentLiveSession(sessionId, attemptId, scheduleId)
-  if (!session) throw new NotFoundError('Live session not found')
-  return session
-}
-
-export async function addStudentLiveCandidate(
-  scheduleId: string,
-  attemptId: string,
-  studentId: string,
-  sessionId: string,
-  candidate: Record<string, unknown>,
-) {
-  await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const result = await live.addStudentCandidate({ scheduleId, attemptId, sessionId, candidate })
-  if (!result) throw new NotFoundError('Live session not found')
-  return result
-}
-
-export async function getStudentLiveCandidates(
-  scheduleId: string,
-  attemptId: string,
-  studentId: string,
-  sessionId: string,
-  from: number,
-) {
-  await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const result = await live.getTeacherCandidates(sessionId, attemptId, scheduleId, from)
-  if (!result) throw new NotFoundError('Live session not found')
-  return result
-}
-
-export async function endStudentLiveSession(scheduleId: string, attemptId: string, studentId: string, sessionId: string) {
-  await requireLiveAttempt(scheduleId, attemptId, studentId)
-  const session = await live.endLiveSession(sessionId, { attemptId, scheduleId })
-  if (!session) throw new NotFoundError('Live session not found')
-  emitAttemptEvent(attemptId, 'live:ended', session)
-  return session
-}
