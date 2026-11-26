@@ -3,6 +3,7 @@ import { judge0Service } from '../../../lib/judge0'
 import { logger } from '../../../lib/logger'
 import { programmingPracticeQuestionSchema } from '../validators/ai-agent.validator'
 import type { z } from 'zod'
+import { verifyReferenceOnce } from './reference-verification.cache'
 
 export type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
 
@@ -113,19 +114,20 @@ export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], l
       logger.warn('AI programming practice failed structural verification', { questionIndex })
       continue
     }
-    let passed = true
-    for (let start = 0; start < question.testCases.length; start += 5) {
-      const results = await Promise.all(question.testCases.slice(start, start + 5)
-        .map(test => runCase(question.referenceSolution, language, test)))
-      if (results.some(result => result.isUnavailable)) {
-        throw new AppError(503, 'Judge tạm thời không khả dụng; chưa thể xác minh bài lập trình')
+    const passed = await verifyReferenceOnce(question, async () => {
+      for (let start = 0; start < question.testCases.length; start += 5) {
+        const results = await Promise.all(question.testCases.slice(start, start + 5)
+          .map(test => runCase(question.referenceSolution, language, test)))
+        if (results.some(result => result.isUnavailable)) {
+          throw new AppError(503, 'Judge tạm thời không khả dụng; chưa thể xác minh bài lập trình')
+        }
+        if (results.some(result => !result.passed)) {
+          logger.warn('AI programming practice failed Judge verification', { questionIndex, testBatch: start / 5 })
+          return false
+        }
       }
-      if (results.some(result => !result.passed)) {
-        passed = false
-        logger.warn('AI programming practice failed Judge verification', { questionIndex, testBatch: start / 5 })
-        break
-      }
-    }
+      return true
+    })
     if (passed) verified.push(question)
   }
   return verified

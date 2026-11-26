@@ -233,3 +233,5 @@ Mọi điểm tổng đều được assert bằng 10. Đây là throughput repo
 - Docker CLI có nhưng Docker Engine không chạy; không tự mở Docker Desktop hoặc thay hạ tầng. Chưa thực hiện hai API replicas qua Redis thật/LB/TURN, Redis failover có persistence, camera thật nhiều giờ, hoặc quality dataset có nhãn. Các mục đó tiếp tục In Progress, không thay bằng số liệu mô phỏng.
 - F18 queue vẫn RAM, chưa sống qua reload; không tự lưu ảnh sinh viên dài hạn vào browser storage. Full lint debt ngoài module đã chỉnh vẫn còn. Không tuyên bố đã hoàn tất toàn bộ F01–F22 khi những tiêu chí này chưa qua.
 - Chỉ commit source/test/report của checkpoint. Không stage `research/`, `outputs/`, `scripts/measure-learning-ai.ts`; không push và không migrate DB thật.
+
+Các checkpoint mới: `33286b8` (durable grading, index và readiness), `e92684c` (phân trang lịch thi/điểm, summary và browser regression). Frontend build cuối và targeted ESLint cho cả fixture mới đều qua; warning chunk lớn có sẵn vẫn còn, không sửa bằng cách tăng ngưỡng warning. Phần nghiệm thu cần Redis/TURN/camera deployment đã được hỏi lựa chọn môi trường, chưa tự bật Docker hoặc triển khai hạ tầng.

@@ -79,3 +79,23 @@ test('a reference solution passing only the first sample is rejected', async con
   }))
   assert.deepEqual(await verifyProgrammingDraft([candidate('Hidden case fails')], 'JAVA'), [])
 })
+
+test('identical reference verification is coalesced but changed tests are checked again', async context => {
+  let calls = 0
+  context.mock.method(judge0Service, 'submitAndPoll', async () => {
+    calls++
+    return { stdout: '1', stderr: null, compile_output: null, message: null,
+      status: { id: 3, description: 'Accepted' }, time: '0.01', memory: 1024 }
+  })
+  const question = candidate('Cache exact verified reference')
+  const results = await Promise.all(Array.from({ length: 10 }, () => verifyProgrammingDraft([question], 'JAVA')))
+  assert(results.every(result => result.length === 1))
+  assert.equal(calls, 2)
+  await verifyProgrammingDraft([question], 'JAVA')
+  assert.equal(calls, 2)
+  const changed = { ...question, testCases: [{ input: '1', expectedOutput: '9' }, question.testCases[1]] }
+  assert.deepEqual(await verifyProgrammingDraft([changed], 'JAVA'), [])
+  assert.equal(calls, 4)
+  assert.deepEqual(await verifyProgrammingDraft([changed], 'JAVA'), [])
+  assert.equal(calls, 6)
+})
