@@ -170,6 +170,8 @@ Bulk chấm giảm overhead trong fixture mà không đổi schema. Cỡ mẫu n
 
 ### Nghiệm thu checkpoint
 
-- Backend build qua và 201/201 tests; Python 123/123; vision 29/29; frontend build/targeted lint qua. Browser regression ba ca autosave/modal chạy lại trước commit. Không tuyên bố full lint xanh.
+- Backend build qua và 201/201 tests; Python 123/123; vision 29/29; frontend build/targeted lint qua. Browser regression autosave/modal đơn/modal bulk chạy lại đạt 3/3. Không tuyên bố full lint xanh.
 - F08 pagination/average API và F19 `/ready` còn chờ duyệt contract theo mục 5 yêu cầu ban đầu; chưa triển khai phần phụ thuộc.
 - Các tiêu chí load/outage/kill-restart/multi-replica/AI quality còn thiếu giữ In Progress. F03 recovery tạm Deferred theo ràng buộc giữ nguyên Prisma; không coi hiệu suất và durability là cùng một tiêu chí. Không thêm bảng/cột/migration hay hạ tầng production.
+
+Backend/Agent checkpoint không đổi schema đã commit `b4ed59a`; source Prisma và migration giữ nguyên HEAD trước checkpoint. Các file research, outputs và measure-learning-ai không được stage. Chưa push.

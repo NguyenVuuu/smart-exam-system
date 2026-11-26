@@ -33,6 +33,9 @@ export function usePhoneViolationMonitor(input: {
     let watchdog: number | undefined
     let lastVideoTime = -1
     let uploading = false
+    let retryTimer: number | undefined
+    let retryDelay = 2_000
+    let queuedBytes = 0
     const queue: Array<NonNullable<PhoneMessage['evidence']>> = []
     let worker: Worker
     try { worker = new Worker('/mediapipe/vision-worker.js', { name: 'exam-phone' }) }
@@ -52,11 +55,12 @@ export function usePhoneViolationMonitor(input: {
     }
 
     const upload = async () => {
-      if (uploading || cancelled) return
+      if (uploading || cancelled || !navigator.onLine) return
+      window.clearTimeout(retryTimer)
       uploading = true
       try {
         while (!cancelled && queue.length) {
-          const evidence = queue.shift()!
+          const evidence = queue[0]
           try {
             const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
               violationType: 'PHONE_DETECTED', severity: 'MEDIUM',
@@ -66,11 +70,19 @@ export function usePhoneViolationMonitor(input: {
               evidenceFiles: [new File([evidence.blob], `phone-${Date.parse(evidence.metadata.capturedAt)}.jpg`, { type: 'image/jpeg' })],
             })
             if (debug) console.info('[exam-vision] phone event saved', { id: response.id })
+            queue.shift()
+            queuedBytes -= evidence.blob.size
+            retryDelay = 2_000
             if (!cancelled) setError(null)
           } catch (cause) {
             try { worker.postMessage({ type: 'phone-upload-failed' }) } catch { /* The worker may have stopped. */ }
             if (debug) console.error('[exam-vision] phone upload failed', cause)
-            if (!cancelled) setError('Không gửi được ảnh bằng chứng điện thoại. Hệ thống sẽ thử lại khi có sự kiện tiếp theo.')
+            if (!cancelled) {
+              setError('Ảnh bằng chứng chưa gửi được. Hệ thống đang giữ ảnh gốc và sẽ thử gửi lại.')
+              retryTimer = window.setTimeout(() => { void upload() }, retryDelay)
+              retryDelay = Math.min(15_000, retryDelay * 2)
+            }
+            break
           }
         }
       } finally { uploading = false }
@@ -101,7 +113,16 @@ export function usePhoneViolationMonitor(input: {
         return
       }
       busy = false
-      if (data.evidence) { queue.push(data.evidence); void upload() }
+      if (data.evidence) {
+        if (queue.length < 20 && queuedBytes + data.evidence.blob.size <= 12 * 1024 * 1024) {
+          queue.push(data.evidence)
+          queuedBytes += data.evidence.blob.size
+          void upload()
+        } else {
+          setError('Hàng đợi ảnh bằng chứng đã đầy. Hãy kiểm tra kết nối mạng.')
+          worker.postMessage({ type: 'phone-upload-failed' })
+        }
+      }
       schedule()
     }
 
@@ -127,11 +148,15 @@ export function usePhoneViolationMonitor(input: {
     }
 
     worker.postMessage({ type: 'init', mode: 'phone', debug })
+    const retryOnline = () => { void upload() }
+    window.addEventListener('online', retryOnline)
     watchdog = window.setTimeout(fail, 60_000)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
       window.clearTimeout(watchdog)
+      window.clearTimeout(retryTimer)
+      window.removeEventListener('online', retryOnline)
       worker.terminate()
       queue.length = 0
       video.pause()

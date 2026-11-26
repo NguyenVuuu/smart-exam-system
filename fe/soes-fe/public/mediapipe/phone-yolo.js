@@ -8,13 +8,12 @@ const PhoneYolo = (() => {
   }
   let canvas = null
 
-  function tensorFor(image) {
+  function tensorFor(image, pixels) {
     canvas ??= new OffscreenCanvas(SIZE, SIZE)
     const context = canvas.getContext('2d', { willReadFrequently: true })
     if (!context) throw new Error('YOLO canvas unavailable')
     context.drawImage(image, 0, 0, SIZE, SIZE)
     const rgba = context.getImageData(0, 0, SIZE, SIZE).data
-    const pixels = new Float32Array(3 * SIZE * SIZE)
     const plane = SIZE * SIZE
     for (let pixel = 0; pixel < plane; pixel++) {
       const offset = pixel * 4
@@ -59,15 +58,21 @@ const PhoneYolo = (() => {
     ort.env.wasm.numThreads = 1
     const session = await ort.InferenceSession.create(
       new URL(`../models/${MODEL.file}`, self.location.href).href, { executionProviders: ['wasm'] })
+    const buffers = []
     async function detect(image) {
-      const input = tensorFor(image)
+      const pixels = buffers.pop() ?? new Float32Array(3 * SIZE * SIZE)
+      let input
       let results
       try {
+        input = tensorFor(image, pixels)
         results = await session.run({ [session.inputNames[0]]: input })
         return detectionsFrom(results[session.outputNames[0]])
       } finally {
-        if (results) for (const output of Object.values(results)) output.dispose()
-        input.dispose()
+        try { if (results) for (const output of Object.values(results)) output.dispose() }
+        finally {
+          input?.dispose()
+          if (!buffers.length) buffers.push(pixels)
+        }
       }
     }
     return {
