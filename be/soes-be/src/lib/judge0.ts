@@ -253,6 +253,7 @@ export class Judge0Service {
       const pollResponse = await fetch(pollUrl, {
         method: "GET",
         headers: this.getHeaders(),
+        signal: AbortSignal.timeout(Math.max(1, maxPollTimeMs - (Date.now() - startTime))),
       });
 
       if (!pollResponse.ok) {
@@ -265,7 +266,10 @@ export class Judge0Service {
         return this.decodeSubmissionResult(result);
       }
 
-      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+      const remainingMs = maxPollTimeMs - (Date.now() - startTime);
+      if (remainingMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollIntervalMs, remainingMs)));
+      }
     }
 
     throw new Judge0Error(`Judge0 polling timed out after ${maxPollTimeMs}ms`);

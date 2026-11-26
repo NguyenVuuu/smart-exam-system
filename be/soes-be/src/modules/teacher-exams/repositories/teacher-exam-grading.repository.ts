@@ -295,7 +295,11 @@ export async function listSubmissions(scheduleId: string, courseOfferingIds: str
   }
   const rows = await prisma.examAttempt.findMany({
     where,
-    include: submissionInclude,
+    select: {
+      id: true, studentId: true,
+      student: { select: { studentCode: true } },
+      examSchedule: { select: { makeupOfScheduleId: true } },
+    },
     orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }],
   })
   const byStudent = new Map<string, (typeof rows)[number]>()
@@ -314,10 +318,17 @@ export async function listSubmissions(scheduleId: string, courseOfferingIds: str
   const merged = [...byStudent.values()].sort((a, b) =>
     a.student.studentCode.localeCompare(b.student.studentCode),
   )
-  return [
-    merged.length,
-    merged.slice((page - 1) * pageSize, page * pageSize),
-  ] as const
+  const selected = merged.slice((page - 1) * pageSize, page * pageSize)
+  if (!selected.length) return [merged.length, []] as const
+  const submissions = await prisma.examAttempt.findMany({
+    where: { ...where, id: { in: selected.map(row => row.id) } },
+    include: submissionInclude,
+  })
+  const byId = new Map(submissions.map(row => [row.id, row]))
+  return [merged.length, selected.flatMap(row => {
+    const submission = byId.get(row.id)
+    return submission ? [submission] : []
+  })] as const
 }
 
 export function listViolations(

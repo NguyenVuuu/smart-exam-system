@@ -6,12 +6,12 @@ Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. 
 |---|---:|---|---|
 | F01 | 1 | In Progress | Dirty autosave, debounce, hàng đợi lưu và khôi phục đáp án; còn kiểm thử mất mạng và submit concurrency đầy đủ |
 | F02 | 1 | In Progress | Khóa attempt và kiểm tra deadline trong transaction; còn kiểm thử tranh chấp trên PostgreSQL cô lập |
-| F03 | 2 | Pending | Chấm nền bền vững và giới hạn Judge0 |
-| F04 | 2 | Pending | Giảm số lần ghi trong transaction chấm |
-| F05 | 2 | Pending | Xử lý bài hết hạn và quyền nhận job |
-| F06 | 2 | Pending | Query plan, index và connection pool |
-| F07 | 2 | Pending | Phân trang danh sách bài nộp |
-| F08 | 2 | Pending | Giảm dữ liệu tải cho lịch thi và điểm |
+| F03 | 2 | In Progress | Poll Judge0 có deadline; phần ownership/recovery chưa triển khai, không thêm bảng |
+| F04 | 2 | In Progress | Gộp ghi điểm thành một SQL tham số hóa; còn đo transaction và tranh chấp thực |
+| F05 | 2 | In Progress | Bulk cập nhật offline với SKIP LOCKED; còn drain deadline và job ownership |
+| F06 | 2 | Deferred | Không thêm index/pool khi chưa có bằng chứng; giữ nguyên schema theo yêu cầu mới |
+| F07 | 2 | In Progress | Chỉ hydrate bài trong trang đã chọn; metadata gộp ca vẫn tải để giữ đúng policy |
+| F08 | 2 | In Progress | Chỉ lấy latest attempt và count theo sinh viên; pagination DB toàn luồng còn mở |
 | F09 | 1 | In Progress | Polling thích ứng theo kết nối và gom heartbeat theo frame; còn profile 500 dòng và thử recovery |
 | F10 | 3 | Pending | Cập nhật phiên live Redis theo thao tác atomic |
 | F11 | 1 | In Progress | Xóa phiên theo key cụ thể, bỏ KEYS; chưa đổi chính sách phục hồi Redis |
@@ -76,4 +76,17 @@ Giữ nguyên dataset/runtime, lưu JSON stdout riêng cho từng lượt và l�
 
 ## Điểm kiểm tra trước giai đoạn 2
 
-F03 cần job bền vững/ownership; nếu phải thêm bảng hoặc infrastructure thì trình phương án và xin phê duyệt trước migration. F06 chỉ có scan khoảng 0,431 ms trên 620 dòng trong audit; không thêm index hoặc tăng pool theo cảm tính. F07/F08 phải giữ nguyên chọn bài gốc/dự phòng và release policy. Những giới hạn nghiệm thu giai đoạn 1 ở trên còn mở, không đánh dấu Completed.
+Người dùng đã yêu cầu không tạo thêm bất kỳ bảng ứng dụng nào. Phương án bảng job F03 không triển khai. F06 chỉ có scan khoảng 0,431 ms trên 620 dòng trong audit; không thêm index hoặc tăng pool theo cảm tính. F07/F08 phải giữ nguyên chọn bài gốc/dự phòng và release policy. Những giới hạn nghiệm thu giai đoạn 1 ở trên còn mở, không đánh dấu Completed.
+
+## Giai đoạn 2 · Checkpoint không thay đổi schema
+
+- F03. `src/lib/judge0.ts` thêm AbortSignal theo thời gian polling còn lại và giới hạn sleep trong deadline. Không để một GET treo vượt ngân sách polling. Chưa có global limiter hoặc recovery/ownership chấm sau restart. Không dùng lại trường nghiệp vụ làm lease, không tạo bảng job. Chưa nghiệm thu fault injection Judge0.
+- F04. `attempt-grading.repository.ts` chỉ đọc projection để tính điểm, gom các kết quả objective thành một `UPDATE FROM VALUES` tham số hóa trong transaction cũ. Điểm đa lựa chọn, tổng điểm, chấm lập trình chưa xong và release IMMEDIATE giữ nguyên. `sameIds` chỉ sort vế phải một lần. Test mới kiểm tra partial credit, GRADED/PUBLISHED/GRADING và số lần bulk write. Với N đáp án objective có ghi, lệnh ghi đáp án giảm từ N xuống 1 theo cấu trúc code; đây chưa phải benchmark latency.
+- F05. `attempt-session.repository.ts` chuyển select toàn bộ + N update Promise.all thành một CTE/UPDATE/RETURNING. Chọn tối đa 200 phiên stale theo heartbeat/id; `FOR UPDATE OF session SKIP LOCKED` tránh các replica tranh cùng phiên. Giữ NOT_REQUIRED, chỉ xét attempt IN_PROGRESS, trả các phiên thực sự đã cập nhật để emit sự kiện. Phần tự nộp hết giờ vẫn giữ batch và ownership cũ; chưa khẳng định xử lý được spike lớn.
+- F06. Không chỉnh index, schema hoặc pool. Deferred vì dữ liệu baseline chưa cho thấy hot query chậm và chưa có database lớn cô lập để EXPLAIN. Hướng rollback không phát sinh.
+- F07. `teacher-exam-grading.repository.ts` đọc metadata tối thiểu để chọn đại diện bài gốc/ca dự phòng và total như cũ. Chỉ hydrate `submissionInclude` cho ID trong trang được chọn, trả lại thứ tự mã sinh viên. Test mới xác nhận whitelist ca dự phòng, ưu tiên bài dự phòng, trang rỗng và chỉ tải chi tiết trang đã chọn. Metadata vẫn phụ thuộc tổng số bài; chưa đạt toàn bộ tiêu chí pagination tại DB.
+- F08. `student-portal.repository.ts` lấy đúng một attempt mới nhất cùng filtered count của sinh viên; `student-portal.service.ts` dùng count đó khi xác định còn lượt thi. Không tải toàn bộ attempt chỉ để tính length. Test mới kiểm tra một sinh viên hết lượt và một sinh viên còn lượt với cùng latest attempt EXPIRED. Không đổi release policy hoặc API điểm số; pagination scores cần xem xét riêng vì contract hiện trả toàn bộ items.
+- Clean Code. Không thêm dependency runtime, migration hoặc bảng ứng dụng. Giảm projection và bỏ vòng cập nhật N dòng. Trách nhiệm truy vấn vẫn ở repository, policy trạng thái vẫn ở service. Không thay đổi AI prompt/model hoặc thuật toán camera.
+- Xác minh SQL. Docker daemon hiện không chạy và không có PostgreSQL binary local. Đã dùng PGlite cài riêng trong `outputs/performance-sql-check` để chạy đúng SQL production trên fixture hoàn toàn trong bộ nhớ, không truy cập DB SOES. Qua kiểm tra làm tròn numeric(5,2), scope attempt, phiên fresh/ended/NOT_REQUIRED và chạy offline lặp không phát sinh cập nhật lần hai. Fixture bộ nhớ chỉ dùng các bảng tối thiểu tương ứng bảng hiện có, không thêm bảng vào schema SOES. Không coi đây là test nhiều kết nối hoặc EXPLAIN production. Thư mục outputs không commit.
+- Benchmark và giới hạn. Chưa có latency/throughput hoặc p95 transaction trước/sau giai đoạn 2; không tạo số đo giả. Các kiểm tra mock/SQL fixture không chứng minh ownership khi nhiều replica hoặc recovery sau restart. Các mục giữ In Progress theo giới hạn trên.
+- Rollback. Hoàn tác checkpoint giai đoạn 2 để khôi phục truy vấn và cách ghi cũ. Không có migration hoặc chuyển đổi dữ liệu. Khi rollback F04/F05, số query và mức hydrate quay về baseline.

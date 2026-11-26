@@ -64,8 +64,10 @@ export function listVisibleSchedules(studentId: string, query: StudentExamSchedu
       attempts: {
         where: { studentId },
         orderBy: { attemptNo: 'desc' },
+        take: 1,
         select: { id: true, status: true, deadlineAt: true },
       },
+      _count: { select: { attempts: { where: { studentId } } } },
       scheduleCourses: {
         where: { courseOffering: { enrollments: { some: { studentId } } } },
         take: 1,

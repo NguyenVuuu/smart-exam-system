@@ -1,9 +1,11 @@
 import prisma from '../../../lib/prisma'
-import type { AttemptStatus } from '@prisma/client'
+import { Prisma, type AttemptStatus } from '@prisma/client'
 import { openExamOption } from '../../../lib/exam-option-secret'
 
-const sameIds = (left: string[], right: string[]) =>
-  left.length === right.length && [...left].sort().every((id, index) => id === [...right].sort()[index])
+const sameIds = (left: string[], right: string[]) => {
+  const sortedRight = [...right].sort()
+  return left.length === right.length && [...left].sort().every((id, index) => id === sortedRight[index])
+}
 
 const multiChoiceScore = (selectedIds: string[], correctIds: string[], points: number) => {
   if (correctIds.length === 0) return 0
@@ -16,17 +18,22 @@ export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus
   return prisma.$transaction(async (tx) => {
     const attempt = await tx.examAttempt.findUniqueOrThrow({
       where: { id: attemptId },
-      include: {
+      select: {
+        manualScore: true,
         examSchedule: { select: { resultReleaseMode: true } },
         attemptQuestions: {
-          include: { examQuestion: { include: { options: true } } },
+          select: { examQuestion: { select: {
+            id: true, type: true, points: true,
+            options: { select: { id: true, content: true, isCorrect: true } },
+          } } },
         },
-        studentAnswers: true,
+        studentAnswers: { select: { id: true, examQuestionId: true, selectedOptionIds: true, score: true } },
       },
     })
     const answers = new Map(attempt.studentAnswers.map((answer) => [answer.examQuestionId, answer]))
     let autoScore = 0
     let requiresManualGrading = false
+    const grades: Prisma.Sql[] = []
 
     for (const { examQuestion } of attempt.attemptQuestions) {
       if (examQuestion.type === 'PROGRAMMING') {
@@ -44,7 +51,16 @@ export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus
         ? multiChoiceScore(answer.selectedOptionIds, correctIds, points)
         : isCorrect ? points : 0
       autoScore += score
-      await tx.studentAnswer.update({ where: { id: answer.id }, data: { isCorrect, score } })
+      grades.push(Prisma.sql`(${answer.id}::text, ${isCorrect}::boolean, ${score}::numeric)`)
+    }
+
+    if (grades.length) {
+      await tx.$executeRaw`
+        UPDATE "StudentAnswer" AS answer
+        SET "isCorrect" = grade.correct, "score" = grade.score
+        FROM (VALUES ${Prisma.join(grades)}) AS grade(id, correct, score)
+        WHERE answer."id" = grade.id AND answer."attemptId" = ${attemptId}
+      `
     }
 
     const isImmediate = attempt.examSchedule?.resultReleaseMode === 'IMMEDIATE'

@@ -8,7 +8,7 @@ type AggregatedExamStatus = 'OPEN' | 'UPCOMING' | 'COMPLETED' | 'EXPIRED'
 
 function examStatus(row: Awaited<ReturnType<typeof repo.listVisibleSchedules>>[number], now = new Date()): AggregatedExamStatus {
   const attempt = row.attempts[0]
-  const attemptUsed = row.attempts.length
+  const attemptUsed = row._count.attempts
   const remainingAttempts = Math.max(0, row.maxAttempts - attemptUsed)
   if (attempt?.status && submittedStatuses.includes(attempt.status)) return 'COMPLETED'
   if (attempt?.status === 'IN_PROGRESS' && now < attempt.deadlineAt) return 'OPEN'
