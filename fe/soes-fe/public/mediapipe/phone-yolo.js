@@ -61,10 +61,14 @@ const PhoneYolo = (() => {
       new URL(`../models/${MODEL.file}`, self.location.href).href, { executionProviders: ['wasm'] })
     async function detect(image) {
       const input = tensorFor(image)
+      let results
       try {
-        const results = await session.run({ [session.inputNames[0]]: input })
+        results = await session.run({ [session.inputNames[0]]: input })
         return detectionsFrom(results[session.outputNames[0]])
-      } finally { input.dispose() }
+      } finally {
+        if (results) for (const output of Object.values(results)) output.dispose()
+        input.dispose()
+      }
     }
     return {
       delegate: 'WASM',

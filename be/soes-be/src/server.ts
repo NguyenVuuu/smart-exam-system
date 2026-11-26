@@ -22,7 +22,7 @@ async function startServer(): Promise<void> {
     assertFaceImageEncryptionConfigured()
   }
   await initializeSystemSettings()
-  void initProctoringRealtime(httpServer)
+  await initProctoringRealtime(httpServer)
 
   httpServer.listen(PORT, () => {
     startPerformanceReporting(realtimeConnectionCount)

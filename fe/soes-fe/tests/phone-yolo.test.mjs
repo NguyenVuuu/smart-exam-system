@@ -38,3 +38,33 @@ test('decodes the handheld-device score and box without confusing another COCO c
     originX: 280, originY: 240, width: 80, height: 160,
   })
 })
+
+test('inference disposes input and every output even when output decoding fails', async () => {
+  const disposed = []
+  let invalid = false
+  const context = vm.createContext({
+    OffscreenCanvas: class {
+      getContext() { return { drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(640 * 640 * 4) }) } }
+    },
+    URL, self: { location: { href: 'http://localhost/mediapipe/vision-worker.js' } },
+    ort: {
+      env: { wasm: {} },
+      Tensor: class { dispose() { disposed.push('input') } },
+      InferenceSession: { create: async () => ({
+        inputNames: ['images'], outputNames: ['output'],
+        run: async () => ({
+          output: { data: new Float32Array(84), dims: invalid ? [1] : [1, 84, 1], dispose() { disposed.push('output') } },
+          extra: { dispose() { disposed.push('extra') } },
+        }),
+        release() {},
+      }) },
+    },
+  })
+  vm.runInContext(`${source}\nthis.createDetector = PhoneYolo.create`, context)
+  const detector = await context.createDetector()
+  assert.equal((await detector.detectForVideo({})).detections.length, 0)
+  assert.deepEqual(disposed, ['output', 'extra', 'input'])
+  invalid = true
+  await assert.rejects(detector.detectForVideo({}), /Unexpected YOLO output shape/)
+  assert.deepEqual(disposed, ['output', 'extra', 'input', 'output', 'extra', 'input'])
+})

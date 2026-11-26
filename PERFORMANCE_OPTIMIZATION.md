@@ -20,9 +20,9 @@ Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. 
 | F14 | 3 | Pending | Hiệu năng kho vector hiện có |
 | F15 | 3 | In Progress | Đã loại fail-open, kiểm tra tất cả test case trước lưu; còn runtime verification cache và đánh giá chất lượng thực |
 | F16 | 1 | In Progress | Đã lazy load route, entry gzip còn 122,95 kB; chưa đo LCP mạng thiết bị thực |
-| F17 | 4 | Pending | Quản lý tài nguyên inference trên client |
+| F17 | 4 | In Progress | Giải phóng output tensor sau inference; còn profile memory và camera thực |
 | F18 | 3 | Pending | Buffer và phục hồi upload evidence |
-| F19 | 4 | Pending | Readiness, lifecycle và kiểm thử nhiều replica |
+| F19 | 4 | In Progress | Auth socket trước chờ adapter, startup chờ init và cleanup Redis lỗi; còn drain/multi-replica |
 | F20 | 0 | In Progress | Đã có quan sát và script đo. Còn baseline nghiệp vụ trên DB cô lập và kiểm tra readiness |
 | F21 | 0, 4 | In Progress | Đã nối các bước kiểm tra CI. Còn lỗi baseline và refactor theo module |
 | F22 | 1 | In Progress | Candidate pool AI giới hạn 501 ở DB, giữ ngưỡng 500; chưa benchmark DB lớn |
@@ -101,3 +101,18 @@ Người dùng đã yêu cầu không tạo thêm bất kỳ bảng ứng dụng
 - Kiểm thử. Backend build qua; suite 194/194 sau khi sửa ba lỗi baseline. Test Judge tập trung 5/5 qua sau bổ sung kiểm tra không chấm 0 khi dịch vụ lỗi. Python 117/117, gồm scope chương, RAG fallback và workflow mock hiện có. Chưa có API provider/Judge0 end-to-end hoặc đánh giá học thuật trên bộ đề thật. Không dùng fixture để khẳng định AI chính xác tuyệt đối.
 - Benchmark và giới hạn. Không có cặp latency AI trước/sau cùng tài liệu/model. Kiểm tra toàn bộ test thay sample có thể tăng thời gian so với đường bỏ kiểm chứng cũ; đó là sửa lỗi đúng đắn, không tuyên bố nhanh hơn. Chưa có cache verify theo runtime/hash. F10, F14, F18 vẫn Pending, chưa hoàn tất toàn giai đoạn 3.
 - Rollback. Hoàn tác checkpoint này để trở về admission/cache cũ; không có dữ liệu cần chuyển đổi. Rollback F15 đưa lại nguy cơ phát hành bài chưa kiểm chứng nên cần cân nhắc riêng, không nên tắt verify để tăng tốc.
+
+## Giai đoạn 4 · Checkpoint quản lý tài nguyên
+
+- F17. `fe/soes-fe/public/mediapipe/phone-yolo.js` giải phóng tất cả output tensor sau khi decode và input trong finally, cả khi decode thất bại. `tests/phone-yolo.test.mjs` bổ sung kiểm thử lifetime thành công/lỗi. Giữ nguyên model/hash, input shape, tiền xử lý, confidence, vùng quét và nhịp nhận diện. Vision suite 28/28 qua. Chưa có memory profile camera thật hoặc benchmark latency/precision/recall 9 vùng; không khẳng định đã khắc phục mọi memory growth.
+- F19. `src/server.ts` await khởi tạo realtime trước listen. `proctoring-realtime.gateway.ts` gắn middleware auth trước khi chờ adapter, ngừng các connection duplicate nếu cấu hình adapter thất bại. `src/lib/redis-ready.ts` chịu trách nhiệm chờ ready có timeout 10 giây và gỡ listener/timer khi xong hoặc lỗi. File test tương ứng kiểm tra ready, error, end, timeout và cleanup. Không thêm endpoint hoặc đổi API contract. Không thêm infrastructure. Chưa có graceful drain, distributed job ownership, sticky routing hoặc chạy 2 replica qua load balancer.
+- Clean Code. Helper Redis tách riêng vì là trách nhiệm lifecycle có kiểm thử độc lập, không đưa logic thêm vào gateway lớn. YOLO chỉ thay lifetime tensor; không viết lại detector hoặc sửa điều kiện vi phạm.
+- Benchmark. Chưa đo bộ nhớ theo thời gian hoặc P95 reconnect trước/sau. Tests lifetime chỉ chứng minh resource cleanup trong các đường đã kiểm tra.
+- Kiểm thử cuối checkpoint. Backend unit suite 196/196, vision 28/28; frontend production build qua, entry gzip vẫn 122,95 kB. Python 117/117 ở checkpoint AI. Lint toàn repository vẫn có debt baseline nêu tại F21; không tuyên bố toàn bộ quality gates đã xanh. Không chạy benchmark trên database thật.
+- Rollback. Hoàn tác checkpoint tài nguyên; không có schema/data cần rollback. Khi hoàn tác F19, startup có thể listen trước khi realtime cấu hình xong như baseline.
+
+## Phạm vi còn lại để tiếp tục
+
+F10 (atomic signaling Redis), F14 (đo/tối ưu index hiện có), F18 (queue evidence bền vững và dedupe), phần recovery/limiter Judge0 của F03, drain deadline F05, phân trang DB đầy đủ F07/F08 và các tiêu chí kiểm thử tải/multi-replica chưa hoàn tất. Không dùng yêu cầu cấm thêm bảng để ngầm bỏ các mục này; cần giải pháp trên dữ liệu/infra hiện có. Không thay prompt, model hoặc thuật toán nhằm giảm thời gian. Không ghi Completed khi còn thiếu nghiệm thu.
+
+Các commit đã tạo: `5c72ad6` (giai đoạn 0), `fc8fe3b` (giai đoạn 1), `135e44c` (checkpoint giai đoạn 2), `688aa27` (checkpoint giai đoạn 3). Không push. Không stage `research/`, `outputs/`, `scripts/measure-learning-ai.ts`.
