@@ -1,5 +1,6 @@
 import Redis from 'ioredis'
 import { logger } from './logger'
+import { accountRoles } from '../utils/jwt'
 
 const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
   lazyConnect: false,
@@ -30,10 +31,11 @@ export const refreshTokenStore = {
 
   async delete(key: string): Promise<void> {
     await redis.del(`${REFRESH_PREFIX}${key}`)
-    const matched = await redis.keys(`${REFRESH_PREFIX}${key}*`)
-    if (matched.length > 0) {
-      await redis.del(...matched)
-    }
+  },
+
+  async deleteAllRoles(userId: string): Promise<void> {
+    const legacyKey = `${REFRESH_PREFIX}${userId}`
+    await redis.del(legacyKey, ...accountRoles.map(role => `${legacyKey}:${role}`))
   },
 }
 

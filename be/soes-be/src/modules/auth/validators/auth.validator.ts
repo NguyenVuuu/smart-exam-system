@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { accountRoles } from '../../../utils/jwt'
 
 export const loginSchema = z.object({
   username: z.string().trim().min(1, 'Username is required'),
@@ -7,7 +8,7 @@ export const loginSchema = z.object({
 
 export const selectRoleSchema = z.object({
   selectionToken: z.string().uuid('Invalid selection token'),
-  role: z.enum(['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'DEPARTMENT_HEAD', 'STUDENT']),
+  role: z.enum(accountRoles),
 })
 
 export const updateMeSchema = z.object({

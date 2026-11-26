@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma'
 import { decryptField } from '../../../lib/encryption'
+import { ConflictError } from '../../../errors/AppError'
 
 export async function findAttemptForAnswer(
   attemptId: string,
@@ -30,19 +31,25 @@ export async function saveAnswer(
   questionId: string,
   selectedOptionIds: string[],
   draftSourceCode: string | null,
-  savedAt: Date,
 ) {
-  await prisma.$transaction([
-    prisma.studentAnswer.upsert({
+  await prisma.$transaction(async (tx) => {
+    const [attempt] = await tx.$queryRaw<Array<{ status: string; deadlineAt: Date }>>`
+      SELECT "status", "deadlineAt" FROM "ExamAttempt" WHERE "id" = ${attemptId} FOR UPDATE
+    `
+    const savedAt = new Date()
+    if (attempt?.status !== 'IN_PROGRESS' || attempt.deadlineAt <= savedAt) {
+      throw new ConflictError('Exam attempt has ended')
+    }
+    await tx.studentAnswer.upsert({
       where: { attemptId_examQuestionId: { attemptId, examQuestionId: questionId } },
       update: { selectedOptionIds, draftSourceCode },
       create: { attemptId, examQuestionId: questionId, selectedOptionIds, draftSourceCode },
-    }),
-    prisma.examAttempt.update({
+    })
+    await tx.examAttempt.update({
       where: { id: attemptId },
       data: { lastSavedAt: savedAt, version: { increment: 1 } },
-    }),
-  ])
+    })
+  })
 }
 
 export async function findProgrammingQuestionWithTestCases(
@@ -100,23 +107,4 @@ export async function findProgrammingQuestionWithTestCases(
         }
       : null,
   }
-}
-
-export async function upsertStudentAnswerForProgramming(
-  attemptId: string,
-  questionId: string,
-  draftSourceCode: string,
-) {
-  await prisma.studentAnswer.upsert({
-    where: { attemptId_examQuestionId: { attemptId, examQuestionId: questionId } },
-    update: { draftSourceCode },
-    create: { attemptId, examQuestionId: questionId, draftSourceCode, selectedOptionIds: [] },
-  })
-}
-
-export async function updateAttemptLastSavedAt(attemptId: string, lastSavedAt: Date) {
-  await prisma.examAttempt.update({
-    where: { id: attemptId },
-    data: { lastSavedAt, version: { increment: 1 } },
-  })
 }

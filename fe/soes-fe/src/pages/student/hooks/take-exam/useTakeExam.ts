@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  DraftSaveState,
   TakeExamAnswers,
   TakeExamPhase,
   TakeExamSession,
 } from '../../types/take-exam.types'
-import { useSaveAnswerMutation, useSubmitExamMutation } from './useTakeExamApi'
+import { useSubmitExamMutation } from './useTakeExamApi'
+import { useExamAnswerSave } from './useExamAnswerSave'
 
 interface UseTakeExamOptions {
   scheduleId: string
@@ -28,14 +28,14 @@ export function useTakeExam({
   const [secondsRemaining, setSecondsRemaining] = useState(0)
   const [flaggedQuestionIds, setFlaggedQuestionIds] = useState<string[]>([])
   const [phase, setPhase] = useState<TakeExamPhase>('IN_PROGRESS')
-  const [saveState, setSaveState] = useState<DraftSaveState>('IDLE')
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
 
   const expirationHandledRef = useRef(false)
   const phaseRef = useRef(phase)
   const autoSubmitExpiredAttemptRef = useRef<() => void>(() => undefined)
 
-  const { mutateAsync: saveAnswersApi } = useSaveAnswerMutation()
+  const { saveState, lastSavedAt, saveAnswersToServer } = useExamAnswerSave({
+    scheduleId, attemptId, session, answers, enabled: phase === 'IN_PROGRESS',
+  })
   const { mutateAsync: submitExamApi } = useSubmitExamMutation()
 
   useEffect(() => {
@@ -65,43 +65,6 @@ export function useTakeExam({
         : [...currentIds, questionId],
     )
   }, [])
-
-  const saveAnswersToServer = useCallback(async (options?: { throwOnError?: boolean }) => {
-    if (phaseRef.current !== 'IN_PROGRESS' || !session) return
-
-    setSaveState('SAVING')
-    try {
-      const formattedAnswers = Object.entries(answers).flatMap(([questionId, answerValue]) => {
-        const question = session.questions.find((q) => q.id === questionId)
-        if (!question) return []
-
-        if (question.type === 'CODING') {
-          if (typeof answerValue !== 'string') return []
-          return [{ questionId, answer: answerValue }]
-        }
-
-        const requiresString = question.type === 'SINGLE_CHOICE'
-        const normalized: string[] = Array.isArray(answerValue)
-          ? answerValue
-          : answerValue
-            ? [answerValue]
-            : []
-
-        if (normalized.length === 0) return []
-        return [{ questionId, answer: requiresString ? normalized[0] : normalized }]
-      })
-
-      if (formattedAnswers.length > 0) {
-        await saveAnswersApi({ scheduleId, attemptId, data: formattedAnswers })
-      }
-      setSaveState('SAVED')
-      setLastSavedAt(new Date().toISOString())
-    } catch (error) {
-      console.error('Failed to save answers', error)
-      setSaveState('IDLE')
-      if (options?.throwOnError) throw error
-    }
-  }, [answers, attemptId, saveAnswersApi, scheduleId, session])
 
   const markSubmitted = useCallback(async () => {
     if (phaseRef.current !== 'IN_PROGRESS') return

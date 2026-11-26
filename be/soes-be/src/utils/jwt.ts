@@ -1,6 +1,7 @@
 import jwt, { SignOptions } from 'jsonwebtoken'
 
-export type AccountRole = 'ADMIN' | 'EDUCATION_OFFICER' | 'TEACHER' | 'DEPARTMENT_HEAD' | 'STUDENT'
+export const accountRoles = ['ADMIN', 'EDUCATION_OFFICER', 'TEACHER', 'DEPARTMENT_HEAD', 'STUDENT'] as const
+export type AccountRole = typeof accountRoles[number]
 
 export interface JwtPayload {
   sub: string       // User.id

@@ -12,6 +12,7 @@ import type { examDraftRequestSchema } from '../validators/ai-agent.validator'
 
 type DraftRequest = z.infer<typeof examDraftRequestSchema>
 type Candidate = Awaited<ReturnType<typeof findAutoExamQuestionPool>>[number]
+const MAX_CANDIDATES = 500
 
 export function candidateRequiresReview(question: Candidate, plain?: { title: string; content: string }) {
   return auditQuestion({
@@ -66,13 +67,13 @@ export async function proposeExamDraft(teacherId: string, userId: string, input:
     }),
     findAutoExamQuestionPool(teacherId, {
       subjectId: subject.id, format: input.format, sourceScope: 'BOTH', selectedQuestionIds: [],
-    }),
+    }, MAX_CANDIDATES + 1),
   ])
   const topicById = new Map(topics.map((topic) => [topic.id, topic]))
   if (input.topicTargets.some(({ topicId }) => !topicById.has(topicId))) {
     throw new ValidationError('Topic does not belong to the selected subject')
   }
-  if (pool.length > 500) throw new ValidationError('Question bank is too large for one AI request; narrow the subject bank')
+  if (pool.length > MAX_CANDIDATES) throw new ValidationError('Question bank is too large for one AI request; narrow the subject bank')
   const plainText = new Map<string, { title: string; content: string }>()
   const eligiblePool = pool.filter((question) => {
     const plain = { title: decryptField(question.title), content: decryptField(question.content) }

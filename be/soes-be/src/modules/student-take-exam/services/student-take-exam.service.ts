@@ -763,9 +763,7 @@ export async function saveAnswer(
     }
   }
 
-  // ── 6. Create or update StudentAnswer atomically ───────────────────────────
-  // Using upsert to handle both create and update in a single atomic operation
-  await repo.saveAnswer(attemptId, questionId, selectedOptionIds, draftSourceCode, now)
+  await repo.saveAnswer(attemptId, questionId, selectedOptionIds, draftSourceCode)
 
   // ── 8. Calculate remainingSeconds (realtime) ──────────────────────────────
   const remainingSeconds = Math.max(
@@ -1276,8 +1274,7 @@ export async function runCode(
     throw new ValidationError("Source code exceeds maximum allowed size")
   }
 
-  await repo.upsertStudentAnswerForProgramming(attemptId, questionId, sourceCode)
-  await repo.updateAttemptLastSavedAt(attemptId, now)
+  await repo.saveAnswer(attemptId, questionId, [], sourceCode)
 
   const testCases = question.programmingTestCases
   if (testCases.length === 0) {

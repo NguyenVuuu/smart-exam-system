@@ -138,24 +138,32 @@ export function useLiveProctorSocket({
     }
     socket.on('disconnect', handleDisconnect)
 
-    const handleHeartbeat = (payload: {
-      attemptId: string
-      webcamStatus?: ProctoringSessionRecord['webcamStatus']
-      screenShareStatus?: ProctoringSessionRecord['screenShareStatus']
-      visionStatus?: ProctoringSessionRecord['visionStatus']
-      lastHeartbeatAt?: string
-      isOnline?: boolean
-    }) => {
-      setSessions((current) => current.map((item) => item.attemptId === payload.attemptId
-        ? {
-            ...item,
-            isOnline: payload.isOnline ?? item.isOnline,
-            webcamStatus: payload.webcamStatus ?? item.webcamStatus,
-            screenShareStatus: payload.screenShareStatus ?? item.screenShareStatus,
-            visionStatus: payload.visionStatus ?? item.visionStatus,
-            lastHeartbeatAt: payload.lastHeartbeatAt ?? item.lastHeartbeatAt,
-          }
-        : item))
+    type Heartbeat = Pick<ProctoringSessionRecord, 'attemptId'> & Partial<Pick<ProctoringSessionRecord,
+      'webcamStatus' | 'screenShareStatus' | 'visionStatus' | 'lastHeartbeatAt' | 'isOnline'>>
+    let heartbeatFrame: number | undefined
+    const pendingHeartbeats = new Map<string, Heartbeat>()
+    const flushHeartbeats = () => {
+      heartbeatFrame = undefined
+      const heartbeats = new Map(pendingHeartbeats)
+      pendingHeartbeats.clear()
+      setSessions(current => current.map(item => {
+        const heartbeat = heartbeats.get(item.attemptId)
+        if (!heartbeat || item.attemptStatus !== 'IN_PROGRESS') return item
+        if (heartbeat.lastHeartbeatAt && item.lastHeartbeatAt &&
+          Date.parse(heartbeat.lastHeartbeatAt) < Date.parse(item.lastHeartbeatAt)) return item
+        return {
+          ...item,
+          isOnline: heartbeat.isOnline ?? item.isOnline,
+          webcamStatus: heartbeat.webcamStatus ?? item.webcamStatus,
+          screenShareStatus: heartbeat.screenShareStatus ?? item.screenShareStatus,
+          visionStatus: heartbeat.visionStatus ?? item.visionStatus,
+          lastHeartbeatAt: heartbeat.lastHeartbeatAt ?? item.lastHeartbeatAt,
+        }
+      }))
+    }
+    const handleHeartbeat = (payload: Heartbeat) => {
+      pendingHeartbeats.set(payload.attemptId, { ...pendingHeartbeats.get(payload.attemptId), ...payload })
+      heartbeatFrame ??= window.requestAnimationFrame(flushHeartbeats)
       if (payload.visionStatus === 'UNAVAILABLE' && !visionAlertsRef.current.has(payload.attemptId)) {
         visionAlertsRef.current.add(payload.attemptId)
         toast.warning('Nhận diện camera trên máy sinh viên tạm ngừng', {
@@ -172,6 +180,7 @@ export function useLiveProctorSocket({
       lastHeartbeatAt?: string
       isOnline: false
     }) => {
+      pendingHeartbeats.delete(payload.attemptId)
       setSessions((current) => current.map((item) => item.attemptId === payload.attemptId
         ? {
             ...item,
@@ -257,6 +266,7 @@ export function useLiveProctorSocket({
     socket.on('live:ended', handleLiveEnded)
 
     return () => {
+      if (heartbeatFrame !== undefined) window.cancelAnimationFrame(heartbeatFrame)
       socket.emit('proctoring:leave_schedule', { scheduleId })
       socket.off('connect', joinSchedule)
       socket.off('disconnect', handleDisconnect)
