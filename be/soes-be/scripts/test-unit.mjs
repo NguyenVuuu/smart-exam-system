@@ -15,9 +15,13 @@ const files = readdirSync('src', { recursive: true, withFileTypes: true })
   .filter(entry => entry.isFile() && entry.name.endsWith('.test.ts') && !entry.name.endsWith('.postgres.test.ts'))
   .map(entry => join(entry.parentPath, entry.name))
 if (!files.length) throw new Error('No backend unit tests found')
+const concurrency = Number(process.env.UNIT_TEST_CONCURRENCY ?? 2)
+if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 4) {
+  throw new Error('UNIT_TEST_CONCURRENCY must be between 1 and 4')
+}
 
 const execution = spawnSync(process.execPath, [
-  '--require', 'ts-node/register/transpile-only', '--test', '--test-concurrency=2', ...files,
+  '--require', 'ts-node/register/transpile-only', '--test', `--test-concurrency=${concurrency}`, ...files,
 ], { env, stdio: 'inherit' })
 if (execution.error) throw execution.error
 process.exitCode = execution.status ?? 1

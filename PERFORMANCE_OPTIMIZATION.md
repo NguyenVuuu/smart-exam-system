@@ -1,28 +1,28 @@
 # SOES Performance Optimization
 
-Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. Giai đoạn 0 đã commit tại `5c72ad6`. Giai đoạn 1 đã triển khai trong phạm vi bên dưới. Các tiêu chí cần DB cô lập hoặc đo tải vẫn giữ In Progress; commit không đồng nghĩa mọi tiêu chí nghiệm thu đã hoàn tất.
+Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. Tiến độ hiện hành theo bảng dưới và mục **Tiếp tục triển khai sau khi được duyệt sửa Prisma** ở cuối file. Các checkpoint trước đó được giữ làm lịch sử; quyết định mới nhất thay thế ràng buộc giữ nguyên Prisma. Commit không đồng nghĩa mọi tiêu chí tải/deployment đã được nghiệm thu.
 
 | ID | Giai đoạn | Trạng thái | Phạm vi theo dõi |
 |---|---:|---|---|
 | F01 | 1 | In Progress | Dirty autosave, debounce, hàng đợi lưu và khôi phục đáp án; còn kiểm thử mất mạng và submit concurrency đầy đủ |
-| F02 | 1 | In Progress | Khóa attempt và kiểm tra deadline trong transaction; còn kiểm thử tranh chấp trên PostgreSQL cô lập |
-| F03 | 2 | In Progress | Judge0 limiter/deadline; durable recovery Deferred, giữ nguyên Prisma |
-| F04 | 2 | In Progress | Bulk chấm: fixture PostgreSQL giảm 102→3 Prisma operations/bài 100 câu; còn concurrency |
+| F02 | 1 | In Progress | PostgreSQL: 30 save/submit races, 30 late saves và 30 duplicate submits bị chặn; còn tải HTTP rộng hơn |
+| F03 | 2 | In Progress | Durable claim/lease/retry/fencing trên ExamAttempt đã kiểm thử kill/reclaim; migration chỉ tạo, chưa deploy thật |
+| F04 | 2 | In Progress | Bulk chấm có benchmark 100 câu, concurrency 5; còn 20/50 câu và HTTP/Judge workload |
 | F05 | 2 | In Progress | Bulk cập nhật offline với SKIP LOCKED; còn drain deadline và job ownership |
-| F06 | 2 | Deferred | Không thêm index/pool khi chưa có bằng chứng; giữ nguyên schema theo yêu cầu mới |
+| F06 | 2 | In Progress | Index claim có EXPLAIN trên 100.100 rows; chưa tự tăng pool hoặc thêm index khác |
 | F07 | 2 | In Progress | DB xếp hạng/gộp ca và phân trang trước hydrate; còn benchmark DB lớn |
-| F08 | 2 | In Progress | Chỉ lấy latest attempt và count theo sinh viên; pagination DB toàn luồng còn mở |
+| F08 | 2 | In Progress | SQL page/count lịch thi và điểm, summary toàn bộ filter, UI page server; còn workload lớn và snapshot đồng thời |
 | F09 | 1 | In Progress | Polling thích ứng theo kết nối và gom heartbeat theo frame; còn profile 500 dòng và thử recovery |
 | F10 | 3 | In Progress | Lua atomic cho claim/SDP/ICE/end, TTL touch không ghi JSON; qua fixture Lua, còn TURN/multi-replica thực |
 | F11 | 1 | In Progress | Bỏ KEYS, bounded command retry và reconnect backoff/jitter; còn fault injection thật |
 | F12 | 3 | In Progress | Admission, Redis generation lease, Student row-lock quota và Agent cancellation; còn proxy regression |
 | F13 | 3 | In Progress | Gộp download và extraction đồng thời; còn bytes/base64 và benchmark nhiều replica |
 | F14 | 3 | In Progress | Cache bounded cho token tài liệu và offload scoring, giữ nguyên công thức ranking; còn benchmark thực |
-| F15 | 3 | In Progress | Đã loại fail-open, kiểm tra tất cả test case trước lưu; còn runtime verification cache và đánh giá chất lượng thực |
+| F15 | 3 | In Progress | Fail-closed + mọi testcase + cache exact reference bounded; còn quality dataset và provider/Judge outage thực |
 | F16 | 1 | In Progress | Đã lazy load route, entry gzip còn 122,95 kB; chưa đo LCP mạng thiết bị thực |
 | F17 | 4 | In Progress | Giải phóng output tensor sau inference; còn profile memory và camera thực |
 | F18 | 3 | In Progress | Admission upload, retry đúng blob và dedupe bằng PK hiện có; chưa có queue qua reload |
-| F19 | 4 | In Progress | Startup/auth và cleanup/drain HTTP/periodic jobs; còn grading drain và multi-replica |
+| F19 | 4 | In Progress | Readiness, fail-fast schema, HTTP/jobs/grading drain và lease recovery; còn two-replica/TURN deployment |
 | F20 | 0 | In Progress | Đã có quan sát và script đo. Còn baseline nghiệp vụ trên DB cô lập và kiểm tra readiness |
 | F21 | 0, 4 | In Progress | Đã nối các bước kiểm tra CI. Còn lỗi baseline và refactor theo module |
 | F22 | 1 | In Progress | Candidate pool AI giới hạn 501 ở DB, giữ ngưỡng 500; chưa benchmark DB lớn |
@@ -175,3 +175,61 @@ Bulk chấm giảm overhead trong fixture mà không đổi schema. Cỡ mẫu n
 - Các tiêu chí load/outage/kill-restart/multi-replica/AI quality còn thiếu giữ In Progress. F03 recovery tạm Deferred theo ràng buộc giữ nguyên Prisma; không coi hiệu suất và durability là cùng một tiêu chí. Không thêm bảng/cột/migration hay hạ tầng production.
 
 Backend/Agent checkpoint không đổi schema đã commit `b4ed59a`; source Prisma và migration giữ nguyên HEAD trước checkpoint. Các file research, outputs và measure-learning-ai không được stage. Chưa push.
+
+## Tiếp tục triển khai sau khi được duyệt sửa Prisma · 27/11/2026
+
+Sau khi hỏi có nên sửa Prisma, người dùng yêu cầu triển khai phương án được đề xuất. Phạm vi hiện hành cho phép năm trường quản lý job trên **ExamAttempt hiện có** và index đã đo; không tạo bảng mới. Student generation lease vẫn dùng Redis, không thêm trường Student. Các mô tả giữ nguyên Prisma/đang chờ API ở checkpoint trước đã hết hiệu lực.
+
+### F03/F05/F19 · Durable grading và readiness
+
+- Schema/migration: `prisma/schema.prisma`, `prisma/migrations/20261127010000_attempt_grading_recovery/migration.sql`. Năm cột: gradingPending, gradingClaimToken, gradingLeaseUntil, gradingRetryAt, gradingFailures. Backfill chỉ SUBMITTED/AUTO_SUBMITTED/GRADING có submittedAt và cả autoScore/totalScore/manualScore đều null; không regrade bài đã có điểm thủ công/công bố. Không có CREATE TABLE.
+- Submit/timeout/force-submit đặt pending trong transaction kết thúc bài. `repositories/grading-job.repository.ts` claim bằng SKIP LOCKED, lease 90 giây; `jobs/attempt-grading.jobs.ts` tối đa hai tác vụ/process, renew 30 giây và poll phục hồi 5 giây. Không giữ transaction xuyên Judge HTTP.
+- Các repository ghi điểm kiểm tra token/lease/status dưới row lock; chủ cũ không ghi được sau reclaim. Lease/retry dùng clock PostgreSQL để không phụ thuộc lệch giờ giữa API replica. Chốt điểm tay hủy pending/token; release không tự công bố AUTO_SUBMITTED còn pending. Retry exponential tối đa năm lỗi, sau đó giữ GRADING/pending để giảng viên xử lý; chưa có nút retry job riêng. Bài lập trình đã ghi score được bỏ qua ở lần retry có claim; SYSTEM_ERROR giữ null, không biến thành sai bài.
+- `server.ts` kiểm tra các cột bắt buộc trước listen, fail-fast khi chưa migrate. Startup khởi động worker recovery; shutdown ngừng claim và drain các job đang chạy trong deadline 30 giây; job chưa hoàn tất còn lease để lần sau phục hồi.
+- `lib/readiness.ts/.test.ts`, `middlewares/readiness.ts`, `app.ts`: GET /ready trả 200/503 theo DB/Redis, timeout probe một giây, coalesce/cached một giây và drain fail ngay. /health giữ nguyên. Không đưa chi tiết lỗi/kết nối ra response. Đây là readiness dependency lõi, không phải chứng nhận model/Judge đang khỏe.
+- Tests `grading-job.repository.test.ts`, `attempt-grading.jobs.test.ts` và readiness kiểm tra SQL migration, stale/manual fencing, retry cap, active cap/status/drain, probe treo và concurrent probes. PGlite là fixture memory, không dùng DB thật.
+- Fault test bổ sung PostgreSQL 16.16 riêng: kill process sau claim, chứng minh chưa reclaim khi lease còn hạn; đẩy lease hết hạn trong fixture rồi cho 10 claimant cạnh tranh, chỉ một owner. Ghi bằng token cũ bị chặn, owner mới chấm được 10 điểm và clear pending cùng commit. Thời gian chờ 90 giây được thay bằng cập nhật clock lease trong fixture; không gọi đó là phép đo wall-clock failover.
+- Cùng fixture: 30 save/submit races, 30 late saves bị từ chối, 30 duplicate submit không đổi bài. Lượt này save thắng cả 30 races; nhánh submit trước được kiểm tra qua late-save sau commit, chưa suy ra mọi lịch thực thi đã được bao phủ. Artifact `outputs/performance-services/recovery-results.json`.
+- Rollback: ngừng/drain worker trước hoàn tác code; giữ các cột để không xóa pending state. Không tự DROP cột/index hoặc chạy migration trên dữ liệu thật. Bản backend mới cần migration này trước khi chạy; migration hiện **chỉ được tạo để review**, chưa deploy thật.
+
+### F06 · Index có bằng chứng
+
+- Fixture PostgreSQL riêng tăng lên 100.100 attempts; EXPLAIN ANALYZE/BUFFERS, một warmup và 10 samples/query. Claim SELECT P50 execution 11,189→0,037 ms; P95 15,398→0,058 ms sau B-tree `(gradingPending, submittedAt, id)`.
+- Index được khai báo trong schema và migration trên, không thêm bảng. Chưa tăng connection pool hoặc thêm các index khác khi thiếu workload evidence. Không suy ra latency HTTP từ execution time. Artifact `outputs/performance-services/pending-index-results.json`.
+- CREATE INDEX trong migration có thể khóa ghi khi build trên DB lớn; cần lịch deploy được review. Không tự đổi thành concurrent migration hoặc thực thi trên dữ liệu thật. Rollback index phải review riêng; không làm trong phiên này.
+
+### F04/F20 · Chấm đồng thời
+
+Trên cùng PostgreSQL fixture, 20 lượt chấm 100 câu/lượt, concurrency năm, cùng dependencies và source baseline `7f5302c`, chạy baseline/current/current/baseline:
+
+| Variant/lượt | P50 ms | P95 ms | P99 ms | Hoàn tất/giây | Prisma operations/bài |
+|---|---:|---:|---:|---:|---:|
+| Baseline 1 | 139,70 | 205,71 | 207,17 | 33,32 | 102 |
+| Current 1 | 35,98 | 115,50 | 158,40 | 88,66 | 3 |
+| Current 2 | 52,42 | 108,63 | 109,51 | 79,33 | 3 |
+| Baseline 2 | 155,42 | 178,18 | 178,43 | 30,95 | 102 |
+
+Mọi điểm tổng đều được assert bằng 10. Đây là throughput repository chấm trắc nghiệm, không phải HTTP RPS hoặc Judge throughput. Gọi trực tiếp không có claimToken, nên chưa bao gồm round-trip claim/row-fence của worker; không dùng số ba operations để mô tả toàn bộ durable workflow. Còn workload 20/50 câu và latency provider. Artifact `outputs/performance-services/repository-concurrent-results.json`, không commit outputs.
+
+### F08 · Phân trang lịch thi và điểm số
+
+- Backend: `repositories/schedule-page.repository.ts/.test.ts`, `score-page.repository.ts/.test.ts`, portal repository/service/validator và `services/score-summary.ts`. SQL xác định IDs/count/status trước hydrate, giữ enrollment, exam visibility, keyword, release policy, ca dự phòng và thứ tự ổn định bằng ID.
+- Lịch thi giữ ưu tiên trạng thái đã nộp, còn đang làm dù ca đã qua endTime, upcoming/expired và tổng số lượt dùng. Tests SQL thực kiểm tra semester/enrollment/hidden exam/teacher keyword/status counts/pages.
+- Điểm: page/pageSize tùy chọn (pageSize tối đa 100). Không gửi page giữ luồng items cũ. Có page trả pagination/averageScore/highestScore; chỉ hydrate chi tiết trong trang và kiểm lại student/release scope. Chỉ PUBLISHED + totalScore không null + schedule/parent đã cho công bố được chọn.
+- Average giữ nguyên chính sách UI cũ: tối đa ba quiz đầu theo ngày công bố/tên tiếng Việt, trọng số quiz:midterm:final = 1:2:3, rồi trung bình đều giữa học phần. Vì collation tiếng Việt của JavaScript không bảo đảm tương đương mọi PostgreSQL deployment, DB trả projection summary tối thiểu trên tập đã dedupe để tính average tại server; không tải relation chi tiết toàn bộ. Phần summary vẫn O(n), không tuyên bố đã có aggregate SQL thuần/bounded memory cho lịch sử vô hạn.
+- Frontend: `useStudentScorePage.ts`, `StudentScoresPage.tsx`, portal API. Fetch từng trang, debounce 250 ms, bỏ kết quả request cũ, reset trang khi đổi filter, dùng summary toàn bộ filter. Bỏ logic average/filter/slice trùng trong page. Không thay UI bố cục hoặc công thức điểm.
+- Tests: release ẩn, scope khác, makeup ưu tiên, summary qua trang, quiz limit, legacy query, status counts và browser pagination (chỉ ba request cho initial/next/search). Browser autosave bổ sung 503→online retry đúng đáp án dirty, không gửi lại answer đã ACK.
+- Rollback frontend/backend cùng nhau khi bỏ metadata mới. Request không có paging vẫn tương thích client cũ. Còn cần benchmark DB lớn cho hai danh sách và kiểm tra snapshot khi giáo viên công bố/thu hồi đồng thời với page query.
+
+### F11/F15 · Reconnect và kiểm chứng được cache
+
+- TCP fault fixture gọi chính ioredis config production: kill server hơn 5,1 giây, command bị từ chối khi down, retry không dừng sau ba lần, reconnect sau server quay lại mất khoảng 1.717 ms trong lượt này. Fixture chỉ mô phỏng RESP INFO/PING/CLIENT; không phải Redis persistence/failover hoặc kiểm thử Socket.IO/TURN. Artifact `outputs/performance-services/redis-reconnect-results.json`.
+- `reference-verification.cache.ts`, programming practice service/test: SHA256 toàn question/reference/tests + endpoint + CPU/memory limits; chỉ cache khi toàn bộ testcase hợp lệ, tối đa 128 entries, TTL năm phút, single-flight. Không cache Judge unavailable hoặc kết quả sai. Test 10 request identical chỉ chạy đủ hai case một lần; thay expected output phải chạy lại và bị loại. Cache process-local; runtime được định danh bằng endpoint/language selector, không có binary attestation nếu Judge nâng runtime tại chỗ trong TTL. Không cache việc chấm bài người học.
+- Giữ nguyên semantic verification, model, prompt, RAG và các giới hạn nhận diện camera. Rollback cache/helper cùng service; không có dữ liệu/schema cần chuyển đổi cho phần cache.
+
+### Kiểm chứng, tài nguyên và việc còn lại
+
+- Một lượt full test đồng thời build bị OOM trên máy local, không được tính là pass. Dừng các process kiểm thử của phiên, thêm `UNIT_TEST_CONCURRENCY=1..4` (default hai) vào runner; full suite chạy lại tuần tự đạt 209/209. Backend build và frontend build qua; targeted ESLint page/hook qua; browser năm test qua. Những thay đổi cuối về clock lease và UTC summary được chạy lại các suite SQL liên quan. Không dùng lỗi tài nguyên để bỏ assertion hoặc disable lint.
+- Docker CLI có nhưng Docker Engine không chạy; không tự mở Docker Desktop hoặc thay hạ tầng. Chưa thực hiện hai API replicas qua Redis thật/LB/TURN, Redis failover có persistence, camera thật nhiều giờ, hoặc quality dataset có nhãn. Các mục đó tiếp tục In Progress, không thay bằng số liệu mô phỏng.
+- F18 queue vẫn RAM, chưa sống qua reload; không tự lưu ảnh sinh viên dài hạn vào browser storage. Full lint debt ngoài module đã chỉnh vẫn còn. Không tuyên bố đã hoàn tất toàn bộ F01–F22 khi những tiêu chí này chưa qua.
+- Chỉ commit source/test/report của checkpoint. Không stage `research/`, `outputs/`, `scripts/measure-learning-ai.ts`; không push và không migrate DB thật.

@@ -10,8 +10,7 @@ import prisma from '../../../lib/prisma'
 import type { AttemptReviewItem, StartExamResult, ExamContentResult, SubmitExamResult, AttemptStatusResult, AttemptResult } from "../types";
 import type { SendHeartbeatResult } from '../types'
 import * as repo from "../repositories/student-take-exam.repository";
-import { gradeObjectiveAnswers } from '../repositories/attempt-grading.repository'
-import { gradeProgrammingAnswers } from './programming-grading.service'
+import { processGradingJobs } from '../../../jobs/attempt-grading.jobs'
 import { emitViolationEnded } from './violation-events'
 import {
   resolveAttemptResultReason,
@@ -50,8 +49,7 @@ function continueAfterAttemptEnded(
     })
     leaveAttemptRoom(attemptId)
 
-    await gradeProgrammingAnswers(attemptId)
-    await gradeObjectiveAnswers(attemptId, status === 'SUBMITTED' ? undefined : { finalStatus: status })
+    await processGradingJobs()
   })().catch((error) => {
     logger.error('Failed to finish post-submit processing', {
       attemptId,

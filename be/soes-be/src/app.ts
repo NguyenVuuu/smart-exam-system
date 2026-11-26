@@ -1,4 +1,5 @@
 import express from 'express'
+import { readinessHandler } from './middlewares/readiness'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import path from 'path'
@@ -104,6 +105,7 @@ app.use('/api/teacher', aiQuestionGenerationRoutes)
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
+app.get('/ready', readinessHandler)
 
 // ── Error Handler (must be last) ─────────────────────────
 app.use(errorHandler)

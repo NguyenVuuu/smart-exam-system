@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma'
+import { assertGradingClaim } from './grading-job.repository'
 import { Prisma, type AttemptStatus } from '@prisma/client'
 import { openExamOption } from '../../../lib/exam-option-secret'
 
@@ -14,8 +15,9 @@ const multiChoiceScore = (selectedIds: string[], correctIds: string[], points: n
   return (points / correctIds.length) * correctSelectedCount
 }
 
-export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus?: AttemptStatus }) {
+export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus?: AttemptStatus; claimToken?: string }) {
   return prisma.$transaction(async (tx) => {
+    await assertGradingClaim(tx, attemptId, options?.claimToken)
     const attempt = await tx.examAttempt.findUniqueOrThrow({
       where: { id: attemptId },
       select: {
@@ -77,6 +79,7 @@ export function gradeObjectiveAnswers(attemptId: string, options?: { finalStatus
     return tx.examAttempt.update({
       where: { id: attemptId },
       data: {
+        ...(options?.claimToken ? { gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null, gradingRetryAt: null } : {}),
         autoScore,
         totalScore: autoScore,
         manualScore: finalStatus === 'PUBLISHED' ? autoScore : attempt.manualScore,

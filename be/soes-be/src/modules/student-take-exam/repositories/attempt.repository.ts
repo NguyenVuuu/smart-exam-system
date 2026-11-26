@@ -264,7 +264,7 @@ export async function submitAttempt(
         status: 'IN_PROGRESS',
         deadlineAt: { gt: submittedAt },
       },
-      data: { status: 'SUBMITTED', submittedAt, endedBy: 'STUDENT' },
+      data: { status: 'SUBMITTED', submittedAt, endedBy: 'STUDENT', gradingPending: true },
     })
     if (updated.count > 0) await closeExamSession(transaction, attemptId)
     return updated
@@ -297,6 +297,7 @@ export async function autoSubmitAttemptWithAudit(attemptId: string, submittedAt:
       },
       data: {
         status: 'AUTO_SUBMITTED',
+        gradingPending: true,
         endedBy: 'TIMEOUT',
         submittedAt,
         version: { increment: 1 },

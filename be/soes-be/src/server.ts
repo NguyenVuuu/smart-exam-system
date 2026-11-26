@@ -13,6 +13,9 @@ import { assertFaceImageEncryptionConfigured } from './modules/student-face/serv
 import { startFaceReviewImageJobs, stopFaceReviewImageJobs } from './jobs/face-review-image.jobs'
 import prisma from './lib/prisma'
 import redis from './lib/redis'
+import { startAttemptGradingJobs, stopAttemptGradingJobs } from './jobs/attempt-grading.jobs'
+import { assertGradingStorageReady } from './modules/student-take-exam/repositories/grading-job.repository'
+import { readiness } from './middlewares/readiness'
 
 const PORT = process.env.PORT ?? 3000
 const httpServer = createServer(app)
@@ -22,6 +25,7 @@ let stopPerformance: (() => void) | undefined
 async function shutdown() {
   if (shuttingDown) return
   shuttingDown = true
+  readiness.drain()
   const deadline = setTimeout(() => {
     logger.error('Shutdown deadline exceeded')
     httpServer.closeAllConnections()
@@ -31,7 +35,7 @@ async function shutdown() {
   const drained = new Promise<void>(resolve => httpServer.close(() => resolve()))
   let completed = false
   try {
-    await Promise.all([stopExamAttemptJobs(), stopExamAnchorJobs(), stopFaceReviewImageJobs()])
+    await Promise.all([stopExamAttemptJobs(), stopExamAnchorJobs(), stopFaceReviewImageJobs(), stopAttemptGradingJobs()])
     await stopProctoringRealtime()
     await drained
     await prisma.$disconnect()
@@ -57,6 +61,7 @@ async function startServer(): Promise<void> {
   if (process.env.FACE_VERIFICATION_ENABLED === 'true' && process.env.FACE_VERIFICATION_PROVIDER !== 'mock') {
     assertFaceImageEncryptionConfigured()
   }
+  await assertGradingStorageReady()
   await initializeSystemSettings()
   await initProctoringRealtime(httpServer)
   if (shuttingDown) {
@@ -67,6 +72,7 @@ async function startServer(): Promise<void> {
   httpServer.listen(PORT, () => {
     stopPerformance = startPerformanceReporting(realtimeConnectionCount)
     startExamAttemptJobs()
+    startAttemptGradingJobs()
     startExamAnchorJobs()
     if (process.env.FACE_VERIFICATION_ENABLED === 'true') startFaceReviewImageJobs()
     logger.info(`Server running on port ${PORT}`, { port: PORT, env: process.env.NODE_ENV })

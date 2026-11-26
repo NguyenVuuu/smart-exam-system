@@ -514,6 +514,7 @@ export function forceSubmitAttempt(input: {
       where: { id: attempt.id, status: 'IN_PROGRESS', deadlineAt: { gt: now } },
       data: {
         status: 'GRADING',
+        gradingPending: true,
         endedBy: 'PROCTOR',
         forceSubmitReason: input.reason,
         submittedAt: now,
@@ -585,7 +586,8 @@ export function overrideScore(
     if (!attempt) return null
     const updated = await tx.examAttempt.update({
       where: { id: attemptId },
-      data: { manualScore: score, totalScore: score, status: 'PUBLISHED', version: { increment: 1 } },
+      data: { manualScore: score, totalScore: score, status: 'PUBLISHED', version: { increment: 1 },
+        gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null },
       include: submissionInclude,
     })
     await tx.gradeAppeal.updateMany({
@@ -712,6 +714,7 @@ export function finalizeScores(input: {
           examScheduleId: { in: sourceScheduleIds },
           studentId: { in: studentIds },
           status: 'PUBLISHED',
+          gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null,
         },
         select: { id: true, studentId: true, totalScore: true },
       })
@@ -734,6 +737,7 @@ export function finalizeScores(input: {
           manualScore: score,
           totalScore: score,
           status: 'PUBLISHED',
+          gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null,
           version: { increment: 1 },
         },
         select: {
@@ -843,12 +847,14 @@ export function updateResultRelease(
       where: {
         examScheduleId: scheduleId,
         status: resultsPublishedAt ? { in: ['GRADED', 'AUTO_SUBMITTED'] } : 'PUBLISHED',
+        gradingPending: false,
         // Không hồi sinh điểm ca gốc đã được thay thế bởi một bài dự phòng đã công bố.
         ...(resultsPublishedAt ? {
           student: {
             examAttempts: {
               none: {
                 status: 'PUBLISHED',
+          gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null,
                 examSchedule: { makeupOfScheduleId: scheduleId },
               },
             },

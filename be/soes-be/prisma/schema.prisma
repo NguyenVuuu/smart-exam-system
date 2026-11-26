@@ -815,6 +815,11 @@ model ExamAttempt {
   invalidatedById        String?
   invalidationReason     String?
   forceSubmitReason      String?
+  gradingPending         Boolean                 @default(false)
+  gradingClaimToken      String?
+  gradingLeaseUntil      DateTime?
+  gradingRetryAt         DateTime?
+  gradingFailures        Int                     @default(0)
   version                Int                     @default(1)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
@@ -836,6 +841,7 @@ model ExamAttempt {
   scoreAdjustments       ScoreAdjustment[]
 
   @@unique([examScheduleId, studentId, attemptNo])
+  @@index([gradingPending, submittedAt, id])
   @@index([studentId])
   @@index([examScheduleId])
   @@index([courseOfferingId])
