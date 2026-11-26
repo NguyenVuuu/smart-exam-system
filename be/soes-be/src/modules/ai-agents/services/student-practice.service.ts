@@ -58,10 +58,10 @@ export async function createStudentPractice(studentId: string, userId: string, i
   let questions: Array<PracticeQuestion | ProgrammingQuestion>
   if (programming) {
     const language = practiceLanguage(input.instruction, material.subjectName)
-    const draft = await requestProgrammingPracticeDraftAgent({
-      ...request, count: input.count, language, excludedStems: [],
-    })
-    questions = draft.questions.slice(0, input.count)
+    questions = await collectVerifiedProgrammingQuestions(input.count, async (count, excludedStems) => {
+      const draft = await requestProgrammingPracticeDraftAgent({ ...request, count, language, excludedStems })
+      return draft.questions
+    }, candidates => verifyProgrammingDraft(candidates, language))
   } else {
     questions = (await requestPracticeDraftAgent(request)).questions
   }

@@ -1,5 +1,5 @@
 import { AppError, ValidationError } from '../../../errors/AppError'
-import { Judge0Service, judge0Service } from '../../../lib/judge0'
+import { judge0Service } from '../../../lib/judge0'
 import { logger } from '../../../lib/logger'
 import { programmingPracticeQuestionSchema } from '../validators/ai-agent.validator'
 import type { z } from 'zod'
@@ -40,18 +40,6 @@ export async function collectVerifiedProgrammingQuestions(desiredCount: number,
       accepted: verified.length, remaining: desiredCount - accepted.length, generationMs, judgeMs,
     })
 
-    if (accepted.length < desiredCount && novel.length > 0) {
-      const acceptedKeys = new Set(accepted.map((q) => normalizedStem(q.stem)))
-      const candidates = novel.filter((q) => !acceptedKeys.has(normalizedStem(q.stem)))
-      const needed = desiredCount - accepted.length
-      if (candidates.length > 0) {
-        logger.info('Supplementing verified programming questions with structurally valid candidates', {
-          needed, supplemented: Math.min(needed, candidates.length),
-        })
-        accepted.push(...candidates.slice(0, needed))
-        break
-      }
-    }
   }
 
   if (accepted.length < desiredCount) {
@@ -119,37 +107,26 @@ export async function runProgrammingPracticeSample(sourceCode: string, question:
 
 export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], language: ProgrammingQuestion['language']) {
   const verified: ProgrammingQuestion[] = []
-  try {
-    for (let start = 0; start < questions.length; start += 5) {
-      const batch = questions.slice(start, start + 5)
-      const valid = await Promise.all(batch.map(async (question, batchIndex) => {
-        const questionIndex = start + batchIndex
-        if (question.language !== language ||
-          new Set(question.testCases.map((test) => test.input)).size !== question.testCases.length) {
-          logger.warn('AI programming practice failed structural verification', { questionIndex })
-          return false
-        }
-        const sampleCase = question.testCases[0]
-        const result = await runCase(question.referenceSolution, language, sampleCase)
-        if (result.isUnavailable) {
-          logger.warn('Judge is unavailable during verification, accepting structurally valid question', { questionIndex })
-          return true
-        }
-        if (!result.passed) {
-          logger.warn('AI programming practice failed Judge sample verification', {
-            questionIndex, outcome: result.outcome, judgeStatus: result.judgeStatus,
-          })
-          return false
-        }
-        return true
-      }))
-      valid.forEach((passed, index) => {
-        if (passed) verified.push(batch[index])
-      })
+  for (const [questionIndex, question] of questions.entries()) {
+    if (question.language !== language || !question.testCases.length ||
+      new Set(question.testCases.map(test => test.input)).size !== question.testCases.length) {
+      logger.warn('AI programming practice failed structural verification', { questionIndex })
+      continue
     }
-  } catch (error) {
-    logger.warn('AI programming practice Judge check failed, using candidate questions', { error })
-    return questions
+    let passed = true
+    for (let start = 0; start < question.testCases.length; start += 5) {
+      const results = await Promise.all(question.testCases.slice(start, start + 5)
+        .map(test => runCase(question.referenceSolution, language, test)))
+      if (results.some(result => result.isUnavailable)) {
+        throw new AppError(503, 'Judge tạm thời không khả dụng; chưa thể xác minh bài lập trình')
+      }
+      if (results.some(result => !result.passed)) {
+        passed = false
+        logger.warn('AI programming practice failed Judge verification', { questionIndex, testBatch: start / 5 })
+        break
+      }
+    }
+    if (passed) verified.push(question)
   }
   return verified
 }
@@ -157,6 +134,7 @@ export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], l
 export async function gradeProgrammingPractice(sourceCode: string, question: ProgrammingQuestion) {
   try {
     const results = await Promise.all(question.testCases.map((test) => runCase(sourceCode, question.language, test)))
+    if (results.some(result => result.isUnavailable)) throw new AppError(503, 'Không thể chấm bài lập trình với Judge')
     const passedTestCases = results.filter((result) => result.passed).length
     return { score: Number(passedTestCases === question.testCases.length), passedTestCases,
       totalTestCases: question.testCases.length }

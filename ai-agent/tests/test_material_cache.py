@@ -1,4 +1,6 @@
 import base64
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from sys import getsizeof
 
 import pytest
@@ -82,3 +84,29 @@ def test_failed_extraction_is_not_cached(monkeypatch):
         with pytest.raises(ValueError):
             materials.extract_material(material("broken file"))
     assert len(calls) == 2
+
+
+def test_concurrent_loads_share_work_and_failed_load_can_retry():
+    cache = MaterialTextCache()
+    started, release = Event(), Event()
+    calls = []
+
+    def load():
+        calls.append(True)
+        started.set()
+        assert release.wait(5)
+        return "shared text"
+
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        futures = [pool.submit(cache.get_or_load, "same", load) for _ in range(20)]
+        assert started.wait(5)
+        release.set()
+        assert [future.result(timeout=5) for future in futures] == ["shared text"] * 20
+    assert len(calls) == 1
+
+    def fail():
+        raise ValueError("bad source")
+
+    with pytest.raises(ValueError, match="bad source"):
+        cache.get_or_load("broken", fail)
+    assert cache.get_or_load("broken", lambda: "fixed") == "fixed"

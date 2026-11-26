@@ -91,7 +91,7 @@ async def generate_question_draft(model: ChatGoogleGenerativeAI, request: Questi
             verified = await verify_instruction_fulfillment(
                 model, requirement, questions, evidence=source_evidence,
             )
-        if len(verified) == len(questions):
+        if questions and len(verified) == len(questions):
             return result
         if attempt == 0 and len(verified) < len(questions):
             rejected = ", ".join(str(index + 1) for index in range(len(questions)) if index not in verified)
@@ -100,6 +100,4 @@ async def generate_question_draft(model: ChatGoogleGenerativeAI, request: Questi
                           "vào đúng yêu cầu; tự kiểm tra độc lập đáp án, lời giải và test case trước khi trả. "
                           "Giữ đúng số lượng, dạng câu và schema đã cấu hình.")
             continue
-        if len(questions) > 0:
-            return result
     raise ValueError("Generated questions did not satisfy the requested topic and quality checks")

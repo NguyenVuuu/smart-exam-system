@@ -4,6 +4,8 @@ from hmac import compare_digest
 from pathlib import Path
 from time import perf_counter
 from uuid import UUID
+from threading import BoundedSemaphore
+from collections.abc import AsyncIterator
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -28,6 +30,10 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logging.getLogger("soes_agent").setLevel(logging.INFO)
 app = FastAPI(title="SOES AI Agent", docs_url=None, redoc_url=None)
 logger = logging.getLogger(__name__)
+_max_concurrent_requests = int(os.environ.get("AI_AGENT_MAX_CONCURRENT_REQUESTS", "4"))
+if _max_concurrent_requests < 1:
+    raise ValueError("AI_AGENT_MAX_CONCURRENT_REQUESTS must be positive")
+_request_slots = BoundedSemaphore(_max_concurrent_requests)
 
 
 @app.exception_handler(RequestValidationError)
@@ -87,10 +93,16 @@ def request_id_for_log(request: Request) -> str:
         return "-"
 
 
-def require_service(authorization: str = Header(default="")) -> None:
+async def require_service(authorization: str = Header(default="")) -> AsyncIterator[None]:
     secret = os.environ.get("AI_AGENT_SHARED_SECRET", "")
     if not secret or not compare_digest(authorization, f"Bearer {secret}"):
         raise HTTPException(status_code=401, detail="Unauthorized")
+    if not _request_slots.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="AI service is busy; please retry later")
+    try:
+        yield
+    finally:
+        _request_slots.release()
 
 
 def get_model(timeout_seconds: int = 60, max_output_tokens: int | None = None,

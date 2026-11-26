@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ValidationError } from '../../../errors/AppError'
 import { judge0Service } from '../../../lib/judge0'
-import { collectVerifiedProgrammingQuestions, verifyProgrammingDraft } from './programming-practice.service'
+import { collectVerifiedProgrammingQuestions, gradeProgrammingPractice, verifyProgrammingDraft } from './programming-practice.service'
 
 type Candidate = Awaited<ReturnType<Parameters<typeof collectVerifiedProgrammingQuestions>[1]>>[number]
 
@@ -62,4 +62,20 @@ test('returns only programming questions whose reference solution passes every J
   })
 
   assert.deepEqual(await verifyProgrammingDraft([valid, invalid], 'JAVA'), [valid])
+})
+
+test('Judge unavailability does not accept a structurally valid question', async context => {
+  context.mock.method(judge0Service, 'submitAndPoll', async () => { throw new Error('Unavailable') })
+  await assert.rejects(verifyProgrammingDraft([candidate('Unavailable Judge')], 'JAVA'),
+    (error: unknown) => error instanceof Error && 'statusCode' in error && error.statusCode === 503)
+  await assert.rejects(gradeProgrammingPractice('class Main {}', candidate('Unavailable Judge')),
+    (error: unknown) => error instanceof Error && 'statusCode' in error && error.statusCode === 503)
+})
+
+test('a reference solution passing only the first sample is rejected', async context => {
+  context.mock.method(judge0Service, 'submitAndPoll', async (submission: { stdin?: string }) => ({
+    stdout: submission.stdin === '1' ? '1' : '0', stderr: null, compile_output: null, message: null,
+    status: { id: 3, description: 'Accepted' }, time: '0.01', memory: 1024,
+  }))
+  assert.deepEqual(await verifyProgrammingDraft([candidate('Hidden case fails')], 'JAVA'), [])
 })

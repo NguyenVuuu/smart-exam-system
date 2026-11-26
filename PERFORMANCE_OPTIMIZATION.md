@@ -15,10 +15,10 @@ Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. 
 | F09 | 1 | In Progress | Polling thích ứng theo kết nối và gom heartbeat theo frame; còn profile 500 dòng và thử recovery |
 | F10 | 3 | Pending | Cập nhật phiên live Redis theo thao tác atomic |
 | F11 | 1 | In Progress | Xóa phiên theo key cụ thể, bỏ KEYS; chưa đổi chính sách phục hồi Redis |
-| F12 | 3 | Pending | Giới hạn concurrency AI và ngân sách retry |
-| F13 | 3 | Pending | Gộp yêu cầu tải và trích xuất cùng tài liệu |
+| F12 | 3 | In Progress | Admission có giới hạn theo tiến trình; còn reservation quota và cancellation xuyên dịch vụ |
+| F13 | 3 | In Progress | Gộp download và extraction đồng thời; còn bytes/base64 và benchmark nhiều replica |
 | F14 | 3 | Pending | Hiệu năng kho vector hiện có |
-| F15 | 3 | Pending | Kiểm chứng AI và Judge. Suite đã phát hiện lỗi gốc |
+| F15 | 3 | In Progress | Đã loại fail-open, kiểm tra tất cả test case trước lưu; còn runtime verification cache và đánh giá chất lượng thực |
 | F16 | 1 | In Progress | Đã lazy load route, entry gzip còn 122,95 kB; chưa đo LCP mạng thiết bị thực |
 | F17 | 4 | Pending | Quản lý tài nguyên inference trên client |
 | F18 | 3 | Pending | Buffer và phục hồi upload evidence |
@@ -90,3 +90,14 @@ Người dùng đã yêu cầu không tạo thêm bất kỳ bảng ứng dụng
 - Xác minh SQL. Docker daemon hiện không chạy và không có PostgreSQL binary local. Đã dùng PGlite cài riêng trong `outputs/performance-sql-check` để chạy đúng SQL production trên fixture hoàn toàn trong bộ nhớ, không truy cập DB SOES. Qua kiểm tra làm tròn numeric(5,2), scope attempt, phiên fresh/ended/NOT_REQUIRED và chạy offline lặp không phát sinh cập nhật lần hai. Fixture bộ nhớ chỉ dùng các bảng tối thiểu tương ứng bảng hiện có, không thêm bảng vào schema SOES. Không coi đây là test nhiều kết nối hoặc EXPLAIN production. Thư mục outputs không commit.
 - Benchmark và giới hạn. Chưa có latency/throughput hoặc p95 transaction trước/sau giai đoạn 2; không tạo số đo giả. Các kiểm tra mock/SQL fixture không chứng minh ownership khi nhiều replica hoặc recovery sau restart. Các mục giữ In Progress theo giới hạn trên.
 - Rollback. Hoàn tác checkpoint giai đoạn 2 để khôi phục truy vấn và cách ghi cũ. Không có migration hoặc chuyển đổi dữ liệu. Khi rollback F04/F05, số query và mức hydrate quay về baseline.
+
+## Giai đoạn 3 · Checkpoint AI và cache
+
+- F12. `ai-agent/src/soes_agent/main.py` kiểm tra service secret trước admission, giới hạn mặc định 4 workflow đồng thời mỗi tiến trình bằng semaphore không chờ. Khi đầy trả 503 và giải phóng slot trong finally kể cả exception/cancellation. `ai-agent/.env.example` công khai cấu hình `AI_AGENT_MAX_CONCURRENT_REQUESTS`, bắt buộc số dương. Health không chiếm slot. Test `test_admission.py` kiểm tra overload, auth và nhận lại slot. Không đổi model, retry của provider, prompt hoặc workflow. Giới hạn tổng phải nhân theo worker/replica; chưa có quota reservation theo sinh viên hoặc cancel provider xuyên HTTP.
+- F13. `course-material-buffer.cache.ts` giữ promise tải cùng storagePath/checksum; các request miss đồng thời dùng chung kết quả, lỗi giải phóng promise để lần sau thử lại. Không checksum vẫn tải riêng như cũ. `material_cache.py` dùng Future và lock ngắn để đồng bộ cùng content hash, không giữ lock toàn cache khi parse. `materials.py` gọi đường load này; TTL, LRU, key theo content/MIME và giới hạn cache giữ nguyên. Test TypeScript và Python xác nhận 20 yêu cầu dùng chung một loader và lỗi không bị cache. Đây là số lần gọi loader trong fixture, không phải latency tải tài liệu thực. Quyền truy cập tài liệu ở caller giữ nguyên. Buffer base64 và duplication giữa replica chưa xử lý.
+- F15. `programming-practice.service.ts` bỏ đường nhận lại câu đã bị verify loại; sửa helper chỉ nhận lời giải qua toàn bộ test case, chạy tối đa 5 case đồng thời trong một lần verify. Judge unavailable trả lỗi 503 thay vì coi câu hợp lệ hoặc chấm sai 0 điểm. `student-practice.service.ts` thực sự nối collect/verify trước transaction lưu bài luyện. Sinh lại tối đa 3 lượt như giới hạn cũ, chỉ bù số câu thiếu và loại stem đã thử. `question_generation.py` không trả bản cuối còn câu bị verifier loại. Không sửa nội dung prompt hoặc vòng sửa; chỉ sửa điều kiện phát hành kết quả sau kiểm chứng theo F15 audit. Test mới và assertion cũ đều được giữ.
+- File test. `programming-practice.service.test.ts`, `course-material-buffer.cache.test.ts`, `ai-agent/tests/test_admission.py`, `test_material_cache.py`, `test_question_generation.py`.
+- Clean Code. Bỏ import Judge0Service không dùng và nhánh fail-open; tái dùng helper verify sẵn có. Không thêm thư viện runtime, bảng, migration, model hoặc thuật toán RAG mới.
+- Kiểm thử. Backend build qua; suite 194/194 sau khi sửa ba lỗi baseline. Test Judge tập trung 5/5 qua sau bổ sung kiểm tra không chấm 0 khi dịch vụ lỗi. Python 117/117, gồm scope chương, RAG fallback và workflow mock hiện có. Chưa có API provider/Judge0 end-to-end hoặc đánh giá học thuật trên bộ đề thật. Không dùng fixture để khẳng định AI chính xác tuyệt đối.
+- Benchmark và giới hạn. Không có cặp latency AI trước/sau cùng tài liệu/model. Kiểm tra toàn bộ test thay sample có thể tăng thời gian so với đường bỏ kiểm chứng cũ; đó là sửa lỗi đúng đắn, không tuyên bố nhanh hơn. Chưa có cache verify theo runtime/hash. F10, F14, F18 vẫn Pending, chưa hoàn tất toàn giai đoạn 3.
+- Rollback. Hoàn tác checkpoint này để trở về admission/cache cũ; không có dữ liệu cần chuyển đổi. Rollback F15 đưa lại nguy cơ phát hành bài chưa kiểm chứng nên cần cân nhắc riêng, không nên tắt verify để tăng tốc.

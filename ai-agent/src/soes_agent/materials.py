@@ -48,10 +48,10 @@ def extract_source_bytes(raw: bytes, mime_type: str) -> str:
     logger.info("Material extraction cache=%s", "hit" if cached is not None else "miss")
     if cached is not None:
         return cached
-    with measure_stage("material.extract"):
-        text = _extract_text(raw, mime_type)
-    _text_cache.put(key, text)
-    return text
+    def load() -> str:
+        with measure_stage("material.extract"):
+            return _extract_text(raw, mime_type)
+    return _text_cache.get_or_load(key, load)
 
 
 def _extract_text(raw: bytes, mime_type: str) -> str:

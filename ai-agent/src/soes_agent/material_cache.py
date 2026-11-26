@@ -2,6 +2,8 @@ from collections import OrderedDict
 from threading import Lock
 from time import monotonic
 from sys import getsizeof
+from concurrent.futures import Future
+from collections.abc import Callable
 
 
 class MaterialTextCache:
@@ -15,6 +17,33 @@ class MaterialTextCache:
         self._entries: OrderedDict[str, tuple[str, float, int]] = OrderedDict()
         self._bytes = 0
         self._lock = Lock()
+        self._inflight: dict[str, Future[str]] = {}
+
+    def get_or_load(self, key: str, load: Callable[[], str]) -> str:
+        with self._lock:
+            self._expire()
+            entry = self._entries.get(key)
+            if entry is not None:
+                self._entries.move_to_end(key)
+                return entry[0]
+            pending = self._inflight.get(key)
+            owner = pending is None
+            if pending is None:
+                pending = Future()
+                self._inflight[key] = pending
+        if not owner:
+            return pending.result()
+        try:
+            text = load()
+            self.put(key, text)
+            pending.set_result(text)
+            return text
+        except BaseException as error:
+            pending.set_exception(error)
+            raise
+        finally:
+            with self._lock:
+                del self._inflight[key]
 
     def _remove(self, key: str) -> None:
         _, _, size = self._entries.pop(key)

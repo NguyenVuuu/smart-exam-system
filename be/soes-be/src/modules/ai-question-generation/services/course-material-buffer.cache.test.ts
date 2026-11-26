@@ -22,3 +22,19 @@ test('materials without a checksum are downloaded each time', async () => {
   await loadCourseMaterialBuffer(path, null, download)
   assert.equal(downloads, 2)
 })
+
+test('concurrent cache misses share one download and a failed download can be retried', async () => {
+  let downloads = 0
+  const path = 'course-materials/concurrent.pdf'
+  const download = async () => {
+    downloads += 1
+    await new Promise(resolve => setTimeout(resolve, 20))
+    return Buffer.from('shared')
+  }
+  const buffers = await Promise.all(Array.from({ length: 20 }, () => loadCourseMaterialBuffer(path, 'one', download)))
+  assert.equal(downloads, 1)
+  assert.ok(buffers.every(buffer => buffer === buffers[0]))
+  await assert.rejects(loadCourseMaterialBuffer(path, 'two', async () => { throw new Error('download failed') }))
+  assert.equal((await loadCourseMaterialBuffer(path, 'two', download)).toString(), 'shared')
+  assert.equal(downloads, 2)
+})
