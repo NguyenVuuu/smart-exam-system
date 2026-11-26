@@ -6,6 +6,8 @@ test('schedule status uses total attempts even when only the latest attempt is l
   const repositoryId = require.resolve('../repositories/student-portal.repository')
   const serviceId = require.resolve('./student-portal.service')
   const original = require.cache[repositoryId]
+  const pageId = require.resolve('../repositories/schedule-page.repository')
+  const originalPage = require.cache[pageId]
   const row = (id: string, attempts: number) => ({
     id, title: id, maxAttempts: 2, passwordHash: null, scheduleCourses: [],
     startTime: new Date(Date.now() - 60_000), endTime: new Date(Date.now() + 60_000),
@@ -15,10 +17,16 @@ test('schedule status uses total attempts even when only the latest attempt is l
   const stub = new Module(repositoryId)
   stub.exports = { listVisibleSchedules: async () => [row('used-all', 2), row('can-retry', 1)] }
   require.cache[repositoryId] = stub
+  const pageStub = new Module(pageId)
+  pageStub.exports = { findVisibleSchedulePage: async () => ({ ids: ['used-all', 'can-retry'], total: 2,
+    statusCounts: { OPEN: 1, UPCOMING: 0, COMPLETED: 1, EXPIRED: 0 } }) }
+  require.cache[pageId] = pageStub
   context.after(() => {
     if (original) require.cache[repositoryId] = original
     else delete require.cache[repositoryId]
     delete require.cache[serviceId]
+    if (originalPage) require.cache[pageId] = originalPage
+    else delete require.cache[pageId]
   })
   const { getExamSchedules } = await import('./student-portal.service')
   const result = await getExamSchedules('student', { page: 1, pageSize: 10, status: 'ALL' })

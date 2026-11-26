@@ -2,6 +2,9 @@ import { NotFoundError } from '../../../errors/AppError'
 import { toPagination } from '../../../utils/pagination'
 import type { StudentExamSchedulesQuery, StudentScoresQuery, NotificationsQuery } from '../validators/student-portal.validator'
 import * as repo from '../repositories/student-portal.repository'
+import { findReleasedScorePage } from '../repositories/score-page.repository'
+import { calculateAverageScore } from './score-summary'
+import { findVisibleSchedulePage } from '../repositories/schedule-page.repository'
 
 const submittedStatuses = ['SUBMITTED', 'GRADING', 'GRADED', 'PUBLISHED', 'AUTO_SUBMITTED', 'INVALIDATED']
 type AggregatedExamStatus = 'OPEN' | 'UPCOMING' | 'COMPLETED' | 'EXPIRED'
@@ -34,17 +37,14 @@ export async function markAllNotificationsRead(userId: string) {
 }
 
 export async function getExamSchedules(studentId: string, query: StudentExamSchedulesQuery) {
-  const rows = await repo.listVisibleSchedules(studentId, query)
-  const rowsWithStatus = rows.map((row) => ({ row, status: examStatus(row) }))
-  const statusCounts: Record<AggregatedExamStatus, number> = { OPEN: 0, UPCOMING: 0, COMPLETED: 0, EXPIRED: 0 }
-  rowsWithStatus.forEach(({ status }) => {
-    statusCounts[status] += 1
-  })
-  const statusRows = rowsWithStatus.filter(({ status }) => query.status === 'ALL' || status === query.status)
-
-  const totalItems = statusRows.length
-  const start = (query.page - 1) * query.pageSize
-  const items = statusRows.slice(start, start + query.pageSize).map(({ row, status }) => {
+  const now = new Date()
+  const page = await findVisibleSchedulePage(studentId, query, now)
+  const rows = page.ids.length ? await repo.listVisibleSchedules(studentId, query, page.ids) : []
+  const byId = new Map(rows.map(row => [row.id, row]))
+  const items = page.ids.flatMap(id => {
+    const row = byId.get(id)
+    if (!row) return []
+    const status = examStatus(row, now)
     const courseOffering = row.scheduleCourses[0]?.courseOffering
     return {
       id: row.id,
@@ -68,11 +68,13 @@ export async function getExamSchedules(studentId: string, query: StudentExamSche
     }
   })
 
-  return { items, pagination: toPagination(query.page, query.pageSize, totalItems), statusCounts }
+  return { items, pagination: toPagination(query.page, query.pageSize, page.total), statusCounts: page.statusCounts }
 }
 
 export async function getScores(studentId: string, query: StudentScoresQuery) {
-  const attempts = await repo.listReleasedScores(studentId, query)
+  const page = query.page !== undefined || query.pageSize !== undefined
+    ? await findReleasedScorePage(studentId, query) : undefined
+  const attempts = page?.ids.length === 0 ? [] : await repo.listReleasedScores(studentId, query, page?.ids)
   const selectedByOriginalSchedule = new Map<string, typeof attempts[number]>()
   for (const attempt of attempts) {
     const originalScheduleId = attempt.examSchedule.makeupOfScheduleId ?? attempt.examSchedule.id
@@ -98,5 +100,11 @@ export async function getScores(studentId: string, query: StudentScoresQuery) {
       subjectName: attempt.courseOffering.subject.name,
     }))
 
-  return { items }
+  if (!page) return { items }
+  const byId = new Map(items.map(item => [item.attemptId, item]))
+  return {
+    items: page.ids.flatMap(id => { const item = byId.get(id); return item ? [item] : [] }),
+    pagination: toPagination(query.page ?? 1, query.pageSize ?? 20, page.total),
+    averageScore: calculateAverageScore(page.summary), highestScore: page.highestScore,
+  }
 }
