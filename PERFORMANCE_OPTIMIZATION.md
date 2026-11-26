@@ -13,15 +13,15 @@ Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. 
 | F07 | 2 | In Progress | Chỉ hydrate bài trong trang đã chọn; metadata gộp ca vẫn tải để giữ đúng policy |
 | F08 | 2 | In Progress | Chỉ lấy latest attempt và count theo sinh viên; pagination DB toàn luồng còn mở |
 | F09 | 1 | In Progress | Polling thích ứng theo kết nối và gom heartbeat theo frame; còn profile 500 dòng và thử recovery |
-| F10 | 3 | Pending | Cập nhật phiên live Redis theo thao tác atomic |
+| F10 | 3 | In Progress | Lua atomic cho claim/SDP/ICE/end, TTL touch không ghi JSON; qua fixture Lua, còn TURN/multi-replica thực |
 | F11 | 1 | In Progress | Xóa phiên theo key cụ thể, bỏ KEYS; chưa đổi chính sách phục hồi Redis |
 | F12 | 3 | In Progress | Admission có giới hạn theo tiến trình; còn reservation quota và cancellation xuyên dịch vụ |
 | F13 | 3 | In Progress | Gộp download và extraction đồng thời; còn bytes/base64 và benchmark nhiều replica |
-| F14 | 3 | Pending | Hiệu năng kho vector hiện có |
+| F14 | 3 | In Progress | Cache bounded cho token tài liệu và offload scoring, giữ nguyên công thức ranking; còn benchmark thực |
 | F15 | 3 | In Progress | Đã loại fail-open, kiểm tra tất cả test case trước lưu; còn runtime verification cache và đánh giá chất lượng thực |
 | F16 | 1 | In Progress | Đã lazy load route, entry gzip còn 122,95 kB; chưa đo LCP mạng thiết bị thực |
 | F17 | 4 | In Progress | Giải phóng output tensor sau inference; còn profile memory và camera thực |
-| F18 | 3 | Pending | Buffer và phục hồi upload evidence |
+| F18 | 3 | In Progress | Admission upload, retry đúng blob và dedupe bằng PK hiện có; chưa có queue qua reload |
 | F19 | 4 | In Progress | Auth socket trước chờ adapter, startup chờ init và cleanup Redis lỗi; còn drain/multi-replica |
 | F20 | 0 | In Progress | Đã có quan sát và script đo. Còn baseline nghiệp vụ trên DB cô lập và kiểm tra readiness |
 | F21 | 0, 4 | In Progress | Đã nối các bước kiểm tra CI. Còn lỗi baseline và refactor theo module |
@@ -116,3 +116,36 @@ Người dùng đã yêu cầu không tạo thêm bất kỳ bảng ứng dụng
 F10 (atomic signaling Redis), F14 (đo/tối ưu index hiện có), F18 (queue evidence bền vững và dedupe), phần recovery/limiter Judge0 của F03, drain deadline F05, phân trang DB đầy đủ F07/F08 và các tiêu chí kiểm thử tải/multi-replica chưa hoàn tất. Không dùng yêu cầu cấm thêm bảng để ngầm bỏ các mục này; cần giải pháp trên dữ liệu/infra hiện có. Không thay prompt, model hoặc thuật toán nhằm giảm thời gian. Không ghi Completed khi còn thiếu nghiệm thu.
 
 Các commit đã tạo: `5c72ad6` (giai đoạn 0), `fc8fe3b` (giai đoạn 1), `135e44c` (checkpoint giai đoạn 2), `688aa27` (checkpoint giai đoạn 3). Không push. Không stage `research/`, `outputs/`, `scripts/measure-learning-ai.ts`.
+
+## Cập nhật phạm vi được duyệt ngày 26/11/2026
+
+Người dùng cho phép thêm trường hoặc tái sử dụng bảng hiện có, vẫn cấm tạo bảng ứng dụng mới. Vì vậy có thể triển khai durable grading trên ExamAttempt và reservation sinh bài trên Student; phần Deferred trước đây do cấm mọi thay đổi schema được thay bằng phương án này. Chỉ tạo migration để review, chưa chạy migration trên DB thật. Trước khi chạy backend mới phải triển khai các migration additive tương ứng. Không chạy `db push` hoặc migration lên dữ liệu thật trong phiên này.
+
+### F10 · Signaling atomic
+
+- File: `proctoring-live/live-session.store.ts`, `proctoring-live.service.ts`; `ai-agent/tests/test_live_session_atomic.py`, `ai-agent/pyproject.toml`.
+- Lua xử lý claim stream, offer/answer, append ICE và end trong một lệnh Redis. Kiểm tra actor và pointer ownership trong cùng thao tác; end cũ không xóa pointer phiên mới, candidate đến muộn không hồi sinh phiên. Reuse phiên REQUESTED của cùng giảng viên, giữ conflict với giảng viên khác. Giữ định dạng key và JSON hiện có; chuẩn hóa empty array sau cjson.
+- Chỉ touch TTL khi đọc, không tải JSON lên Redis để ghi lại. Candidate được dedupe và giới hạn 256 mỗi phía; khi vượt trả conflict yêu cầu reconnect, không cắt bỏ candidate đang dùng một cách âm thầm. Chưa chuyển sang Redis Cluster; script dùng namespace standalone hiện có.
+- Test: thực thi đúng Lua production với fakeredis/lua cô lập; 2 claimant cạnh tranh, 50 candidate song song, duplicate, late candidate, stale end, TTL touch và cap đều qua. `fakeredis[lua]` chỉ là test extra, không là dependency runtime. Không dùng Redis SOES thật để kiểm thử tải. Còn kiểm tra TURN và hai API replica thực.
+- Clean Code: tách lưu trữ atomic khỏi service orchestration, giảm service xuống khoảng 100 dòng; không thêm bảng hoặc thay API fields. Benchmark latency/Redis bytes thực chưa có. Rollback hai file backend cùng nhau, key format vẫn đọc được.
+
+### F03/F05 · Chấm nền phục hồi bằng ExamAttempt
+
+- Schema thêm `gradingPending`, `gradingClaimToken`, `gradingLeaseUntil`, `gradingRetryAt`, `gradingFailures` vào ExamAttempt. Migration chỉ ALTER bảng cũ, backfill những bài SUBMITTED/AUTO_SUBMITTED chưa có total/manual score; không tự regrade lịch sử đã có điểm hoặc bài đã công bố.
+- File: `jobs/attempt-grading.jobs.ts`, `repositories/grading-job.repository.ts`, `attempt.repository.ts`, `attempt-grading.repository.ts`, `programming-grading.repository.ts`, `programming-grading.service.ts`, hai service/repository teacher grading, `server.ts` và migration `20261126140000_attempt_grading_recovery`.
+- Submit/timeout/force-submit ghi pending trong transaction kết thúc bài. Worker claim bằng SKIP LOCKED, tối đa 2 bài hoạt động mỗi process, lease 90 giây và renewal 30 giây. Mọi lần ghi điểm worker kiểm tra token/lease/status dưới row lock. Chốt điểm thủ công hủy pending/token; release không công bố bài còn pending. Retry exponential 5 lần khi lỗi, SYSTEM_ERROR không đổi thành sai bài 0 điểm. Bài chấm từng phần không chạy lại câu lập trình đã có score. Hết 5 lỗi giữ GRADING/pending để giảng viên xử lý, không retry vô hạn; chưa có UI retry riêng.
+- Drain deadline tối đa 8 batch và ngân sách giữa các batch 5 giây mỗi lượt, giữ conditional transition/audit gốc. Không khẳng định toàn lượt luôn dưới 5 giây nếu một batch DB chậm.
+- File `lib/work-limiter.ts` giới hạn tổng submitAndPoll (mặc định 6, queue 64) và timeout chờ; timeout Judge bao gồm queue, POST và poll. Không bỏ testcase để tăng throughput. Giới hạn vẫn nhân theo số replica; cần connection/capacity budget khi deploy nhiều replica.
+- Test: PGlite chạy migration và SQL claim/expiry/retry/fencing thực trong memory, stale token không ghi được, manual score không được backfill; worker fixture xác nhận concurrency 2, finalStatus theo endedBy và drain. Work limiter kiểm tra queue overflow/expiry/release. Còn kill/restart và multi-connection PostgreSQL deployment test.
+- Rollback code chỉ sau khi dừng worker; giữ các cột additive để không xóa trạng thái pending. Không tự DROP cột trên DB thật. Chưa có performance pair trên workload thi thực.
+
+### F11/F12/F14/F18/F19/F21 · Thay đổi tiếp theo đang kiểm chứng
+
+- F11: Redis reconnect backoff/jitter tiếp tục sau outage; command fail nhanh, không giữ offline command queue. `REDIS_RETRY_LIMIT=0` là retry vô hạn, runner unit dùng giới hạn 3 để không giữ tiến trình. Chưa fault-inject outage dài trên Redis thật.
+- F12: thêm token/lease nullable trên Student qua `20261126141000_practice_generation_lease`; chỉ một generation/sinh viên, renewal/release theo token. Trước ghi PracticeSet khóa Student và kiểm lại quota 10/24 giờ, không giữ transaction xuyên lời gọi AI. Test in-memory xác nhận tranh chấp, ownership, quota và giải phóng khi provider lỗi. Không tạo bảng quota mới.
+- F14: cache LRU tối đa 128 tokenized chunk, lexical và cosine chạy qua thread; giữ nguyên cosine, lexical, fusion, chunking và fallback. Test cache xác nhận score bằng nhau và eviction; suite RAG cũ giữ nguyên. Chưa có số đo quality/latency thực để tuyên bố cải thiện recall.
+- F18: tối đa 8 upload đang xử lý trước Multer, giới hạn field/parts. Phone queue tối đa 20 ảnh/12 MiB, chỉ bỏ ảnh sau ACK, backoff 2–15 giây và online retry. ID phone evidence từ hash attempt/metadata/ảnh, dùng PK Violation hiện có để nhận lại ACK thay vì tạo duplicate; không thêm field API. Queue hiện trong RAM theo vòng đời attempt, chưa sống qua reload. Không lưu ảnh vào browser storage khi chưa có giải pháp retention/encryption phù hợp. Chưa nghiệm thu end-to-end lỗi upload/ACK trên camera thật.
+- F19: stop nhận HTTP, ngừng periodic jobs, drain tác vụ đang chạy, đóng socket/adapter Redis/Prisma, deadline shutdown 30 giây; lease chưa hoàn tất phục hồi ở lần chạy sau. Chưa rolling-restart qua load balancer.
+- F21: tách violation events/report khỏi student-take-exam service, không đổi export API. Cài PGlite dev-only để kiểm tra SQL thực trên fixture memory. `npm audit fix --ignore-scripts` chỉ cập nhật trong range: 15 còn 8 findings, critical cũ đã hết; không force downgrade Minio/nodemon hoặc tự nâng ethers ngoài pin. Còn nợ lint ngoài phạm vi module đã chỉnh, không che bằng disable rules.
+
+Chưa có benchmark trước/sau nghiệp vụ cho các thay đổi này. Các mục thiếu deployment/load/quality acceptance vẫn In Progress. Yêu cầu bổ sung API tương thích ngược cho phân trang điểm và readiness đang chờ phản hồi; chưa triển khai phần phụ thuộc khi chưa có duyệt.

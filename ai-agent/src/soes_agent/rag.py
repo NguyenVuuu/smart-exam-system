@@ -15,6 +15,7 @@ import struct
 import time
 import weakref
 from collections import Counter
+from functools import lru_cache
 from pathlib import Path
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -60,11 +61,16 @@ def _terms(value: str) -> Counter[str]:
     return Counter(re.findall(r"\w{3,}", value.casefold()))
 
 
+@lru_cache(maxsize=128)
+def _document_terms(value: str) -> Counter[str]:
+    return _terms(value)
+
+
 def _lexical_scores(chunks: list[str], query: str) -> list[float]:
     terms = _terms(query)
     if not terms:
         return [0.0] * len(chunks)
-    documents = [_terms(chunk) for chunk in chunks]
+    documents = [_document_terms(chunk) for chunk in chunks]
     frequencies = Counter(word for document in documents for word in document)
     return [sum((1 + math.log(count)) * math.log(1 + (len(chunks) + 1) / (frequencies[word] + 1))
                 for word, count in document.items() if word in terms) for document in documents]
@@ -76,6 +82,10 @@ def _cosine(left: list[float], right: list[float]) -> float:
     numerator = sum(a * b for a, b in zip(left, right))
     denominator = math.sqrt(sum(a * a for a in left) * sum(b * b for b in right))
     return numerator / denominator if denominator else 0.0
+
+
+def _semantic_scores(query: list[float], vectors: list[list[float]]) -> list[float]:
+    return [_cosine(query, vector) for vector in vectors]
 
 
 def _index_key(text: str, model: str) -> str:
@@ -170,7 +180,7 @@ async def retrieve_material(text: str, query: str, *, title: str = "",
         groups = [index for index, section in enumerate(chapter_chunks) for _ in section]
     else:
         chunks = _chunks(text)
-    lexical = _lexical_scores(chunks, query)
+    lexical = await asyncio.to_thread(_lexical_scores, chunks, query)
     broad = _is_broad_query(query)
     if broad:
         return _select(chunks, lexical, None, groups, broad=True, max_chars=max_chars)
@@ -197,7 +207,7 @@ async def retrieve_material(text: str, query: str, *, title: str = "",
             else:
                 embedder = embeddings or GoogleGenerativeAIEmbeddings(model=model, api_key=api_key)
         query_vector = await embedder.aembed_query(query, task_type="RETRIEVAL_QUERY")
-        semantic = [_cosine(query_vector, vector) for vector in vectors]
+        semantic = await asyncio.to_thread(_semantic_scores, query_vector, vectors)
         logger.info("RAG retrieval chunks=%s index=%s", len(chunks), "hit" if cache_hit else "miss")
         return _select(chunks, lexical, semantic, groups, max_chars=max_chars)
     except Exception as exc:
