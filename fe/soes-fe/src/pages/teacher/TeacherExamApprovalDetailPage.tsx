@@ -1,6 +1,6 @@
 import { ArrowLeft, CheckCircle2, ShieldCheck, XCircle } from 'lucide-react'
 import axios from 'axios'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -8,8 +8,9 @@ import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import ApprovalRejectModal from './components/department-approval/ApprovalRejectModal'
 import { ExamReviewContent } from './components/department-approval/ApprovalReviewModal'
-import { approveExam, getExamApprovalDetail, getExamReviewHistory, rejectExam, type ExamApprovalDetailDto, type ExamReviewHistoryItem } from './api/teacher-approvals.api'
+import { approveExam, getExamApprovalDetail, getExamReviewHistory, rejectExam, type ExamReviewHistoryItem } from './api/teacher-approvals.api'
 import { toReviewExam } from './mappers/teacher-review-snapshot.mapper'
+import { useAccountQuery } from '../../hooks/useAccountQuery'
 import type { Exam } from './types/teacher-exam.types'
 import type { ApprovalItem } from './types/teacher-approval.types'
 import { useReviewGroupAccess } from './hooks/useReviewGroupAccess'
@@ -18,39 +19,23 @@ export default function TeacherExamApprovalDetailPage() {
   const { examId } = useParams<{ examId: string }>()
   const navigate = useNavigate()
   const accessQuery = useReviewGroupAccess()
-  const [exam, setExam] = useState<Exam | null>(null)
-  const [detail, setDetail] = useState<ExamApprovalDetailDto | null>(null)
-  const [history, setHistory] = useState<ExamReviewHistoryItem[]>([])
   const [activeTab, setActiveTab] = useState<'CURRENT' | 'HISTORY'>('CURRENT')
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
   const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({})
   const [rejectionReason, setRejectionReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const query = useAccountQuery(['exam-approval-detail', examId], async () => {
+    const [detail, history] = await Promise.all([getExamApprovalDetail(examId!), getExamReviewHistory(examId!)])
+    return { detail, history }
+  }, Boolean(examId && accessQuery.data?.canReview === true))
+  const detail = query.data?.detail ?? null
+  const history = query.data?.history ?? []
+  const exam = useMemo(() => detail ? toReviewExam(detail) : null, [detail])
+  const loading = accessQuery.isLoading || query.isFetching
+  const error = query.isError ? 'Không thể tải phiên bản đề hoặc bạn không có quyền xem đề này.' : null
 
-  useEffect(() => {
-    if (!examId || accessQuery.data?.canReview !== true) return
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    Promise.all([getExamApprovalDetail(examId), getExamReviewHistory(examId)])
-      .then(([detail, reviewHistory]) => {
-        if (cancelled) return
-        setDetail(detail)
-        setExam(toReviewExam(detail))
-        setHistory(reviewHistory)
-        setSelectedHistoryId(reviewHistory[0]?.id ?? null)
-      })
-      .catch(() => {
-        if (!cancelled) setError('Không thể tải phiên bản đề hoặc bạn không có quyền xem đề này.')
-      })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [examId, accessQuery.data?.canReview])
-
-  const selectedRound = history.find((round) => round.id === selectedHistoryId) ?? null
+  const selectedRound = history.find((round) => round.id === selectedHistoryId) ?? history[0] ?? null
   const readOnly = detail?.reviewRound.status === 'APPROVED'
   const finalApproval = history.find((round) => round.decision?.type === 'APPROVE')?.decision ?? null
   const selectedRoundIndex = selectedRound ? history.findIndex((round) => round.id === selectedRound.id) : -1

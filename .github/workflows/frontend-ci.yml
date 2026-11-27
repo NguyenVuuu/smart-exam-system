@@ -38,6 +38,9 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Lint project
+        run: npx eslint . --max-warnings 0
+
       - name: Test vision workers
         run: npm run test:vision
 

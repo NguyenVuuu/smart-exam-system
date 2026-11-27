@@ -1,5 +1,5 @@
 import { Image, RotateCcw, Trash2, Upload } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 
 const ALLOWED_LOGO_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
@@ -30,15 +30,14 @@ export default function SystemLogoField({
   onRevertLogo,
   disabled = false,
 }: SystemLogoFieldProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const previewRef = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
-    if (selectedFile) {
+    if (selectedFile && previewRef.current) {
       const url = URL.createObjectURL(selectedFile)
-      setPreviewUrl(url)
+      previewRef.current.src = url
       return () => URL.revokeObjectURL(url)
     }
-    setPreviewUrl(null)
   }, [selectedFile])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,7 +55,7 @@ export default function SystemLogoField({
   }
 
   // Determine active display logo
-  const displayLogoUrl = previewUrl || (!isRemoved ? savedLogoUrl : '')
+  const displayLogoUrl = !isRemoved ? savedLogoUrl : ''
   const hasChanges = Boolean(selectedFile || isRemoved)
 
   return (
@@ -72,8 +71,8 @@ export default function SystemLogoField({
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         {/* Logo Preview Box */}
         <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-slate-50 shadow-2xs">
-          {displayLogoUrl ? (
-            <img src={displayLogoUrl} alt="Logo xem trước" className="h-full w-full object-contain p-2" />
+          {selectedFile || displayLogoUrl ? (
+            <img ref={previewRef} src={selectedFile ? undefined : displayLogoUrl} alt="Logo xem trước" className="h-full w-full object-contain p-2" />
           ) : (
             <span className="text-2xl font-bold text-emerald-600">S</span>
           )}

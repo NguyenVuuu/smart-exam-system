@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useAccountQuery } from '../../../hooks/useAccountQuery'
 import {
   createCoursePost,
   deleteCourseMaterial,
@@ -14,32 +14,13 @@ import {
   type PostPayload,
 } from '../api/teacher-courses.api'
 import { toCourseMaterial, toTeacherCourseDetail } from '../mappers/teacher-course.mapper'
-import type { TeacherCourseDetail } from '../types/teacher-course.types'
+import type { CourseMaterial } from '../types/teacher-course.types'
 
 export function useTeacherCourseDetail(id?: string) {
-  const [data, setData] = useState<TeacherCourseDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    if (!id) {
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-    try {
-      setData(toTeacherCourseDetail(await getTeacherCourseDetail(id)))
-    } catch {
-      setData(null)
-      setError('Không thể tải chi tiết lớp học phần.')
-    } finally {
-      setLoading(false)
-    }
-  }, [id])
-
-  useEffect(() => { void load() }, [load])
+  const query = useAccountQuery(['teacher-course-detail', id],
+    async () => toTeacherCourseDetail(await getTeacherCourseDetail(id!)), Boolean(id))
+  const data = query.isError ? null : query.data ?? null
+  const load = query.reload
 
   const mutatePost = async (operation: () => Promise<unknown>) => {
     await operation()
@@ -48,8 +29,10 @@ export function useTeacherCourseDetail(id?: string) {
 
   return {
     data,
-    loading,
-    error,
+    setMaterials: (update: CourseMaterial[] | ((current: CourseMaterial[]) => CourseMaterial[])) =>
+      query.setData(current => current ? { ...current, materials: typeof update === 'function' ? update(current.materials) : update } : current),
+    loading: query.isFetching,
+    error: query.isError ? 'Không thể tải chi tiết lớp học phần.' : null,
     retry: load,
     createPost: (payload: PostPayload) => mutatePost(() => createCoursePost(id!, payload)),
     updatePost: (postId: string, payload: PostPayload) => mutatePost(() => updateCoursePost(id!, postId, payload)),

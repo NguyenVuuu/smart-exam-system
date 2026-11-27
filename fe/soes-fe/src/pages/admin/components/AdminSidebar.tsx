@@ -109,6 +109,16 @@ const STORAGE_KEY_ADMIN_SCROLL = 'soes_admin_sidebar_scroll'
 const STORAGE_KEY_ADMIN_COLLAPSED = 'soes_admin_is_collapsed'
 const failedLogoUrls = new Set<string>()
 
+function readPreference(key: string) {
+  try { return sessionStorage.getItem(key) }
+  catch { return null }
+}
+
+function savePreference(key: string, value: string) {
+  try { sessionStorage.setItem(key, value); return true }
+  catch { return false }
+}
+
 export let persistentAdminIsCollapsed: boolean = false
 
 export default function AdminSidebar() {
@@ -131,63 +141,51 @@ export default function AdminSidebar() {
   }
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY_ADMIN_COLLAPSED)
-      if (saved !== null) return saved === 'true'
-    } catch {}
+    const saved = readPreference(STORAGE_KEY_ADMIN_COLLAPSED)
+    if (saved !== null) return saved === 'true'
     return persistentAdminIsCollapsed
   })
 
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>(() => {
     try {
-      const saved = sessionStorage.getItem(STORAGE_KEY_ADMIN_EXPANDED)
+      const saved = readPreference(STORAGE_KEY_ADMIN_EXPANDED)
       if (saved !== null) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) return parsed
       }
-    } catch {}
+    } catch { return ALL_ADMIN_GROUP_IDS }
     return ALL_ADMIN_GROUP_IDS
   })
 
-  // Khi route thay đổi: chỉ mở nhóm của route đang active nếu nó chưa có, tuyệt đối không can thiệp các nhóm khác
-  useEffect(() => {
+  const [expandedPath, setExpandedPath] = useState<string | null>(null)
+  if (expandedPath !== location.pathname) {
+    setExpandedPath(location.pathname)
     const currentGroup = visibleGroups.find((g) =>
       g.items.some((item) => isNavItemActive(item.path)),
     )
     if (currentGroup) {
       setExpandedGroupIds((prev) => {
         if (prev.includes(currentGroup.id)) return prev
-        const next = [...prev, currentGroup.id]
-        try {
-          sessionStorage.setItem(STORAGE_KEY_ADMIN_EXPANDED, JSON.stringify(next))
-        } catch {}
-        return next
+        return [...prev, currentGroup.id]
       })
     }
-  }, [location.pathname])
+  }
+
+  useEffect(() => {
+    savePreference(STORAGE_KEY_ADMIN_EXPANDED, JSON.stringify(expandedGroupIds))
+  }, [expandedGroupIds])
 
   // Khôi phục vị trí scroll
   useLayoutEffect(() => {
     if (navRef.current) {
-      try {
-        const savedScroll = sessionStorage.getItem(STORAGE_KEY_ADMIN_SCROLL)
-        if (savedScroll) {
-          navRef.current.scrollTop = Number(savedScroll) || 0
-        }
-      } catch {}
+      const savedScroll = readPreference(STORAGE_KEY_ADMIN_SCROLL)
+      if (savedScroll) navRef.current.scrollTop = Number(savedScroll) || 0
     }
   }, [location.pathname])
 
   useEffect(() => {
     const handleToggle = () => {
-      setIsCollapsed((prev) => {
-        const next = !prev
-        persistentAdminIsCollapsed = next
-        try {
-          sessionStorage.setItem(STORAGE_KEY_ADMIN_COLLAPSED, String(next))
-        } catch {}
-        return next
-      })
+      setIsCollapsed(prev => !prev)
     }
     window.addEventListener('toggle-sidebar', handleToggle)
     return () => window.removeEventListener('toggle-sidebar', handleToggle)
@@ -195,25 +193,15 @@ export default function AdminSidebar() {
 
   useEffect(() => {
     persistentAdminIsCollapsed = isCollapsed
-    try {
-      sessionStorage.setItem(STORAGE_KEY_ADMIN_COLLAPSED, String(isCollapsed))
-    } catch {}
+    savePreference(STORAGE_KEY_ADMIN_COLLAPSED, String(isCollapsed))
   }, [isCollapsed])
 
   const toggleGroup = (groupId: string) => {
-    setExpandedGroupIds((prev) => {
-      const next = prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
-      try {
-        sessionStorage.setItem(STORAGE_KEY_ADMIN_EXPANDED, JSON.stringify(next))
-      } catch {}
-      return next
-    })
+    setExpandedGroupIds(prev => prev.includes(groupId) ? prev.filter(id => id !== groupId) : [...prev, groupId])
   }
 
   const handleNavScroll = (e: React.UIEvent<HTMLElement>) => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY_ADMIN_SCROLL, String(e.currentTarget.scrollTop))
-    } catch {}
+    savePreference(STORAGE_KEY_ADMIN_SCROLL, String(e.currentTarget.scrollTop))
   }
 
   const systemSettings = useSystemSettingsStore((state) => state.settings)

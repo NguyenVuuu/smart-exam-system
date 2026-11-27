@@ -65,13 +65,20 @@ export default function FaceVerification({ purpose, scheduleId, onPassed, onClos
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null)
   const [requiresManualReview, setRequiresManualReview] = useState(false)
   const [now, setNow] = useState(0)
+  const profileKey = JSON.stringify([purpose, scheduleId])
+  const [profileSource, setProfileSource] = useState(profileKey)
+  if (profileSource !== profileKey) {
+    setProfileSource(profileKey)
+    if (purpose === 'EXAM_ENTRY') {
+      setFailures(0)
+      setCooldownUntil(null)
+      setRequiresManualReview(false)
+    }
+  }
 
   useEffect(() => {
     if (purpose !== 'EXAM_ENTRY') return
     let active = true
-    setFailures(0)
-    setCooldownUntil(null)
-    setRequiresManualReview(false)
     void studentFaceApi.profile(scheduleId).then((profile) => {
       if (!active) return
       setFailures(profile.failedAttemptsSinceSuccess)

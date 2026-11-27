@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
@@ -11,7 +11,6 @@ import CourseScoresTab from './components/course-detail/CourseScoresTab'
 import CourseStudentsTab from './components/course-detail/CourseStudentsTab'
 import CourseTimelineTab from './components/course-detail/CourseTimelineTab'
 import { useTeacherCourseDetail } from './hooks/useTeacherCourseDetail'
-import type { CourseMaterial } from './types/teacher-course.types'
 import { useTeacherCourseCollections } from './hooks/useTeacherCourseCollections'
 
 export default function TeacherCourseDetailPage() {
@@ -22,14 +21,10 @@ export default function TeacherCourseDetailPage() {
     const requestedTab = searchParams.get('tab')
     return requestedTab === 'exams' ? 'exams' : 'materials'
   })
-  const { data, loading, error, retry, createPost, updatePost, pinPost, setPostStatus, deletePost, downloadAttachment, uploadMaterials, downloadMaterial, removeMaterial, toggleMaterialAi } = useTeacherCourseDetail(courseOfferingId)
-  const [materials, setMaterials] = useState<CourseMaterial[]>([])
+  const { data, loading, error, retry, createPost, updatePost, pinPost, setPostStatus, deletePost, downloadAttachment, uploadMaterials, downloadMaterial, removeMaterial, toggleMaterialAi, setMaterials } = useTeacherCourseDetail(courseOfferingId)
+  const materials = data?.materials ?? []
   const collections = useTeacherCourseCollections(courseOfferingId)
 
-  useEffect(() => {
-    if (!data) return
-    setMaterials(data.materials)
-  }, [data])
 
   if (loading) {
     return <CourseDetailState message="Đang tải lớp học phần..." />

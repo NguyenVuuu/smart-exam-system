@@ -1,34 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useAccountQuery } from '../../../hooks/useAccountQuery'
 import * as api from '../api/admin-management.api'
 import { toAdminUser, toDepartment, toSubject } from '../mappers/admin-management.mapper'
 import type { DepartmentPayload, SubjectPayload } from '../types/admin-api.types'
-import type { AdminSubject, AdminUser, Department } from '../types/admin.types'
 
 export function useAdminStructure(loadTeachers = true) {
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [subjects, setSubjects] = useState<AdminSubject[]>([])
-  const [teachers, setTeachers] = useState<AdminUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [departmentPage, subjectPage, userPage] = await Promise.all([
-        api.getDepartments(), api.getSubjects(), loadTeachers ? api.getUserReferences('TEACHER') : Promise.resolve({ items: [] }),
-      ])
-      setDepartments(departmentPage.items.map(toDepartment))
-      setSubjects(subjectPage.items.map(toSubject))
-      setTeachers(userPage.items.filter(({ role }) => role === 'TEACHER').map(toAdminUser))
-    } catch {
-      setError('Không thể tải dữ liệu bộ môn và môn học.')
-    } finally {
-      setLoading(false)
-    }
-  }, [loadTeachers])
-
-  useEffect(() => { void load() }, [load])
+  const query = useAccountQuery(['admin-structure', loadTeachers], async () => {
+    const [departmentPage, subjectPage, userPage] = await Promise.all([
+      api.getDepartments(), api.getSubjects(), loadTeachers ? api.getUserReferences('TEACHER') : Promise.resolve({ items: [] }),
+    ])
+    return { departments: departmentPage.items.map(toDepartment), subjects: subjectPage.items.map(toSubject),
+      teachers: userPage.items.filter(({ role }) => role === 'TEACHER').map(toAdminUser) }
+  })
+  const load = query.reload
 
   const saveDepartment = async (id: string | null, payload: DepartmentPayload, headId?: string | null) => {
     const saved = await api.saveDepartment(id, payload)
@@ -44,5 +27,7 @@ export function useAdminStructure(loadTeachers = true) {
     await load()
   }
 
-  return { departments, subjects, teachers, loading, error, retry: load, saveDepartment, saveSubject, setDepartmentHead }
+  return { departments: query.data?.departments ?? [], subjects: query.data?.subjects ?? [], teachers: query.data?.teachers ?? [],
+    loading: query.isFetching, error: query.isError ? 'Không thể tải dữ liệu bộ môn và môn học.' : null,
+    retry: load, saveDepartment, saveSubject, setDepartmentHead }
 }
