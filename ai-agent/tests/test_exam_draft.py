@@ -104,3 +104,26 @@ async def test_topic_suggestion_uses_existing_taxonomy():
         title="Vòng lặp for", content="Cho đoạn code for", existingTopics=[{"code": "LOOP", "name": "Vòng lặp"}],
     ))
     assert result.existingCodes == ["LOOP"]
+
+
+@pytest.mark.asyncio
+async def test_topic_suggestion_includes_algorithm_explanation_and_normalizes_codes():
+    model = FakeModel({"existingCodes": [" loop ", "LOOP"], "rationale": "Iterates over elements"})
+    explanation = "Scan the array once and count even elements."
+    result = await suggest_topic(model, TopicSuggestionRequest(
+        title="Count even elements", content="Read n integers", explanation=explanation,
+        existingTopics=[{"code": "LOOP", "name": "Loops"}],
+    ))
+    payload = json.loads(model.messages[1][1])
+    assert payload["explanation"] == explanation
+    assert result.existingCodes == ["LOOP"]
+
+
+@pytest.mark.asyncio
+async def test_topic_suggestion_rejects_invented_existing_code():
+    model = FakeModel({"existingCodes": ["RECURSION"], "rationale": "Unsupported label"})
+    with pytest.raises(ValueError, match="outside the existing taxonomy"):
+        await suggest_topic(model, TopicSuggestionRequest(
+            title="Sum values", content="Read n integers",
+            existingTopics=[{"code": "ARRAY", "name": "Arrays"}],
+        ))

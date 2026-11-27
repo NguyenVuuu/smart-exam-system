@@ -13,3 +13,13 @@ test('programming examples preserve exact stdin/stdout line breaks without chang
   const box = await input.boundingBox()
   if (Number.isFinite(lineHeight)) expect(box!.height).toBeGreaterThanOrEqual(lineHeight * 2)
 })
+
+test('submitted programming practice shows the reference algorithm as formatted steps', async ({ page }) => {
+  await page.goto('/tests/browser/fixtures/practice-example.html')
+  const explanation = page.getByRole('region', { name: 'Thuật toán và cách giải tham khảo' })
+  await expect(explanation.getByRole('heading')).toHaveText('Thuật toán và cách giải tham khảo')
+  await expect(explanation.locator('ol > li')).toHaveCount(2)
+  await expect(explanation.locator('strong')).toHaveText('Algorithm')
+  await expect(explanation).toContainText('Time: O(n). Space: O(1).')
+  await expect(explanation).not.toContainText('**')
+})

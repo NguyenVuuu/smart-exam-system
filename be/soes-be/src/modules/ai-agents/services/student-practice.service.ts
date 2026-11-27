@@ -10,7 +10,7 @@ import { choosePracticeDifficulty } from './practice-difficulty'
 import { studentInsights } from '../../learning-analytics/services/learning-analytics.service'
 import { selectWeakPracticeTopic } from './practice-focus'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
-import { collectVerifiedProgrammingQuestions, gradeProgrammingPractice, practiceLanguage, runProgrammingPracticeSample, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
+import { collectVerifiedProgrammingQuestions, gradeProgrammingPracticeSet, practiceLanguage, runProgrammingPracticeSample, verifyProgrammingDraft, wantsProgrammingPractice } from './programming-practice.service'
 import { assertPracticeGenerationLease, withPracticeGenerationLease } from './practice-generation.lease'
 
 type PracticeQuestion = z.infer<typeof practiceDraftSchema>['questions'][number]
@@ -169,16 +169,16 @@ export async function submitStudentPractice(studentId: string, practiceSetId: st
   const scored: Array<{ itemId: string; score: number; answer: Prisma.InputJsonValue }> = []
   if (programming) {
     const answers = new Map(input.answers.map((answer) => [answer.itemId, answer]))
-    for (let start = 0; start < set.items.length; start += 3) {
-      scored.push(...await Promise.all(set.items.slice(start, start + 3).map(async (item) => {
-        const answer = answers.get(item.id)
-        if (!answer || !('sourceCode' in answer)) throw new ValidationError('Source code is required')
-        const question = programmingPracticeQuestionSchema.parse(item.snapshot)
-        const result = await gradeProgrammingPractice(answer.sourceCode, question)
-        return { itemId: item.id, score: result.score, answer: { sourceCode: answer.sourceCode,
-          passedTestCases: result.passedTestCases, totalTestCases: result.totalTestCases } }
-      })))
-    }
+    const entries = set.items.map(item => {
+      const answer = answers.get(item.id)
+      if (!answer || !('sourceCode' in answer)) throw new ValidationError('Source code is required')
+      return { sourceCode: answer.sourceCode, question: programmingPracticeQuestionSchema.parse(item.snapshot) }
+    })
+    const results = await gradeProgrammingPracticeSet(entries)
+    scored.push(...results.map((result, index) => ({
+      itemId: set.items[index].id, score: result.score, answer: { sourceCode: entries[index].sourceCode,
+        passedTestCases: result.passedTestCases, totalTestCases: result.totalTestCases },
+    })))
   } else {
     if (input.answers.some((answer) => !('selectedIndex' in answer))) throw new ValidationError('Choice answer is required')
     scored.push(...gradePractice(set.items, input.answers as Array<{ itemId: string; selectedIndex: number }>).map((item) => ({

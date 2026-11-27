@@ -2,9 +2,41 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ValidationError } from '../../../errors/AppError'
 import { judge0Service } from '../../../lib/judge0'
-import { collectVerifiedProgrammingQuestions, gradeProgrammingPractice, verifyProgrammingDraft } from './programming-practice.service'
+import { collectVerifiedProgrammingQuestions, gradeProgrammingPractice, gradeProgrammingPracticeSet, verifyProgrammingDraft } from './programming-practice.service'
 
 type Candidate = Awaited<ReturnType<Parameters<typeof collectVerifiedProgrammingQuestions>[1]>>[number]
+
+test('grading fills free worker slots across questions without waiting for a slow earlier question', { timeout: 5000 }, async context => {
+  let releaseSlow!: () => void
+  let notifyLast!: () => void
+  const slow = new Promise<void>(resolve => { releaseSlow = resolve })
+  const lastStarted = new Promise<void>(resolve => { notifyLast = resolve })
+  let active = 0
+  let maximum = 0
+  let calls = 0
+  context.mock.method(judge0Service, 'submitAndPoll', async (submission: { source_code: string; stdin: string }) => {
+    calls++
+    maximum = Math.max(maximum, ++active)
+    if (submission.source_code === 'q4') notifyLast()
+    if (submission.source_code === 'q0' && submission.stdin === '1') await slow
+    else await new Promise(resolve => setImmediate(resolve))
+    active--
+    return { stdout: submission.source_code === 'q3' ? '0' : '1', stderr: null, compile_output: null, message: null,
+      status: { id: 3, description: 'Accepted' }, time: '0.01', memory: 1024 }
+  })
+  const pending = gradeProgrammingPracticeSet(Array.from({ length: 5 }, (_, index) => ({
+    sourceCode: `q${index}`, question: candidate(`Question ${index}`),
+  })))
+  try {
+    await lastStarted
+    assert.equal(maximum, 6)
+  } finally { releaseSlow() }
+  const results = await pending
+  assert.equal(calls, 10)
+  assert.equal(active, 0)
+  assert.deepEqual(results.map(result => result.score), [1, 1, 1, 0, 1])
+  assert(results.every(result => result.totalTestCases === 2))
+})
 
 function candidate(stem: string): Candidate {
   return {

@@ -63,6 +63,7 @@ export const topicSuggestionRequestSchema = z.object({
   subjectId: subjectIdSchema,
   title: z.string().trim().min(1).max(300),
   content: z.string().trim().min(1).max(3000),
+  explanation: z.string().trim().max(4000).optional(),
 })
 
 export const topicSuggestionSchema = z.object({

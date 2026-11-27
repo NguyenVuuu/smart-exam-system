@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Play } from 'lucide-react'
+import AgentAnswerMarkdown from '../../../components/common/AgentAnswerMarkdown'
 import { getApiErrorMessage } from '../../../api/errors'
 import { runPracticeSample, type PracticeSampleResult, type ProgrammingPracticeItem } from '../api/student-learning.api'
 
@@ -46,5 +47,9 @@ export default function PracticeProgrammingQuestion({ setId, item, value, onChan
       {result.error && <pre className="overflow-x-auto whitespace-pre-wrap text-red-700">{result.error}</pre>}
     </div>}
     {item.result && <p className="text-sm font-semibold text-blue-700">Qua {item.result.passedTestCases}/{item.result.totalTestCases} test case</p>}
+    {completed && item.result && <section aria-label="Thuật toán và cách giải tham khảo" className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+      <h3 className="mb-2 font-semibold text-slate-800">Thuật toán và cách giải tham khảo</h3>
+      <AgentAnswerMarkdown text={item.result.explanation} />
+    </section>}
   </div>
 }

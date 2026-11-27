@@ -106,8 +106,13 @@ async def suggest_topic(model: ChatGoogleGenerativeAI, request: TopicSuggestionR
             "Giảng viên sẽ kiểm tra và quyết định; giải thích ngắn bằng tiếng Việt."
         )),
         ("human", json.dumps({
-            "title": request.title, "content": request.content,
+            "title": request.title, "content": request.content, "explanation": request.explanation,
             "existingTopics": [topic.model_dump() for topic in request.existingTopics],
         }, ensure_ascii=False)),
     ])
-    return TopicSuggestion.model_validate(response)
+    suggestion = TopicSuggestion.model_validate(response)
+    known_codes = {topic.code.strip().upper() for topic in request.existingTopics}
+    codes = list(dict.fromkeys(code.strip().upper() for code in suggestion.existingCodes))
+    if any(code not in known_codes for code in codes):
+        raise ValueError("AI suggested a topic outside the existing taxonomy")
+    return suggestion.model_copy(update={"existingCodes": codes})

@@ -225,7 +225,10 @@ async def teacher_exam_draft(request: ExamDraftRequest, http_request: Request) -
 @app.post("/v1/teacher/topic-suggestion", response_model=TopicSuggestion, dependencies=[Depends(require_service)])
 async def teacher_topic_suggestion(request: TopicSuggestionRequest, http_request: Request) -> TopicSuggestion:
     http_request.state.model = request.model or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
-    return await suggest_topic(get_model(model_name=request.model), request)
+    try:
+        return await suggest_topic(get_model(model_name=request.model), request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="AI could not suggest a valid topic") from exc
 
 
 @app.post("/v1/teacher/programming-review", response_model=ProgrammingReview, dependencies=[Depends(require_service)])

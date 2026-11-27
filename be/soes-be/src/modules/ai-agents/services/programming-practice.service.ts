@@ -9,6 +9,7 @@ export type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSche
 
 const MAX_GENERATION_ATTEMPTS = 3
 const REFERENCE_CHECK_BATCH_SIZE = 5
+const PRACTICE_GRADING_WORKERS = 6
 
 function normalizedStem(stem: string) {
   return stem.trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi-VN')
@@ -138,15 +139,30 @@ export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], l
   return verified
 }
 
+export async function gradeProgrammingPracticeSet(entries: Array<{ sourceCode: string; question: ProgrammingQuestion }>) {
+  const started = Date.now()
+  const scores = entries.map(({ question }) => ({ passedTestCases: 0, totalTestCases: question.testCases.length }))
+  const tasks = entries.flatMap(({ sourceCode, question }, index) =>
+    question.testCases.map(test => ({ sourceCode, language: question.language, test, index })))
+  let next = 0
+  let unavailable = false
+  const workers = Math.min(PRACTICE_GRADING_WORKERS, tasks.length)
+  await Promise.all(Array.from({ length: workers }, async () => {
+    while (next < tasks.length && !unavailable) {
+      const { sourceCode, language, test, index } = tasks[next++]
+      const result = await runCase(sourceCode, language, test)
+      if (result.isUnavailable) unavailable = true
+      if (result.passed) scores[index].passedTestCases++
+    }
+  }))
+  if (unavailable) throw new AppError(503, 'Không thể chấm bài lập trình với Judge')
+  logger.info('Programming practice grading completed', {
+    questions: entries.length, testCases: tasks.length, workers, elapsedMs: Date.now() - started,
+  })
+  return scores.map(result => ({ ...result, score: Number(result.passedTestCases === result.totalTestCases) }))
+}
+
 export async function gradeProgrammingPractice(sourceCode: string, question: ProgrammingQuestion) {
-  try {
-    const results = await Promise.all(question.testCases.map((test) => runCase(sourceCode, question.language, test)))
-    if (results.some(result => result.isUnavailable)) throw new AppError(503, 'Không thể chấm bài lập trình với Judge')
-    const passedTestCases = results.filter((result) => result.passed).length
-    return { score: Number(passedTestCases === question.testCases.length), passedTestCases,
-      totalTestCases: question.testCases.length }
-  } catch (error) {
-    if (error instanceof AppError) throw error
-    throw new AppError(503, 'Không thể chấm bài lập trình với Judge')
-  }
+  const [result] = await gradeProgrammingPracticeSet([{ sourceCode, question }])
+  return result
 }
