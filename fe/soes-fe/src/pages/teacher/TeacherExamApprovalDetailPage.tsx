@@ -103,15 +103,17 @@ export default function TeacherExamApprovalDetailPage() {
 
   return (
     <TeacherShell>
+      <button
+        type="button"
+        onClick={() => navigate('/teacher/department-approvals')}
+        className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-blue-700"
+      >
+        <ArrowLeft size={17} /> Quay lại danh sách
+      </button>
       <TeacherPageHeader
         title={readOnly ? "L\u1ecbch s\u1eed duy\u1ec7t \u0111\u1ec1" : "Duy\u1ec7t \u0111\u1ec1 thi cu\u1ed1i k\u1ef3"}
         description={readOnly ? "Xem l\u1ea1i c\u00e1c phi\u00ean b\u1ea3n v\u00e0 quy\u1ebft \u0111\u1ecbnh duy\u1ec7t c\u1ee7a \u0111\u1ec1." : "Xem to\u00e0n b\u1ed9 n\u1ed9i dung, l\u1ecbch s\u1eed x\u1eed l\u00fd v\u00e0 g\u1eedi quy\u1ebft \u0111\u1ecbnh duy\u1ec7t chuy\u00ean m\u00f4n."}
         icon={<ShieldCheck size={21} />}
-        actions={
-          <button type="button" onClick={() => navigate('/teacher/department-approvals')} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <ArrowLeft size={16} /> Quay lại danh sách
-          </button>
-        }
       />
 
       {accessQuery.data?.canReview !== true && !accessQuery.isLoading ? (
