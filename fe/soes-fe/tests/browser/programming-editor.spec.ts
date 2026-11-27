@@ -54,6 +54,9 @@ test('suggests only valid type names for each language', () => {
 test('registers Java completions with the typed range and cleans up providers', async () => {
   const providers = new Map<string, monaco.languages.CompletionItemProvider>()
   const monacoApi = {
+    Range: class {
+      constructor(public startLineNumber: number, public startColumn: number, public endLineNumber: number, public endColumn: number) {}
+    },
     languages: {
       CompletionItemKind: { Class: 1, Function: 2, Keyword: 3 },
       CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
@@ -66,6 +69,8 @@ test('registers Java completions with the typed range and cleans up providers', 
 
   const dispose = registerProgrammingCompletions(monacoApi)
   const model = {
+    getValue: () => 'Math.ma',
+    getPositionAt: () => ({ lineNumber: 1, column: 1 }),
     getLineContent: () => 'Math.ma',
     getWordUntilPosition: () => ({ word: 'ma', startColumn: 6, endColumn: 8 }),
   } as unknown as monaco.editor.ITextModel
@@ -83,6 +88,8 @@ test('registers Java completions with the typed range and cleans up providers', 
   expect(completionList?.suggestions.some(({ label }) => label === 'int')).toBe(false)
 
   const typeModel = {
+    getValue: () => 'ArrayL',
+    getPositionAt: () => ({ lineNumber: 1, column: 1 }),
     getLineContent: () => 'ArrayL',
     getWordUntilPosition: () => ({ word: 'ArrayL', startColumn: 1, endColumn: 7 }),
   } as unknown as monaco.editor.ITextModel
@@ -97,6 +104,7 @@ test('registers Java completions with the typed range and cleans up providers', 
     documentation: 'Cần thêm import java.util.ArrayList;',
     insertText: 'ArrayList',
     range: { startColumn: 1, endColumn: 7 },
+    additionalTextEdits: [{ text: 'import java.util.ArrayList;\n', range: { startLineNumber: 1, startColumn: 1 } }],
   })
   dispose()
   expect(providers.size).toBe(0)

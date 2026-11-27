@@ -12,7 +12,7 @@ const submission: ExamSubmission = {
   isMakeup: false, status: 'GRADED', endedBy: 'STUDENT', proctorActionReason: null,
 }
 
-function Fixture() {
+export function Fixture() {
   const [result, setResult] = useState<unknown>(null)
   const item: ChangedItem = { submission, score: 6, reason: '', adjustmentType: 'OTHER', evidenceUrls: [], violationIds: [] }
   const bulk = new URLSearchParams(location.search).has('bulk')

@@ -1,6 +1,6 @@
 # SOES Performance Optimization
 
-Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. Tiến độ hiện hành theo bảng dưới và mục **Tiếp tục triển khai sau khi được duyệt sửa Prisma** ở cuối file. Các checkpoint trước đó được giữ làm lịch sử; quyết định mới nhất thay thế ràng buộc giữ nguyên Prisma. Commit không đồng nghĩa mọi tiêu chí tải/deployment đã được nghiệm thu.
+Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. Tiến độ hiện hành theo bảng dưới và các checkpoint cuối file. Các checkpoint trước đó được giữ làm lịch sử; quyết định mới nhất thay thế ràng buộc cũ. Commit không đồng nghĩa mọi tiêu chí tải/deployment đã được nghiệm thu. Đợt tiếp tục này loại kiểm thử WAN/NAT/load balancer và camera vật lý dài giờ trên máy yếu khỏi phạm vi theo yêu cầu người dùng; không coi việc loại phạm vi là kết quả kiểm thử đạt.
 
 | ID | Giai đoạn | Trạng thái | Phạm vi theo dõi |
 |---|---:|---|---|
@@ -18,13 +18,13 @@ Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. 
 | F12 | 3 | In Progress | Admission, Redis generation lease, Student row-lock quota và Agent cancellation; còn proxy regression |
 | F13 | 3 | In Progress | Gộp download và extraction đồng thời; còn bytes/base64 và benchmark nhiều replica |
 | F14 | 3 | In Progress | Cache bounded cho token tài liệu và offload scoring, giữ nguyên công thức ranking; còn benchmark thực |
-| F15 | 3 | In Progress | Fail-closed + mọi testcase + cache exact reference bounded; còn quality dataset và provider/Judge outage thực |
+| F15 | 3 | In Progress | Fail-closed + mọi testcase + cache exact reference bounded; 5/5 smoke AI thực qua, chưa thay thế đánh giá học thuật có nhãn/Judge outage |
 | F16 | 1 | In Progress | Đã lazy load route, entry gzip còn 122,95 kB; chưa đo LCP mạng thiết bị thực |
 | F17 | 4 | In Progress | Giải phóng output tensor sau inference; còn profile memory và camera thực |
-| F18 | 3 | In Progress | Admission upload, retry đúng blob và dedupe bằng PK hiện có; chưa có queue qua reload |
+| F18 | 3 | Completed | Admission/dedupe hiện hữu; queue ảnh điện thoại mã hóa qua reload, giới hạn số lượng/byte, TTL và cleanup đăng xuất; giới hạn kiểm chứng tại checkpoint cuối |
 | F19 | 4 | In Progress | Hai API/Redis thật, adapter-only outage, drain và coturn relay đã qua; còn LB/NAT/WAN deployment |
 | F20 | 0 | In Progress | Đã có quan sát và script đo. Còn baseline nghiệp vụ trên DB cô lập và kiểm tra readiness |
-| F21 | 0, 4 | In Progress | Đã nối các bước kiểm tra CI. Còn lỗi baseline và refactor theo module |
+| F21 | 0, 4 | In Progress | Nối browser regression CI, bỏ hook polling không dùng, sửa lint module liên quan; global lint còn 28 lỗi/2 warning ngoài các file vừa sửa |
 | F22 | 1 | In Progress | Candidate pool AI giới hạn 501 ở DB, giữ ngưỡng 500; chưa benchmark DB lớn |
 
 Các mục Pending dùng chung hồ sơ sau. Giải pháp và rủi ro tham chiếu mục cùng ID trong audit. Chưa có file thay đổi, refactor, benchmark sau, test nghiệm thu hoặc thao tác rollback riêng. Các mục này chờ đúng giai đoạn đã duyệt.
@@ -280,3 +280,38 @@ Các checkpoint mới: `33286b8` (durable grading, index và readiness), `e92684
 - Backend 210/210 tests qua, focused readiness/Redis ba ca qua; backend build qua. Frontend sáu browser tests, 29/29 vision tests, targeted lint và build qua. Warning bundle lớn và full lint debt cũ ngoài phạm vi chưa được che hoặc bỏ rule.
 - Đã mở rộng nghiệm thu sang Redis thật/hai process và TURN media local. Chưa có LB/NAT/WAN thực, crash/persistence Redis production, camera dài giờ/thiết bị yếu và quality dataset AI có nhãn. F18 queue RAM vẫn không sống qua reload. Các phần này không được đánh dấu Completed chỉ vì các fixture trên qua.
 - Không commit backup, test credentials, outputs, research hoặc measure-learning-ai. Không push. Các lựa chọn hạ tầng test được thực hiện trong phạm vi người dùng yêu cầu làm tiếp phần còn lại; không triển khai fixture thành hạ tầng production.
+
+## Hoàn thiện queue ảnh và regression gates · 27/11/2026
+
+### Phạm vi cập nhật
+
+- Theo yêu cầu mới, kiểm thử WAN/NAT/load balancer và camera vật lý dài giờ trên máy yếu được để ngoài đợt này (Deferred theo phạm vi), không ghi là đã qua. Không xóa các ghi nhận lịch sử về giới hạn kiểm chứng.
+- Không sửa Prisma hoặc thêm bảng server, không thay model/prompt/RAG, tần suất/ngưỡng/vùng nhận diện. MediaPipe/YOLO và xác minh đầu vào thi giữ nguyên mã production.
+
+### F18 · Queue ảnh điện thoại phục hồi qua reload
+
+- `fe/soes-fe/src/utils/phone-evidence-storage.ts`: IndexedDB lưu ảnh AES-GCM với IV mới mỗi ảnh; khóa 256 bit nằm trong sessionStorage của tab/tài khoản. Khởi tạo khóa đồng bộ trước await để hai lần mở cùng lúc không thay khóa của nhau. Chỉ load đúng owner/schedule/attempt/session.
+- Giới hạn mỗi bài 20 ảnh/12 MiB; toàn bộ store 100 ảnh/64 MiB theo kích thước blob. Transaction read/write tuần tự hóa kiểm tra dung lượng giữa các writer. Có trần cả số/byte ảnh đang chờ persist trong hook. Bộ nhớ transient mã hóa/giải mã và phục hồi có thêm bản sao bounded, không tuyên bố peak RAM chỉ bằng 12 MiB.
+- Thời hạn phục hồi 30 phút; loại bản ghi hết hạn khi đọc/ghi/cleanup. Blob RAM quá hạn cũng không gửi. Đây là expiry logic và cleanup khi ứng dụng hoạt động, không bảo đảm trình duyệt đã đóng sẽ tự xóa file đúng phút thứ 30. Tab mới không có khóa phiên sẽ không đọc lại ảnh cũ; trình duyệt có thể giữ sessionStorage khi khôi phục hoặc nhân bản tab, vì vậy vẫn kiểm TTL trên mọi lần load.
+- `usePhoneViolationMonitor.ts`: load hàng đợi trước upload, giữ đúng blob/capturedAt/metadata; persist trước khi gửi; chỉ xóa sau ACK; lỗi storage chuyển sang RAM kèm thông báo rõ rằng reload có thể mất ảnh. Không phát sinh ảnh thay thế chụp muộn. Mở storage có timeout 5 giây; storage lỗi không ngăn worker tiếp tục nhận diện.
+- `authStore.ts`: logout hủy khóa ngay và xóa bản ghi của phiên theo best effort; request cleanup lỗi có cảnh báo không chứa dữ liệu ảnh. Server tiếp tục xác thực quyền và dedupe theo định danh bằng chứng hiện có. Queue không được phép vượt deadline hoặc khôi phục bài thi đã đóng để ghi thêm vi phạm.
+- Test `tests/browser/evidence-storage.spec.ts` và fixtures `evidence-storage.html`, `phone-queue.html/.tsx`: ciphertext không chứa blob rõ, reload giữ nguyên byte/metadata, scope khác không đọc được, ACK xóa, cap số lượng/byte, TTL, logout vô hiệu hóa handle cũ, hai open đồng thời cùng khóa, POST 503 rồi reload gửi lại đúng frame và được ACK. Bốn ca qua; chạy lặp ba lượt độc lập đạt 12/12. Fixture dùng canvas/blob giả, không mở camera vật lý hoặc thu ảnh người học.
+- Clean Code: helper storage riêng, không thêm dependency; giữ inference lifecycle trong hook hiện tại. Rollback hook/utility/logout và test cùng nhau; đăng xuất trước rollback để dọn khóa/bản ghi pending. Không có migration ngược. Browser từ chối storage, tab bị đóng trước persist hoặc bài hết hạn vẫn có thể không gửi được ảnh; không hứa đảm bảo giao nhận vô điều kiện.
+
+### F21 · Refactor và kiểm tra tự động liên quan
+
+- `useTeacherExamDetail.ts`: dùng Query hiện có, key chứa tài khoản/id, không giữ cache khi observer cuối rời, tắt retry/focus/reconnect tự động để không tăng request ngoài luồng cũ; giữ retry trả Promise<void> cho consumer. Loại effect/setState và chặn response của id cũ xuất hiện dưới id mới.
+- `TeacherLearningPanel.tsx`: ranh giới component theo schedule, reset hội thoại/state theo ca bằng key; bỏ đồng bộ state lặp trong effect. Không đổi payload/prompt hoặc công thức phân tích.
+- Xóa `useTeacherProctoringSessions.ts` sau khi rg chỉ còn định nghĩa, không consumer; đây là poller cũ, không xóa luồng socket/polling đang dùng. `AgentConversationHistory.tsx` bỏ binding prop không dùng, giữ prop type tương thích.
+- Fixture Monaco bổ sung getValue/getPositionAt/Range theo API production thực; thêm assertion import ArrayList, không bỏ assertion. Fixture camera có owner rõ ràng và trang cô lập không chạy bootstrap auth; fixture duration cũng không khởi động toàn App. Export Fixture để không vi phạm fast refresh.
+- `.github/workflows/frontend-ci.yml`, `playwright.config.ts`: thêm Chromium/browser regression CI, Vite test server riêng một worker; API fixture trỏ loopback, không dùng API thật trong secret frontend. Chạy local với CI=true tự khởi động/dừng Vite đạt 9/9 ca queue/autosave/điểm/chốt điểm, exit 0. Không thêm hạ tầng production; chưa có kết quả GitHub runner vì chưa push.
+- Lint các file sửa qua. Full lint từ 33 lỗi/2 warnings xuống 28 lỗi/2 warnings; những lỗi còn lại thuộc admin/course/settings/face verification hoặc các module chưa sửa. Không tự viết lại các module ngoài phần liên quan hoặc thay phần xác minh khuôn mặt chỉ để làm lint xanh. F21 tiếp tục In Progress đối với global gate; không vô hiệu hóa rule.
+
+### Chất lượng và kết quả xác minh
+
+- `ai-agent/evals/run.py` chạy thật với cấu hình model sẵn có, dữ liệu synthetic: student-empty 35 ms; student-topic 2.266 ms; material injection 2.573 ms; teacher-hard-question 1.848 ms; teacher-class-sample 6.402 ms. Cả năm qua checks evidence/keyword/forbidden instruction/percentage hiện có. Đây là smoke set có kỳ vọng cố định, không phải nhãn đánh giá học thuật của toàn bộ câu hỏi sinh ra và không chứng minh chất lượng tuyệt đối; không đổi thuật toán để đạt số liệu.
+- Lượt AI thứ hai chạy trực tiếp, exit 0: năm ca tương ứng 22/1.847/2.509/1.420/2.952 ms, 5/5 qua. Không dùng chênh lệch hai lượt để tuyên bố tăng tốc vì không có thay đổi AI và baseline đối chứng.
+- Lượt browser cuối trên Vite khởi động sạch: exit 0, 33 passed/2 skipped, 36,3 giây. Hai ca skip đòi ảnh mẫu riêng chưa được cung cấp; không xóa hoặc giả lập ảnh thật để làm qua. Vision unit 29/29, typecheck qua, targeted lint qua. Backend không thay code ở checkpoint này, kết quả 210/210 trước đó giữ nguyên nguồn ghi nhận, không ghi thành lượt chạy mới.
+- Frontend production build cuối exit 0; warning chunk lớn vẫn giữ nguyên, không tăng ngưỡng để che warning.
+- Lượt chạy khi Vite đang giữ nhiều HMR revision có fixture lỗi protocol và mock không nhận lời gọi; dấu hiệu phù hợp module identity khác nhau giữa import động và hook sau HMR. Đã giữ assertion, tách fixture khỏi App và khởi động lại test server; lượt sạch qua, không sửa production để chiều fixture. Không tính lượt lỗi là pass.
+- Không benchmark latency/throughput mới cho nghiệp vụ từ kết quả browser; giảm lỗi lint hoặc số dòng không được gọi là tăng RPS. Những nghiệm thu còn ghi In Progress ở bảng tổng không tự chuyển Completed. Đợt này không tạo fake data nghiên cứu, không commit outputs/research/measure-learning-ai và không push.

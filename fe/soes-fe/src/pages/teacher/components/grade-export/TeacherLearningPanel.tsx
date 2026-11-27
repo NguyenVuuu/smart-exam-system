@@ -12,13 +12,17 @@ const SIGNAL_LABELS = {
 } as const
 
 export default function TeacherLearningPanel({ scheduleId }: { scheduleId: string }) {
+  return <ScheduleLearningPanel key={scheduleId} scheduleId={scheduleId} />
+}
+
+function ScheduleLearningPanel({ scheduleId }: { scheduleId: string }) {
   const [insights, setInsights] = useState<TeacherLearningInsights | null>(null)
   const [conversationId, setConversationId] = useState('')
   const conversationRequest = useRef(0)
   const [conversations, setConversations] = useState<AgentConversationSummary[]>([])
   const [turns, setTurns] = useState<AgentConversationTurn<TeacherLearningAnswer>[]>([])
   const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(Boolean(scheduleId))
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
 
@@ -26,11 +30,6 @@ export default function TeacherLearningPanel({ scheduleId }: { scheduleId: strin
     conversationRequest.current += 1
     if (!scheduleId) return
     let active = true
-    setLoading(true)
-    setInsights(null)
-    setConversationId('')
-    setTurns([])
-    setError('')
     getTeacherLearningInsights(scheduleId)
       .then((data) => { if (active) setInsights(data) })
       .catch(() => { if (active) setError('Không thể tải phân tích ca thi.') })
