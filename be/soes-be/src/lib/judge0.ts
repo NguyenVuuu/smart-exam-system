@@ -263,7 +263,7 @@ export class Judge0Service {
     }
 
     const pollUrl = `${this.baseUrl}/submissions/${token}?base64_encoded=true`;
-    const pollIntervalMs = 800;
+    const pollIntervalMs = 200;
     const maxPollTimeMs = timeoutMs;
 
     while (Date.now() - startTime < maxPollTimeMs) {

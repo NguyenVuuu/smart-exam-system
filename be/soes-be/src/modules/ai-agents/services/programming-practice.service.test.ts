@@ -169,3 +169,26 @@ test('identical reference verification is coalesced but changed tests are checke
   assert.deepEqual(await verifyProgrammingDraft([changed], 'JAVA'), [])
   assert.equal(calls, 3)
 })
+
+test('skips Judge for unmodified starter code and short-circuits on compile error', async context => {
+  let calls = 0
+  context.mock.method(judge0Service, 'submitAndPoll', async () => {
+    calls++
+    return { stdout: null, stderr: null, compile_output: 'syntax error', message: null,
+      status: { id: 6, description: 'Compilation Error' }, time: null, memory: null }
+  })
+  const untouched = candidate('Untouched starter code')
+  const baseBroken = candidate('Broken code')
+  const broken = { ...baseBroken, testCases: [...baseBroken.testCases, { input: '3', expectedOutput: '1' }] }
+  const results = await gradeProgrammingPracticeSet([
+    { sourceCode: untouched.starterCode, question: untouched },
+    { sourceCode: '   ', question: untouched },
+    { sourceCode: 'class Main { broken }', question: broken },
+  ])
+  assert.deepEqual(results, [
+    { passedTestCases: 0, totalTestCases: 2, score: 0 },
+    { passedTestCases: 0, totalTestCases: 2, score: 0 },
+    { passedTestCases: 0, totalTestCases: 3, score: 0 },
+  ])
+  assert.equal(calls, 3)
+})

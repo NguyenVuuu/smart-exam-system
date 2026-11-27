@@ -139,22 +139,36 @@ export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], l
   return verified
 }
 
+function isUnmodifiedStarter(sourceCode: string, question: ProgrammingQuestion): boolean {
+  const trimmed = sourceCode.trim()
+  if (!trimmed) return true
+  if (trimmed !== question.starterCode.trim()) return false
+  return !/\b(?:System\.out|printf|puts|cout)\b/.test(trimmed)
+}
+
 export async function gradeProgrammingPracticeSet(entries: Array<{ sourceCode: string; question: ProgrammingQuestion }>) {
   const started = Date.now()
   const scores = entries.map(({ question }) => ({ passedTestCases: 0, totalTestCases: question.testCases.length }))
+  const compileFailed = new Array<boolean>(entries.length).fill(false)
   const tasks = entries.flatMap(({ sourceCode, question }, index) =>
-    question.testCases.map(test => ({ sourceCode, language: question.language, test, index })))
+    isUnmodifiedStarter(sourceCode, question)
+      ? []
+      : question.testCases.map(test => ({ sourceCode, language: question.language, test, index })))
   let next = 0
   let unavailable = false
   const workers = Math.min(PRACTICE_GRADING_WORKERS, tasks.length)
-  await Promise.all(Array.from({ length: workers }, async () => {
-    while (next < tasks.length && !unavailable) {
-      const { sourceCode, language, test, index } = tasks[next++]
-      const result = await runCase(sourceCode, language, test)
-      if (result.isUnavailable) unavailable = true
-      if (result.passed) scores[index].passedTestCases++
-    }
-  }))
+  if (workers > 0) {
+    await Promise.all(Array.from({ length: workers }, async () => {
+      while (next < tasks.length && !unavailable) {
+        const { sourceCode, language, test, index } = tasks[next++]
+        if (compileFailed[index]) continue
+        const result = await runCase(sourceCode, language, test)
+        if (result.isUnavailable) unavailable = true
+        if (result.outcome === 'COMPILE_ERROR') compileFailed[index] = true
+        if (result.passed) scores[index].passedTestCases++
+      }
+    }))
+  }
   if (unavailable) throw new AppError(503, 'Không thể chấm bài lập trình với Judge')
   logger.info('Programming practice grading completed', {
     questions: entries.length, testCases: tasks.length, workers, elapsedMs: Date.now() - started,
