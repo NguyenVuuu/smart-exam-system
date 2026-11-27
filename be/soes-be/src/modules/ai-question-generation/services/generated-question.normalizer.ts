@@ -7,7 +7,6 @@ export function cleanEscapedText(text: string): string {
     .replace(/\\t/g, "\t")
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
-    .replace(/\\\$/g, "$");
     .replace(/\\\$/g, "$")
     .replace(/\\(?:le|leq)\b/g, '≤')
     .replace(/\\(?:ge|geq)\b/g, '≥')

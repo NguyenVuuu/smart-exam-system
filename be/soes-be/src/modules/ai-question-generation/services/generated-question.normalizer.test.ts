@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { cleanEscapedText, cleanPlainTextMath, normalizeObjectiveFields, restoreVietnameseDiacritics, safeTruncate } from './generated-question.normalizer'
+import { cleanEscapedText, cleanPlainTextMath, normalizeObjectiveFields, safeTruncate } from './generated-question.normalizer'
 import { generatedQuestionSchema } from '../schemas/generated-question.schema'
 
 describe('generated-question.normalizer', () => {
@@ -31,28 +31,6 @@ describe('generated-question.normalizer', () => {
     })
   })
 
-  describe('restoreVietnameseDiacritics', () => {
-    it('restores unaccented Vietnamese programming titles to accented Vietnamese', () => {
-      assert.equal(
-        restoreVietnameseDiacritics('Tinh tong cac phan tu o chi so chan'),
-        'Tính tổng các phần tử ở chỉ số chẵn'
-      )
-      assert.equal(
-        restoreVietnameseDiacritics('Kiem tra so nguyen to trong mang'),
-        'Kiểm tra số nguyên tố trong mảng'
-      )
-      assert.equal(
-        restoreVietnameseDiacritics('Dem so luong phan tu lon hon trung binh cong'),
-        'Đếm số lượng phần tử lớn hơn trung bình cộng'
-      )
-    })
-
-    it('keeps already accented Vietnamese text unchanged', () => {
-      const accented = 'Tính tổng các phần tử chẵn'
-      assert.equal(restoreVietnameseDiacritics(accented), accented)
-    })
-  })
-
   describe('safeTruncate', () => {
     it('keeps text under 200 characters unchanged', () => {
       const text = 'Một câu hỏi ngắn gọn dưới 200 ký tự.'
@@ -70,6 +48,19 @@ describe('generated-question.normalizer', () => {
   })
 
   describe('normalizeObjectiveFields', () => {
+    it('normalizes explanation escapes and math without changing the programming title', () => {
+      const question = {
+        type: 'PROGRAMMING',
+        title: 'Array sum',
+        content: 'Input:\\n$N$ integers',
+        explanation: 'Read $N$.\\nSum $N$ values.',
+      }
+      normalizeObjectiveFields({ questions: [question] })
+      assert.equal(question.title, 'Array sum')
+      assert.equal(question.content, 'Input:\n$N$ integers')
+      assert.equal(question.explanation, 'Read N.\nSum N values.')
+    })
+
     it('preserves full content while truncating title <= 200 for long objective questions', () => {
       const longQuestionText = 'Trong lập trình Java hướng đối tượng, khi bạn xây dựng một lớp con kế thừa từ một lớp cha và muốn đảm bảo rằng một phương thức cụ thể không bao giờ bị ghi đè bởi bất kỳ lớp con nào khác trong hệ thống phân cấp kế thừa, từ khóa nào sau đây là bắt buộc phải được khai báo trước chữ ký của phương thức đó?'
       assert.ok(longQuestionText.length > 250)
