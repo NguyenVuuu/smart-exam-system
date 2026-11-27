@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { normalizeNumericJavaTests } from '../utils/programming-test-format'
 
 const subjectIdSchema = z.string().trim().min(1).max(100)
 
@@ -90,7 +91,7 @@ export const programmingPracticeQuestionSchema = z.object({
   supportQuote: z.string().min(10).max(300),
   sourceLocation: z.string().max(100).nullable().optional(),
   sourceUrls: z.array(z.string().url().max(500)).max(5).optional(),
-})
+}).transform(normalizeNumericJavaTests)
 export const programmingPracticeDraftSchema = z.object({ questions: z.array(programmingPracticeQuestionSchema).min(1).max(20) })
 
 export const createPracticeSchema = z.object({

@@ -21,7 +21,16 @@ export default function PracticeProgrammingQuestion({ setId, item, value, onChan
   }
 
   return <div className="space-y-3">
-    <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">Ví dụ đầu vào: <code>{item.sampleInput}</code><br />Ví dụ đầu ra: <code>{item.sampleOutput}</code></p>
+    <div className="space-y-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+      <div>
+        <p className="mb-1 font-semibold">Ví dụ đầu vào:</p>
+        <pre aria-label="Ví dụ đầu vào" className="overflow-x-auto whitespace-pre-wrap break-words font-mono">{item.sampleInput}</pre>
+      </div>
+      <div>
+        <p className="mb-1 font-semibold">Ví dụ đầu ra:</p>
+        <pre aria-label="Ví dụ đầu ra" className="overflow-x-auto whitespace-pre-wrap break-words font-mono">{item.sampleOutput}</pre>
+      </div>
+    </div>
     {completed ? <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{item.result?.sourceCode}</pre>
       : <Suspense fallback={<p className="text-sm text-slate-500">Đang mở trình soạn mã...</p>}>
         <PracticeCodeEditor item={item} value={value} onChange={(next) => { onChange(next); setResult(null) }} />

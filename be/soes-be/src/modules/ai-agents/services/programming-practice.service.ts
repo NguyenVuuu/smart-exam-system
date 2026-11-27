@@ -46,7 +46,7 @@ export async function collectVerifiedProgrammingQuestions(desiredCount: number,
   }
 
   if (accepted.length < desiredCount) {
-    throw new ValidationError('AI chưa tạo đủ bài lập trình vượt qua kiểm thử. Vui lòng thử lại')
+    throw new ValidationError(`AI chưa tạo đủ bài lập trình vượt qua kiểm thử (${accepted.length}/${desiredCount}). Vui lòng thử lại`)
   }
   return accepted
 }
@@ -80,10 +80,13 @@ async function runCase(sourceCode: string, language: ProgrammingQuestion['langua
     const actualOutput = (result.stdout ?? '').trim().replace(/\r\n/g, '\n')
     const expectedOutput = (test.expectedOutput ?? '').trim().replace(/\r\n/g, '\n')
     const passed = (result.status.id === 3 || result.status.id === 4) && actualOutput === expectedOutput
-    return { passed, outcome: passed ? 'PASSED' : 'WRONG_ANSWER', judgeStatus: result.status.description, isUnavailable: false }
+    const outcome = passed ? 'PASSED' : result.status.id === 6 ? 'COMPILE_ERROR'
+      : result.status.id >= 7 && result.status.id <= 12 ? 'RUNTIME_ERROR'
+      : result.status.id === 5 ? 'TIME_LIMIT_EXCEEDED' : 'OUTPUT_MISMATCH'
+    return { passed, outcome, judgeStatusId: result.status.id, judgeStatus: result.status.description, isUnavailable: false }
   } catch (error) {
     logger.warn('Judge0 submission error during practice verification', { error: error instanceof Error ? error.message : String(error) })
-    return { passed: false, outcome: 'ERROR', judgeStatus: 'Judge unavailable', isUnavailable: true }
+    return { passed: false, outcome: 'ERROR', judgeStatusId: null, judgeStatus: 'Judge unavailable', isUnavailable: true }
   }
 }
 
@@ -121,7 +124,9 @@ export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], l
       if (result.isUnavailable) {
         throw new AppError(503, 'Judge tạm thời không khả dụng; chưa thể xác minh bài lập trình')
       }
-      if (!result.passed) logger.warn('AI programming practice failed initial Judge check', { questionIndex, testCaseIndex: 0 })
+      if (!result.passed) logger.warn('AI programming practice failed initial Judge check', {
+        questionIndex, testCaseIndex: 0, outcome: result.outcome, judgeStatusId: result.judgeStatusId,
+      })
       return result.passed
     })
   }
