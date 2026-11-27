@@ -1,4 +1,5 @@
 import express from 'express'
+import { readinessHandler } from './middlewares/readiness'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import path from 'path'
@@ -33,10 +34,12 @@ import {
 import { aiQuestionGenerationRoutes } from './modules/ai-question-generation'
 import { corsConfig, proxyConfig } from './config'
 import { auditRequestContext } from './middlewares/auditRequestContext'
+import { requestPerformance } from './middlewares/requestPerformance'
 import { allRoleNotificationsRoutes, notificationsRoutes } from './modules/notifications'
 
 const app = express()
 app.set('trust proxy', proxyConfig.trustProxy)
+app.use(requestPerformance)
 
 // ── Core Middlewares ──────────────────────────────────────
 app.use(
@@ -102,6 +105,7 @@ app.use('/api/teacher', aiQuestionGenerationRoutes)
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
+app.get('/ready', readinessHandler)
 
 // ── Error Handler (must be last) ─────────────────────────
 app.use(errorHandler)

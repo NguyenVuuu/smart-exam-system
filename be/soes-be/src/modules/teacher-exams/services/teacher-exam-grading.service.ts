@@ -12,8 +12,7 @@ import * as live from '../../proctoring-live/proctoring-live.service'
 import { emitAttemptEvent, emitProctoringEvent, emitStudentEvent, emitTeacherEvent, leaveAttemptRoom } from '../../proctoring/proctoring-realtime.events'
 import { notifyUsers } from '../../notifications/notifications.service'
 import { closeAttemptProctoring } from '../../student-take-exam/services/student-take-exam.service'
-import { gradeProgrammingAnswers } from '../../student-take-exam/services/programming-grading.service'
-import { gradeObjectiveAnswers } from '../../student-take-exam/repositories/attempt-grading.repository'
+import { processGradingJobs } from '../../../jobs/attempt-grading.jobs'
 import { proctoringRiskSummary } from './proctoring-risk.policy'
 
 function currentWebcamStatus(status: WebcamStatus, isActive: boolean): WebcamStatus {
@@ -381,8 +380,7 @@ export async function forceSubmitAttempt(
       logger.warn('Could not deliver force-submit notification', { attemptId, error })
     }
     try {
-      await gradeProgrammingAnswers(attemptId)
-      await gradeObjectiveAnswers(attemptId, { finalStatus: 'GRADING' })
+      await processGradingJobs()
     } catch (error) {
       logger.error('Force-submitted attempt needs grading retry', {
         attemptId,

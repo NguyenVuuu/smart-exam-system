@@ -4,6 +4,19 @@ from soes_agent.rag import retrieve_material
 from soes_agent import rag
 
 
+def test_document_token_cache_preserves_scores_and_is_bounded():
+    rag._document_terms.cache_clear()
+    chunks = ["Vòng lặp xử lý mảng phần tử", "Kế thừa và đối tượng"]
+    first = rag._lexical_scores(chunks, "vòng lặp mảng")
+    second = rag._lexical_scores(chunks, "vòng lặp mảng")
+    assert first == second
+    assert first[0] > first[1]
+    assert rag._document_terms.cache_info().hits == 2
+    for index in range(200):
+        rag._document_terms(f"unique document {index}")
+    assert rag._document_terms.cache_info().currsize == 128
+
+
 class FakeEmbeddings:
     def __init__(self):
         self.document_calls = 0

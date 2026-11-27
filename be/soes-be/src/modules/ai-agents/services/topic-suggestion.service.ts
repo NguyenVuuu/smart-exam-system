@@ -25,10 +25,13 @@ export async function suggestQuestionTopic(teacherId: string, userId: string, in
     where: { subjectId: subject.id }, select: { id: true, code: true, name: true },
   })
   const suggestion = await requestTopicSuggestionAgent({
-    title: input.title, content: input.content,
+    title: input.title, content: input.content, explanation: input.explanation,
     existingTopics: topics.map(({ code, name }) => ({ code, name })),
   })
-  const existingCodes = new Set(suggestion.existingCodes.map((code) => code.toUpperCase()))
+  const existingCodes = new Set(suggestion.existingCodes.map((code) => code.trim().toUpperCase()))
+  if ([...existingCodes].some(code => !topics.some(topic => topic.code.toUpperCase() === code))) {
+    throw new ValidationError('AI suggested an unknown topic; please retry')
+  }
   const existing = topics.filter((topic) => existingCodes.has(topic.code.toUpperCase()))
   const newCode = suggestion.newCode?.trim().toUpperCase() ?? ''
   const newName = suggestion.newName?.trim() ?? ''

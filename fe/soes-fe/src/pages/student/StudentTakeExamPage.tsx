@@ -27,7 +27,6 @@ import type {
 import { clearActiveFaceEntry, setActiveFaceEntry, takeExamApi, type ExamSessionScreenShareStatus, type ExamSessionWebcamStatus, type RunCodeResponse } from './api/student-take-exam.api'
 import type { RecordViolationPayload } from './api/student-take-exam.api'
 import { hasAnswer } from './components/take-exam/take-exam.utils'
-import { useDebounce } from 'use-debounce'
 import {
   cancelScheduledExamWebcamStop,
   isExamWebcamStreamLive,
@@ -135,10 +134,9 @@ export default function StudentTakeExamPage() {
   }, [session])
 
   const { control, setValue } = useForm<TakeExamAnswers>({
-    defaultValues: defaultAnswers,
+    values: defaultAnswers,
   })
   const answers = useWatch({ control })
-  const [debouncedAnswers] = useDebounce(answers, 2000)
 
   const handleTimeExpired = useCallback(() => {
     stopActiveExamScreenShareStream()
@@ -199,19 +197,42 @@ export default function StudentTakeExamPage() {
     }
     socket.on('proctoring:warning', handleWarning)
     socket.on('proctoring:attempt-ended', handleEnded)
-    const interval = window.setInterval(() => {
-      void takeExamApi.getAttemptStatus(scheduleId, attemptId).then((status) => {
+    let timer: number | undefined
+    let stopped = false
+    let checking = false
+    const pollStatus = async () => {
+      if (stopped || checking || proctorEndedRef.current) return
+      checking = true
+      try {
+        const status = await takeExamApi.getAttemptStatus(scheduleId, attemptId)
+        if (stopped) return
         if (status.endedBy === 'PROCTOR' && status.status !== 'IN_PROGRESS') {
           handleEnded({ attemptId, scheduleId, status: status.status, reason: status.status === 'INVALIDATED'
             ? 'Giám thị đã hủy bài thi. Xem thông báo để biết lý do.'
             : 'Giám thị đã kết thúc bài thi và giữ lại bài làm để chấm.' })
         }
-      }).catch(() => undefined)
-    }, 5_000)
+      } catch {
+        // Reconcile on the next poll when HTTP connectivity returns.
+      } finally {
+        checking = false
+        if (!stopped && !proctorEndedRef.current) schedulePoll()
+      }
+    }
+    function schedulePoll(delay = (socket.connected ? 15_000 : 5_000) + Math.random() * 500) {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => { void pollStatus() }, delay)
+    }
+    const reconcile = () => schedulePoll(0)
+    socket.on('connect', reconcile)
+    socket.on('disconnect', reconcile)
+    schedulePoll()
     return () => {
+      stopped = true
       socket.off('proctoring:warning', handleWarning)
       socket.off('proctoring:attempt-ended', handleEnded)
-      window.clearInterval(interval)
+      socket.off('connect', reconcile)
+      socket.off('disconnect', reconcile)
+      window.clearTimeout(timer)
     }
   }, [attemptId, navigate, phase, resultPath, scheduleId])
 
@@ -387,17 +408,6 @@ export default function StudentTakeExamPage() {
     })
   }, [phase, screenStatus, screenStream, session?.integritySettings.enableScreenMonitoring])
 
-  // Auto-save when answers change
-  useEffect(() => {
-    if (!session || phase !== 'IN_PROGRESS') return
-    const hasSavableAnswer = Object.values(debouncedAnswers).some((answer) =>
-      typeof answer === 'string' || (Array.isArray(answer) && answer.length > 0),
-    )
-    if (hasSavableAnswer) {
-      saveAnswersToServer()
-    }
-  }, [debouncedAnswers, phase, saveAnswersToServer, session])
-
   const currentQuestionId = currentQuestion?.id
   const visibleRunCodeResult = runCodeResult?.questionId === currentQuestionId ? runCodeResult : null
   const visibleRunCodeError = runCodeErrorQuestionId === currentQuestionId ? runCodeError : null
@@ -414,10 +424,10 @@ export default function StudentTakeExamPage() {
 
   const handleAnswerChange = useCallback(
     (answer: QuestionAnswer) => {
-      if (!currentQuestion) return
+      if (!currentQuestion || isSubmitting) return
       setValue(currentQuestion.id, answer, { shouldDirty: true })
     },
-    [currentQuestion, setValue],
+    [currentQuestion, isSubmitting, setValue],
   )
 
   const handleEnableExamCamera = useCallback(() => {

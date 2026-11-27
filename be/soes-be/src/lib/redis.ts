@@ -1,11 +1,16 @@
 import Redis from 'ioredis'
 import { logger } from './logger'
+import { AppError } from '../errors/AppError'
+import { accountRoles } from '../utils/jwt'
 
+const retryLimit = Number(process.env.REDIS_RETRY_LIMIT ?? 0)
 const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
   lazyConnect: false,
+  enableOfflineQueue: false,
+  maxRetriesPerRequest: 2,
   retryStrategy: (times) => {
-    if (times >= 3) return null // stop retrying
-    return Math.min(times * 200, 1000)
+    if (retryLimit > 0 && times >= retryLimit) return null
+    return Math.min(200 * 2 ** Math.min(times - 1, 6), 10_000) + Math.floor(Math.random() * 250)
   },
 })
 
@@ -30,10 +35,11 @@ export const refreshTokenStore = {
 
   async delete(key: string): Promise<void> {
     await redis.del(`${REFRESH_PREFIX}${key}`)
-    const matched = await redis.keys(`${REFRESH_PREFIX}${key}*`)
-    if (matched.length > 0) {
-      await redis.del(...matched)
-    }
+  },
+
+  async deleteAllRoles(userId: string): Promise<void> {
+    const legacyKey = `${REFRESH_PREFIX}${userId}`
+    await redis.del(legacyKey, ...accountRoles.map(role => `${legacyKey}:${role}`))
   },
 }
 
@@ -44,7 +50,11 @@ export const tokenBlacklist = {
   },
 
   async isBlacklisted(jti: string): Promise<boolean> {
-    const val = await redis.get(`${BLACKLIST_PREFIX}${jti}`)
-    return val !== null
+    try {
+      const val = await redis.get(`${BLACKLIST_PREFIX}${jti}`)
+      return val !== null
+    } catch {
+      throw new AppError(503, 'Session validation is temporarily unavailable')
+    }
   },
 }

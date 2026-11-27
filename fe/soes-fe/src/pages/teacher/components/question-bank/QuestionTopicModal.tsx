@@ -63,7 +63,7 @@ function QuestionTopicModalContent({ question, onClose, onSaved, onDraftSaved }:
     setError('')
     try {
       setSuggestion(await suggestQuestionTopic({ subjectId: question.subjectId,
-        title: question.title, content: question.content }))
+        title: question.title, content: question.content, explanation: question.explanation || undefined }))
     } catch (cause) {
       setError(getApiErrorMessage(cause, 'Không thể gợi ý chủ đề.'))
     } finally {

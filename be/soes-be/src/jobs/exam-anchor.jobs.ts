@@ -8,6 +8,8 @@ const BATCH_SIZE = 10
 let started = false
 let running = false
 let lastProcessedId: string | null = null
+let timer: NodeJS.Timeout | undefined
+let activeRun: Promise<void> | undefined
 
 export async function retryPendingExamAnchors(): Promise<void> {
   if (running || !isBlockchainConfigured()) return
@@ -42,7 +44,15 @@ export async function retryPendingExamAnchors(): Promise<void> {
 export function startExamAnchorJobs(): void {
   if (started) return
   started = true
-  setInterval(() => { void retryPendingExamAnchors() }, INTERVAL_MS)
-  void retryPendingExamAnchors()
+  const tick = () => { activeRun ??= retryPendingExamAnchors().finally(() => { activeRun = undefined }) }
+  timer = setInterval(tick, INTERVAL_MS)
+  tick()
   logger.info('Pending exam anchor retry started', { intervalMs: INTERVAL_MS })
+}
+
+export async function stopExamAnchorJobs() {
+  if (timer) clearInterval(timer)
+  timer = undefined
+  started = false
+  await activeRun
 }

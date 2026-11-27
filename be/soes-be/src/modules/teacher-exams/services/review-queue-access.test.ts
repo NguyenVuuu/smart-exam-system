@@ -9,6 +9,10 @@ test('review queue exposes snapshots only to current group members, including th
     exam: { id: 'exam', createdById: 'teacher' },
     snapshot: { question: 'unpublished', correctAnswer: 'secret' },
   }
+  const historyRound = {
+    id: 'round', version: 1, status: 'PENDING', snapshot: { title: 'Exam snapshot' },
+    submittedBy: { id: 'teacher', user: { fullName: 'Teacher' } }, decision: null,
+  }
   const repositoryId = require.resolve('../repositories/teacher-exams.repository')
   const mapperId = require.resolve('../mappers/teacher-exam.mapper')
   const serviceId = require.resolve('./teacher-exams.service')
@@ -35,9 +39,9 @@ test('review queue exposes snapshots only to current group members, including th
     findExam: async (examId: string) => examId === 'exam' ? { id: 'exam', createdById: 'teacher' } : { id: examId, createdById: 'another-teacher' },
     findReviewHistoryForGroup: async (groupId: string, examId: string) => {
       assert.equal(groupId, 'group')
-      return examId === 'exam' ? [{ id: 'round', version: 1, status: 'PENDING', snapshot: { title: 'Exam snapshot' } }] : []
+      return examId === 'exam' ? [historyRound] : []
     },
-    findOwnedReviewHistory: async () => [{ id: 'round', version: 1, status: 'PENDING', snapshot: { title: 'Exam snapshot' } }],
+    findOwnedReviewHistory: async () => [historyRound],
   })
   stub(mapperId, { toTeacherExamDto: (exam: { id: string }) => ({ id: exam.id }) })
   delete require.cache[serviceId]

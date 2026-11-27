@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { AvailableRole, RoleSelectionRequired, User } from '../types/auth.types'
 import { tokenStorage } from '../utils/token'
+import { clearPhoneEvidenceSessions } from '../utils/phone-evidence-storage'
 
 interface AuthState {
   user: User | null
@@ -52,6 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout() {
+    void clearPhoneEvidenceSessions().catch(() => console.warn('Pending evidence cleanup could not finish'))
     tokenStorage.clearAccessToken()
     set({
       user: null,

@@ -23,6 +23,27 @@ REQUEST = {
 }
 
 
+@pytest.mark.asyncio
+async def test_rejected_questions_are_not_returned_after_final_repair(monkeypatch):
+    calls = []
+
+    class Model:
+        def with_structured_output(self, _schema, *, method):
+            return self
+
+        async def ainvoke(self, _messages):
+            calls.append(True)
+            return {"questions": [{"title": "Invalid candidate"}]}
+
+    async def reject(*_args, **_kwargs):
+        return set()
+
+    monkeypatch.setattr(question_generation, "verify_instruction_fulfillment", reject)
+    with pytest.raises(ValueError, match="did not satisfy"):
+        await generate_question_draft(Model(), QuestionDraftRequest.model_validate(REQUEST))
+    assert len(calls) == 2
+
+
 def test_question_endpoint_requires_service_secret(monkeypatch):
     monkeypatch.setenv("AI_AGENT_SHARED_SECRET", "test-secret")
     assert TestClient(main.app).post("/v1/teacher/question-draft", json=REQUEST).status_code == 401

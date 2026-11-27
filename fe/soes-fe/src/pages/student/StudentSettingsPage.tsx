@@ -1,5 +1,5 @@
 import { KeyRound, Mail, Phone, Save, Settings, UserRound } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '../../store/authStore'
 import StudentSidebar from './components/StudentSidebar'
@@ -17,10 +17,13 @@ export default function StudentSettingsPage() {
   const [savingContact, setSavingContact] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
 
-  useEffect(() => {
+  const contactKey = JSON.stringify([user?.id, user?.email, user?.phoneNumber])
+  const [contactSource, setContactSource] = useState(contactKey)
+  if (contactSource !== contactKey) {
+    setContactSource(contactKey)
     setEmail(user?.email ?? '')
     setPhoneNumber(user?.phoneNumber ?? '')
-  }, [user?.email, user?.phoneNumber])
+  }
 
   const saveContact = async () => {
     setSavingContact(true)

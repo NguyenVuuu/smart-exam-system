@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../../lib/prisma'
 import { writeAuditLog } from '../../audit-logs/audit-log.writer'
+import { findSubmissionPage } from './submission-page.repository'
 
 /** Tìm ca dự phòng đang còn chạy (chưa kết thúc) của ca gốc */
 export const findActiveMakeupSchedule = (sourceScheduleId: string) =>
@@ -279,45 +280,20 @@ async function ensureZeroAttemptsForAbsentees(scheduleId: string, courseOffering
 
 export async function listSubmissions(scheduleId: string, courseOfferingIds: string[], page: number, pageSize: number) {
   await ensureZeroAttemptsForAbsentees(scheduleId, courseOfferingIds)
-  const makeupSchedules = await prisma.examSchedule.findMany({
-    where: { makeupOfScheduleId: scheduleId },
-    select: { id: true, targetStudents: { select: { studentId: true } } },
-  })
-  const scheduleIds = [scheduleId, ...makeupSchedules.map((schedule) => schedule.id)]
-  // Tập hợp studentId được phép thi ca dự phòng (để lọc bỏ phantom attempt của SV không được phép)
-  const makeupTargetStudentIds = new Set(
-    makeupSchedules.flatMap((s) => s.targetStudents.map((t) => t.studentId)),
-  )
-  const where: Prisma.ExamAttemptWhereInput = {
-    examScheduleId: { in: scheduleIds },
-    courseOfferingId: { in: courseOfferingIds },
-    status: { not: 'IN_PROGRESS' },
-  }
-  const rows = await prisma.examAttempt.findMany({
-    where,
+  const { total, ids } = await findSubmissionPage(scheduleId, courseOfferingIds, page, pageSize)
+  if (!ids.length) return [total, []] as const
+  const submissions = await prisma.examAttempt.findMany({
+    where: {
+      id: { in: ids }, courseOfferingId: { in: courseOfferingIds }, status: { not: 'IN_PROGRESS' },
+      examSchedule: { OR: [{ id: scheduleId }, { makeupOfScheduleId: scheduleId }] },
+    },
     include: submissionInclude,
-    orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }],
   })
-  const byStudent = new Map<string, (typeof rows)[number]>()
-  for (const row of rows) {
-    const isMakeup = row.examSchedule.makeupOfScheduleId === scheduleId
-    // Bỏ qua attempt của ca dự phòng nếu SV đó không có trong whitelist
-    if (isMakeup && makeupTargetStudentIds.size > 0 && !makeupTargetStudentIds.has(row.studentId)) {
-      continue
-    }
-    const current = byStudent.get(row.studentId)
-    const currentIsMakeup = current?.examSchedule.makeupOfScheduleId === scheduleId
-    if (!current || (isMakeup && !currentIsMakeup)) {
-      byStudent.set(row.studentId, row)
-    }
-  }
-  const merged = [...byStudent.values()].sort((a, b) =>
-    a.student.studentCode.localeCompare(b.student.studentCode),
-  )
-  return [
-    merged.length,
-    merged.slice((page - 1) * pageSize, page * pageSize),
-  ] as const
+  const byId = new Map(submissions.map(row => [row.id, row]))
+  return [total, ids.flatMap(id => {
+    const submission = byId.get(id)
+    return submission ? [submission] : []
+  })] as const
 }
 
 export function listViolations(
@@ -538,6 +514,7 @@ export function forceSubmitAttempt(input: {
       where: { id: attempt.id, status: 'IN_PROGRESS', deadlineAt: { gt: now } },
       data: {
         status: 'GRADING',
+        gradingPending: true,
         endedBy: 'PROCTOR',
         forceSubmitReason: input.reason,
         submittedAt: now,
@@ -609,7 +586,8 @@ export function overrideScore(
     if (!attempt) return null
     const updated = await tx.examAttempt.update({
       where: { id: attemptId },
-      data: { manualScore: score, totalScore: score, status: 'PUBLISHED', version: { increment: 1 } },
+      data: { manualScore: score, totalScore: score, status: 'PUBLISHED', version: { increment: 1 },
+        gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null },
       include: submissionInclude,
     })
     await tx.gradeAppeal.updateMany({
@@ -736,6 +714,7 @@ export function finalizeScores(input: {
           examScheduleId: { in: sourceScheduleIds },
           studentId: { in: studentIds },
           status: 'PUBLISHED',
+          gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null,
         },
         select: { id: true, studentId: true, totalScore: true },
       })
@@ -758,6 +737,7 @@ export function finalizeScores(input: {
           manualScore: score,
           totalScore: score,
           status: 'PUBLISHED',
+          gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null,
           version: { increment: 1 },
         },
         select: {
@@ -867,12 +847,14 @@ export function updateResultRelease(
       where: {
         examScheduleId: scheduleId,
         status: resultsPublishedAt ? { in: ['GRADED', 'AUTO_SUBMITTED'] } : 'PUBLISHED',
+        gradingPending: false,
         // Không hồi sinh điểm ca gốc đã được thay thế bởi một bài dự phòng đã công bố.
         ...(resultsPublishedAt ? {
           student: {
             examAttempts: {
               none: {
                 status: 'PUBLISHED',
+          gradingPending: false, gradingClaimToken: null, gradingLeaseUntil: null,
                 examSchedule: { makeupOfScheduleId: scheduleId },
               },
             },

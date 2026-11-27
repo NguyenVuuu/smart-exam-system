@@ -1,6 +1,6 @@
 import { ArrowLeft, CheckCircle2, ShieldCheck, XCircle } from 'lucide-react'
 import axios from 'axios'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import TeacherPageHeader from './components/TeacherPageHeader'
@@ -8,8 +8,9 @@ import TeacherSidebar from './components/TeacherSidebar'
 import TeacherTopBar from './components/TeacherTopBar'
 import ApprovalRejectModal from './components/department-approval/ApprovalRejectModal'
 import { ExamReviewContent } from './components/department-approval/ApprovalReviewModal'
-import { approveExam, getExamApprovalDetail, getExamReviewHistory, rejectExam, type ExamApprovalDetailDto, type ExamReviewHistoryItem } from './api/teacher-approvals.api'
+import { approveExam, getExamApprovalDetail, getExamReviewHistory, rejectExam, type ExamReviewHistoryItem } from './api/teacher-approvals.api'
 import { toReviewExam } from './mappers/teacher-review-snapshot.mapper'
+import { useAccountQuery } from '../../hooks/useAccountQuery'
 import type { Exam } from './types/teacher-exam.types'
 import type { ApprovalItem } from './types/teacher-approval.types'
 import { useReviewGroupAccess } from './hooks/useReviewGroupAccess'
@@ -18,39 +19,23 @@ export default function TeacherExamApprovalDetailPage() {
   const { examId } = useParams<{ examId: string }>()
   const navigate = useNavigate()
   const accessQuery = useReviewGroupAccess()
-  const [exam, setExam] = useState<Exam | null>(null)
-  const [detail, setDetail] = useState<ExamApprovalDetailDto | null>(null)
-  const [history, setHistory] = useState<ExamReviewHistoryItem[]>([])
   const [activeTab, setActiveTab] = useState<'CURRENT' | 'HISTORY'>('CURRENT')
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
   const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({})
   const [rejectionReason, setRejectionReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const query = useAccountQuery(['exam-approval-detail', examId], async () => {
+    const [detail, history] = await Promise.all([getExamApprovalDetail(examId!), getExamReviewHistory(examId!)])
+    return { detail, history }
+  }, Boolean(examId && accessQuery.data?.canReview === true))
+  const detail = query.data?.detail ?? null
+  const history = query.data?.history ?? []
+  const exam = useMemo(() => detail ? toReviewExam(detail) : null, [detail])
+  const loading = accessQuery.isLoading || query.isFetching
+  const error = query.isError ? 'Không thể tải phiên bản đề hoặc bạn không có quyền xem đề này.' : null
 
-  useEffect(() => {
-    if (!examId || accessQuery.data?.canReview !== true) return
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    Promise.all([getExamApprovalDetail(examId), getExamReviewHistory(examId)])
-      .then(([detail, reviewHistory]) => {
-        if (cancelled) return
-        setDetail(detail)
-        setExam(toReviewExam(detail))
-        setHistory(reviewHistory)
-        setSelectedHistoryId(reviewHistory[0]?.id ?? null)
-      })
-      .catch(() => {
-        if (!cancelled) setError('Không thể tải phiên bản đề hoặc bạn không có quyền xem đề này.')
-      })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [examId, accessQuery.data?.canReview])
-
-  const selectedRound = history.find((round) => round.id === selectedHistoryId) ?? null
+  const selectedRound = history.find((round) => round.id === selectedHistoryId) ?? history[0] ?? null
   const readOnly = detail?.reviewRound.status === 'APPROVED'
   const finalApproval = history.find((round) => round.decision?.type === 'APPROVE')?.decision ?? null
   const selectedRoundIndex = selectedRound ? history.findIndex((round) => round.id === selectedRound.id) : -1
@@ -118,15 +103,17 @@ export default function TeacherExamApprovalDetailPage() {
 
   return (
     <TeacherShell>
+      <button
+        type="button"
+        onClick={() => navigate('/teacher/department-approvals')}
+        className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-blue-700"
+      >
+        <ArrowLeft size={17} /> Quay lại danh sách
+      </button>
       <TeacherPageHeader
         title={readOnly ? "L\u1ecbch s\u1eed duy\u1ec7t \u0111\u1ec1" : "Duy\u1ec7t \u0111\u1ec1 thi cu\u1ed1i k\u1ef3"}
         description={readOnly ? "Xem l\u1ea1i c\u00e1c phi\u00ean b\u1ea3n v\u00e0 quy\u1ebft \u0111\u1ecbnh duy\u1ec7t c\u1ee7a \u0111\u1ec1." : "Xem to\u00e0n b\u1ed9 n\u1ed9i dung, l\u1ecbch s\u1eed x\u1eed l\u00fd v\u00e0 g\u1eedi quy\u1ebft \u0111\u1ecbnh duy\u1ec7t chuy\u00ean m\u00f4n."}
         icon={<ShieldCheck size={21} />}
-        actions={
-          <button type="button" onClick={() => navigate('/teacher/department-approvals')} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <ArrowLeft size={16} /> Quay lại danh sách
-          </button>
-        }
       />
 
       {accessQuery.data?.canReview !== true && !accessQuery.isLoading ? (

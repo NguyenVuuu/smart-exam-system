@@ -1,9 +1,14 @@
 import { judge0Config } from "../config";
+import { currentRequestId, performanceEnabled } from "./performance";
+import { logger } from "./logger";
+import { WorkLimiter } from "./work-limiter";
+
+const submissionLimiter = new WorkLimiter(Number(process.env.JUDGE0_MAX_CONCURRENT ?? 6), 64);
 
 async function httpPostJson(
   urlStr: string,
   headers: Record<string, string>,
-  bodyObj: any,
+  bodyObj: unknown,
   timeoutMs = 30000,
 ): Promise<{ status: number; body: string }> {
   const controller = new AbortController();
@@ -75,7 +80,7 @@ export class Judge0Error extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
-    public readonly response?: any,
+    public readonly response?: unknown,
   ) {
     super(message);
     this.name = "Judge0Error";
@@ -196,6 +201,43 @@ export class Judge0Service {
     submission: Judge0Submission,
     timeoutMs = 30000,
   ): Promise<Judge0SubmissionResult> {
+    const queuedAt = performance.now();
+    return submissionLimiter.run(() => {
+      const remainingMs = timeoutMs - (performance.now() - queuedAt);
+      if (remainingMs <= 0) throw new Judge0Error('Judge0 request expired while queued');
+      return this.performSubmission(submission, Math.ceil(remainingMs), queuedAt);
+    }, timeoutMs);
+  }
+
+  private async performSubmission(
+    submission: Judge0Submission,
+    timeoutMs: number,
+    startedAt: number,
+  ): Promise<Judge0SubmissionResult> {
+    if (!performanceEnabled) return this.pollSubmission(submission, timeoutMs);
+    const queueWaitMs = Math.round(performance.now() - startedAt);
+    let completed = false;
+    try {
+      const judgeResult = await this.pollSubmission(submission, timeoutMs);
+      completed = true;
+      return judgeResult;
+    } finally {
+      if (!process.stdout.writableNeedDrain) {
+        logger.info("Judge0 performance", {
+          requestId: currentRequestId(),
+          completed,
+          queueWaitMs,
+          elapsedMs: Math.round(performance.now() - startedAt),
+        });
+      }
+    }
+  }
+
+  private async pollSubmission(
+    submission: Judge0Submission,
+    timeoutMs: number,
+  ): Promise<Judge0SubmissionResult> {
+    const startTime = Date.now();
     const payload = this.buildSubmissionPayload(submission, false);
 
     const submitUrl = `${this.baseUrl}/submissions?base64_encoded=true&wait=false`;
@@ -204,7 +246,7 @@ export class Judge0Service {
       submitUrl,
       this.getHeaders(),
       payload,
-      10000,
+      Math.min(10000, timeoutMs),
     );
 
     if (submitResponse.status < 200 || submitResponse.status >= 300) {
@@ -221,14 +263,14 @@ export class Judge0Service {
     }
 
     const pollUrl = `${this.baseUrl}/submissions/${token}?base64_encoded=true`;
-    const pollIntervalMs = 800;
+    const pollIntervalMs = 200;
     const maxPollTimeMs = timeoutMs;
-    const startTime = Date.now();
 
     while (Date.now() - startTime < maxPollTimeMs) {
       const pollResponse = await fetch(pollUrl, {
         method: "GET",
         headers: this.getHeaders(),
+        signal: AbortSignal.timeout(Math.max(1, maxPollTimeMs - (Date.now() - startTime))),
       });
 
       if (!pollResponse.ok) {
@@ -241,7 +283,10 @@ export class Judge0Service {
         return this.decodeSubmissionResult(result);
       }
 
-      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+      const remainingMs = maxPollTimeMs - (Date.now() - startTime);
+      if (remainingMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollIntervalMs, remainingMs)));
+      }
     }
 
     throw new Judge0Error(`Judge0 polling timed out after ${maxPollTimeMs}ms`);

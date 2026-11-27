@@ -80,11 +80,13 @@ export function getStudentExamSchedules(params: {
 }
 
 export function getStudentScores(params: {
+  page?: number
+  pageSize?: number
   semesterId?: string
   courseOfferingId?: string
   keyword?: string
 } = {}) {
   return apiClient
-    .get<ApiResponse<{ items: StudentScore[] }>>('/student/scores', { params })
+    .get<ApiResponse<{ items: StudentScore[]; pagination?: Pagination; averageScore?: number | null; highestScore?: number | null }>>('/student/scores', { params })
     .then(({ data }) => data.data)
 }

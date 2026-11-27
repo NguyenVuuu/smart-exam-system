@@ -1,51 +1,6 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import AdminAcademicPage from '../pages/admin/AdminAcademicPage'
-import AdminAccountPage from '../pages/admin/AdminAccountPage'
-import AdminAuditLogPage from '../pages/admin/AdminAuditLogPage'
-import AdminClassSectionsPage from '../pages/admin/AdminClassSectionsPage'
-import AdminPermissionsPage from '../pages/admin/AdminPermissionsPage'
-import AdminDepartmentsSubjectsPage from '../pages/admin/AdminDepartmentsSubjectsPage'
-import AdminExamSchedulesPage from '../pages/admin/AdminExamSchedulesPage'
-import AdminExamTrackingPage from '../pages/admin/AdminExamTrackingPage'
-import AdminProctoringPage from '../pages/admin/AdminProctoringPage'
-import AdminReportsPage from '../pages/admin/AdminReportsPage'
-import AdminReviewGroupsPage from '../pages/admin/AdminReviewGroupsPage'
-import AdminSettingsPage from '../pages/admin/AdminSettingsPage'
-import AdminSharedQuestionBankPage from '../pages/admin/AdminSharedQuestionBankPage'
-import AdminUsersPage from '../pages/admin/AdminUsersPage'
 import LoginPage from '../pages/auth/LoginPage'
-import RoleSelectPage from '../pages/auth/RoleSelectPage'
-import StudentCourseDetailPage from '../pages/student/StudentCourseDetailPage'
-import StudentDashboard from '../pages/student/StudentDashboard'
-import StudentFaceEnrollmentPage from '../pages/student/StudentFaceEnrollmentPage'
-import StudentExamDetailPage from '../pages/student/StudentExamDetailPage'
-import StudentExamsPage from '../pages/student/StudentExamsPage'
-import StudentExamResultPage from '../pages/student/StudentExamResultPage'
-import StudentNotificationsPage from '../pages/student/StudentNotificationsPage'
-import StudentScoresPage from '../pages/student/StudentScoresPage'
-import StudentLearningPage from '../pages/student/StudentLearningPage'
-import StudentSettingsPage from '../pages/student/StudentSettingsPage'
-import StudentPostDetailPage from '../pages/student/StudentPostDetailPage'
-import StudentTakeExamPage from '../pages/student/StudentTakeExamPage'
-import StudentSubjectsPage from '../pages/student/StudentSubjectsPage'
-import TeacherAutoExamMatrixPage from '../pages/teacher/TeacherAutoExamMatrixPage'
-import TeacherAccountPage from '../pages/teacher/TeacherAccountPage'
-import TeacherAiQuestionGeneratorPage from '../pages/teacher/TeacherAiQuestionGeneratorPage'
-import TeacherCourseDetailPage from '../pages/teacher/TeacherCourseDetailPage'
-import TeacherCoursesPage from '../pages/teacher/TeacherCoursesPage'
-import TeacherDashboard from '../pages/teacher/TeacherDashboard'
-import TeacherDepartmentApprovalPage from '../pages/teacher/TeacherDepartmentApprovalPage'
-import TeacherExamApprovalDetailPage from '../pages/teacher/TeacherExamApprovalDetailPage'
-import TeacherExamDetailPage from '../pages/teacher/TeacherExamDetailPage'
-import TeacherExamEditorPage from '../pages/teacher/TeacherExamEditorPage'
-import TeacherExamsPage from '../pages/teacher/TeacherExamsPage'
-import TeacherGradeAppealReviewPage from '../pages/teacher/TeacherGradeAppealReviewPage'
-import TeacherGradeExportPage from '../pages/teacher/TeacherGradeExportPage'
-import TeacherInvigilationSchedulePage from '../pages/teacher/TeacherInvigilationSchedulePage'
-import TeacherLiveProctorPage from '../pages/teacher/TeacherLiveProctorPage'
-import TeacherQuestionAuditPage from '../pages/teacher/TeacherQuestionAuditPage'
-import TeacherQuestionBankPage from '../pages/teacher/TeacherQuestionBankPage'
-import TeacherReviewGroupPage from '../pages/teacher/TeacherReviewGroupPage'
 import GuestRoute from './GuestRoute'
 import BackofficeHome from './BackofficeHome'
 import BackofficeRoute from './BackofficeRoute'
@@ -53,9 +8,57 @@ import ProtectedRoute from './ProtectedRoute'
 import RoleRoute from './RoleRoute'
 import TeacherReviewAccessRoute from './TeacherReviewAccessRoute'
 
+const AdminAcademicPage = lazy(() => import('../pages/admin/AdminAcademicPage'))
+const AdminAccountPage = lazy(() => import('../pages/admin/AdminAccountPage'))
+const AdminAuditLogPage = lazy(() => import('../pages/admin/AdminAuditLogPage'))
+const AdminClassSectionsPage = lazy(() => import('../pages/admin/AdminClassSectionsPage'))
+const AdminPermissionsPage = lazy(() => import('../pages/admin/AdminPermissionsPage'))
+const AdminDepartmentsSubjectsPage = lazy(() => import('../pages/admin/AdminDepartmentsSubjectsPage'))
+const AdminExamSchedulesPage = lazy(() => import('../pages/admin/AdminExamSchedulesPage'))
+const AdminExamTrackingPage = lazy(() => import('../pages/admin/AdminExamTrackingPage'))
+const AdminProctoringPage = lazy(() => import('../pages/admin/AdminProctoringPage'))
+const AdminReportsPage = lazy(() => import('../pages/admin/AdminReportsPage'))
+const AdminReviewGroupsPage = lazy(() => import('../pages/admin/AdminReviewGroupsPage'))
+const AdminSettingsPage = lazy(() => import('../pages/admin/AdminSettingsPage'))
+const AdminSharedQuestionBankPage = lazy(() => import('../pages/admin/AdminSharedQuestionBankPage'))
+const AdminUsersPage = lazy(() => import('../pages/admin/AdminUsersPage'))
+const RoleSelectPage = lazy(() => import('../pages/auth/RoleSelectPage'))
+const StudentCourseDetailPage = lazy(() => import('../pages/student/StudentCourseDetailPage'))
+const StudentDashboard = lazy(() => import('../pages/student/StudentDashboard'))
+const StudentFaceEnrollmentPage = lazy(() => import('../pages/student/StudentFaceEnrollmentPage'))
+const StudentExamDetailPage = lazy(() => import('../pages/student/StudentExamDetailPage'))
+const StudentExamsPage = lazy(() => import('../pages/student/StudentExamsPage'))
+const StudentExamResultPage = lazy(() => import('../pages/student/StudentExamResultPage'))
+const StudentNotificationsPage = lazy(() => import('../pages/student/StudentNotificationsPage'))
+const StudentScoresPage = lazy(() => import('../pages/student/StudentScoresPage'))
+const StudentLearningPage = lazy(() => import('../pages/student/StudentLearningPage'))
+const StudentSettingsPage = lazy(() => import('../pages/student/StudentSettingsPage'))
+const StudentPostDetailPage = lazy(() => import('../pages/student/StudentPostDetailPage'))
+const StudentTakeExamPage = lazy(() => import('../pages/student/StudentTakeExamPage'))
+const StudentSubjectsPage = lazy(() => import('../pages/student/StudentSubjectsPage'))
+const TeacherAutoExamMatrixPage = lazy(() => import('../pages/teacher/TeacherAutoExamMatrixPage'))
+const TeacherAccountPage = lazy(() => import('../pages/teacher/TeacherAccountPage'))
+const TeacherAiQuestionGeneratorPage = lazy(() => import('../pages/teacher/TeacherAiQuestionGeneratorPage'))
+const TeacherCourseDetailPage = lazy(() => import('../pages/teacher/TeacherCourseDetailPage'))
+const TeacherCoursesPage = lazy(() => import('../pages/teacher/TeacherCoursesPage'))
+const TeacherDashboard = lazy(() => import('../pages/teacher/TeacherDashboard'))
+const TeacherDepartmentApprovalPage = lazy(() => import('../pages/teacher/TeacherDepartmentApprovalPage'))
+const TeacherExamApprovalDetailPage = lazy(() => import('../pages/teacher/TeacherExamApprovalDetailPage'))
+const TeacherExamDetailPage = lazy(() => import('../pages/teacher/TeacherExamDetailPage'))
+const TeacherExamEditorPage = lazy(() => import('../pages/teacher/TeacherExamEditorPage'))
+const TeacherExamsPage = lazy(() => import('../pages/teacher/TeacherExamsPage'))
+const TeacherGradeAppealReviewPage = lazy(() => import('../pages/teacher/TeacherGradeAppealReviewPage'))
+const TeacherGradeExportPage = lazy(() => import('../pages/teacher/TeacherGradeExportPage'))
+const TeacherInvigilationSchedulePage = lazy(() => import('../pages/teacher/TeacherInvigilationSchedulePage'))
+const TeacherLiveProctorPage = lazy(() => import('../pages/teacher/TeacherLiveProctorPage'))
+const TeacherQuestionAuditPage = lazy(() => import('../pages/teacher/TeacherQuestionAuditPage'))
+const TeacherQuestionBankPage = lazy(() => import('../pages/teacher/TeacherQuestionBankPage'))
+const TeacherReviewGroupPage = lazy(() => import('../pages/teacher/TeacherReviewGroupPage'))
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<div role="status" className="p-6 text-center">Đang tải…</div>}>
       <Routes>
         {/* Guest only */}
         <Route
@@ -487,6 +490,7 @@ export default function AppRouter() {
           }
         />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

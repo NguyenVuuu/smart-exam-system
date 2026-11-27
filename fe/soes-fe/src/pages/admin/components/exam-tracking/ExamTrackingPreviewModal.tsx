@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useAccountQuery } from '../../../../hooks/useAccountQuery'
 import { CalendarPlus, CheckCircle2, Code, Eye, EyeOff, Loader2, X } from 'lucide-react'
 import HtmlContent from '../../../../components/common/HtmlContent'
 import { PROGRAMMING_LANGUAGE_LABELS } from '../../../../constants/programmingLanguages'
-import { getAdminExamDetail, type AdminExamDetail } from '../../api/admin-content.api'
+import { getAdminExamDetail } from '../../api/admin-content.api'
 import { useBackofficePermission } from '../../../../auth/hooks/useBackofficePermission'
 import type { AdminExam } from '../../types/admin.types'
 import { ExamCategoryBadge, ExamStatusBadge } from '../AdminBadges'
@@ -19,35 +19,12 @@ export default function ExamTrackingPreviewModal({
   onClose: () => void
   onCreateSchedule: (exam: AdminExam) => void
 }) {
-  const [examDetail, setExamDetail] = useState<AdminExamDetail | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
+  const query = useAccountQuery(['admin-exam-preview', exam?.id], () => getAdminExamDetail(exam!.id), Boolean(exam?.id))
+  const examDetail = query.data ?? null
+  const loading = query.isFetching
+  const error = query.isError
   const canManageSchedules = useBackofficePermission('SCHEDULES_MANAGE')
 
-  useEffect(() => {
-    let isMounted = true
-    if (exam?.id) {
-      setLoading(true)
-      setError(false)
-      setExamDetail(null)
-      getAdminExamDetail(exam.id)
-        .then((detail) => {
-          if (isMounted) setExamDetail(detail)
-        })
-        .catch(() => {
-          if (isMounted) { setExamDetail(null); setError(true) }
-        })
-        .finally(() => {
-          if (isMounted) setLoading(false)
-        })
-    } else {
-      setExamDetail(null)
-    }
-
-    return () => {
-      isMounted = false
-    }
-  }, [exam?.id])
 
   if (!exam) return null
 

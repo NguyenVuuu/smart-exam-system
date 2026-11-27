@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('screen-share violation ends when sharing recovers before creation finishes', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/tests/browser/fixtures/evidence-storage.html')
   const endedIds = await page.evaluate(async () => {
     const { default: React } = await import('/node_modules/.vite/deps/react.js')
     const { default: ReactDOM } = await import('/node_modules/.vite/deps/react-dom_client.js')

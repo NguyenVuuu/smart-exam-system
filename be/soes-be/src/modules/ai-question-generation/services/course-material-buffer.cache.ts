@@ -3,6 +3,7 @@ const maxEntries = 8
 const ttlMs = 10 * 60 * 1000
 
 const entries = new Map<string, { buffer: Buffer; expiresAt: number }>()
+const inFlight = new Map<string, Promise<Buffer>>()
 let bytes = 0
 
 function remove(key: string) {
@@ -32,13 +33,22 @@ export async function loadCourseMaterialBuffer(
     return hit.buffer
   }
 
-  const buffer = await download()
-  if (buffer.length > maxBytes) return buffer
-  remove(key)
-  while (entries.size >= maxEntries || bytes + buffer.length > maxBytes) {
-    remove(entries.keys().next().value!)
+  const pending = inFlight.get(key)
+  if (pending) return pending
+  const loading = Promise.resolve().then(download).then(buffer => {
+    if (buffer.length > maxBytes) return buffer
+    remove(key)
+    while (entries.size >= maxEntries || bytes + buffer.length > maxBytes) {
+      remove(entries.keys().next().value!)
+    }
+    entries.set(key, { buffer, expiresAt: Date.now() + ttlMs })
+    bytes += buffer.length
+    return buffer
+  })
+  inFlight.set(key, loading)
+  try {
+    return await loading
+  } finally {
+    inFlight.delete(key)
   }
-  entries.set(key, { buffer, expiresAt: Date.now() + ttlMs })
-  bytes += buffer.length
-  return buffer
 }

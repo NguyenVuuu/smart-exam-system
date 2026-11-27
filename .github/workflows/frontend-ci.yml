@@ -37,3 +37,32 @@ jobs:
 
       - name: Build project
         run: npm run build
+
+      - name: Lint project
+        run: npx eslint . --max-warnings 0
+
+      - name: Test vision workers
+        run: npm run test:vision
+
+      - name: Install browser test runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser regression tests
+        run: npx playwright test
+        env:
+          VITE_API_URL: http://127.0.0.1:3000/api
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile/soes-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/soes-mobile/package-lock.json
+      - run: npm ci
+      - run: node node_modules/typescript/bin/tsc --noEmit

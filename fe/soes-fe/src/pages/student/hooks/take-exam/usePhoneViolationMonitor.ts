@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { takeExamApi, type PhoneDetectionMetadata } from '../../api/student-take-exam.api'
 import { isExamWebcamStreamLive } from '../../utils/exam-webcam'
+import { useAuthStore } from '../../../../store/authStore'
+import { openPhoneEvidenceStorage, PHONE_EVIDENCE_RETENTION_MS, type PendingPhoneEvidence } from '../../../../utils/phone-evidence-storage'
 
 interface PhoneMessage {
   type: 'ready' | 'result' | 'error'
@@ -17,9 +19,10 @@ export function usePhoneViolationMonitor(input: {
   stream: MediaStream | null
 }) {
   const [error, setError] = useState<string | null>(null)
+  const ownerId = useAuthStore(state => state.user?.id)
 
   useEffect(() => {
-    if (!input.enabled || !input.scheduleId || !input.attemptId || !input.stream || !isExamWebcamStreamLive(input.stream)) return
+    if (!ownerId || !input.enabled || !input.scheduleId || !input.attemptId || !input.stream || !isExamWebcamStreamLive(input.stream)) return
     const video = document.createElement('video')
     video.muted = true
     video.playsInline = true
@@ -33,7 +36,26 @@ export function usePhoneViolationMonitor(input: {
     let watchdog: number | undefined
     let lastVideoTime = -1
     let uploading = false
-    const queue: Array<NonNullable<PhoneMessage['evidence']>> = []
+    let retryTimer: number | undefined
+    let retryDelay = 2_000
+    let queuedBytes = 0
+    let savingCount = 0
+    let savingBytes = 0
+    const queue: PendingPhoneEvidence[] = []
+    let storage: Awaited<ReturnType<typeof openPhoneEvidenceStorage>> | undefined
+    let storageFailed = false
+    const storageReady = openPhoneEvidenceStorage(ownerId, input.scheduleId, input.attemptId)
+      .then(async opened => {
+        const restored = await opened.load()
+        if (cancelled) return
+        storage = opened
+        queue.push(...restored)
+        queuedBytes += restored.reduce((bytes, evidence) => bytes + evidence.blob.size, 0)
+      }).catch(() => {
+        storageFailed = true
+        if (!cancelled) setError('Không lưu được ảnh dự phòng trên thiết bị. Ảnh đang chờ gửi sẽ mất nếu tải lại trang.')
+      })
+    let persistence = storageReady
     let worker: Worker
     try { worker = new Worker('/mediapipe/vision-worker.js', { name: 'exam-phone' }) }
     catch {
@@ -52,12 +74,21 @@ export function usePhoneViolationMonitor(input: {
     }
 
     const upload = async () => {
-      if (uploading || cancelled) return
+      if (uploading || cancelled || !navigator.onLine) return
+      window.clearTimeout(retryTimer)
       uploading = true
       try {
+        await persistence
+        if (useAuthStore.getState().user?.id !== ownerId) return
         while (!cancelled && queue.length) {
-          const evidence = queue.shift()!
+          const evidence = queue[0]
           try {
+            if (Date.now() - Date.parse(evidence.metadata.capturedAt) >= PHONE_EVIDENCE_RETENTION_MS) {
+              if (storage) await storage.remove(evidence.id)
+              queue.shift()
+              queuedBytes -= evidence.blob.size
+              continue
+            }
             const response = await takeExamApi.recordViolation(input.scheduleId, input.attemptId, {
               violationType: 'PHONE_DETECTED', severity: 'MEDIUM',
               description: `Possible ${evidence.metadata.category} detected. Evidence requires teacher review; this is not a conclusion of misconduct.`,
@@ -66,11 +97,20 @@ export function usePhoneViolationMonitor(input: {
               evidenceFiles: [new File([evidence.blob], `phone-${Date.parse(evidence.metadata.capturedAt)}.jpg`, { type: 'image/jpeg' })],
             })
             if (debug) console.info('[exam-vision] phone event saved', { id: response.id })
-            if (!cancelled) setError(null)
+            if (storage) await storage.remove(evidence.id)
+            queue.shift()
+            queuedBytes -= evidence.blob.size
+            retryDelay = 2_000
+            if (!cancelled && !storageFailed) setError(null)
           } catch (cause) {
             try { worker.postMessage({ type: 'phone-upload-failed' }) } catch { /* The worker may have stopped. */ }
             if (debug) console.error('[exam-vision] phone upload failed', cause)
-            if (!cancelled) setError('Không gửi được ảnh bằng chứng điện thoại. Hệ thống sẽ thử lại khi có sự kiện tiếp theo.')
+            if (!cancelled) {
+              setError('Ảnh bằng chứng chưa gửi được. Hệ thống đang giữ ảnh gốc và sẽ thử gửi lại.')
+              retryTimer = window.setTimeout(() => { void upload() }, retryDelay)
+              retryDelay = Math.min(15_000, retryDelay * 2)
+            }
+            break
           }
         }
       } finally { uploading = false }
@@ -91,7 +131,8 @@ export function usePhoneViolationMonitor(input: {
       if (debug && data.diagnostics) console.info('[exam-vision] phone', data.diagnostics)
       if (data.type === 'ready') {
         ready = true
-        setError(null)
+        if (!storageFailed) setError(null)
+        void upload()
         schedule(0)
         return
       }
@@ -101,7 +142,41 @@ export function usePhoneViolationMonitor(input: {
         return
       }
       busy = false
-      if (data.evidence) { queue.push(data.evidence); void upload() }
+      if (data.evidence) {
+        const evidence = { ...data.evidence, id: crypto.randomUUID() }
+        if (queue.length + savingCount >= 20 || queuedBytes + savingBytes + evidence.blob.size > 12 * 1024 * 1024) {
+          setError('Hàng đợi ảnh bằng chứng đã đầy. Hãy kiểm tra kết nối mạng.')
+          worker.postMessage({ type: 'phone-upload-failed' })
+          schedule()
+          return
+        }
+        savingCount++
+        savingBytes += evidence.blob.size
+        persistence = persistence.then(async () => {
+          try {
+            if (cancelled) return
+            if (queue.length >= 20 || queuedBytes + evidence.blob.size > 12 * 1024 * 1024) {
+              setError('Hàng đợi ảnh bằng chứng đã đầy. Hãy kiểm tra kết nối mạng.')
+              worker.postMessage({ type: 'phone-upload-failed' })
+              return
+            }
+            if (storage) {
+              try { await storage.put(evidence) }
+              catch {
+                storageFailed = true
+                if (!cancelled) setError('Không lưu được ảnh dự phòng trên thiết bị. Hệ thống vẫn giữ ảnh trong bộ nhớ để gửi lại.')
+              }
+            }
+            if (cancelled) return
+            queue.push(evidence)
+            queuedBytes += evidence.blob.size
+          } finally {
+            savingCount--
+            savingBytes -= evidence.blob.size
+          }
+        })
+        void persistence.then(upload)
+      }
       schedule()
     }
 
@@ -127,17 +202,21 @@ export function usePhoneViolationMonitor(input: {
     }
 
     worker.postMessage({ type: 'init', mode: 'phone', debug })
+    const retryOnline = () => { void upload() }
+    window.addEventListener('online', retryOnline)
     watchdog = window.setTimeout(fail, 60_000)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
       window.clearTimeout(watchdog)
+      window.clearTimeout(retryTimer)
+      window.removeEventListener('online', retryOnline)
       worker.terminate()
       queue.length = 0
       video.pause()
       video.srcObject = null
     }
-  }, [input.attemptId, input.enabled, input.scheduleId, input.stream])
+  }, [ownerId, input.attemptId, input.enabled, input.scheduleId, input.stream])
 
   return input.enabled ? error : null
 }

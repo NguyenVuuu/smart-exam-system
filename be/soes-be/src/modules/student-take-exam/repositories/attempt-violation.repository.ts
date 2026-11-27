@@ -394,6 +394,16 @@ export async function createViolation(input: CreateViolationInput) {
   }
 }
 
+export async function findRecordedViolation(id: string, attemptId: string) {
+  const row = await prisma.violation.findUnique({
+    where: { id, attemptId },
+    select: { ...syncedViolationSelect },
+  })
+  if (!row) return null
+  const { evidences, ...violation } = row
+  return { ...violation, evidenceUrls: evidences.map(evidence => evidence.objectName) }
+}
+
 export async function addViolationEvidence(input: AddViolationEvidenceInput) {
   if (input.evidences.length === 0) return
 

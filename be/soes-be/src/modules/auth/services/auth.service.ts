@@ -276,7 +276,7 @@ export async function logout(accessToken: string, userId: string): Promise<void>
     const remainingTtl = decoded.exp - Math.floor(Date.now() / 1000)
     await tokenBlacklist.add(decoded.jti, remainingTtl)
   } catch {
-    await refreshTokenStore.delete(userId)
+    await refreshTokenStore.deleteAllRoles(userId)
   }
 
   logger.info('User logged out', { userId })

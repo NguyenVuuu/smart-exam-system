@@ -180,12 +180,15 @@ test('teacher log shows phone as pending review and opens evidence on desktop/mo
 })
 
 test('monitor queues two phone appearances during a slow upload and leaves shared stream alive', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/tests/browser/fixtures/evidence-storage.html')
   const result = await page.evaluate(async () => {
     const { default: React } = await import('/node_modules/.vite/deps/react.js')
     const { default: ReactDOM } = await import('/node_modules/.vite/deps/react-dom_client.js')
     const { useWebcamViolationMonitor } = await import('/src/pages/student/hooks/take-exam/useWebcamViolationMonitor.ts')
     const { takeExamApi } = await import('/src/pages/student/api/student-take-exam.api.ts')
+    const { useAuthStore } = await import('/src/store/authStore.ts')
+    useAuthStore.getState().setUser({ id: 'monitor-fixture', profileId: 'fixture', fullName: 'Fixture', email: null,
+      avatarUrl: null, role: 'STUDENT', studentCode: 'fixture', teacherCode: null, adminCode: null })
     const canvas = document.createElement('canvas')
     canvas.width = 640; canvas.height = 480
     const timer = setInterval(() => canvas.getContext('2d')!.fillRect(0, 0, 640, 480), 30)

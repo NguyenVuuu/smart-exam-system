@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { cleanEscapedText, normalizeObjectiveFields, restoreVietnameseDiacritics, safeTruncate } from './generated-question.normalizer'
+import { cleanEscapedText, cleanPlainTextMath, normalizeObjectiveFields, safeTruncate } from './generated-question.normalizer'
 import { generatedQuestionSchema } from '../schemas/generated-question.schema'
 
 describe('generated-question.normalizer', () => {
@@ -14,27 +14,20 @@ describe('generated-question.normalizer', () => {
       const latex = 'Cho số nguyên $N$ (với $1 \\le N \\le 100$), phần tử $A[i] \\ge 0$.'
       assert.equal(cleanEscapedText(latex), 'Cho số nguyên $N$ (với $1 ≤ N ≤ 100$), phần tử $A[i] ≥ 0$.')
     })
+
+    it('unescapes literal newline and tab sequences', () => {
+      const escaped = 'Dòng 1\\nDòng 2\\r\\nDòng 3\\tTab'
+      assert.equal(cleanEscapedText(escaped), 'Dòng 1\nDòng 2\nDòng 3\tTab')
+    })
   })
 
-  describe('restoreVietnameseDiacritics', () => {
-    it('restores unaccented Vietnamese programming titles to accented Vietnamese', () => {
+  describe('cleanPlainTextMath', () => {
+    it('removes math dollar delimiters and converts LaTeX operators', () => {
+      const text = 'Chương trình đọc số phần tử $N$, sau đó đọc mảng $N$ phần tử. Duyệt qua các phần tử từ chỉ số 0 đến $N-1$, kiểm tra nếu chỉ số % 2 != 0 và phần tử % 2 == 0 ($1 \\le N \\le 100$).'
       assert.equal(
-        restoreVietnameseDiacritics('Tinh tong cac phan tu o chi so chan'),
-        'Tính tổng các phần tử ở chỉ số chẵn'
+        cleanPlainTextMath(text),
+        'Chương trình đọc số phần tử N, sau đó đọc mảng N phần tử. Duyệt qua các phần tử từ chỉ số 0 đến N-1, kiểm tra nếu chỉ số % 2 != 0 và phần tử % 2 == 0 (1 ≤ N ≤ 100).'
       )
-      assert.equal(
-        restoreVietnameseDiacritics('Kiem tra so nguyen to trong mang'),
-        'Kiểm tra số nguyên tố trong mảng'
-      )
-      assert.equal(
-        restoreVietnameseDiacritics('Dem so luong phan tu lon hon trung binh cong'),
-        'Đếm số lượng phần tử lớn hơn trung bình cộng'
-      )
-    })
-
-    it('keeps already accented Vietnamese text unchanged', () => {
-      const accented = 'Tính tổng các phần tử chẵn'
-      assert.equal(restoreVietnameseDiacritics(accented), accented)
     })
   })
 
@@ -55,6 +48,19 @@ describe('generated-question.normalizer', () => {
   })
 
   describe('normalizeObjectiveFields', () => {
+    it('normalizes explanation escapes and math without changing the programming title', () => {
+      const question = {
+        type: 'PROGRAMMING',
+        title: 'Array sum',
+        content: 'Input:\\n$N$ integers',
+        explanation: 'Read $N$.\\nSum $N$ values.',
+      }
+      normalizeObjectiveFields({ questions: [question] })
+      assert.equal(question.title, 'Array sum')
+      assert.equal(question.content, 'Input:\n$N$ integers')
+      assert.equal(question.explanation, 'Read N.\nSum N values.')
+    })
+
     it('preserves full content while truncating title <= 200 for long objective questions', () => {
       const longQuestionText = 'Trong lập trình Java hướng đối tượng, khi bạn xây dựng một lớp con kế thừa từ một lớp cha và muốn đảm bảo rằng một phương thức cụ thể không bao giờ bị ghi đè bởi bất kỳ lớp con nào khác trong hệ thống phân cấp kế thừa, từ khóa nào sau đây là bắt buộc phải được khai báo trước chữ ký của phương thức đó?'
       assert.ok(longQuestionText.length > 250)

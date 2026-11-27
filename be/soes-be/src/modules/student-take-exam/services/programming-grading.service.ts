@@ -5,6 +5,7 @@ import type {
 import { Judge0Service, judge0Service } from '../../../lib/judge0'
 import { decryptField } from '../../../lib/encryption'
 import type { Judge0SubmissionResult } from '../../../lib/judge0'
+import { AppError } from '../../../errors/AppError'
 import * as repo from '../repositories/programming-grading.repository'
 
 const BATCH_SIZE = 5
@@ -34,13 +35,14 @@ function submissionStatus(
   return statuses.find((status) => status !== 'PASSED')!
 }
 
-export async function gradeProgrammingAnswers(attemptId: string) {
+export async function gradeProgrammingAnswers(attemptId: string, claimToken?: string) {
   const attempt = await repo.findProgrammingAnswers(attemptId)
   const codeByQuestion = new Map(
     attempt.studentAnswers.map(({ examQuestionId, draftSourceCode }) => [examQuestionId, draftSourceCode ?? '']),
   )
 
   for (const { examQuestion } of attempt.attemptQuestions) {
+    if (claimToken && attempt.studentAnswers.some(answer => answer.examQuestionId === examQuestion.id && answer.score !== null)) continue
     const sourceCode = codeByQuestion.get(examQuestion.id) ?? ''
     const config = examQuestion.programmingConfig
     const language = examQuestion.language
@@ -49,7 +51,7 @@ export async function gradeProgrammingAnswers(attemptId: string) {
     }))
     if (!sourceCode.trim() || !language || !config || !tests.length) {
       await repo.saveProgrammingGrade({
-        attemptId, questionId: examQuestion.id, sourceCode,
+        attemptId, claimToken, questionId: examQuestion.id, sourceCode,
         language: language ?? 'JAVA', status: 'WRONG_ANSWER', score: 0,
         passedTestCases: 0, totalTestCases: tests.length,
         compilerOutput: null, runtimeError: null, testResults: [],
@@ -59,7 +61,7 @@ export async function gradeProgrammingAnswers(attemptId: string) {
 
     if (Buffer.byteLength(sourceCode, 'utf8') > config.maxCodeSizeKb * 1024) {
       await repo.saveProgrammingGrade({
-        attemptId, questionId: examQuestion.id, sourceCode, language,
+        attemptId, claimToken, questionId: examQuestion.id, sourceCode, language,
         status: 'WRONG_ANSWER', score: 0, passedTestCases: 0,
         totalTestCases: tests.length, compilerOutput: null,
         runtimeError: 'Source code exceeds maximum allowed size', testResults: [],
@@ -93,7 +95,7 @@ export async function gradeProgrammingAnswers(attemptId: string) {
       : status === 'ACCEPTED' ? Number(examQuestion.points) : 0
 
     await repo.saveProgrammingGrade({
-      attemptId, questionId: examQuestion.id, sourceCode, language, status, score,
+      attemptId, claimToken, questionId: examQuestion.id, sourceCode, language, status, score,
       passedTestCases: passed, totalTestCases: tests.length,
       compilerOutput: results.find(({ status: resultStatus }) => resultStatus.id === 6)?.compile_output ?? null,
       runtimeError: results.find(({ stderr }) => stderr)?.stderr ?? null,
@@ -106,5 +108,6 @@ export async function gradeProgrammingAnswers(attemptId: string) {
         errorMessage: result.stderr ?? result.compile_output ?? result.message,
       })),
     })
+    if (status === 'SYSTEM_ERROR') throw new AppError(503, 'Judge is temporarily unavailable')
   }
 }

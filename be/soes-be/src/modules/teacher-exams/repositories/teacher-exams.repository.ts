@@ -147,8 +147,10 @@ function sourceScopeWhere(
 export function findAutoExamQuestionPool(
   teacherId: string,
   input: Pick<AutoGenerateExamBody, 'subjectId' | 'format' | 'sourceScope' | 'selectedQuestionIds'>,
+  take?: number,
 ) {
   return prisma.question.findMany({
+    take,
     where: {
       subjectId: input.subjectId,
       archivedAt: null,

@@ -39,40 +39,29 @@ export async function upsertExamSessionHeartbeat(
 }
 
 export async function markStaleExamSessionsOffline(cutoff: Date) {
-  const staleSessions = await prisma.examSession.findMany({
-    where: {
-      isOnline: true,
-      lastHeartbeat: { lt: cutoff },
-      attempt: { status: 'IN_PROGRESS' },
-    },
-    select: {
-      attemptId: true,
-      lastHeartbeat: true,
-      webcamStatus: true,
-      screenShareStatus: true,
-      attempt: { select: { examScheduleId: true } },
-    },
-  })
-
-  if (staleSessions.length === 0) return []
-
-  const updates = await Promise.all(staleSessions.map(async (session) => {
-    const result = await prisma.examSession.updateMany({
-      where: { attemptId: session.attemptId, isOnline: true, lastHeartbeat: { lt: cutoff }, attempt: { status: 'IN_PROGRESS' } },
-      data: {
-        isOnline: false,
-        webcamStatus: session.webcamStatus === 'NOT_REQUIRED' ? 'NOT_REQUIRED' : 'DISCONNECTED',
-        screenShareStatus: session.screenShareStatus === 'NOT_REQUIRED' ? 'NOT_REQUIRED' : 'STOPPED',
-      },
-    })
-    return result.count ? {
-      attemptId: session.attemptId,
-      scheduleId: session.attempt.examScheduleId,
-      lastHeartbeatAt: session.lastHeartbeat,
-    } : null
-  }))
-
-  return updates.filter((session): session is NonNullable<typeof session> => session !== null)
+  return prisma.$queryRaw<Array<{ attemptId: string; scheduleId: string; lastHeartbeatAt: Date }>>`
+    WITH stale AS (
+      SELECT session."id"
+      FROM "ExamSession" AS session
+      JOIN "ExamAttempt" AS attempt ON attempt."id" = session."attemptId"
+      WHERE session."isOnline" = true AND session."lastHeartbeat" < ${cutoff}
+        AND attempt."status" = 'IN_PROGRESS'
+      ORDER BY session."lastHeartbeat", session."id"
+      LIMIT 200
+      FOR UPDATE OF session SKIP LOCKED
+    )
+    UPDATE "ExamSession" AS session
+    SET "isOnline" = false,
+        "webcamStatus" = CASE WHEN session."webcamStatus" = 'NOT_REQUIRED'
+          THEN 'NOT_REQUIRED'::"WebcamStatus" ELSE 'DISCONNECTED'::"WebcamStatus" END,
+        "screenShareStatus" = CASE WHEN session."screenShareStatus" = 'NOT_REQUIRED'
+          THEN 'NOT_REQUIRED'::"ScreenShareStatus" ELSE 'STOPPED'::"ScreenShareStatus" END
+    FROM stale, "ExamAttempt" AS attempt
+    WHERE session."id" = stale."id" AND attempt."id" = session."attemptId"
+      AND attempt."status" = 'IN_PROGRESS'
+    RETURNING session."attemptId", attempt."examScheduleId" AS "scheduleId",
+              session."lastHeartbeat" AS "lastHeartbeatAt"
+  `
 }
 
 export async function findAttemptForHeartbeat(attemptId: string, scheduleId: string, studentId: string) {

@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import type {
   RecordViolationPayload,
-  SaveAnswerPayload,
   SendHeartbeatPayload,
   StartExamRequest,
 } from '../../api/student-take-exam.api'
@@ -32,20 +31,6 @@ export function useGetExamAttempt(scheduleId: string, attemptId: string, enabled
     staleTime: Infinity,
     gcTime: 60_000,
     retry: false,
-  })
-}
-
-export function useSaveAnswerMutation() {
-  return useMutation({
-    mutationFn: ({
-      scheduleId,
-      attemptId,
-      data,
-    }: {
-      scheduleId: string
-      attemptId: string
-      data: SaveAnswerPayload[]
-    }) => takeExamApi.saveAnswers(scheduleId, attemptId, data),
   })
 }
 

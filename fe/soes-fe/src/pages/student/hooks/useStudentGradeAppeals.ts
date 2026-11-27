@@ -1,8 +1,9 @@
 import { isAxiosError } from 'axios'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { getSocket } from '../../../api/socket'
 import { takeExamApi, type GradeAppeal } from '../api/student-take-exam.api'
+import { useAccountQuery } from '../../../hooks/useAccountQuery'
 
 type GradeAppealUpdate = Partial<GradeAppeal> & {
   attemptId: string
@@ -10,23 +11,24 @@ type GradeAppealUpdate = Partial<GradeAppeal> & {
 }
 
 export function useStudentGradeAppeals(scheduleId?: string, attemptId?: string) {
-  const [appeals, setAppeals] = useState<GradeAppeal[]>([])
+  const query = useAccountQuery(['grade-appeals', scheduleId, attemptId],
+    () => takeExamApi.listGradeAppeals(scheduleId!, attemptId!), Boolean(scheduleId && attemptId))
+  const appeals = query.data ?? []
+  const updateAppeals = query.setData
+  const setAppeals = useCallback((update: (current: GradeAppeal[]) => GradeAppeal[]) =>
+    updateAppeals(current => update(current ?? [])), [updateAppeals])
   const [reason, setReason] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const submittingRef = useRef(false)
 
-  const loadAppeals = useCallback(async () => {
-    if (!scheduleId || !attemptId) return
-    const items = await takeExamApi.listGradeAppeals(scheduleId, attemptId)
-    setAppeals(items)
-  }, [attemptId, scheduleId])
+  const loadAppeals = query.reload
+
+  useEffect(() => {
+    if (query.error) toast.error('Không thể tải trạng thái phúc khảo.')
+  }, [query.error])
 
   useEffect(() => {
     if (!scheduleId || !attemptId) return
-
-    let active = true
-    loadAppeals()
-      .catch(() => { if (active) toast.error('Không thể tải trạng thái phúc khảo.') })
 
     const socket = getSocket()
     const applyAppealUpdate = (update: GradeAppealUpdate) => {
@@ -39,16 +41,12 @@ export function useStudentGradeAppeals(scheduleId?: string, attemptId?: string) 
     socket.on('grade_appeal:updated', applyAppealUpdate)
 
     return () => {
-      active = false
       socket.off('grade_appeal:updated', applyAppealUpdate)
     }
-  }, [attemptId, loadAppeals, scheduleId])
+  }, [attemptId, setAppeals, scheduleId])
 
   const hasAnyAppeal = appeals.length > 0
-  const hasOpenAppeal = useMemo(
-    () => appeals.some(({ status }) => status === 'PENDING' || status === 'IN_REVIEW'),
-    [appeals],
-  )
+  const hasOpenAppeal = appeals.some(({ status }) => status === 'PENDING' || status === 'IN_REVIEW')
 
   const submit = async () => {
     if (submittingRef.current) return

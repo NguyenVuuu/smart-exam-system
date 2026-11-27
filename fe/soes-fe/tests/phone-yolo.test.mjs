@@ -38,3 +38,56 @@ test('decodes the handheld-device score and box without confusing another COCO c
     originX: 280, originY: 240, width: 80, height: 160,
   })
 })
+
+test('the real WASM runtime can reuse input memory after output tensors are disposed', async () => {
+  const session = await ort.InferenceSession.create(await readFile(model), { executionProviders: ['wasm'] })
+  const context = vm.createContext({
+    OffscreenCanvas: class {
+      getContext() { return { drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(640 * 640 * 4) }) } }
+    },
+    Float32Array, URL, self: { location: { href: 'http://localhost/mediapipe/vision-worker.js' } },
+    ort: { env: { wasm: {} }, Tensor: ort.Tensor, InferenceSession: { create: async () => session } },
+  })
+  vm.runInContext(`${source}\nthis.createDetector = PhoneYolo.create`, context)
+  try {
+    const detector = await context.createDetector()
+    const first = await detector.detectForVideo({})
+    const second = await detector.detectForVideo({})
+    assert.deepEqual(JSON.parse(JSON.stringify(second)), JSON.parse(JSON.stringify(first)))
+  } finally { await session.release() }
+})
+
+test('inference disposes input and every output even when output decoding fails', async () => {
+  const disposed = []
+  const inputs = []
+  let invalid = false
+  const context = vm.createContext({
+    OffscreenCanvas: class {
+      getContext() { return { drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(640 * 640 * 4) }) } }
+    },
+    URL, self: { location: { href: 'http://localhost/mediapipe/vision-worker.js' } },
+    ort: {
+      env: { wasm: {} },
+      Tensor: class {
+        constructor(_type, data) { inputs.push(data) }
+        dispose() { disposed.push('input') }
+      },
+      InferenceSession: { create: async () => ({
+        inputNames: ['images'], outputNames: ['output'],
+        run: async () => ({
+          output: { data: new Float32Array(84), dims: invalid ? [1] : [1, 84, 1], dispose() { disposed.push('output') } },
+          extra: { dispose() { disposed.push('extra') } },
+        }),
+        release() {},
+      }) },
+    },
+  })
+  vm.runInContext(`${source}\nthis.createDetector = PhoneYolo.create`, context)
+  const detector = await context.createDetector()
+  assert.equal((await detector.detectForVideo({})).detections.length, 0)
+  assert.deepEqual(disposed, ['output', 'extra', 'input'])
+  invalid = true
+  await assert.rejects(detector.detectForVideo({}), /Unexpected YOLO output shape/)
+  assert.deepEqual(disposed, ['output', 'extra', 'input', 'output', 'extra', 'input'])
+  assert.equal(inputs[0], inputs[1])
+})

@@ -25,10 +25,11 @@ export function markAllNotificationsRead(userId: string) {
   return prisma.notification.updateMany({ where: { userId, isRead: false }, data: { isRead: true } })
 }
 
-export function listVisibleSchedules(studentId: string, query: StudentExamSchedulesQuery) {
+export function listVisibleSchedules(studentId: string, query: StudentExamSchedulesQuery, ids?: string[]) {
   return prisma.examSchedule.findMany({
     where: {
       ...studentVisibleScheduleWhere(),
+      ...(ids ? { id: { in: ids } } : {}),
       ...(query.keyword
         ? {
             OR: [
@@ -64,8 +65,10 @@ export function listVisibleSchedules(studentId: string, query: StudentExamSchedu
       attempts: {
         where: { studentId },
         orderBy: { attemptNo: 'desc' },
+        take: 1,
         select: { id: true, status: true, deadlineAt: true },
       },
+      _count: { select: { attempts: { where: { studentId } } } },
       scheduleCourses: {
         where: { courseOffering: { enrollments: { some: { studentId } } } },
         take: 1,
@@ -84,10 +87,11 @@ export function listVisibleSchedules(studentId: string, query: StudentExamSchedu
   })
 }
 
-export function listReleasedScores(studentId: string, query: StudentScoresQuery) {
+export function listReleasedScores(studentId: string, query: StudentScoresQuery, ids?: string[]) {
   return prisma.examAttempt.findMany({
     where: {
       studentId,
+      ...(ids ? { id: { in: ids } } : {}),
       totalScore: { not: null },
       // Chỉ điểm đã công bố mới là điểm chính thức của sinh viên.
       status: 'PUBLISHED',
@@ -101,7 +105,7 @@ export function listReleasedScores(studentId: string, query: StudentScoresQuery)
           { makeupOfSchedule: releasedResultScheduleWhere() },
         ],
       },
-      ...(query.keyword
+      ...(query.keyword && !ids
         ? {
             OR: [
               { examSchedule: { title: { contains: query.keyword, mode: 'insensitive' } } },

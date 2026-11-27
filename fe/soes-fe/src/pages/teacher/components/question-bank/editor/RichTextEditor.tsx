@@ -68,11 +68,18 @@ export default function RichTextEditor({
           content_style: [
             contentUiCss,
             contentDefaultCss,
-            'body { font-family: Inter, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937; margin: 12px; }',
+            'body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13.5px; line-height: 1.6; color: #334155; margin: 12px; }',
+            'h1, h2, h3, h4, h5, h6 { font-family: inherit; color: #0f172a; margin-top: 14px; margin-bottom: 6px; font-weight: 600; }',
+            'h3 { font-size: 14px; color: #1e40af; border-left: 3px solid #3b82f6; padding-left: 8px; margin-top: 14px; margin-bottom: 6px; }',
+            'h4 { font-size: 13.5px; color: #1e293b; margin-top: 10px; margin-bottom: 4px; }',
+            'p { margin: 6px 0; font-size: 13.5px; line-height: 1.6; color: #334155; font-weight: 400; }',
+            'ul, ol { margin: 6px 0 10px 22px; padding: 0; }',
+            'li { margin-bottom: 4px; font-size: 13.5px; line-height: 1.6; color: #334155; font-weight: 400; }',
+            'pre { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-family: Consolas, Monaco, "Courier New", monospace; font-size: 13px; line-height: 1.5; color: #0f172a; white-space: pre-wrap; }',
+            'code { font-family: Consolas, Monaco, "Courier New", monospace; background-color: #f1f5f9; padding: 1px 4px; border-radius: 4px; font-size: 12.5px; color: #0f172a; }',
             'img { display: inline-block; cursor: pointer; vertical-align: top; }',
             'p:has(> img:only-child) { display: inline-block; margin: 0 12px 12px 0; vertical-align: top; }',
             'p:has(> img:only-child) img { display: block; }',
-            'pre { white-space: pre-wrap; }',
           ].join('\n'),
         }}
       />

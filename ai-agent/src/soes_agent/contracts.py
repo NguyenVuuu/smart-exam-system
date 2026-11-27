@@ -103,6 +103,7 @@ class PracticeFocusTopic(BaseModel):
 class TopicSuggestionRequest(ModelSelection):
     title: str = Field(min_length=1, max_length=300)
     content: str = Field(min_length=1, max_length=3000)
+    explanation: str | None = Field(default=None, max_length=4000)
     existingTopics: list[PracticeFocusTopic] = Field(max_length=100)
 
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BookOpen, ClipboardList, LoaderCircle, Sparkles } from 'lucide-react'
 import AppSelect from '../../../components/common/AppSelect'
+import AgentAnswerMarkdown from '../../../components/common/AgentAnswerMarkdown'
 import { getApiErrorMessage } from '../../../api/errors'
 import { createPracticeSet, getPracticeSet, listPracticeSets, submitPracticeSet,
   type PracticeSet, type PracticeSummary, type StudyMaterial, type TopicInsight } from '../api/student-learning.api'
@@ -151,13 +152,9 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
           value={item.result?.sourceCode ?? codes[item.id] ?? item.starterCode}
           onChange={(value) => setCodes((previous) => ({ ...previous, [item.id]: value }))}
           completed={!!current.completedAt} />}
-        {item.result && <div className="space-y-1 text-xs text-slate-600">
-          <p>{item.result.explanation}</p>
-          <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}</p>
-          {item.kind === 'PROGRAMMING' && item.result.sourceUrls?.map((url, index) =>
-            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block break-all text-blue-700 underline">
-              Nguồn web {index + 1}: {url}
-            </a>)}
+        {item.kind === 'CHOICE' && item.result && <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-2.5 text-sm text-slate-700">
+          <p className="mb-1 font-semibold text-slate-800">Giải thích đáp án</p>
+          <AgentAnswerMarkdown text={item.result.explanation} />
         </div>}
       </fieldset>)}
       {pageCount > 1 && <nav aria-label="Trang bài luyện" className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">

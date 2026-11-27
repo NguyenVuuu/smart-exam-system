@@ -313,13 +313,8 @@ export const takeExamApi = {
     }
   },
 
-  // Backend accepts one answer per request: PUT .../answers { questionId, answer }
-  saveAnswers: async (scheduleId: string, attemptId: string, answers: SaveAnswerPayload[]): Promise<void> => {
-    await Promise.all(
-      answers.map((payload) =>
-        axios.put<BaseResponse<null>>(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/answers`, payload),
-      ),
-    )
+  saveAnswer: async (scheduleId: string, attemptId: string, answer: SaveAnswerPayload): Promise<void> => {
+    await axios.put(`${BASE_URL}/${scheduleId}/attempts/${attemptId}/answers`, answer)
   },
 
   submitExam: async (scheduleId: string, attemptId: string): Promise<SubmitExamResponse> => {

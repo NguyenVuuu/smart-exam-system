@@ -1,8 +1,13 @@
 import os
 import logging
+import asyncio
+from contextlib import suppress
 from hmac import compare_digest
 from pathlib import Path
 from time import perf_counter
+from uuid import UUID
+from threading import BoundedSemaphore
+from collections.abc import AsyncIterator
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -27,6 +32,10 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logging.getLogger("soes_agent").setLevel(logging.INFO)
 app = FastAPI(title="SOES AI Agent", docs_url=None, redoc_url=None)
 logger = logging.getLogger(__name__)
+_max_concurrent_requests = int(os.environ.get("AI_AGENT_MAX_CONCURRENT_REQUESTS", "4"))
+if _max_concurrent_requests < 1:
+    raise ValueError("AI_AGENT_MAX_CONCURRENT_REQUESTS must be positive")
+_request_slots = BoundedSemaphore(_max_concurrent_requests)
 
 
 @app.exception_handler(RequestValidationError)
@@ -67,17 +76,54 @@ async def log_agent_request(request: Request, call_next):
         response = await call_next(request)
         status = response.status_code
         return response
+    except asyncio.CancelledError:
+        status = 499
+        raise
     finally:
-        if request.url.path.startswith("/v1/"):
-            logger.info("AI workflow=%s status=%s elapsed_ms=%s model=%s",
-                        request.url.path, status, round((perf_counter() - started) * 1000),
-                        getattr(request.state, "model", os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")))
+        route = request.scope.get("route")
+        if route and route.path.startswith("/v1/"):
+            logger.info("AI workflow=%s status=%s elapsed_ms=%s model=%s request_id=%s",
+                        route.path, status, round((perf_counter() - started) * 1000),
+                        getattr(request.state, "model", os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")),
+                        request_id_for_log(request))
 
 
-def require_service(authorization: str = Header(default="")) -> None:
+def request_id_for_log(request: Request) -> str:
+    raw_id = request.headers.get("x-request-id", "")
+    if len(raw_id) != 36:
+        return "-"
+    try:
+        return str(UUID(raw_id))
+    except ValueError:
+        return "-"
+
+
+async def require_service(http_request: Request, authorization: str = Header(default="")) -> AsyncIterator[None]:
     secret = os.environ.get("AI_AGENT_SHARED_SECRET", "")
     if not secret or not compare_digest(authorization, f"Bearer {secret}"):
         raise HTTPException(status_code=401, detail="Unauthorized")
+    if not _request_slots.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="AI service is busy; please retry later")
+    owner = asyncio.current_task()
+
+    async def cancel_disconnected():
+        while True:
+            await asyncio.sleep(0.25)
+            if await http_request.is_disconnected():
+                if owner is not None:
+                    owner.cancel()
+                return
+
+    monitor = asyncio.create_task(cancel_disconnected())
+    try:
+        yield
+    finally:
+        try:
+            monitor.cancel()
+            with suppress(asyncio.CancelledError):
+                await monitor
+        finally:
+            _request_slots.release()
 
 
 def get_model(timeout_seconds: int = 60, max_output_tokens: int | None = None,
@@ -179,7 +225,10 @@ async def teacher_exam_draft(request: ExamDraftRequest, http_request: Request) -
 @app.post("/v1/teacher/topic-suggestion", response_model=TopicSuggestion, dependencies=[Depends(require_service)])
 async def teacher_topic_suggestion(request: TopicSuggestionRequest, http_request: Request) -> TopicSuggestion:
     http_request.state.model = request.model or os.environ.get("AI_AGENT_MODEL", "gemini-3.5-flash-lite")
-    return await suggest_topic(get_model(model_name=request.model), request)
+    try:
+        return await suggest_topic(get_model(model_name=request.model), request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="AI could not suggest a valid topic") from exc
 
 
 @app.post("/v1/teacher/programming-review", response_model=ProgrammingReview, dependencies=[Depends(require_service)])

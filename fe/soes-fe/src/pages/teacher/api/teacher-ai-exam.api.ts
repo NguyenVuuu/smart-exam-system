@@ -29,7 +29,7 @@ export interface TopicSuggestion {
 }
 
 export async function suggestQuestionTopic(input: {
-  subjectId: string; title: string; content: string
+  subjectId: string; title: string; content: string; explanation?: string
 }): Promise<TopicSuggestion> {
   const { data } = await apiClient.post<ApiResponse<TopicSuggestion>>('/teacher/questions/topic-suggestion', input)
   return data.data

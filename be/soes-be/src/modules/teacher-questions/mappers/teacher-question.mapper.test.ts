@@ -20,6 +20,7 @@ test('question bank DTO decrypts content and answer key without exposing ciphert
     aiDifficultyReason: null, source: 'MANUAL', language: null,
     subject: { id: 'subject', code: 'SUB', name: 'Môn học', departmentId: 'department' },
     owner: { id: 'teacher', user: { fullName: 'Giảng viên' } },
+    topics: [],
     options: [{ id: 'option', ...sealExamOption('Đáp án đúng', true) }],
     programmingConfig: null, programmingTests: [], questionBankItem: null,
     createdAt: now, updatedAt: now, archivedAt: null,

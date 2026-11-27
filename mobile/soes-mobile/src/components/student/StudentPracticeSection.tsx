@@ -146,14 +146,10 @@ export default function StudentPracticeSection({ materials, topics, initialTopic
           value={codes[item.id] ?? item.starterCode}
           onChange={(value) => setCodes((previous) => ({ ...previous, [item.id]: value }))}
           onFocusInput={onFocusInput} completed={!!current.completedAt} />}
-        {item.result && <>
-          <Text style={{ color: '#64748b' }}>{item.result.explanation}</Text>
-          <Text style={{ color: '#64748b', fontSize: 12 }}>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}</Text>
-          {item.kind === 'PROGRAMMING' && item.result.sourceUrls?.map((url, index) =>
-            <TouchableOpacity key={url} accessibilityRole="link" onPress={() => void Linking.openURL(url)}>
-              <Text style={{ color: '#1d4ed8', fontSize: 12 }} numberOfLines={2}>Nguồn web {index + 1}: {url}</Text>
-            </TouchableOpacity>)}
-        </>}
+        {item.result && <View style={{ marginTop: 8, padding: 10, backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontWeight: '700', color: '#1e293b', fontSize: 12, marginBottom: 2 }}>Giải thích thuật toán:</Text>
+          <Text style={{ color: '#334155', fontSize: 12, lineHeight: 18 }}>{item.result.explanation}</Text>
+        </View>}
       </View>)}
       {pageCount > 1 && <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <TouchableOpacity accessibilityRole="button" disabled={page === 0} onPress={() => setPage((value) => value - 1)}

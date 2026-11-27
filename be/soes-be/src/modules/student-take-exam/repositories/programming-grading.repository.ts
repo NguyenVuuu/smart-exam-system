@@ -1,6 +1,7 @@
 import type { ProgrammingSubmissionStatus, ProgrammingTestResultStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import prisma from '../../../lib/prisma'
+import { assertGradingClaim } from './grading-job.repository'
 
 export function findProgrammingAnswers(attemptId: string) {
   return prisma.examAttempt.findUniqueOrThrow({
@@ -20,7 +21,7 @@ export function findProgrammingAnswers(attemptId: string) {
       },
       studentAnswers: {
         where: { examQuestion: { type: 'PROGRAMMING' } },
-        select: { examQuestionId: true, draftSourceCode: true },
+        select: { examQuestionId: true, draftSourceCode: true, score: true },
       },
     },
   })
@@ -36,6 +37,7 @@ interface TestResultInput {
 }
 
 interface ProgrammingGradeInput {
+  claimToken?: string
   attemptId: string
   questionId: string
   sourceCode: string
@@ -51,6 +53,7 @@ interface ProgrammingGradeInput {
 
 export function saveProgrammingGrade(input: ProgrammingGradeInput) {
   return prisma.$transaction(async (tx) => {
+    await assertGradingClaim(tx, input.attemptId, input.claimToken)
     const submissionNo = await tx.programmingSubmission.count({
       where: { attemptId: input.attemptId, examQuestionId: input.questionId },
     }) + 1

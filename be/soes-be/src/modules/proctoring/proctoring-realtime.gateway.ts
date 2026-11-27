@@ -3,6 +3,7 @@ import { Server, type Socket } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import redis from '../../lib/redis'
 import { logger } from '../../lib/logger'
+import { waitForRedisReady } from '../../lib/redis-ready'
 import { corsConfig } from '../../config'
 import { tokenBlacklist } from '../../lib/redis'
 import { verifyAccessToken, type AccountRole } from '../../utils/jwt'
@@ -24,6 +25,9 @@ type CandidatePayload = {
 }
 
 let io: Server | null = null
+const adapterClients: Array<typeof redis> = []
+export const realtimeAdapterReady = () => adapterClients.length === 2 && adapterClients.every(client => client.status === 'ready')
+export const realtimeConnectionCount = () => io?.engine.clientsCount
 
 const teacherRoom = (teacherId: string) => `proctoring:teacher:${teacherId}`
 const studentRoom = (studentId: string) => `proctoring:student:${studentId}`
@@ -63,24 +67,28 @@ async function authenticateSocket(socket: Socket, next: (err?: Error) => void) {
 }
 
 async function configureRedisAdapter(server: Server) {
+  const pubClient = redis.duplicate()
+  const subClient = redis.duplicate()
   try {
-    const pubClient = redis.duplicate()
-    const subClient = redis.duplicate()
-    const waitUntilReady = (client: typeof pubClient) => {
-      if (client.status === 'ready') return Promise.resolve()
-      return new Promise<void>((resolve, reject) => {
-        client.once('ready', resolve)
-        client.once('error', reject)
-      })
-    }
-    await Promise.all([waitUntilReady(pubClient), waitUntilReady(subClient)])
+    await Promise.all([waitForRedisReady(pubClient), waitForRedisReady(subClient)])
     server.adapter(createAdapter(pubClient, subClient))
+    adapterClients.push(pubClient, subClient)
     logger.info('Socket.IO Redis adapter connected')
   } catch (error) {
-    logger.error('Socket.IO Redis adapter disabled', {
+    pubClient.disconnect()
+    subClient.disconnect()
+    logger.error('Socket.IO Redis adapter unavailable', {
       error: error instanceof Error ? error.message : String(error),
     })
+    if (process.env.PROCTORING_REDIS_ADAPTER_REQUIRED === 'true') throw error
   }
+}
+
+export async function stopProctoringRealtime() {
+  const server = io
+  io = null
+  if (server) await new Promise<void>(resolve => server.close(() => resolve()))
+  for (const client of adapterClients.splice(0)) client.disconnect()
 }
 
 export async function initProctoringRealtime(httpServer: HttpServer) {
@@ -91,8 +99,8 @@ export async function initProctoringRealtime(httpServer: HttpServer) {
     },
   })
 
-  await configureRedisAdapter(io)
   io.use(authenticateSocket)
+  await configureRedisAdapter(io)
   setProctoringEmitter({
     emitToSchedule: (scheduleId, event, payload) => io?.to(scheduleRoom(scheduleId)).emit(event, payload),
     emitToAttempt: (attemptId, event, payload) => io?.to(attemptRoom(attemptId)).emit(event, payload),
