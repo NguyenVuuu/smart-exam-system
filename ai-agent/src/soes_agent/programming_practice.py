@@ -131,7 +131,7 @@ async def generate_programming_practice(model: ChatGoogleGenerativeAI,
 
     # Gemini rejects the nested test-case schema in json_schema mode; tool calling accepts it.
     structured = model.with_structured_output(ProgrammingPracticeDraft.model_json_schema(), method="function_calling")
-    model_slots = asyncio.Semaphore(2)
+    model_slots = asyncio.Semaphore(4)
     batch_count = max(1, (request.count + 4) // 5)
     candidates: list[ProgrammingPracticeQuestion] = []
     rejected_stems: list[str] = []
@@ -169,19 +169,7 @@ async def generate_programming_practice(model: ChatGoogleGenerativeAI,
                 response = await structured.ainvoke(messages)
         parsed = parse_candidates(response, evidence)
         reviewed, issues = review_programming_questions(parsed, source, request)
-        with measure_stage("programming.verify", len(reviewed)):
-            instruction_ok = await verify_instruction_fulfillment(
-                model, request.instruction, reviewed,
-                evidence="\n\n".join(question.supportQuote for question in reviewed),
-            )
-        if len(instruction_ok) != len(reviewed):
-            logger.warning("Programming practice instruction verification rejected count=%s", len(reviewed) - len(instruction_ok))
-        rejected_stems.extend(question.stem for index, question in enumerate(reviewed) if index not in instruction_ok)
-        accepted_batch = [add_standard_imports(question) for index, question in enumerate(reviewed) if index in instruction_ok]
-        if len(accepted_batch) < size:
-            remaining = [add_standard_imports(question) for index, question in enumerate(reviewed) if index not in instruction_ok]
-            accepted_batch.extend(remaining[:size - len(accepted_batch)])
-        return accepted_batch
+        return [add_standard_imports(question) for question in reviewed[:size]]
 
     for attempt in range(3):
         accepted, issues = review_programming_questions(candidates, source, request)
