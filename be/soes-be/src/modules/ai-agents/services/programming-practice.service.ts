@@ -8,6 +8,7 @@ import { verifyReferenceOnce } from './reference-verification.cache'
 export type ProgrammingQuestion = z.infer<typeof programmingPracticeQuestionSchema>
 
 const MAX_GENERATION_ATTEMPTS = 3
+const REFERENCE_CHECK_BATCH_SIZE = 5
 
 function normalizedStem(stem: string) {
   return stem.trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi-VN')
@@ -39,6 +40,7 @@ export async function collectVerifiedProgrammingQuestions(desiredCount: number,
     logger.info('AI programming practice Judge verification completed', {
       attempt, requested: missing, generated: generated.length, novel: novel.length,
       accepted: verified.length, remaining: desiredCount - accepted.length, generationMs, judgeMs,
+      referenceCheck: 'FIRST_TEST_CASE',
     })
 
   }
@@ -108,27 +110,25 @@ export async function runProgrammingPracticeSample(sourceCode: string, question:
 
 export async function verifyProgrammingDraft(questions: ProgrammingQuestion[], language: ProgrammingQuestion['language']) {
   const verified: ProgrammingQuestion[] = []
-  for (const [questionIndex, question] of questions.entries()) {
+  const checkFirstCase = async (question: ProgrammingQuestion, questionIndex: number) => {
     if (question.language !== language || !question.testCases.length ||
       new Set(question.testCases.map(test => test.input)).size !== question.testCases.length) {
       logger.warn('AI programming practice failed structural verification', { questionIndex })
-      continue
+      return false
     }
-    const passed = await verifyReferenceOnce(question, async () => {
-      for (let start = 0; start < question.testCases.length; start += 5) {
-        const results = await Promise.all(question.testCases.slice(start, start + 5)
-          .map(test => runCase(question.referenceSolution, language, test)))
-        if (results.some(result => result.isUnavailable)) {
-          throw new AppError(503, 'Judge tạm thời không khả dụng; chưa thể xác minh bài lập trình')
-        }
-        if (results.some(result => !result.passed)) {
-          logger.warn('AI programming practice failed Judge verification', { questionIndex, testBatch: start / 5 })
-          return false
-        }
+    return verifyReferenceOnce({ policy: 'practice-first-case-v1', question }, async () => {
+      const result = await runCase(question.referenceSolution, language, question.testCases[0])
+      if (result.isUnavailable) {
+        throw new AppError(503, 'Judge tạm thời không khả dụng; chưa thể xác minh bài lập trình')
       }
-      return true
+      if (!result.passed) logger.warn('AI programming practice failed initial Judge check', { questionIndex, testCaseIndex: 0 })
+      return result.passed
     })
-    if (passed) verified.push(question)
+  }
+  for (let start = 0; start < questions.length; start += REFERENCE_CHECK_BATCH_SIZE) {
+    const batch = questions.slice(start, start + REFERENCE_CHECK_BATCH_SIZE)
+    const passed = await Promise.all(batch.map((question, index) => checkFirstCase(question, start + index)))
+    verified.push(...batch.filter((_question, index) => passed[index]))
   }
   return verified
 }

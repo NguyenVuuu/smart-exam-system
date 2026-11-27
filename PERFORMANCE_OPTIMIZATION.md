@@ -18,7 +18,7 @@ Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. 
 | F12 | 3 | In Progress | Admission, Redis generation lease, Student row-lock quota và Agent cancellation; còn proxy regression |
 | F13 | 3 | In Progress | Gộp download và extraction đồng thời; còn bytes/base64 và benchmark nhiều replica |
 | F14 | 3 | In Progress | Cache bounded cho token tài liệu và offload scoring, giữ nguyên công thức ranking; còn benchmark thực |
-| F15 | 3 | In Progress | Fail-closed + mọi testcase + cache exact reference bounded; 5/5 smoke AI thực qua, chưa thay thế đánh giá học thuật có nhãn/Judge outage |
+| F15 | 3 | In Progress | Theo yêu cầu mới: tạo bài lập trình SV kiểm testcase đầu, chấm nộp đủ testcase; cache phân biệt policy; còn đánh giá chất lượng/Judge deployment |
 | F16 | 1 | In Progress | Đã lazy load route, entry gzip còn 122,95 kB; chưa đo LCP mạng thiết bị thực |
 | F17 | 4 | In Progress | Giải phóng output tensor sau inference; còn profile memory và camera thực |
 | F18 | 3 | Completed | Admission/dedupe hiện hữu; queue ảnh điện thoại mã hóa qua reload, giới hạn số lượng/byte, TTL và cleanup đăng xuất; giới hạn kiểm chứng tại checkpoint cuối |
@@ -329,3 +329,13 @@ Các checkpoint mới: `33286b8` (durable grading, index và readiness), `e92684
 - CI frontend bổ sung strict lint gate, không chỉ lint riêng file đã sửa. Chưa push hoặc chạy GitHub runner. Build giữ warning chunk lớn cũ; không đổi ngưỡng warning. Không suy ra throughput từ số lỗi lint hoặc số dòng đã giảm.
 - Lượt strict lint và production build cuối cùng đều exit 0; build bao gồm typecheck. Sau khi tối giản selector tài khoản, sáu ca regression mới được chạy lại trong chế độ CI và đạt 6/6 (6,7 giây). Không chạy lại backend/Python vì checkpoint này không sửa hai phần đó.
 - Rollback: hoàn tác checkpoint lint frontend và strict gate cùng nhau; không có schema/data migration. Resource policy mới có regression test scope và mutation; vẫn cần xác minh trên trình duyệt/deployment mục tiêu khi phát hành. Phần lint đã hoàn tất; trạng thái nghiệm thu tổng thể F01–F22 không tự thay đổi vì riêng lint xanh.
+
+## Bài luyện lập trình · kiểm tra testcase đầu theo yêu cầu mới · 27/11/2026
+
+- Log người dùng cung cấp: sinh 20 bài mất 17.434 ms, kiểm chứng Judge 144.180 ms. AI Agent trả 200 chỉ kết thúc bước sinh; API tạo bài vẫn chờ Judge rồi ghi DB. Frontend đã setCurrent ngay khi API trả về và không await tải lịch sử. Không có bằng chứng cần sửa render hoặc tăng timeout frontend.
+- Yêu cầu mới thay thế quy tắc kiểm toàn bộ testcase trước phát hành của bài luyện lập trình sinh viên: `verifyProgrammingDraft` chạy đúng testcase đầu của mỗi lời giải mẫu, theo nhóm tối đa năm bài đồng thời; giữ thứ tự câu hỏi, kiểm cấu trúc/ngôn ngữ/input trùng, sinh bù tối đa ba lượt và fail-closed khi Judge không khả dụng. Giới hạn Judge toàn tiến trình giữ nguyên, không tăng tải không giới hạn.
+- Cache có namespace policy `practice-first-case-v1`, vẫn hash toàn câu hỏi/reference/tests và cấu hình Judge; không trộn kết quả kiểm một case với cache kiểm đủ case. Log bổ sung `referenceCheck=FIRST_TEST_CASE` để phân biệt mức kiểm chứng.
+- Không sửa `gradeProgrammingPractice`: khi sinh viên nộp vẫn chạy đủ testcase để tính điểm. Không thay chấm bài thi chính thức, luồng giảng viên, model, prompt, RAG, schema hoặc API contract. Kiểm một case ở bước tạo đề không chứng minh các case còn lại đúng; đây là giới hạn chất lượng của chính sách người dùng lựa chọn.
+- File: `programming-practice.service.ts`, `programming-practice.service.test.ts`. Tám test tập trung qua, gồm 20 bài chỉ gọi Judge 20 lần và tối đa năm job cùng lúc, giữ thứ tự, loại first-case sai, lỗi Judge không được chấp nhận, cache/single-flight và chấm nộp đủ hai case dù case sau sai. Backend build qua. Lượt chạy lại tám test giới hạn heap 256 MiB cũng exit 0.
+- Full backend suite đã thử nhưng gặp `FATAL ERROR: Zone Allocation failed - process out of memory` ở nhiều process; không tính là pass, không bỏ assertion hoặc sửa test để che lỗi. Chưa có benchmark Judge thực sau thay đổi, không hứa thời gian cố định hoặc dùng thời gian mock để công bố tăng tốc.
+- Rollback: hoàn tác checkpoint policy và test cùng nhau, quay lại kiểm đủ testcase trước tạo bài. Không cần migration. Các bản ghi bài luyện cũ và bộ testcase chấm điểm không bị sửa.

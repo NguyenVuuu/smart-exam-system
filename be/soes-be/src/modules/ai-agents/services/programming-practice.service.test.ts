@@ -47,13 +47,13 @@ test('stops after three incomplete generations', async () => {
   assert.equal(calls, 3)
 })
 
-test('returns only programming questions whose reference solution passes every Judge case', async (context) => {
+test('draft checks only the first case of each reference solution and rejects a failed first case', async (context) => {
   const valid = candidate('Bài hợp lệ qua toàn bộ test case')
   const invalid = candidate('Bài có expected output không khớp')
   let submission = 0
   context.mock.method(judge0Service, 'submitAndPoll', async () => {
     submission += 1
-    const accepted = submission <= valid.testCases.length
+    const accepted = submission === 1
     return {
       stdout: accepted ? '1' : '0', stderr: null, compile_output: null, message: null,
       status: { id: accepted ? 3 : 4, description: accepted ? 'Accepted' : 'Wrong Answer' },
@@ -62,6 +62,7 @@ test('returns only programming questions whose reference solution passes every J
   })
 
   assert.deepEqual(await verifyProgrammingDraft([valid, invalid], 'JAVA'), [valid])
+  assert.equal(submission, 2)
 })
 
 test('Judge unavailability does not accept a structurally valid question', async context => {
@@ -72,12 +73,49 @@ test('Judge unavailability does not accept a structurally valid question', async
     (error: unknown) => error instanceof Error && 'statusCode' in error && error.statusCode === 503)
 })
 
-test('a reference solution passing only the first sample is rejected', async context => {
-  context.mock.method(judge0Service, 'submitAndPoll', async (submission: { stdin?: string }) => ({
-    stdout: submission.stdin === '1' ? '1' : '0', stderr: null, compile_output: null, message: null,
-    status: { id: 3, description: 'Accepted' }, time: '0.01', memory: 1024,
-  }))
-  assert.deepEqual(await verifyProgrammingDraft([candidate('Hidden case fails')], 'JAVA'), [])
+test('draft accepts a passing first case without running the remaining cases', async context => {
+  const inputs: string[] = []
+  context.mock.method(judge0Service, 'submitAndPoll', async (submission: { stdin?: string }) => {
+    inputs.push(submission.stdin ?? '')
+    return {
+      stdout: submission.stdin === '1' ? '1' : '0', stderr: null, compile_output: null, message: null,
+      status: { id: 3, description: 'Accepted' }, time: '0.01', memory: 1024,
+    }
+  })
+  const question = candidate('First case only draft policy')
+  assert.deepEqual(await verifyProgrammingDraft([question], 'JAVA'), [question])
+  assert.deepEqual(inputs, ['1'])
+})
+
+test('student grading still runs every case and fails when a later case is incorrect', async context => {
+  const inputs: string[] = []
+  context.mock.method(judge0Service, 'submitAndPoll', async (submission: { stdin?: string }) => {
+    inputs.push(submission.stdin ?? '')
+    return { stdout: submission.stdin === '1' ? '1' : '0', stderr: null, compile_output: null, message: null,
+      status: { id: 3, description: 'Accepted' }, time: '0.01', memory: 1024 }
+  })
+  assert.deepEqual(await gradeProgrammingPractice('class Main {}', candidate('Full student grading unchanged')),
+    { score: 0, passedTestCases: 1, totalTestCases: 2 })
+  assert.deepEqual(inputs, ['1', '2'])
+})
+
+test('draft reference checks are bounded to five simultaneous jobs and preserve question order', async context => {
+  let active = 0
+  let maximum = 0
+  let calls = 0
+  context.mock.method(judge0Service, 'submitAndPoll', async () => {
+    calls++
+    active++
+    maximum = Math.max(maximum, active)
+    await new Promise(resolve => setImmediate(resolve))
+    active--
+    return { stdout: '1', stderr: null, compile_output: null, message: null,
+      status: { id: 3, description: 'Accepted' }, time: '0.01', memory: 1024 }
+  })
+  const questions = Array.from({ length: 20 }, (_, index) => candidate(`Bounded first-case check ${index}`))
+  assert.deepEqual(await verifyProgrammingDraft(questions, 'JAVA'), questions)
+  assert.equal(calls, 20)
+  assert.equal(maximum, 5)
 })
 
 test('identical reference verification is coalesced but changed tests are checked again', async context => {
@@ -90,12 +128,12 @@ test('identical reference verification is coalesced but changed tests are checke
   const question = candidate('Cache exact verified reference')
   const results = await Promise.all(Array.from({ length: 10 }, () => verifyProgrammingDraft([question], 'JAVA')))
   assert(results.every(result => result.length === 1))
-  assert.equal(calls, 2)
+  assert.equal(calls, 1)
   await verifyProgrammingDraft([question], 'JAVA')
-  assert.equal(calls, 2)
+  assert.equal(calls, 1)
   const changed = { ...question, testCases: [{ input: '1', expectedOutput: '9' }, question.testCases[1]] }
   assert.deepEqual(await verifyProgrammingDraft([changed], 'JAVA'), [])
-  assert.equal(calls, 4)
+  assert.equal(calls, 2)
   assert.deepEqual(await verifyProgrammingDraft([changed], 'JAVA'), [])
-  assert.equal(calls, 6)
+  assert.equal(calls, 3)
 })
