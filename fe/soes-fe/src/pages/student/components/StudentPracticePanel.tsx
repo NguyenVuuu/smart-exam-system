@@ -151,13 +151,9 @@ export default function StudentPracticePanel({ materials, topics, initialTopicId
           value={item.result?.sourceCode ?? codes[item.id] ?? item.starterCode}
           onChange={(value) => setCodes((previous) => ({ ...previous, [item.id]: value }))}
           completed={!!current.completedAt} />}
-        {item.result && <div className="space-y-1 text-xs text-slate-600">
-          <p>{item.result.explanation}</p>
-          <p>Nguồn: {item.result.materialTitle || 'Tài liệu lớp học'}</p>
-          {item.kind === 'PROGRAMMING' && item.result.sourceUrls?.map((url, index) =>
-            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block break-all text-blue-700 underline">
-              Nguồn web {index + 1}: {url}
-            </a>)}
+        {item.result && <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-2.5 text-xs text-slate-700">
+          <p className="mb-1 font-bold text-slate-800">Giải thích thuật toán:</p>
+          <p className="leading-relaxed">{item.result.explanation}</p>
         </div>}
       </fieldset>)}
       {pageCount > 1 && <nav aria-label="Trang bài luyện" className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">

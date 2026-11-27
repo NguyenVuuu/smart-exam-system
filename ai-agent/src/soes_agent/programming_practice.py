@@ -154,12 +154,14 @@ async def generate_programming_practice(model: ChatGoogleGenerativeAI,
              "referenceSolution là chương trình hoàn chỉnh đọc stdin và ghi stdout, không đọc tệp hoặc mạng. "
              "Tạo 2-3 test case có input khác nhau, expectedOutput chính xác với referenceSolution, "
              "gồm trường hợp biên. starterCode chỉ là khung, không chứa lời giải. "
-             "Giải thích thuật toán ít nhất 70 ký tự. supportQuote phải là ID EVIDENCE của đoạn kiến thức hỗ trợ. "
+             "explanation BẮT BUỘC phải giải thích thuật toán và các bước xử lý cụ thể (nêu rõ các biến cần khai báo, cách đọc dữ liệu đầu vào stdin, cách duyệt vòng lặp/mảng, điều kiện rẽ nhánh và cách in kết quả ra stdout); TUYỆT ĐỐI KHÔNG viết chung chung, KHÔNG được chỉ nhắc lại đề bài (tuyệt đối KHÔNG viết kiểu 'Bài toán yêu cầu sử dụng...'). "
+             "supportQuote phải là ID EVIDENCE của đoạn kiến thức hỗ trợ. "
              "Đảm bảo các bài toán không trùng lặp ý tưởng."),
             ("human", f"Tạo đúng {size} bài viết mã khác nhau. Ngôn ngữ: {request.language}. "
              f"Mức độ: {request.difficulty}. Yêu cầu: {request.instruction or 'luyện kiến thức trọng tâm'}. "
              f"Không lặp hoặc diễn đạt lại các bài đã giữ/bị loại: {existing or 'không có'}. "
-             "Mọi câu phải trực tiếp đáp ứng đúng yêu cầu, không chỉ nhắc tên chủ đề.\n"
+             "Mọi câu phải trực tiếp đáp ứng đúng yêu cầu, không chỉ nhắc tên chủ đề. "
+             "Trường explanation phải giải thích thuật toán và các bước giải cụ thể, không nhắc lại đề bài.\n"
              f"Các đoạn kiến thức:\n{source_message}"),
         ]
         async with model_slots:

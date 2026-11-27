@@ -72,6 +72,28 @@ export function restoreVietnameseDiacritics(text?: string | null): string {
   return result
 }
 
+export function cleanPlainTextMath(text?: string | null): string {
+  if (!text) return ''
+  return text
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'")
+    .replace(/\\(?:le|leq)\b/g, '≤')
+    .replace(/\\(?:ge|geq)\b/g, '≥')
+    .replace(/\\(?:ne|neq)\b/g, '≠')
+    .replace(/\\(?:times)\b/g, '×')
+    .replace(/\\(?:pm)\b/g, '±')
+    .replace(/\\(?:dots|ldots)\b/g, '...')
+    .replace(/\\(?:in)\b/g, '∈')
+    .replace(/\$([a-zA-Z0-9_.-]+)\$/g, '$1')
+    .replace(/\$([^$]+)\$/g, (_match, inner) => inner)
+    .replace(/\$/g, '')
+    .trim()
+}
+
 function cleanMathAndEscapes(text: string): string {
   return text
     .replace(/\\"/g, '"')
@@ -112,23 +134,30 @@ function inlineFormat(text: string): string {
 export function formatPlainTextToHtml(content?: string | null): string {
   if (!content) return ''
 
+  // 1. Chuẩn hóa tất cả các ký tự xuống dòng bị escape thành xuống dòng thật
   let raw = content
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
 
-  // Nếu chuỗi trước đó đã bị bao bọc trong <p> nhưng chứa các ký hiệu markdown bên trong, bóc tách ra
-  if (/<p>\s*#{1,6}\s+/i.test(raw) || (/<p>[\s\S]*?```/.test(raw) && !/<pre>/.test(raw))) {
-    raw = raw.replace(/<\/?p>/gi, '\n\n').replace(/<br\s*\/?>/gi, '\n')
+  // 2. Nếu chuỗi trước đó đã bị bao bọc nhầm trong <h1-6> hoặc <p> chứa cả đoạn dài có \n, bóc tách ra
+  if (/<h[1-6]>[^<]*?\n[\s\S]*?<\/h[1-6]>/i.test(raw) || /<p>\s*#{1,6}\s+/i.test(raw) || (/<p>[\s\S]*?```/.test(raw) && !/<pre>/.test(raw))) {
+    raw = raw
+      .replace(/<\/?(?:p|h[1-6])>/gi, '\n\n')
+      .replace(/<br\s*\/?>/gi, '\n')
   }
 
-  // Kiểm tra nếu đã chứa thẻ HTML cấu trúc và không còn marker markdown chưa xử lý
+  // 3. Kiểm tra nếu đã chứa thẻ HTML cấu trúc và không còn marker markdown chưa xử lý
   const hasStructuredHtml = /<\/?(?:h[1-6]|ul|ol|li|pre|code|table|blockquote)\b/i.test(raw)
-  const hasMarkdownMarkers = /^#{1,6}\s+|```|^[-*]\s+/m.test(raw)
+  const hasMarkdownMarkers = /^#{1,6}\s+|```|^[-*+]\s+/m.test(raw)
   if (hasStructuredHtml && !hasMarkdownMarkers) {
     return cleanMathAndEscapes(raw)
   }
 
-  // Bảo vệ code blocks khỏi các xử lý xuống dòng hoặc inline format
+  // 4. Bảo vệ code blocks khỏi các xử lý xuống dòng hoặc inline format
   const codeBlocks: string[] = []
-  let processed = raw.replace(/```(?:[a-zA-Z0-9_-]+)?\r?\n([\s\S]*?)\r?\n```/g, (_match, code) => {
+  let processed = raw.replace(/```(?:[a-zA-Z0-9_-]+)?\s*[\r\n]([\s\S]*?)```/g, (_match, code) => {
     const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`
     codeBlocks.push(`<pre><code>${escapeHtml(code.trim())}</code></pre>`)
     return `\n\n${placeholder}\n\n`
@@ -162,6 +191,8 @@ export function formatPlainTextToHtml(content?: string | null): string {
     flushParagraph()
   }
 
+  const SECTION_HEADING_REGEX = /^(?:#{1,6}\s+)?(Mô tả bài toán|Định dạng đầu vào(?:\s*\(Input\))?|Định dạng đầu ra(?:\s*\(Output\))?|Ràng buộc|Ví dụ mẫu)(?::)?$/i
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const trimmed = line.trim()
@@ -179,11 +210,19 @@ export function formatPlainTextToHtml(content?: string | null): string {
       continue
     }
 
+    // Section heading: nhận diện mục chuẩn bài lập trình (dù có ### hay không)
+    const sectionMatch = trimmed.match(SECTION_HEADING_REGEX)
+    if (sectionMatch) {
+      flushAll()
+      htmlParts.push(`<h3>${inlineFormat(sectionMatch[1])}</h3>`)
+      continue
+    }
+
     // Heading: ### Heading
     const hMatch = trimmed.match(/^(#{1,6})\s+(.*)$/)
     if (hMatch) {
       flushAll()
-      const level = hMatch[1].length
+      const level = Math.min(6, Math.max(3, hMatch[1].length))
       htmlParts.push(`<h${level}>${inlineFormat(hMatch[2])}</h${level}>`)
       continue
     }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { cleanEscapedText, normalizeObjectiveFields, restoreVietnameseDiacritics, safeTruncate } from './generated-question.normalizer'
+import { cleanEscapedText, cleanPlainTextMath, normalizeObjectiveFields, restoreVietnameseDiacritics, safeTruncate } from './generated-question.normalizer'
 import { generatedQuestionSchema } from '../schemas/generated-question.schema'
 
 describe('generated-question.normalizer', () => {
@@ -13,6 +13,21 @@ describe('generated-question.normalizer', () => {
     it('cleans LaTeX relational operators to clean Unicode symbols', () => {
       const latex = 'Cho số nguyên $N$ (với $1 \\le N \\le 100$), phần tử $A[i] \\ge 0$.'
       assert.equal(cleanEscapedText(latex), 'Cho số nguyên $N$ (với $1 ≤ N ≤ 100$), phần tử $A[i] ≥ 0$.')
+    })
+
+    it('unescapes literal newline and tab sequences', () => {
+      const escaped = 'Dòng 1\\nDòng 2\\r\\nDòng 3\\tTab'
+      assert.equal(cleanEscapedText(escaped), 'Dòng 1\nDòng 2\nDòng 3\tTab')
+    })
+  })
+
+  describe('cleanPlainTextMath', () => {
+    it('removes math dollar delimiters and converts LaTeX operators', () => {
+      const text = 'Chương trình đọc số phần tử $N$, sau đó đọc mảng $N$ phần tử. Duyệt qua các phần tử từ chỉ số 0 đến $N-1$, kiểm tra nếu chỉ số % 2 != 0 và phần tử % 2 == 0 ($1 \\le N \\le 100$).'
+      assert.equal(
+        cleanPlainTextMath(text),
+        'Chương trình đọc số phần tử N, sau đó đọc mảng N phần tử. Duyệt qua các phần tử từ chỉ số 0 đến N-1, kiểm tra nếu chỉ số % 2 != 0 và phần tử % 2 == 0 (1 ≤ N ≤ 100).'
+      )
     })
   })
 
