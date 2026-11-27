@@ -26,6 +26,7 @@ type CandidatePayload = {
 
 let io: Server | null = null
 const adapterClients: Array<typeof redis> = []
+export const realtimeAdapterReady = () => adapterClients.length === 2 && adapterClients.every(client => client.status === 'ready')
 export const realtimeConnectionCount = () => io?.engine.clientsCount
 
 const teacherRoom = (teacherId: string) => `proctoring:teacher:${teacherId}`
@@ -76,9 +77,10 @@ async function configureRedisAdapter(server: Server) {
   } catch (error) {
     pubClient.disconnect()
     subClient.disconnect()
-    logger.error('Socket.IO Redis adapter disabled', {
+    logger.error('Socket.IO Redis adapter unavailable', {
       error: error instanceof Error ? error.message : String(error),
     })
+    if (process.env.PROCTORING_REDIS_ADAPTER_REQUIRED === 'true') throw error
   }
 }
 

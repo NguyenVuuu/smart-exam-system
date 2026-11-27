@@ -1,5 +1,6 @@
 import Redis from 'ioredis'
 import { logger } from './logger'
+import { AppError } from '../errors/AppError'
 import { accountRoles } from '../utils/jwt'
 
 const retryLimit = Number(process.env.REDIS_RETRY_LIMIT ?? 0)
@@ -49,7 +50,11 @@ export const tokenBlacklist = {
   },
 
   async isBlacklisted(jti: string): Promise<boolean> {
-    const val = await redis.get(`${BLACKLIST_PREFIX}${jti}`)
-    return val !== null
+    try {
+      const val = await redis.get(`${BLACKLIST_PREFIX}${jti}`)
+      return val !== null
+    } catch {
+      throw new AppError(503, 'Session validation is temporarily unavailable')
+    }
   },
 }

@@ -162,7 +162,10 @@ export function useLiveProctorSocket({
       }))
     }
     const handleHeartbeat = (payload: Heartbeat) => {
-      pendingHeartbeats.set(payload.attemptId, { ...pendingHeartbeats.get(payload.attemptId), ...payload })
+      const pending = pendingHeartbeats.get(payload.attemptId)
+      if (pending?.lastHeartbeatAt && payload.lastHeartbeatAt &&
+        Date.parse(payload.lastHeartbeatAt) < Date.parse(pending.lastHeartbeatAt)) return
+      pendingHeartbeats.set(payload.attemptId, { ...pending, ...payload })
       heartbeatFrame ??= window.requestAnimationFrame(flushHeartbeats)
       if (payload.visionStatus === 'UNAVAILABLE' && !visionAlertsRef.current.has(payload.attemptId)) {
         visionAlertsRef.current.add(payload.attemptId)

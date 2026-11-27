@@ -6,15 +6,15 @@ Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. 
 |---|---:|---|---|
 | F01 | 1 | In Progress | Dirty autosave, debounce, hàng đợi lưu và khôi phục đáp án; còn kiểm thử mất mạng và submit concurrency đầy đủ |
 | F02 | 1 | In Progress | PostgreSQL: 30 save/submit races, 30 late saves và 30 duplicate submits bị chặn; còn tải HTTP rộng hơn |
-| F03 | 2 | In Progress | Durable claim/lease/retry/fencing trên ExamAttempt đã kiểm thử kill/reclaim; migration chỉ tạo, chưa deploy thật |
+| F03 | 2 | In Progress | Durable claim/lease/retry/fencing đã kiểm thử; migration đã áp dụng DB cấu hình, còn Judge outage/soak deployment |
 | F04 | 2 | In Progress | Bulk chấm có benchmark 100 câu, concurrency 5; còn 20/50 câu và HTTP/Judge workload |
 | F05 | 2 | In Progress | Bulk cập nhật offline với SKIP LOCKED; còn drain deadline và job ownership |
 | F06 | 2 | In Progress | Index claim có EXPLAIN trên 100.100 rows; chưa tự tăng pool hoặc thêm index khác |
 | F07 | 2 | In Progress | DB xếp hạng/gộp ca và phân trang trước hydrate; còn benchmark DB lớn |
 | F08 | 2 | In Progress | SQL page/count lịch thi và điểm, summary toàn bộ filter, UI page server; còn workload lớn và snapshot đồng thời |
-| F09 | 1 | In Progress | Polling thích ứng theo kết nối và gom heartbeat theo frame; còn profile 500 dòng và thử recovery |
-| F10 | 3 | In Progress | Lua atomic cho claim/SDP/ICE/end, TTL touch không ghi JSON; qua fixture Lua, còn TURN/multi-replica thực |
-| F11 | 1 | In Progress | Bỏ KEYS, bounded command retry và reconnect backoff/jitter; còn fault injection thật |
+| F09 | 1 | In Progress | Profile 500 dòng/1000 heartbeat, sửa stale event cùng frame; còn production profile và recovery WAN |
+| F10 | 3 | In Progress | Lua đã kiểm tra Redis thật: hai claimant/50 ICE/stale end; media relay coturn riêng qua, còn WAN integration |
+| F11 | 1 | In Progress | Redis thật down/up, auth fail-closed 503 và realtime phục hồi; còn crash/persistence/failover deployment |
 | F12 | 3 | In Progress | Admission, Redis generation lease, Student row-lock quota và Agent cancellation; còn proxy regression |
 | F13 | 3 | In Progress | Gộp download và extraction đồng thời; còn bytes/base64 và benchmark nhiều replica |
 | F14 | 3 | In Progress | Cache bounded cho token tài liệu và offload scoring, giữ nguyên công thức ranking; còn benchmark thực |
@@ -22,7 +22,7 @@ Baseline từ [PERFORMANCE_AUDIT.md](PERFORMANCE_AUDIT.md), revision `7f5302c`. 
 | F16 | 1 | In Progress | Đã lazy load route, entry gzip còn 122,95 kB; chưa đo LCP mạng thiết bị thực |
 | F17 | 4 | In Progress | Giải phóng output tensor sau inference; còn profile memory và camera thực |
 | F18 | 3 | In Progress | Admission upload, retry đúng blob và dedupe bằng PK hiện có; chưa có queue qua reload |
-| F19 | 4 | In Progress | Readiness, fail-fast schema, HTTP/jobs/grading drain và lease recovery; còn two-replica/TURN deployment |
+| F19 | 4 | In Progress | Hai API/Redis thật, adapter-only outage, drain và coturn relay đã qua; còn LB/NAT/WAN deployment |
 | F20 | 0 | In Progress | Đã có quan sát và script đo. Còn baseline nghiệp vụ trên DB cô lập và kiểm tra readiness |
 | F21 | 0, 4 | In Progress | Đã nối các bước kiểm tra CI. Còn lỗi baseline và refactor theo module |
 | F22 | 1 | In Progress | Candidate pool AI giới hạn 501 ở DB, giữ ngưỡng 500; chưa benchmark DB lớn |
@@ -235,3 +235,48 @@ Mọi điểm tổng đều được assert bằng 10. Đây là throughput repo
 - Chỉ commit source/test/report của checkpoint. Không stage `research/`, `outputs/`, `scripts/measure-learning-ai.ts`; không push và không migrate DB thật.
 
 Các checkpoint mới: `33286b8` (durable grading, index và readiness), `e92684c` (phân trang lịch thi/điểm, summary và browser regression). Frontend build cuối và targeted ESLint cho cả fixture mới đều qua; warning chunk lớn có sẵn vẫn còn, không sửa bằng cách tăng ngưỡng warning. Phần nghiệm thu cần Redis/TURN/camera deployment đã được hỏi lựa chọn môi trường, chưa tự bật Docker hoặc triển khai hạ tầng.
+
+## Áp dụng migration và kiểm chứng Redis/TURN thật · 27/11/2026
+
+### Migration đã áp dụng theo yêu cầu trực tiếp
+
+- Đích `.env`: `soes_db_refactor` trên localhost:5433. Docker Desktop/PostgreSQL hiện có được khởi động; không đổi DATABASE_URL hoặc tạo database ứng dụng khác để thay thế.
+- Preflight không có nhóm email trùng hoặc ScoreAdjustment trỏ Teacher không tồn tại; các constraint/index migration cũ yêu cầu đều có. Người dùng xác nhận cho chạy migration của cộng tác viên.
+- Sao lưu pg_dump custom trước deploy, kiểm tra archive đọc được bằng pg_restore --list; bản host nằm ngoài repository tại `%LOCALAPPDATA%/SOES/MigrationBackups/soes_db_refactor-before-performance-20261127-011948.dump`. Không ghi nội dung backup vào log/Git; chưa thử restore vào DB đang dùng.
+- `prisma migrate deploy` áp dụng thành công `20261120122800_add_user_email_unique` và `20261127010000_attempt_grading_recovery`. Kiểm tra sau đó: cả hai finished, không có failed migration chưa giải quyết; năm cột grading và hai index cần kiểm tra đều tồn tại/valid. 620 ExamAttempt và 1.815 StudentAnswer giữ nguyên ngay trước/sau migration; pending grading khi áp dụng bằng không.
+- Kiểm tra lại cuối checkpoint: 62 migrations, schema up to date. Generate Prisma Client thành công. Những mô tả migration chưa áp dụng ở các checkpoint cũ chỉ còn ý nghĩa lịch sử. Không reset/drop/seed DB cấu hình và không tạo bảng ứng dụng mới.
+
+### F10/F11/F19 · Hai API, Redis thật và readiness
+
+- Chạy hai process API compiled tại 127.0.0.1:3100/3101 với PostgreSQL fixture riêng cổng 55432 và Redis Docker riêng cổng 56479; không tạo tải lên DB cấu hình hoặc Redis người dùng. Mỗi process giới hạn heap 192 MiB; Redis fixture giới hạn 96 MiB/0,5 CPU. Dataset index 100.000 rows được chuyển sang ca fixture phụ, không trộn vào phòng realtime 100 sinh viên.
+- Lượt cuối: 200 request status bài GRADED có JWT hợp lệ, concurrency năm, 200/200 thành công; P50 18,889 ms, P95 37,129 ms, P99 117,621 ms, throughput 218,44 completions/s. Đây là workload status, không phải RPS submit/AI hoặc maximum capacity. Lượt trước nhanh hơn trên cùng máy; không chọn lượt tốt nhất để công bố thay thế lượt cuối.
+- Giảng viên kết nối replica hai nhận được event phát từ replica một. Sinh viên không join được room giảng viên. Stop/recreate Redis fixture: readiness hai replica về 503; khi Redis trở lại, subscription/event phục hồi. Drain replica một trả 503 trong khi replica hai vẫn ready và cho join room.
+- Fault riêng publisher adapter trong khi connection Redis chính và DB vẫn khỏe cũng làm readiness 503; reconnect adapter phục hồi event. Source: `proctoring-realtime.gateway.ts`, `middlewares/readiness.ts`, `.env.example`. `PROCTORING_REDIS_ADAPTER_REQUIRED=true` bật fail-fast/health adapter khi chạy nhiều replica; mặc định false để giữ hành vi triển khai một process. Chưa sửa `.env` người dùng hoặc cấu hình LB.
+- Phát hiện auth trước đây trả 500 khi blacklist Redis lỗi. `lib/redis.ts` chuyển thành AppError 503 có thông báo chung, vẫn fail-closed; JWT thiếu/sai hoặc đã revoke không được bỏ qua. Unit test `lib/redis.test.ts` kiểm tra outage/revoked/clear; request authenticated trong fault test thật xác nhận 503. Không chứng minh persistence blacklist sau Redis crash mất dữ liệu: container test được tạo mới, không chứa session người dùng.
+- Redis Lua production được thực thi riêng trên Redis thật: hai giảng viên tranh claim chỉ một thành công; 50 ICE writer giữ đủ 50 candidate khác nhau; late ICE bị từ chối và stale end không xóa pointer phiên mới. Artifacts: `replica-results.json`, `live-atomic-results.json` trong outputs/performance-services.
+- Rollback code server gồm config flag/readiness/Redis wrapper cùng nhau; không rollback DB tự động. Không thay đổi token expiry, permission hoặc thuật toán camera. Multi-replica vẫn cần LB sticky routing nếu dùng polling và namespace/capacity budget phù hợp. Test direct WebSocket không thay thế kiểm thử LB thật.
+
+### Media TURN độc lập
+
+- Coturn container riêng chỉ bind loopback, credential sinh riêng cho fixture, không thay RTC config ứng dụng. Hai RTCPeerConnection Chromium ép `iceTransportPolicy=relay`, truyền canvas video 320×240 và echo data channel.
+- Cả local/remote selected candidate đều relay, nhận hai frame decoded, echo đúng, không ICE error; elapsed 235,6 ms trong lượt này. Đây là khởi tạo/media loopback một lượt, không phải P95 WAN hoặc camera thật. `allow-loopback-peers` chỉ dùng fixture cô lập, không là đề xuất cấu hình production.
+- Fixture coturn đầu không chạy được với hai cờ CLI cũ; không tính lượt timeout đó là pass. Đọc help của image, bỏ cờ không còn hỗ trợ và giới hạn relay thread rồi chạy lại thành công. Không thay source WebRTC hoặc điều kiện giám sát để làm test qua.
+- Artifact `turn-media-results.json`; không thu hình/âm thanh sinh viên, không mở camera vật lý. Hai container Redis/TURN kiểm thử đã xóa; PostgreSQL cấu hình được giữ và xác nhận schema up to date.
+
+### F09 · Sửa stale heartbeat và profile 500 dòng
+
+- Red test tái hiện: tin mới rồi tin cũ của cùng attempt đến trong một frame làm queue ghi đè thông tin mới; 500 sinh viên đáng lẽ online nhưng nhận kết quả không online. `useLiveProctorSocket.ts` kiểm tra timestamp với heartbeat đang chờ trước khi merge, giữ nguyên nhịp frame/tần suất nhận diện.
+- Browser fixture dùng hook và StudentLiveTable thật, socket giả lập: 500 dòng, 1.000 messages, sau sửa giữ đủ 500 trạng thái mới và một React commit. Dev Profiler duration 74,7 ms trong lượt này; không coi đây là production frame time hoặc bằng chứng đạt 60 FPS. Không tự thêm virtualization/pagination UI từ một phép đo dev mode.
+- Test/fixture: `proctor-heartbeats.spec.ts`, `fixtures/proctor-heartbeats.html/.tsx`, `fixtures/proctor-socket.mjs`. Browser regression tổng sáu ca qua, gồm cả autosave reconnect và score pagination. Targeted ESLint các file mới/hook qua, frontend production build qua. Rollback hook và test cùng nhau nếu cần; rollback sẽ đưa lại lỗi stale event đã tái hiện.
+
+### F17 · Kiểm tra WASM giới hạn
+
+- Hai process Node riêng chạy source baseline `7f5302c` và hiện tại, cùng ONNX/WASM, cùng 20 frame RGBA đen sau năm warmup, một thread và GC chủ động trước/sau. Output hash trùng nhau. Không dùng ảnh hoặc video người thật.
+- Baseline P50/P95 300,50/311,13 ms; current 302,99/323,33 ms. CPU process 6.125/6.078 ms. Hai số đo ngắn không chứng minh latency/FPS được cải thiện; overhead model vẫn chiếm phần lớn thời gian. RSS/external giảm sau GC ở cả hai, không thể suy ra memory leak đã hết hoặc mức RAM production giảm.
+- `vision-soak-results.json` ghi raw memory snapshots và giới hạn workload. Không gọi 20 frame là soak dài giờ, không dùng nó để kết luận precision/recall camera. Model, confidence, vùng quét, nhịp nhận diện và MediaPipe được giữ nguyên.
+
+### Kết quả và giới hạn cuối checkpoint
+
+- Backend 210/210 tests qua, focused readiness/Redis ba ca qua; backend build qua. Frontend sáu browser tests, 29/29 vision tests, targeted lint và build qua. Warning bundle lớn và full lint debt cũ ngoài phạm vi chưa được che hoặc bỏ rule.
+- Đã mở rộng nghiệm thu sang Redis thật/hai process và TURN media local. Chưa có LB/NAT/WAN thực, crash/persistence Redis production, camera dài giờ/thiết bị yếu và quality dataset AI có nhãn. F18 queue RAM vẫn không sống qua reload. Các phần này không được đánh dấu Completed chỉ vì các fixture trên qua.
+- Không commit backup, test credentials, outputs, research hoặc measure-learning-ai. Không push. Các lựa chọn hạ tầng test được thực hiện trong phạm vi người dùng yêu cầu làm tiếp phần còn lại; không triển khai fixture thành hạ tầng production.
