@@ -10,9 +10,6 @@ import AdminTablePanel from './components/AdminTablePanel'
 import { useAdminProctoringOverview } from './hooks/useAdminMonitoring'
 import type { AdminProctoringRowDto } from './api/admin-monitoring.api'
 import EvidenceImageModal from '../teacher/components/proctoring/EvidenceImageModal'
-import { tokenStorage } from '../../utils/token'
-
-const API_ORIGIN = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api').replace(/\/api\/?$/, '')
 
 export default function AdminProctoringPage() {
   const { rows, loading, error, retry } = useAdminProctoringOverview()
@@ -147,7 +144,7 @@ function SessionDetailModal({ session, onClose }: { session: AdminProctoringRowD
                           <button
                             key={url}
                             type="button"
-                            onClick={() => setEvidenceUrl(toEvidenceImageUrl(url))}
+                            onClick={() => setEvidenceUrl(url)}
                             className="text-xs font-semibold text-blue-600 hover:text-blue-700"
                           >
                             Bằng chứng {index + 1}
@@ -165,15 +162,6 @@ function SessionDetailModal({ session, onClose }: { session: AdminProctoringRowD
       <EvidenceImageModal imageUrl={evidenceUrl} onClose={() => setEvidenceUrl(null)} title="Ảnh bằng chứng vi phạm" />
     </>
   )
-}
-
-function toEvidenceImageUrl(path: string) {
-  const url = path.startsWith('http') ? path : `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`
-  if (!url.includes('/api/local-evidence/')) return url
-  const token = tokenStorage.getAccessToken()
-  if (!token) return url
-  const separator = url.includes('?') ? '&' : '?'
-  return `${url}${separator}token=${encodeURIComponent(token)}`
 }
 
 function Kpi({ label, value, tone = 'emerald' }: { label: string; value: number; tone?: 'emerald' | 'rose' }) {
