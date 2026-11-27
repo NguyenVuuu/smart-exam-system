@@ -3,8 +3,8 @@ const PhoneYolo = (() => {
   const SIZE = 640
   const MIN_SCORE = 0.25
   const MODEL = {
-    file: 'yolo11n-devices.onnx?v=a67e38291c49',
-    name: 'yolo11n-devices', version: 'a67e38291c49', classIndex: 67,
+    file: 'yolo11n-devices.onnx?v=4f786229afe6',
+    name: 'yolo11n-devices', version: '4f786229afe6', classIndex: 67,
   }
   let canvas = null
 
@@ -15,11 +15,12 @@ const PhoneYolo = (() => {
     context.drawImage(image, 0, 0, SIZE, SIZE)
     const rgba = context.getImageData(0, 0, SIZE, SIZE).data
     const plane = SIZE * SIZE
+    const inv255 = 1 / 255
     for (let pixel = 0; pixel < plane; pixel++) {
       const offset = pixel * 4
-      pixels[pixel] = rgba[offset] / 255
-      pixels[plane + pixel] = rgba[offset + 1] / 255
-      pixels[2 * plane + pixel] = rgba[offset + 2] / 255
+      pixels[pixel] = rgba[offset] * inv255
+      pixels[plane + pixel] = rgba[offset + 1] * inv255
+      pixels[2 * plane + pixel] = rgba[offset + 2] * inv255
     }
     return new ort.Tensor('float32', pixels, [1, 3, SIZE, SIZE])
   }
